@@ -65,17 +65,17 @@ def qhtri(phase: float = 0.75, theta_i: float = 1.2, theta_j: float = 0.4, n: in
     )
 
 
-def test_relational_lambda_field_binds_si_scalar_and_keeps_downstream_claims_closed() -> None:
+def test_relational_lambda_field_binds_si_scalar_and_open_frontier_statuses() -> None:
     receipt = field()
     assert validate_relational_lambda_field_v08(receipt)
     assert receipt["field_units"] == "m^-2"
     assert receipt["field_semantics"] == "RELATIONAL_SCALAR_FIELD_CANDIDATE"
     assert float.fromhex(receipt["lambda_R_m_minus_2_f64_hex"]) == 1.1e-52
-    assert receipt["geometry_derived"] is False
-    assert receipt["holonomy_derived"] is False
-    assert receipt["quantum_entanglement_claimed"] is False
-    assert receipt["execution_admitted"] is False
-    assert receipt["canon_allowed"] is False
+    assert receipt["geometry_derivation_status"] == "OPEN"
+    assert receipt["holonomy_derivation_status"] == "OPEN"
+    assert receipt["entanglement_status"] == "OPEN_REQUIRES_QUANTUM_WITNESS"
+    assert receipt["execution_status"] == "RESEARCH_BINDING_ONLY"
+    assert receipt["canon_status"] == "CANDIDATE"
 
 
 @pytest.mark.parametrize("bad", [float("nan"), float("inf"), float("-inf")])
@@ -94,9 +94,10 @@ def test_relational_lambda_effective_source_energy_has_declared_si_law() -> None
     assert float.fromhex(receipt["effective_source_energy_density_j_m3_f64_hex"]) == expected_density
     assert float.fromhex(receipt["effective_source_energy_j_f64_hex"]) == expected_energy
     assert receipt["energy_density_law"] == "u_R = Lambda_R*c^4/(8*pi*G)"
-    assert receipt["geometry_adapter_required"] is True
-    assert receipt["gradient_energy_included"] is False
-    assert receipt["kinetic_energy_included"] is False
+    assert receipt["geometry_adapter_status"] == "REQUIRED"
+    assert receipt["dynamic_scalar_energy_terms_status"] == "OPEN"
+    assert receipt["execution_status"] == "RESEARCH_BINDING_ONLY"
+    assert receipt["canon_status"] == "CANDIDATE"
 
 
 def test_relational_lambda_energy_requires_positive_declared_support_volume() -> None:
@@ -113,10 +114,10 @@ def test_geometry_holonomy_requires_explicit_metric_connection_and_u1_projection
     assert receipt["connection_commitment"] == H3
     assert receipt["holonomy_projection"] == "U1_PHASE_PROJECTION"
     assert receipt["connection_semantics"] == "INTERNAL_ROTATION_GEOMETRY_CANDIDATE"
-    assert receipt["geometry_is_upstream_witness"] is True
-    assert receipt["scalar_field_alone_determines_connection"] is False
+    assert receipt["geometry_provenance"] == "UPSTREAM_ADAPTER_WITNESS"
+    assert receipt["connection_derivation_contract"] == "EXPLICIT_GEOMETRY_ADAPTER_REQUIRED"
     assert float.fromhex(receipt["holonomy_phase_wrapped_rad_f64_hex"]) == wrap_pi(7.0)
-    assert receipt["quantum_entanglement_claimed"] is False
+    assert receipt["entanglement_status"] == "OPEN_REQUIRES_QUANTUM_WITNESS"
 
 
 def test_holonomy_phase_is_periodic_modulo_two_pi() -> None:
@@ -172,14 +173,14 @@ def test_qhtri_preserves_exact_integer_winding_identity() -> None:
         )
 
 
-def test_qhtri_holonomy_binding_keeps_energy_scale_entanglement_vector_and_execution_open() -> None:
+def test_qhtri_holonomy_binding_exposes_open_energy_entanglement_and_vector_frontiers() -> None:
     receipt = qhtri()
-    assert receipt["coupling_energy_scale_bound"] is False
-    assert receipt["entanglement_witness_bound"] is False
-    assert receipt["quantum_entanglement_claimed"] is False
-    assert receipt["vector_synthesis_allowed"] is False
-    assert receipt["execution_admitted"] is False
-    assert receipt["canon_allowed"] is False
+    assert receipt["coupling_energy_scale_status"] == "OPEN"
+    assert receipt["entanglement_witness_status"] == "OPEN"
+    assert receipt["entanglement_status"] == "OPEN_REQUIRES_QUANTUM_WITNESS"
+    assert receipt["vector_synthesis_status"] == "HELD_FOR_PREVECTOR_ADMISSION"
+    assert receipt["execution_status"] == "RESEARCH_BINDING_ONLY"
+    assert receipt["canon_status"] == "CANDIDATE"
 
 
 def test_commitment_tamper_fails_closed_across_all_four_layers() -> None:
