@@ -22,6 +22,7 @@ from tools.gremlin_connection_path_holonomy_v09 import (
 
 PROBE_SCHEMA = "GREMLIN_DUAL_CHANNEL_ENTANGLEMENT_PROBE_V1_2"
 PROBE_DOMAIN = b"GREMLIN-DUAL-CHANNEL-ENTANGLEMENT-PROBE/v1.2\x00"
+RATE_ORDER_TOL = 1e-15
 
 
 class DualChannelEntanglementProbeError(ValueError):
@@ -132,14 +133,13 @@ def build_dual_channel_entanglement_probe_v12(
 
     c_time_status, c_time = _channel_time(j_c)
     d_time_status, d_time = _channel_time(j_d)
-    if c_time is None and d_time is None:
-        rate_order = "NO_ENTANGLING_RATE"
-    elif d_time is None or (c_time is not None and c_time < d_time):
-        rate_order = "COHERENCE_CHANNEL_FASTER"
-    elif c_time is None or (d_time is not None and d_time < c_time):
-        rate_order = "TORSION_CHANNEL_FASTER"
-    else:
+    rate_delta = c_h - d_h
+    if abs(rate_delta) <= RATE_ORDER_TOL:
         rate_order = "DEGENERATE_EQUAL_RATE"
+    elif rate_delta > 0.0:
+        rate_order = "COHERENCE_CHANNEL_FASTER"
+    else:
+        rate_order = "TORSION_CHANNEL_FASTER"
 
     core = {
         "schema": PROBE_SCHEMA,
@@ -166,6 +166,7 @@ def build_dual_channel_entanglement_probe_v12(
         "coherence_first_maximum_time_s_f64_hex": _encoded_optional_float(c_time),
         "torsion_first_maximum_time_s_f64_hex": _encoded_optional_float(d_time),
         "first_maximum_law": "t_max,k=pi*hbar/(4*abs(J_k)) for J_k!=0",
+        "rate_ordering_tolerance_f64_hex": RATE_ORDER_TOL.hex(),
         "geometry_rate_ordering": rate_order,
         "embedded_coherence_evolution": evolution_c,
         "embedded_torsion_evolution": evolution_d,
