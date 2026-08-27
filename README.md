@@ -40,6 +40,47 @@ Boot protocol:
 
 Native witness: `native/GREMLIN_TRIPLE_PULSE_BOOT_V0_5.pnv`.
 
+## PhaseNav prototype pipeline
+
+An audited relation candidate can be compiled into PhaseNav character IR, converted into a deterministic reference prototype and checked by the experiment harness:
+
+```text
+SURVIVED_AUDIT
+  -> PHASENAV_IR_CANDIDATE
+  -> UNTRUSTED_PROTOTYPE
+  -> VALIDATED_PROTOTYPE
+```
+
+`VALIDATED_PROTOTYPE` currently carries `validation_scope=REFERENCE_CONFORMANCE_ONLY`.
+
+## Visual research client v0.1
+
+The local visual client exposes the prototype pipeline as a three-pane workspace:
+
+```text
+Problem & candidate | PhaseNav operator graph | Prototype / BELZEBUB / Tests / Receipt
+```
+
+Run from the repository root:
+
+```text
+python client/gremlin_web_server_v01.py
+```
+
+Open `http://127.0.0.1:8765` and use **Load example** followed by **Compile & test**.
+
+The browser surface has zero external frontend dependencies. The local API delegates to the same `run_client_request()` implementation used by the CLI and test harness.
+
+Visual-client authority state:
+
+```text
+production_runtime_write=false
+execution_admitted=false
+canon_allowed=false
+```
+
+Full specification: `spec/GREMLIN_VISUAL_CLIENT_V0_1.md`.
+
 Motto: `Verbis utor, informationem in existentiam converto.`
 
 BELZEBUB quarantines untrusted code as data, performs semantic defensive analysis, and emits repair/immunity candidates. Quarantined content has no execution authority.
