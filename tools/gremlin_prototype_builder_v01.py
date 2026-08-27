@@ -26,6 +26,10 @@ def _linear_expression(ell: list[int]) -> str:
     return " + ".join(pieces) if pieces else "0.0"
 
 
+def _f64_expr(value: float) -> str:
+    return f"float.fromhex({value.hex()!r})"
+
+
 def _source_for_ir(ir: Mapping[str, Any]) -> str:
     lines = [
         "def evaluate(theta):",
@@ -38,9 +42,9 @@ def _source_for_ir(ir: Mapping[str, Any]) -> str:
         ell = [int(v) for v in term["ell"]]
         tau = float.fromhex(str(term["tau_f64_hex"]))
         gain = float.fromhex(str(term["gain_f64_hex"]))
-        lines.append(f"    epsilon_{index} = ({_linear_expression(ell)}) - ({tau.hex()})")
-        lines.append(f"    potential += -({gain.hex()}) * math.cos(epsilon_{index})")
-        lines.append(f"    s_{index} = ({gain.hex()}) * math.sin(epsilon_{index})")
+        lines.append(f"    epsilon_{index} = ({_linear_expression(ell)}) - ({_f64_expr(tau)})")
+        lines.append(f"    potential += -({_f64_expr(gain)}) * math.cos(epsilon_{index})")
+        lines.append(f"    s_{index} = ({_f64_expr(gain)}) * math.sin(epsilon_{index})")
         for lane, coeff in enumerate(ell):
             if coeff:
                 lines.append(f"    force[{lane}] += -({coeff}) * s_{index}")
