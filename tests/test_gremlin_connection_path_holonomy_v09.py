@@ -97,7 +97,7 @@ def test_negative_length_and_shape_mismatch_are_rejected():
 def test_tampered_integral_fails_validation():
     p = _path()
     broken = copy.deepcopy(p)
-    broken["connection_line_integral_rad_f64_hex"] = 1.7.hex()
+    broken["connection_line_integral_rad_f64_hex"] = (1.7).hex()
     with pytest.raises(ConnectionPathHolonomyError):
         validate_connection_path_integral_v09(broken)
 
