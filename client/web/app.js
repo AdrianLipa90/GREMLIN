@@ -185,7 +185,6 @@ function renderGraph(ir) {
     });
     svg.appendChild(sourceEdge);
 
-    const tau = term.tau_f64_hex ? Number.parseFloat(Number.parseFloat(0).toString()) : 0;
     drawRoundedNode(
       svg,
       operatorX,
