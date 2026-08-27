@@ -83,13 +83,18 @@ def witness(J: float = 2.0e-25, holonomy_phase: float = 0.3, t: float | None = N
     return c, h, w
 
 
-def test_coupling_energy_binds_qhtri_potential_and_phase_gradient() -> None:
+def cmath_phase(z: complex) -> float:
+    return math.atan2(z.imag, z.real)
+
+
+def test_coupling_energy_binds_qhtri_potential_and_torsion_generator() -> None:
     c = coupling(J=3.0e-25)
     assert validate_relational_coupling_energy_v09(c)
     J = float.fromhex(c["coupling_J_joule_f64_hex"])
     epsilon = float.fromhex(c["epsilon_qhtri_rad_f64_hex"])
     assert float.fromhex(c["qhtri_potential_energy_joule_f64_hex"]) == -J * math.cos(epsilon)
-    assert float.fromhex(c["qhtri_phase_gradient_energy_joule_f64_hex"]) == -J * math.sin(epsilon)
+    assert float.fromhex(c["qhtri_torsion_generator_joule_f64_hex"]) == -J * math.sin(epsilon)
+    assert c["torsion_generator_law"] == "Q_epsilon=-dV/depsilon=-J_ij*sin(epsilon_ij)"
     assert c["coupling_energy_scale_status"] == "BOUND_MODEL_PARAMETER"
     assert c["physical_interaction_identification_status"] == "OPEN"
 
@@ -134,10 +139,6 @@ def test_holonomy_changes_relational_state_phase_while_concurrence_is_preserved(
     )
 
 
-def cmath_phase(z: complex) -> float:
-    return math.atan2(z.imag, z.real)
-
-
 def test_zero_exchange_energy_is_control_sample_with_zero_concurrence() -> None:
     c, h, w = witness(J=0.0, holonomy_phase=0.7, t=3.0)
     assert validate_entanglement_lineage_v09(coupling=c, hamiltonian=h, witness=w)
@@ -178,7 +179,6 @@ def test_tamper_fails_closed_at_coupling_hamiltonian_and_cross_lineage_firewall(
     with pytest.raises(RelationalHamiltonianEntanglementError):
         validate_pair_entanglement_witness_v09(tw)
 
-    # Cross-lineage check catches a perfectly valid witness paired with the wrong J/tau lineage.
     c_other, h_other, _ = witness(J=4.0e-25, holonomy_phase=1.0)
     with pytest.raises(RelationalHamiltonianEntanglementError):
         validate_entanglement_lineage_v09(coupling=c_other, hamiltonian=h_other, witness=w)
