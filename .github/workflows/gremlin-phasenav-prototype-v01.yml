@@ -11,6 +11,8 @@ on:
       - 'tools/gremlin_prototype_builder_v01.py'
       - 'tools/gremlin_experiment_harness_v01.py'
       - 'tools/gremlin_client_protocol_v01.py'
+      - 'client/gremlin_client_v01.py'
+      - 'examples/client_request_v01.json'
       - 'tests/test_gremlin_phasenav_prototype_pipeline_v01.py'
       - 'tests/test_native_pnv_contracts.py'
       - 'spec/GREMLIN_PHASENAV_PROTOTYPE_PIPELINE_V0_1.md'
