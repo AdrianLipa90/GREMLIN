@@ -153,7 +153,7 @@ def test_qhtri_epsilon_inherits_connection_derived_tau():
     assert tau == pytest.approx(0.6)
     assert epsilon == pytest.approx(wrap_pi(2 * 1.1 - 3 * 0.2 - tau))
     assert q["tau_origin"] == "CONNECTION_PATH_INTEGRAL"
-    assert q["entanglement_status"] == "OPEN_REQUIRES_QUANTUM_WITNESS"
+    assert q["entanglement_status"] == "OPEN_REQUIRES_JOINT_QUANTUM_WITNESS"
 
 
 def test_exact_winding_identity_is_preserved_without_gcd_normalization():
