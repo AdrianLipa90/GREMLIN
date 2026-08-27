@@ -97,7 +97,7 @@ def build_relational_coupling_energy_v09(
     epsilon = _from_hex(qhtri_binding["epsilon_qhtri_rad_f64_hex"], "epsilon_qhtri")
     tau = _from_hex(qhtri_binding["tau_holonomy_rad_f64_hex"], "tau_holonomy")
     potential_energy = -J * math.cos(epsilon)
-    phase_gradient_energy = -J * math.sin(epsilon)
+    torsion_generator = -J * math.sin(epsilon)
     core = {
         "schema": COUPLING_SCHEMA,
         "relation_id": str(qhtri_binding["relation_id"]),
@@ -108,9 +108,9 @@ def build_relational_coupling_energy_v09(
         "epsilon_qhtri_rad_f64_hex": epsilon.hex(),
         "coupling_J_joule_f64_hex": J.hex(),
         "qhtri_potential_energy_joule_f64_hex": potential_energy.hex(),
-        "qhtri_phase_gradient_energy_joule_f64_hex": phase_gradient_energy.hex(),
+        "qhtri_torsion_generator_joule_f64_hex": torsion_generator.hex(),
         "potential_law": "V_ij=-J_ij*cos(epsilon_ij)",
-        "phase_gradient_law": "dV/dphase=-J_ij*sin(epsilon_ij)",
+        "torsion_generator_law": "Q_epsilon=-dV/depsilon=-J_ij*sin(epsilon_ij)",
         "interaction_model_id": _nonempty(interaction_model_id, "interaction_model_id"),
         "source_ref": _nonempty(source_ref, "source_ref"),
         "source_commitment": _hash64(source_commitment, "source_commitment"),
@@ -132,19 +132,17 @@ def validate_relational_coupling_energy_v09(binding: Mapping[str, Any]) -> bool:
         _nonempty(binding.get(key), key)
     _hash64(binding.get("qhtri_holonomy_lag_commitment"), "qhtri_holonomy_lag_commitment")
     _hash64(binding.get("source_commitment"), "source_commitment")
-    tau = _from_hex(binding.get("tau_holonomy_rad_f64_hex"), "tau_holonomy")
+    _ = _from_hex(binding.get("tau_holonomy_rad_f64_hex"), "tau_holonomy")
     epsilon = _from_hex(binding.get("epsilon_qhtri_rad_f64_hex"), "epsilon_qhtri")
     J = _from_hex(binding.get("coupling_J_joule_f64_hex"), "coupling_J_joule")
-    expected_potential = -J * math.cos(epsilon)
-    expected_gradient = -J * math.sin(epsilon)
-    if _from_hex(binding.get("qhtri_potential_energy_joule_f64_hex"), "qhtri_potential_energy").hex() != expected_potential.hex():
+    if _from_hex(binding.get("qhtri_potential_energy_joule_f64_hex"), "qhtri_potential_energy").hex() != (-J * math.cos(epsilon)).hex():
         raise RelationalHamiltonianEntanglementError("QHTRI potential energy mismatch")
-    if _from_hex(binding.get("qhtri_phase_gradient_energy_joule_f64_hex"), "qhtri_phase_gradient_energy").hex() != expected_gradient.hex():
-        raise RelationalHamiltonianEntanglementError("QHTRI phase-gradient energy mismatch")
-    if not math.isfinite(tau):
-        raise RelationalHamiltonianEntanglementError("holonomy phase must be finite")
-    if binding.get("potential_law") != "V_ij=-J_ij*cos(epsilon_ij)" or binding.get("phase_gradient_law") != "dV/dphase=-J_ij*sin(epsilon_ij)":
-        raise RelationalHamiltonianEntanglementError("coupling-energy law mismatch")
+    if _from_hex(binding.get("qhtri_torsion_generator_joule_f64_hex"), "qhtri_torsion_generator").hex() != (-J * math.sin(epsilon)).hex():
+        raise RelationalHamiltonianEntanglementError("QHTRI torsion-generator mismatch")
+    if binding.get("potential_law") != "V_ij=-J_ij*cos(epsilon_ij)":
+        raise RelationalHamiltonianEntanglementError("coupling potential law mismatch")
+    if binding.get("torsion_generator_law") != "Q_epsilon=-dV/depsilon=-J_ij*sin(epsilon_ij)":
+        raise RelationalHamiltonianEntanglementError("torsion-generator law mismatch")
     expected = {
         "coupling_energy_scale_status": "BOUND_MODEL_PARAMETER",
         "hamiltonian_realization_status": "READY_MODEL",
@@ -169,7 +167,6 @@ def build_phased_exchange_hamiltonian_v09(*, coupling: Mapping[str, Any]) -> dic
     J = _from_hex(coupling["coupling_J_joule_f64_hex"], "coupling_J_joule")
     tau = _from_hex(coupling["tau_holonomy_rad_f64_hex"], "tau_holonomy")
     h_01_10 = J * cmath.exp(-1j * tau)
-    h_10_01 = h_01_10.conjugate()
     core = {
         "schema": HAMILTONIAN_SCHEMA,
         "relation_id": str(coupling["relation_id"]),
@@ -179,7 +176,7 @@ def build_phased_exchange_hamiltonian_v09(*, coupling: Mapping[str, Any]) -> dic
         "basis": ["|01>", "|10>"],
         "H_01_01_joule": _complex_packet(0j),
         "H_01_10_joule": _complex_packet(h_01_10),
-        "H_10_01_joule": _complex_packet(h_10_01),
+        "H_10_01_joule": _complex_packet(h_01_10.conjugate()),
         "H_10_10_joule": _complex_packet(0j),
         "hamiltonian_law": "H_rel=J*(exp(-i*tau)|01><10|+exp(i*tau)|10><01|)",
         "hermiticity_status": "EXACT_BY_CONSTRUCTION",
@@ -289,8 +286,8 @@ def validate_pair_entanglement_witness_v09(witness: Mapping[str, Any]) -> bool:
     _hash64(witness.get("relational_hamiltonian_commitment"), "relational_hamiltonian_commitment")
     if witness.get("initial_state") != "|10>":
         raise RelationalHamiltonianEntanglementError("pair witness initial-state contract mismatch")
-    t = _nonnegative(_from_hex(witness.get("interaction_time_s_f64_hex"), "interaction_time_s"), "interaction_time_s")
-    alpha = _from_hex(witness.get("alpha_Jt_over_hbar_f64_hex"), "alpha_Jt_over_hbar")
+    _nonnegative(_from_hex(witness.get("interaction_time_s_f64_hex"), "interaction_time_s"), "interaction_time_s")
+    _from_hex(witness.get("alpha_Jt_over_hbar_f64_hex"), "alpha_Jt_over_hbar")
     a_01 = _complex_from_packet(witness.get("amplitude_01"), "amplitude_01")
     a_10 = _complex_from_packet(witness.get("amplitude_10"), "amplitude_10")
     norm = abs(a_01) ** 2 + abs(a_10) ** 2
@@ -321,7 +318,6 @@ def validate_pair_entanglement_witness_v09(witness: Mapping[str, Any]) -> bool:
     for key, value in expected.items():
         if witness.get(key) != value:
             raise RelationalHamiltonianEntanglementError(f"pair witness status mismatch: {key}")
-    _ = t, alpha
     supplied = _hash64(witness.get("pair_entanglement_witness_commitment"), "pair_entanglement_witness_commitment")
     core = dict(witness)
     core.pop("pair_entanglement_witness_commitment", None)
