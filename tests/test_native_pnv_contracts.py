@@ -8,6 +8,7 @@ REQUIRED_NATIVE = {
     "BELZEBUB_TOOL_V0_4.pnv",
     "GREMLIN_NATURAL_QUEUE_TAU_V0_4.pnv",
     "GREMLIN_PERSISTENT_MEMORY_V0_4.pnv",
+    "GREMLIN_PHASENAV_PROTOTYPE_PIPELINE_V0_1.pnv",
     "GREMLIN_QHTRI_M0_M11_ISOMORPHISM_SCAN_V0_1.pnv",
     "GREMLIN_QHTRI_TORUS_CHARACTER_SCAN_V0_2.pnv",
     "GREMLIN_SYSTEM_V0_4.pnv",
@@ -94,6 +95,22 @@ def test_torus_character_scan_contract():
     assert "# ARBITRARY_MULTI_MODE_SINGLE_CHARACTER_COLLAPSE FALSE" in text
     assert "# LIVE_NOEMA_WITNESS TRUE" in text
     assert "# LIVE_GREMLIN_PRODUCER_WITNESS FALSE" in text
+
+
+def test_phasenav_prototype_pipeline_contract():
+    text=(NATIVE/"GREMLIN_PHASENAV_PROTOTYPE_PIPELINE_V0_1.pnv").read_text()
+    assert "# PIPELINE SURVIVED_AUDIT->PHASENAV_IR_CANDIDATE->UNTRUSTED_PROTOTYPE->VALIDATED_PROTOTYPE" in text
+    assert "# VALIDATED_SCOPE REFERENCE_CONFORMANCE_ONLY" in text
+    assert "# PHASENAV_SPACE T36" in text
+    assert "# PHASENAV_DUAL_LATTICE Z36" in text
+    assert "# EXPLICIT_RELATION_COMPILATION TRUE" in text
+    assert "# TEXT_TO_EXECUTION_INFERENCE FALSE" in text
+    assert "# SANDBOX_REQUIRED TRUE" in text
+    assert "# PRODUCTION_RUNTIME_WRITE FALSE" in text
+    assert "# EXECUTION_AUTHORITY FALSE" in text
+    assert "# CANON_ALLOWED FALSE" in text
+    assert "# BELZEBUB_SURVIVAL_REQUIRED TRUE" in text
+    assert "# PYTHON_ROLE REFERENCE_AND_TEST_HARNESS_ONLY" in text
 
 
 def test_no_python_authority_claim_in_spec():
