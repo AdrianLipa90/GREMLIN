@@ -1,0 +1,30 @@
+name: GREMLIN PhaseNav Prototype v0.1
+
+on:
+  push:
+    branches:
+      - feat/gremlin-phasenav-prototype-pipeline-v0.1
+  pull_request:
+    paths:
+      - 'native/GREMLIN_PHASENAV_PROTOTYPE_PIPELINE_V0_1.pnv'
+      - 'tools/gremlin_phasenav_compiler_v01.py'
+      - 'tools/gremlin_prototype_builder_v01.py'
+      - 'tools/gremlin_experiment_harness_v01.py'
+      - 'tools/gremlin_client_protocol_v01.py'
+      - 'tests/test_gremlin_phasenav_prototype_pipeline_v01.py'
+      - 'tests/test_native_pnv_contracts.py'
+      - 'spec/GREMLIN_PHASENAV_PROTOTYPE_PIPELINE_V0_1.md'
+      - '.github/workflows/gremlin-phasenav-prototype-v01.yml'
+
+jobs:
+  prototype-pipeline:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install test runner
+        run: python -m pip install pytest
+      - name: Run PhaseNav prototype pipeline and native contract tests
+        run: python -m pytest -q tests/test_gremlin_phasenav_prototype_pipeline_v01.py tests/test_native_pnv_contracts.py
