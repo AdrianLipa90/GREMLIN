@@ -1,6 +1,6 @@
 # GREMLIN KAKU/RADICAL Scalar Plane v0.1
 
-Status: ARCHITECTURE CANDIDATE / no production execution authority / no canon promotion
+Status: IMPLEMENTED ARCHITECTURE CANDIDATE / no production execution authority / no canon promotion
 
 ## 1. Starting point
 
@@ -11,18 +11,18 @@ L0 KAKU    atomic typed relational operation
 L1 RADICAL reusable ordered/graph composition of KAKU atoms
 ```
 
-The mature PNCS construction order is preserved:
+The PNCS construction order is preserved:
 
 ```text
 semantic / mathematical relation
 -> KAKU
 -> RADICAL
--> DEFINITION
+-> DEFINITION / graph
 -> exact PhaseNav T^36 realization
 -> execution route
 ```
 
-The scalar integration therefore happens before exact T^36 realization whenever the scalar is semantically defined without requiring the realized phase vector.
+The scalar integration therefore begins before exact T^36 realization whenever the scalar is semantically defined without requiring the realized phase state.
 
 ## 2. Two scalar planes
 
@@ -50,7 +50,7 @@ The envelope also records provenance and epistemic status for each scalar. Missi
 
 ### Plane B — POST_REALIZATION_SCALARS
 
-Evaluated only after the exact PhaseNav realization exists.
+Evaluated only after an exact PhaseNav realization exists.
 
 ```text
 R_k phase coherence / order parameter
@@ -62,6 +62,15 @@ realization-dependent diagnostics
 
 `semantic_mass` is deliberately not fabricated in Plane A because the current PNCS mass binding depends on the realized phase order parameter `R_k`.
 
+The two planes therefore create two distinct admission boundaries:
+
+```text
+PRE_VECTOR_ADMISSION
+POST_REALIZATION_ADMISSION
+```
+
+A successful pre-vector receipt permits PhaseNav realization work to begin. It does not imply that realization-dependent mass, cost or stability checks have passed.
+
 ## 3. KAKU-local scalar semantics
 
 A pre-vector KAKU packet is a typed semantic atom plus scalar observations and constraints. It is not yet a `Vector36`.
@@ -72,6 +81,7 @@ Candidate record:
 KAKU_SCALAR_PACKET_V0_1
   kaku_id
   operator_kind
+  operator_classification
   direction
   polarity
   role
@@ -84,6 +94,21 @@ KAKU_SCALAR_PACKET_V0_1
   evidence_refs
   scalar_status
 ```
+
+Current operator classifications are kept explicit instead of flattening all recovered names into one primitive class:
+
+```text
+SOURCE       OBSERVED_REUSED_PNCS_LEAF
+ORDER        OBSERVED_REUSED_PNCS_LEAF
+TRANSFORM    OBSERVED_REUSED_PNCS_LEAF
+COMPOSITION  OBSERVED_REUSED_PNCS_LEAF
+DIFFERENCE   OBSERVED_REUSED_PNCS_LEAF
+IDENTITY     OBSERVED_REUSED_PNCS_LEAF
+CONDITION    CONTROL_PLANE_KAKU_CANDIDATE
+NEGATION     RECOVERED_PNV_OPERATOR
+```
+
+This follows the current PNCS separation between its minimal observed/reused leaf alphabet, control-plane candidates and the broader recovered PNV vocabulary.
 
 Rules:
 
@@ -110,8 +135,6 @@ RADICAL_SCALAR_ADMISSION_V0_1
   no_go_gate
   contradiction_load
   recursive_integrity
-  aggregate_epistemic_support
-  aggregate_affect_modulation
   pre_vector_admission
 ```
 
@@ -128,6 +151,8 @@ These gates are not averaged away by resonance, coherence, agreement, affect, co
 
 ## 5. Admission ordering
 
+The scalar-first route is:
+
 ```text
 GREMLIN candidate relation
 -> BELZEBUB audit
@@ -136,15 +161,20 @@ GREMLIN candidate relation
 -> RADICAL composition
 -> directed ethics / consent / reversibility / NO-GO
 -> PRE_VECTOR_ADMISSION receipt
+-> scalar-admitted PhaseNav IR / realization request
 -> exact PhaseNav T^36 realization
 -> POST_REALIZATION_SCALARS
 -> mass / graph-cost / stability checks
--> PhaseNav IR
+-> POST_REALIZATION_ADMISSION receipt
 -> UNTRUSTED_PROTOTYPE
 -> reference / falsification harness
 ```
 
-The scalar plane therefore determines whether vector synthesis may be attempted. It does not by itself authorize runtime execution.
+`tools/gremlin_scalar_admitted_phasenav_v02.py` implements the first hard bridge: no scalar-admitted PhaseNav IR is emitted unless the Radical is `PRE_VECTOR_ADMITTED`, the candidate identity matches, and the exact candidate relation lineage equals the scalar-admitted Radical relation lineage.
+
+The next bridge must bind the exact realization to Plane B and block prototype construction until the post-realization receipt passes.
+
+Neither admission receipt independently authorizes production runtime execution.
 
 ## 6. Resource authority map
 
@@ -175,11 +205,11 @@ They are not live execution authority.
 Purpose:
 
 - current hierarchy and fail-closed rules;
-- current irreducible KAKU status;
+- current KAKU classifications;
 - exact realization and mass binding;
 - native execution and inverse lineage contracts.
 
-The scalar-plane adapter must not silently rewrite canonical PNCS mathematics.
+The scalar-plane adapter does not rewrite canonical PNCS mathematics or the existing `Kaku` dataclass.
 
 ### Consciousness Dictionary / CIEL registry in Library — semantic source
 
@@ -218,11 +248,11 @@ Affect / coherence machinery
 
 Purpose:
 
-- harvest tested algorithms, thresholds, state handling and receipts;
+- harvest algorithms, thresholds, state handling and tests;
 - compare candidate realizations against the current semantic registry;
 - adapt useful mechanisms through narrow adapters.
 
-No legacy formula is promoted merely because code exists.
+Existing code alone does not promote a legacy formula to current semantic authority.
 
 ### NOEMA — runtime/provenance substrate
 
@@ -234,7 +264,7 @@ Operational 36D authority remains the live surface:
 /dev/shm/ciel_noema
 ```
 
-The scalar plane may be computed/audited before vector admission. Once a vector operation is admitted, every operational 36D path must traverse the live NOEMA surface.
+The scalar plane may be computed/audited before vector admission. Once a 36D operation is admitted, the operational path traverses the live NOEMA surface.
 
 ### GREMLIN — integration and research client
 
@@ -249,44 +279,55 @@ show Radical composition
 show scalar envelopes
 show failed hard gates
 request PhaseNav realization after scalar admission
-build untrusted prototype
+build untrusted prototype after all required admission stages
 run falsification/reference tests
 ```
 
-It does not independently grant production execution or canon promotion.
+Production execution and canon promotion remain separate authority decisions.
 
 ## 7. Non-invasive adapter boundary
 
-The first implementation should add a scalar-plane adapter rather than modify the canonical PNCS `Kaku` dataclass in place.
+The implementation adds a scalar-plane adapter rather than modifying the canonical PNCS `Kaku` dataclass in place.
 
 Reason:
 
 - the current class requires `Vector36`;
-- historical and current receipts depend on existing byte/content identities;
+- historical and current receipts depend on existing identities;
 - scalar-first semantics need an unbound pre-realization representation;
 - PhaseNav realization remains a later explicit binding.
 
-Proposed adapter chain:
+Implemented adapter chain so far:
 
 ```text
 KAKU_SEMANTIC_ID
--> KAKU_SCALAR_PACKET
--> RADICAL_SCALAR_ADMISSION
--> PRE_VECTOR_RECEIPT
--> canonical PNCS realization adapter
--> Vector36 / T^36 binding
+-> KAKU_SCALAR_PACKET_V0_1
+-> RADICAL_SCALAR_ADMISSION_V0_1
+-> PRE_VECTOR_ADMITTED
+-> GREMLIN_SCALAR_ADMITTED_PHASENAV_IR_V0_2
 ```
 
-## 8. First implementation gate
+Planned continuation:
 
-v0.1 should implement only:
+```text
+-> exact T^36 realization binding
+-> POST_REALIZATION_SCALARS
+-> POST_REALIZATION_ADMISSION
+-> prototype gate
+```
+
+## 8. v0.1/v0.2 gate status
+
+Implemented and tested:
 
 1. typed KAKU scalar packets;
-2. Radical aggregation;
-3. hard consent/reversibility/NO-GO semantics;
-4. separate affect/valuation/intention/epistemic modulators;
-5. deterministic content commitments;
-6. pre-vector admission receipt;
-7. adapter output accepted by the existing GREMLIN -> PhaseNav compiler only after `PRE_VECTOR_ADMITTED`.
+2. exact KAKU operator classification provenance;
+3. order-sensitive Radical aggregation;
+4. hard consent/reversibility/NO-GO semantics;
+5. separate affect/valuation/intention/epistemic modulators;
+6. deterministic content commitments;
+7. pre-vector admission receipt semantics;
+8. candidate/Radical identity binding;
+9. exact scalar-admitted relation-lineage binding;
+10. PhaseNav IR emission only after `PRE_VECTOR_ADMITTED`.
 
-No vector synthesis change, runtime mutation or production effect is required for this first gate.
+The implementation remains a feature-branch candidate. Production runtime effects and canon promotion remain closed.
