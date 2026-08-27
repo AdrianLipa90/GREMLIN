@@ -11,7 +11,9 @@ on:
       - 'client/web/styles.css'
       - 'client/web/app.js'
       - 'tools/gremlin_kaku_radical_scalar_plane_v01.py'
+      - 'tools/gremlin_scalar_admitted_phasenav_v02.py'
       - 'tests/test_gremlin_kaku_radical_scalar_plane_v01.py'
+      - 'tests/test_gremlin_scalar_admitted_phasenav_v02.py'
       - 'tests/test_gremlin_visual_client_v01.py'
       - 'tests/test_gremlin_phasenav_prototype_pipeline_v01.py'
       - 'tests/test_native_pnv_contracts.py'
@@ -34,5 +36,5 @@ jobs:
         run: python -m pip install pytest
       - name: Check browser JavaScript syntax
         run: node --check client/web/app.js
-      - name: Run scalar-plane, visual client, pipeline and native contract tests
-        run: python -m pytest -q tests/test_gremlin_kaku_radical_scalar_plane_v01.py tests/test_gremlin_visual_client_v01.py tests/test_gremlin_phasenav_prototype_pipeline_v01.py tests/test_native_pnv_contracts.py
+      - name: Run scalar admission, visual client, pipeline and native contract tests
+        run: python -m pytest -q tests/test_gremlin_kaku_radical_scalar_plane_v01.py tests/test_gremlin_scalar_admitted_phasenav_v02.py tests/test_gremlin_visual_client_v01.py tests/test_gremlin_phasenav_prototype_pipeline_v01.py tests/test_native_pnv_contracts.py
