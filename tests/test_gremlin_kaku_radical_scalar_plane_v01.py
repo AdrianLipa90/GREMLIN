@@ -1,5 +1,3 @@
-import copy
-
 import pytest
 
 from tools.gremlin_kaku_radical_scalar_plane_v01 import (
@@ -64,6 +62,7 @@ def test_kaku_packet_is_pre_vector_and_deterministic():
     b = packet()
     assert validate_kaku_scalar_packet(a)
     assert a["kaku_scalar_commitment"] == b["kaku_scalar_commitment"]
+    assert a["operator_classification"] == "OBSERVED_REUSED_PNCS_LEAF"
     assert a["vector_bound"] is False
     assert a["t36_realization_present"] is False
     assert a["semantic_mass_present"] is False
@@ -72,9 +71,21 @@ def test_kaku_packet_is_pre_vector_and_deterministic():
     assert a["evidence_refs"] == ["a", "z"]
 
 
+def test_operator_classes_preserve_current_pncs_status():
+    assert packet("condition", "CONDITION")["operator_classification"] == "CONTROL_PLANE_KAKU_CANDIDATE"
+    assert packet("negation", "NEGATION")["operator_classification"] == "RECOVERED_PNV_OPERATOR"
+
+
 def test_unknown_kaku_opcode_is_fail_closed():
-    with pytest.raises(GremlinScalarPlaneError, match="outside bounded PNCS KAKU set"):
+    with pytest.raises(GremlinScalarPlaneError, match="outside bounded PNCS/PNV KAKU set"):
         packet(operator_kind="MAGIC_NEW_OPCODE")
+
+
+def test_tampered_operator_classification_is_rejected():
+    p = packet("condition", "CONDITION")
+    p["operator_classification"] = "OBSERVED_REUSED_PNCS_LEAF"
+    with pytest.raises(GremlinScalarPlaneError, match="classification mismatch"):
+        validate_kaku_scalar_packet(p)
 
 
 def test_nonfinite_scalar_is_rejected():
