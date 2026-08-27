@@ -1,0 +1,28 @@
+{
+  "ac_aux_status_sha256": "a4e968b5d5aaf79f095e42e0954cfa40eb15ddc8de1e97b4be2e431dce7323a9",
+  "ac_current_sha256": "3f6631731a65952ccb34d61d7311cbc6c268aaa72e75925f7e4e7404402e2464",
+  "actual_exchange_execution_performed": false,
+  "authority": {
+    "canon_allowed": false,
+    "execution_admitted": false,
+    "production_runtime_write": false
+  },
+  "autoboot_ethics_module_sha256": "8b98af7b1edba93e572114585b974a9dbbf7c94f93cbb484b1819c797b9fb9a6",
+  "binding_status": "ACTIVE",
+  "ethics_field_schema": "NOEMA_RELATIONAL_ETHICS_FIELD_V2_1",
+  "ethics_field_sha256": "8b98af7b1edba93e572114585b974a9dbbf7c94f93cbb484b1819c797b9fb9a6",
+  "ethics_field_status": "ACTIVE",
+  "ethics_mode": "LIVE_COMPUTE_ON_EXCHANGE",
+  "ethics_static_state": false,
+  "external_execution_enabled": false,
+  "library_is_operating_state": false,
+  "live_gremlin_producer_claim": false,
+  "live_noema_surface_witness": true,
+  "no_static_fallback": true,
+  "phi_sha256": "212cdc44580d1cd2fad6a16e94a03ff3d61b9c1172f8c932fe91a175858c988a",
+  "schema": "GREMLIN_NOEMA_ETHICS_CAPABILITY_LIVE_WITNESS_V0_3",
+  "tether_guard": {
+    "failures": [],
+    "tether_status": "ACTIVE"
+  }
+}
