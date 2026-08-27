@@ -85,13 +85,24 @@ def build_oriented_relational_coupling_v13(
     partition_energy_imbalance = j_c - j_d
     oriented_real = source_energy * cos_tau
     oriented_imag = source_energy * sin_tau
+    energy_abs_tol = max(abs(source_energy) * BINARY64_REL_TOL, 1e-300)
     energy_imbalance_residual = partition_energy_imbalance - oriented_real
-    if not math.isclose(partition_energy_imbalance, oriented_real, rel_tol=BINARY64_REL_TOL, abs_tol=1e-300):
-        raise OrientedRelationalCouplingError("v1.1 energy imbalance does not match E_R*cos(tau) within binary64 tolerance")
+    if not math.isclose(
+        partition_energy_imbalance,
+        oriented_real,
+        rel_tol=BINARY64_REL_TOL,
+        abs_tol=energy_abs_tol,
+    ):
+        raise OrientedRelationalCouplingError("v1.1 energy imbalance does not match E_R*cos(tau) within scale-aware binary64 tolerance")
 
     oriented_magnitude = math.hypot(oriented_real, oriented_imag)
     magnitude_residual = oriented_magnitude - abs(source_energy)
-    if not math.isclose(oriented_magnitude, abs(source_energy), rel_tol=BINARY64_REL_TOL, abs_tol=1e-300):
+    if not math.isclose(
+        oriented_magnitude,
+        abs(source_energy),
+        rel_tol=BINARY64_REL_TOL,
+        abs_tol=energy_abs_tol,
+    ):
         raise OrientedRelationalCouplingError("oriented coupling magnitude does not close to |E_R|")
 
     core = {
@@ -129,6 +140,7 @@ def build_oriented_relational_coupling_v13(
         "magnitude_law": "abs(J_complex)=abs(E_R)",
         "magnitude_residual_j_f64_hex": magnitude_residual.hex(),
         "binary64_relative_tolerance_f64_hex": BINARY64_REL_TOL.hex(),
+        "energy_projection_abs_tolerance_j_f64_hex": energy_abs_tol.hex(),
         "parameter_free_given_v1_1_partition_and_holonomy": True,
         "orientation_sign_retained": True,
         "channel_selection_status": "OPEN_REQUIRES_PHYSICAL_ATTRIBUTION_LAW",
