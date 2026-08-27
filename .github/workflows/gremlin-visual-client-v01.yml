@@ -15,6 +15,7 @@ on:
       - feat/gremlin-joint-quantum-witness-v1.0
       - feat/gremlin-relational-coupling-energy-v1.1
       - feat/gremlin-dual-channel-entanglement-probe-v1.2
+      - feat/gremlin-oriented-relational-coupling-v1.3
   pull_request:
     paths:
       - 'client/gremlin_web_server_v01.py'
@@ -37,6 +38,7 @@ on:
       - 'tools/gremlin_joint_quantum_witness_v10.py'
       - 'tools/gremlin_relational_coupling_energy_v11.py'
       - 'tools/gremlin_dual_channel_entanglement_probe_v12.py'
+      - 'tools/gremlin_oriented_relational_coupling_v13.py'
       - 'tests/test_gremlin_kaku_radical_scalar_plane_v01.py'
       - 'tests/test_gremlin_scalar_admitted_phasenav_v02.py'
       - 'tests/test_gremlin_scalar_acquisition_v02.py'
@@ -51,6 +53,7 @@ on:
       - 'tests/test_gremlin_joint_quantum_witness_v10.py'
       - 'tests/test_gremlin_relational_coupling_energy_v11.py'
       - 'tests/test_gremlin_dual_channel_entanglement_probe_v12.py'
+      - 'tests/test_gremlin_oriented_relational_coupling_v13.py'
       - 'tests/test_gremlin_visual_client_v01.py'
       - 'tests/test_gremlin_phasenav_prototype_pipeline_v01.py'
       - 'tests/test_native_pnv_contracts.py'
@@ -70,6 +73,7 @@ on:
       - 'spec/GREMLIN_JOINT_QUANTUM_WITNESS_V1_0.md'
       - 'spec/GREMLIN_RELATIONAL_COUPLING_ENERGY_V1_1.md'
       - 'spec/GREMLIN_DUAL_CHANNEL_ENTANGLEMENT_PROBE_V1_2.md'
+      - 'spec/GREMLIN_ORIENTED_RELATIONAL_COUPLING_V1_3.md'
       - 'spec/GREMLIN_VISUAL_CLIENT_V0_1.md'
       - '.github/workflows/gremlin-visual-client-v01.yml'
 
@@ -88,5 +92,5 @@ jobs:
         run: python -m pip install pytest
       - name: Check browser JavaScript syntax
         run: node --check client/web/app.js
-      - name: Run dual-channel, coupling-energy, joint-state, connection-path, Lambda-holonomy, valuation, epistemic, affect, scalar, admission, client and native tests
-        run: python -m pytest -q tests/test_gremlin_dual_channel_entanglement_probe_v12.py tests/test_gremlin_relational_coupling_energy_v11.py tests/test_gremlin_joint_quantum_witness_v10.py tests/test_gremlin_connection_path_holonomy_v09.py tests/test_gremlin_relational_lambda_holonomy_v08.py tests/test_gremlin_valuation_integrity_bundles_v07.py tests/test_gremlin_epistemic_bundle_v06.py tests/test_gremlin_affect_field_v05.py tests/test_gremlin_kaku_scalar_facets_v04.py tests/test_gremlin_intention_anchor_provenance_v04.py tests/test_gremlin_scalar_source_registry_v03.py tests/test_gremlin_scalar_acquisition_v02.py tests/test_gremlin_kaku_radical_scalar_plane_v01.py tests/test_gremlin_scalar_admitted_phasenav_v02.py tests/test_gremlin_visual_client_v01.py tests/test_gremlin_phasenav_prototype_pipeline_v01.py tests/test_native_pnv_contracts.py
+      - name: Run oriented-coupling, dual-channel, coupling-energy, joint-state, connection-path, Lambda-holonomy, valuation, epistemic, affect, scalar, admission, client and native tests
+        run: python -m pytest -q tests/test_gremlin_oriented_relational_coupling_v13.py tests/test_gremlin_dual_channel_entanglement_probe_v12.py tests/test_gremlin_relational_coupling_energy_v11.py tests/test_gremlin_joint_quantum_witness_v10.py tests/test_gremlin_connection_path_holonomy_v09.py tests/test_gremlin_relational_lambda_holonomy_v08.py tests/test_gremlin_valuation_integrity_bundles_v07.py tests/test_gremlin_epistemic_bundle_v06.py tests/test_gremlin_affect_field_v05.py tests/test_gremlin_kaku_scalar_facets_v04.py tests/test_gremlin_intention_anchor_provenance_v04.py tests/test_gremlin_scalar_source_registry_v03.py tests/test_gremlin_scalar_acquisition_v02.py tests/test_gremlin_kaku_radical_scalar_plane_v01.py tests/test_gremlin_scalar_admitted_phasenav_v02.py tests/test_gremlin_visual_client_v01.py tests/test_gremlin_phasenav_prototype_pipeline_v01.py tests/test_native_pnv_contracts.py
