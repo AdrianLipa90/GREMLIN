@@ -10,15 +10,15 @@ RADICAL_ADMISSION_SCHEMA = "GREMLIN_RADICAL_SCALAR_ADMISSION_V0_1"
 KAKU_DOMAIN = b"GREMLIN-KAKU-SCALAR-PACKET/v0.1\x00"
 RADICAL_DOMAIN = b"GREMLIN-RADICAL-SCALAR-ADMISSION/v0.1\x00"
 
-PNCS_MINIMAL_KAKU = {
-    "SOURCE",
-    "ORDER",
-    "TRANSFORM",
-    "COMPOSITION",
-    "DIFFERENCE",
-    "IDENTITY",
-    "CONDITION",
-    "NEGATION",
+PNCS_KAKU_CLASSIFICATION = {
+    "SOURCE": "OBSERVED_REUSED_PNCS_LEAF",
+    "ORDER": "OBSERVED_REUSED_PNCS_LEAF",
+    "TRANSFORM": "OBSERVED_REUSED_PNCS_LEAF",
+    "COMPOSITION": "OBSERVED_REUSED_PNCS_LEAF",
+    "DIFFERENCE": "OBSERVED_REUSED_PNCS_LEAF",
+    "IDENTITY": "OBSERVED_REUSED_PNCS_LEAF",
+    "CONDITION": "CONTROL_PLANE_KAKU_CANDIDATE",
+    "NEGATION": "RECOVERED_PNV_OPERATOR",
 }
 
 HARD_GATE_PASS = {
@@ -50,6 +50,13 @@ def _finite(value: Any, name: str) -> float:
     return x
 
 
+def _operator_classification(operator: str) -> str:
+    try:
+        return PNCS_KAKU_CLASSIFICATION[operator]
+    except KeyError as exc:
+        raise GremlinScalarPlaneError(f"operator_kind outside bounded PNCS/PNV KAKU set: {operator}") from exc
+
+
 def _scalar_observation(value: Mapping[str, Any], name: str) -> dict[str, Any]:
     if not isinstance(value, Mapping):
         raise GremlinScalarPlaneError(f"{name} observation must be a mapping")
@@ -77,13 +84,13 @@ def build_kaku_scalar_packet(
     evidence_refs: Sequence[str] = (),
 ) -> dict[str, Any]:
     operator = _nonempty(operator_kind, "operator_kind").upper()
-    if operator not in PNCS_MINIMAL_KAKU:
-        raise GremlinScalarPlaneError(f"operator_kind outside bounded PNCS KAKU set: {operator}")
+    classification = _operator_classification(operator)
 
     core = {
         "schema": KAKU_PACKET_SCHEMA,
         "kaku_id": _nonempty(kaku_id, "kaku_id"),
         "operator_kind": operator,
+        "operator_classification": classification,
         "direction": _nonempty(direction, "direction"),
         "polarity_f64_hex": _finite(polarity, "polarity").hex(),
         "role": _nonempty(role, "role"),
@@ -111,8 +118,9 @@ def validate_kaku_scalar_packet(packet: Mapping[str, Any]) -> bool:
     if packet.get("schema") != KAKU_PACKET_SCHEMA:
         raise GremlinScalarPlaneError("unsupported KAKU scalar packet schema")
     operator = str(packet.get("operator_kind", ""))
-    if operator not in PNCS_MINIMAL_KAKU:
-        raise GremlinScalarPlaneError("invalid PNCS KAKU operator kind")
+    classification = _operator_classification(operator)
+    if packet.get("operator_classification") != classification:
+        raise GremlinScalarPlaneError("KAKU operator classification mismatch")
     for key in ("kaku_id", "direction", "role", "source_binding", "target_binding"):
         _nonempty(packet.get(key), key)
     _finite(float.fromhex(str(packet.get("polarity_f64_hex"))), "polarity")
@@ -191,6 +199,7 @@ def build_radical_scalar_admission(
             "kaku_id": kid,
             "kaku_scalar_commitment": str(packet["kaku_scalar_commitment"]),
             "operator_kind": str(packet["operator_kind"]),
+            "operator_classification": str(packet["operator_classification"]),
         })
 
     gates = {
@@ -240,8 +249,10 @@ def validate_radical_scalar_admission(record: Mapping[str, Any]) -> bool:
         if len(commitment) != 64:
             raise GremlinScalarPlaneError("invalid KAKU scalar commitment")
         bytes.fromhex(commitment)
-        if str(item.get("operator_kind", "")) not in PNCS_MINIMAL_KAKU:
-            raise GremlinScalarPlaneError("invalid KAKU lineage operator")
+        operator = str(item.get("operator_kind", ""))
+        classification = _operator_classification(operator)
+        if item.get("operator_classification") != classification:
+            raise GremlinScalarPlaneError("invalid KAKU lineage classification")
 
     scalars = record.get("radical_scalars")
     if not isinstance(scalars, Mapping) or set(scalars) != {
