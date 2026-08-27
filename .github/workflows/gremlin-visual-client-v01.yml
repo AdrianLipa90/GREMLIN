@@ -8,6 +8,7 @@ on:
       - feat/gremlin-scalar-source-registry-v0.3
       - feat/gremlin-kaku-scalar-facets-v0.4
       - feat/gremlin-affect-field-v0.5
+      - feat/gremlin-epistemic-bundle-v0.6
   pull_request:
     paths:
       - 'client/gremlin_web_server_v01.py'
@@ -23,6 +24,7 @@ on:
       - 'tools/gremlin_kaku_scalar_facet_firewall_v04.py'
       - 'tools/gremlin_affect_field_v05.py'
       - 'tools/gremlin_scalar_source_delta_v05.py'
+      - 'tools/gremlin_epistemic_bundle_v06.py'
       - 'tests/test_gremlin_kaku_radical_scalar_plane_v01.py'
       - 'tests/test_gremlin_scalar_admitted_phasenav_v02.py'
       - 'tests/test_gremlin_scalar_acquisition_v02.py'
@@ -30,6 +32,7 @@ on:
       - 'tests/test_gremlin_kaku_scalar_facets_v04.py'
       - 'tests/test_gremlin_intention_anchor_provenance_v04.py'
       - 'tests/test_gremlin_affect_field_v05.py'
+      - 'tests/test_gremlin_epistemic_bundle_v06.py'
       - 'tests/test_gremlin_visual_client_v01.py'
       - 'tests/test_gremlin_phasenav_prototype_pipeline_v01.py'
       - 'tests/test_native_pnv_contracts.py'
@@ -41,6 +44,7 @@ on:
       - 'spec/GREMLIN_SCALAR_SOURCE_REGISTRY_V0_3.md'
       - 'spec/GREMLIN_KAKU_SCALAR_FACETS_V0_4.md'
       - 'spec/GREMLIN_RIFC_AFFECT_FIELD_V0_5.md'
+      - 'spec/GREMLIN_EPISTEMIC_SUPPORT_BUNDLE_V0_6.md'
       - 'spec/GREMLIN_VISUAL_CLIENT_V0_1.md'
       - '.github/workflows/gremlin-visual-client-v01.yml'
 
@@ -59,5 +63,5 @@ jobs:
         run: python -m pip install pytest
       - name: Check browser JavaScript syntax
         run: node --check client/web/app.js
-      - name: Run affect field, scalar facets, registry, acquisition, admission, client and native tests
-        run: python -m pytest -q tests/test_gremlin_affect_field_v05.py tests/test_gremlin_kaku_scalar_facets_v04.py tests/test_gremlin_intention_anchor_provenance_v04.py tests/test_gremlin_scalar_source_registry_v03.py tests/test_gremlin_scalar_acquisition_v02.py tests/test_gremlin_kaku_radical_scalar_plane_v01.py tests/test_gremlin_scalar_admitted_phasenav_v02.py tests/test_gremlin_visual_client_v01.py tests/test_gremlin_phasenav_prototype_pipeline_v01.py tests/test_native_pnv_contracts.py
+      - name: Run epistemic, affect, scalar, admission, client and native tests
+        run: python -m pytest -q tests/test_gremlin_epistemic_bundle_v06.py tests/test_gremlin_affect_field_v05.py tests/test_gremlin_kaku_scalar_facets_v04.py tests/test_gremlin_intention_anchor_provenance_v04.py tests/test_gremlin_scalar_source_registry_v03.py tests/test_gremlin_scalar_acquisition_v02.py tests/test_gremlin_kaku_radical_scalar_plane_v01.py tests/test_gremlin_scalar_admitted_phasenav_v02.py tests/test_gremlin_visual_client_v01.py tests/test_gremlin_phasenav_prototype_pipeline_v01.py tests/test_native_pnv_contracts.py
