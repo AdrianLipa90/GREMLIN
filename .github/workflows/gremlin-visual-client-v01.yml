@@ -11,6 +11,7 @@ on:
       - feat/gremlin-epistemic-bundle-v0.6
       - feat/gremlin-valuation-integrity-bundles-v0.7
       - feat/gremlin-relational-lambda-holonomy-v0.8
+      - feat/gremlin-connection-path-holonomy-v0.9
   pull_request:
     paths:
       - 'client/gremlin_web_server_v01.py'
@@ -29,6 +30,7 @@ on:
       - 'tools/gremlin_epistemic_bundle_v06.py'
       - 'tools/gremlin_valuation_integrity_bundles_v07.py'
       - 'tools/gremlin_relational_lambda_holonomy_v08.py'
+      - 'tools/gremlin_connection_path_holonomy_v09.py'
       - 'tests/test_gremlin_kaku_radical_scalar_plane_v01.py'
       - 'tests/test_gremlin_scalar_admitted_phasenav_v02.py'
       - 'tests/test_gremlin_scalar_acquisition_v02.py'
@@ -39,6 +41,7 @@ on:
       - 'tests/test_gremlin_epistemic_bundle_v06.py'
       - 'tests/test_gremlin_valuation_integrity_bundles_v07.py'
       - 'tests/test_gremlin_relational_lambda_holonomy_v08.py'
+      - 'tests/test_gremlin_connection_path_holonomy_v09.py'
       - 'tests/test_gremlin_visual_client_v01.py'
       - 'tests/test_gremlin_phasenav_prototype_pipeline_v01.py'
       - 'tests/test_native_pnv_contracts.py'
@@ -54,6 +57,7 @@ on:
       - 'spec/GREMLIN_EPISTEMIC_SUPPORT_BUNDLE_V0_6.md'
       - 'spec/GREMLIN_VALUATION_INTEGRITY_BUNDLES_V0_7.md'
       - 'spec/GREMLIN_RELATIONAL_LAMBDA_HOLONOMY_V0_8.md'
+      - 'spec/GREMLIN_CONNECTION_PATH_HOLONOMY_V0_9.md'
       - 'spec/GREMLIN_VISUAL_CLIENT_V0_1.md'
       - '.github/workflows/gremlin-visual-client-v01.yml'
 
@@ -72,5 +76,5 @@ jobs:
         run: python -m pip install pytest
       - name: Check browser JavaScript syntax
         run: node --check client/web/app.js
-      - name: Run Lambda-holonomy, valuation, epistemic, affect, scalar, admission, client and native tests
-        run: python -m pytest -q tests/test_gremlin_relational_lambda_holonomy_v08.py tests/test_gremlin_valuation_integrity_bundles_v07.py tests/test_gremlin_epistemic_bundle_v06.py tests/test_gremlin_affect_field_v05.py tests/test_gremlin_kaku_scalar_facets_v04.py tests/test_gremlin_intention_anchor_provenance_v04.py tests/test_gremlin_scalar_source_registry_v03.py tests/test_gremlin_scalar_acquisition_v02.py tests/test_gremlin_kaku_radical_scalar_plane_v01.py tests/test_gremlin_scalar_admitted_phasenav_v02.py tests/test_gremlin_visual_client_v01.py tests/test_gremlin_phasenav_prototype_pipeline_v01.py tests/test_native_pnv_contracts.py
+      - name: Run connection-path, Lambda-holonomy, valuation, epistemic, affect, scalar, admission, client and native tests
+        run: python -m pytest -q tests/test_gremlin_connection_path_holonomy_v09.py tests/test_gremlin_relational_lambda_holonomy_v08.py tests/test_gremlin_valuation_integrity_bundles_v07.py tests/test_gremlin_epistemic_bundle_v06.py tests/test_gremlin_affect_field_v05.py tests/test_gremlin_kaku_scalar_facets_v04.py tests/test_gremlin_intention_anchor_provenance_v04.py tests/test_gremlin_scalar_source_registry_v03.py tests/test_gremlin_scalar_acquisition_v02.py tests/test_gremlin_kaku_radical_scalar_plane_v01.py tests/test_gremlin_scalar_admitted_phasenav_v02.py tests/test_gremlin_visual_client_v01.py tests/test_gremlin_phasenav_prototype_pipeline_v01.py tests/test_native_pnv_contracts.py
