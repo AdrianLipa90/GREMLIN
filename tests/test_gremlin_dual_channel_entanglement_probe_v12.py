@@ -17,6 +17,7 @@ from tools.gremlin_dual_channel_entanglement_probe_v12 import (
 )
 from tools.gremlin_relational_coupling_energy_v11 import build_relational_coupling_energy_partition_v11
 from tools.gremlin_relational_lambda_holonomy_v08 import (
+    RelationalLambdaHolonomyError,
     build_relational_lambda_energy_v08,
     build_relational_lambda_field_v08,
 )
@@ -140,13 +141,11 @@ def test_tampered_probe_fails_validation():
         )
 
 
-def test_qhtri_relation_lineage_mismatch_rejected():
+def test_qhtri_relation_lineage_tamper_is_rejected_upstream():
     energy, path, qhtri, partition = _stack(0.4)
     broken = copy.deepcopy(qhtri)
     broken["qhtri_holonomy_lag_v08"]["relation_id"] = "R:other"
-    # Re-sealing the nested QHTRI structure is intentionally unavailable here;
-    # upstream validation must reject the tamper before the probe can use it.
-    with pytest.raises(Exception):
+    with pytest.raises(RelationalLambdaHolonomyError):
         build_dual_channel_entanglement_probe_v12(
             qhtri_receipt=broken,
             energy=energy,
