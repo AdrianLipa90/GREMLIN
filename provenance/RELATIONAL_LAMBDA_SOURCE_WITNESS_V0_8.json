@@ -1,0 +1,38 @@
+{
+  "schema": "GREMLIN_RELATIONAL_LAMBDA_SOURCE_WITNESS_V0_8",
+  "source": {
+    "filename": "Imploding_universe3.pdf",
+    "sha256": "3012b43d2220c5c0db06e63635ef80b33c18fe4464c0564735b37213f82f87a4",
+    "size_bytes": 53969,
+    "title": "Formal SI-Unit Proof and Empirical Consistency of the Universal Loop and Black Hole Universe Frameworks",
+    "authors": ["Adrian Lipa", "Usman Ahmad"],
+    "date": "2025-07-17"
+  },
+  "source_bindings": [
+    {
+      "section": "3.1 Cosmological Constant",
+      "binding": "EINSTEIN_LAMBDA_TERM",
+      "expression": "G_mu_nu + Lambda g_mu_nu = (8*pi*G/c^4) T_mu_nu"
+    },
+    {
+      "section": "3.1 Cosmological Constant",
+      "binding": "LAMBDA_SI_DIMENSION",
+      "expression": "[Lambda] = m^-2"
+    },
+    {
+      "section": "3.1 Cosmological Constant",
+      "binding": "LAMBDA_EFFECTIVE_MASS_DENSITY",
+      "expression": "rho_Lambda = Lambda*c^2/(8*pi*G)"
+    }
+  ],
+  "v0_8_extension": {
+    "symbol": "Lambda_R",
+    "status": "RELATIONAL_SCALAR_FIELD_CANDIDATE",
+    "si_dimension": "m^-2",
+    "effective_source_energy_density_law": "u_R = Lambda_R*c^4/(8*pi*G)",
+    "geometry_derivation_status": "OPEN",
+    "holonomy_derivation_status": "OPEN",
+    "entanglement_status": "OPEN_REQUIRES_QUANTUM_WITNESS"
+  },
+  "provenance_status": "SOURCE_BOUND"
+}
