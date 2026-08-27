@@ -1,6 +1,10 @@
 import copy
+import json
+import tempfile
 import unittest
+from pathlib import Path
 
+from client.gremlin_client_v01 import main as client_main
 from tools.gremlin_client_protocol_v01 import (
     GremlinClientProtocolError,
     REQUEST_SCHEMA,
@@ -135,6 +139,24 @@ class GremlinPhaseNavPrototypePipelineV01Tests(unittest.TestCase):
             }
             with self.assertRaises(GremlinClientProtocolError):
                 run_client_request(request)
+
+    def test_cli_writes_valid_response_artifact(self):
+        request = {
+            "schema": REQUEST_SCHEMA,
+            "request_id": "req-cli",
+            "candidate": candidate(),
+            "sample_count": 8,
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            request_path = root / "request.json"
+            response_path = root / "response.json"
+            request_path.write_text(json.dumps(request), encoding="utf-8")
+            self.assertEqual(client_main([str(request_path), "--output", str(response_path)]), 0)
+            response = json.loads(response_path.read_text(encoding="utf-8"))
+            self.assertEqual(response["status"], "VALIDATED_PROTOTYPE")
+            self.assertFalse(response["execution_admitted"])
+            self.assertFalse(response["canon_allowed"])
 
 
 if __name__ == "__main__":
