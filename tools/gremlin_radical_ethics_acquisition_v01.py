@@ -22,6 +22,7 @@ BUNDLE_DOMAIN = b"GREMLIN-RADICAL-ETHICS-BUNDLE/v0.1\x00"
 
 PRE_VECTOR_STAGE = "PRE_VECTOR_CONTEXTUAL_ASSESSMENT"
 POST_REALIZATION_STAGE = "POST_REALIZATION_RELATIONAL_ETHICS"
+LIVE_ROOT = "/dev/shm/ciel_noema"
 
 SCALAR_CONTRACTS = {
     "contradiction_load": {
@@ -102,6 +103,10 @@ def _canonical(value: Any) -> bytes:
     return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
 
 
+def _commit(domain: bytes, value: Mapping[str, Any]) -> str:
+    return hashlib.blake2b(domain + _canonical(value), digest_size=32).hexdigest()
+
+
 def _nonempty(value: Any, name: str) -> str:
     text = str(value)
     if not text:
@@ -110,10 +115,10 @@ def _nonempty(value: Any, name: str) -> str:
 
 
 def _finite(value: Any, name: str) -> float:
-    result = float(value)
-    if not math.isfinite(result):
+    x = float(value)
+    if not math.isfinite(x):
         raise GremlinRadicalEthicsError(f"{name} must be finite")
-    return result
+    return x
 
 
 def _digest(value: Any, name: str) -> str:
@@ -127,29 +132,36 @@ def _digest(value: Any, name: str) -> str:
     return text
 
 
-def _commit(domain: bytes, core: Mapping[str, Any]) -> str:
-    return hashlib.blake2b(domain + _canonical(core), digest_size=32).hexdigest()
-
-
-def _sorted_unique(values: Sequence[str], name: str) -> list[str]:
+def _unique(values: Sequence[str], name: str) -> list[str]:
     result = sorted(_nonempty(v, name) for v in values)
     if len(set(result)) != len(result):
         raise GremlinRadicalEthicsError(f"duplicate {name}")
     return result
 
 
-def _scalar_contract(role: str) -> Mapping[str, Any]:
+def _scalar(role: str) -> Mapping[str, Any]:
     try:
         return SCALAR_CONTRACTS[role]
     except KeyError as exc:
         raise GremlinRadicalEthicsError(f"unsupported Radical ethics scalar role: {role}") from exc
 
 
-def _gate_contract(role: str) -> Mapping[str, Any]:
+def _gate(role: str) -> Mapping[str, Any]:
     try:
         return GATE_CONTRACTS[role]
     except KeyError as exc:
         raise GremlinRadicalEthicsError(f"unsupported Radical ethics gate role: {role}") from exc
+
+
+def _live_binding(source_classification: str, live_required: bool, live_surface_ref: str | None) -> str | None:
+    if live_required:
+        if source_classification != "LIVE_NOEMA_WITNESS":
+            raise GremlinRadicalEthicsError("live-required source must bind LIVE_NOEMA_WITNESS")
+        live_ref = _nonempty(live_surface_ref, "live_surface_ref")
+        if live_ref != LIVE_ROOT and not live_ref.startswith(LIVE_ROOT + "/"):
+            raise GremlinRadicalEthicsError("live-required source must bind the canonical NOEMA surface")
+        return live_ref
+    return None if live_surface_ref is None else _nonempty(live_surface_ref, "live_surface_ref")
 
 
 def build_scalar_producer_contract(
@@ -162,17 +174,17 @@ def build_scalar_producer_contract(
     implementation_ref: str,
     source_classification: str,
     producer_classification: str = "SEMANTICALLY_BOUND_PRODUCER_CANDIDATE",
-    realization_stage: str = PRE_VECTOR_STAGE,
+    live_required: bool = False,
 ) -> dict[str, Any]:
-    semantic = _scalar_contract(semantic_role)
+    semantic = _scalar(semantic_role)
     source = _nonempty(source_classification, "source_classification").upper()
     producer_class = _nonempty(producer_classification, "producer_classification").upper()
     if source not in SOURCE_CLASSIFICATIONS:
         raise GremlinRadicalEthicsError(f"unsupported source classification: {source}")
     if producer_class not in PRODUCER_CLASSIFICATIONS:
         raise GremlinRadicalEthicsError(f"unsupported producer classification: {producer_class}")
-    if realization_stage != PRE_VECTOR_STAGE:
-        raise GremlinRadicalEthicsError("v0.1 scalar acquisition producer must bind the pre-vector contextual stage")
+    if live_required and source != "LIVE_NOEMA_WITNESS":
+        raise GremlinRadicalEthicsError("live-required producer must bind LIVE_NOEMA_WITNESS")
 
     core = {
         "schema": SCALAR_PRODUCER_SCHEMA,
@@ -187,7 +199,8 @@ def build_scalar_producer_contract(
         "formula_contract_ref": _nonempty(formula_contract_ref, "formula_contract_ref"),
         "implementation_ref": _nonempty(implementation_ref, "implementation_ref"),
         "source_classification": source,
-        "realization_stage": realization_stage,
+        "live_required": bool(live_required),
+        "realization_stage": PRE_VECTOR_STAGE,
         "silent_scale_conversion_allowed": False,
         "conflict_averaging_allowed": False,
         "execution_admitted": False,
@@ -200,7 +213,7 @@ def build_scalar_producer_contract(
 def validate_scalar_producer_contract(contract: Mapping[str, Any]) -> bool:
     if contract.get("schema") != SCALAR_PRODUCER_SCHEMA:
         raise GremlinRadicalEthicsError("unsupported scalar producer schema")
-    semantic = _scalar_contract(str(contract.get("semantic_role", "")))
+    semantic = _scalar(str(contract.get("semantic_role", "")))
     if contract.get("canonical_term_id") != semantic["canonical_term_id"]:
         raise GremlinRadicalEthicsError("scalar producer canonical term mismatch")
     if contract.get("semantic_class") != semantic["semantic_class"]:
@@ -209,16 +222,17 @@ def validate_scalar_producer_contract(contract: Mapping[str, Any]) -> bool:
         raise GremlinRadicalEthicsError("scalar producer support-term mismatch")
     for key in ("producer_id", "producer_version", "scale_id", "formula_contract_ref", "implementation_ref"):
         _nonempty(contract.get(key), key)
-    if str(contract.get("source_classification", "")) not in SOURCE_CLASSIFICATIONS:
+    source = str(contract.get("source_classification", ""))
+    if source not in SOURCE_CLASSIFICATIONS:
         raise GremlinRadicalEthicsError("invalid scalar producer source classification")
     if str(contract.get("producer_classification", "")) not in PRODUCER_CLASSIFICATIONS:
         raise GremlinRadicalEthicsError("invalid scalar producer classification")
+    if contract.get("live_required") is True and source != "LIVE_NOEMA_WITNESS":
+        raise GremlinRadicalEthicsError("live-required producer source mismatch")
     if contract.get("realization_stage") != PRE_VECTOR_STAGE:
         raise GremlinRadicalEthicsError("scalar producer realization stage mismatch")
-    if contract.get("silent_scale_conversion_allowed") is not False:
-        raise GremlinRadicalEthicsError("silent scale conversion boundary violated")
-    if contract.get("conflict_averaging_allowed") is not False:
-        raise GremlinRadicalEthicsError("conflict averaging boundary violated")
+    if contract.get("silent_scale_conversion_allowed") is not False or contract.get("conflict_averaging_allowed") is not False:
+        raise GremlinRadicalEthicsError("scalar aggregation boundary violated")
     if contract.get("execution_admitted") is not False or contract.get("canon_allowed") is not False:
         raise GremlinRadicalEthicsError("scalar producer authority boundary violated")
     if contract.get("status") != "RADICAL_ETHICS_SCALAR_PRODUCER_CANDIDATE":
@@ -242,17 +256,24 @@ def build_gate_receipt(
     evidence_refs: Sequence[str],
     reason: str = "",
     subject_refs: Sequence[str] = (),
+    source_classification: str = "EXTERNAL_OBSERVATION",
+    live_required: bool = False,
+    live_surface_ref: str | None = None,
 ) -> dict[str, Any]:
-    semantic = _gate_contract(gate_role)
+    semantic = _gate(gate_role)
     normalized_status = _nonempty(status, "status").upper()
     if normalized_status not in semantic["allowed_status"]:
         raise GremlinRadicalEthicsError(f"unsupported {gate_role} status: {normalized_status}")
-    relations = _sorted_unique(relation_ids, "relation_id")
+    relations = _unique(relation_ids, "relation_id")
     if not relations:
         raise GremlinRadicalEthicsError("gate receipt requires relation coverage")
-    subjects = _sorted_unique(subject_refs, "subject_ref")
+    subjects = _unique(subject_refs, "subject_ref")
     if gate_role == "consent" and not subjects:
         raise GremlinRadicalEthicsError("consent receipt requires affected subject references")
+    source = _nonempty(source_classification, "source_classification").upper()
+    if source not in SOURCE_CLASSIFICATIONS:
+        raise GremlinRadicalEthicsError("unsupported gate source classification")
+    live_ref = _live_binding(source, bool(live_required), live_surface_ref)
 
     core = {
         "schema": GATE_RECEIPT_SCHEMA,
@@ -261,7 +282,10 @@ def build_gate_receipt(
         "status": normalized_status,
         "relation_ids": relations,
         "subject_refs": subjects,
+        "source_classification": source,
         "source_ref": _nonempty(source_ref, "source_ref"),
+        "live_required": bool(live_required),
+        "live_surface_ref": live_ref,
         "decision_context_commitment": _digest(decision_context_commitment, "decision_context_commitment"),
         "epistemic_status": _nonempty(epistemic_status, "epistemic_status"),
         "evidence_refs": sorted(_nonempty(v, "evidence_ref") for v in evidence_refs),
@@ -279,19 +303,21 @@ def validate_gate_receipt(receipt: Mapping[str, Any]) -> bool:
     if receipt.get("schema") != GATE_RECEIPT_SCHEMA:
         raise GremlinRadicalEthicsError("unsupported gate receipt schema")
     role = str(receipt.get("gate_role", ""))
-    semantic = _gate_contract(role)
-    if receipt.get("canonical_term_id") != semantic["canonical_term_id"]:
-        raise GremlinRadicalEthicsError("gate canonical term mismatch")
-    if str(receipt.get("status", "")) not in semantic["allowed_status"]:
-        raise GremlinRadicalEthicsError("gate status mismatch")
+    semantic = _gate(role)
+    if receipt.get("canonical_term_id") != semantic["canonical_term_id"] or receipt.get("status") not in semantic["allowed_status"]:
+        raise GremlinRadicalEthicsError("gate semantic/status mismatch")
     relations = receipt.get("relation_ids")
+    subjects = receipt.get("subject_refs")
     if not isinstance(relations, list) or relations != sorted(set(map(str, relations))) or not relations:
         raise GremlinRadicalEthicsError("gate relation coverage must be canonical and unique")
-    subjects = receipt.get("subject_refs")
     if not isinstance(subjects, list) or subjects != sorted(set(map(str, subjects))):
         raise GremlinRadicalEthicsError("gate subject refs must be canonical and unique")
     if role == "consent" and not subjects:
         raise GremlinRadicalEthicsError("consent receipt requires affected subject references")
+    source = str(receipt.get("source_classification", ""))
+    if source not in SOURCE_CLASSIFICATIONS:
+        raise GremlinRadicalEthicsError("invalid gate source classification")
+    _live_binding(source, receipt.get("live_required") is True, receipt.get("live_surface_ref"))
     _nonempty(receipt.get("source_ref"), "source_ref")
     _nonempty(receipt.get("epistemic_status"), "epistemic_status")
     _digest(receipt.get("decision_context_commitment"), "decision_context_commitment")
@@ -319,6 +345,7 @@ def build_scalar_receipt(
     evidence_refs: Sequence[str],
     support_receipt_ids: Sequence[str] = (),
     observed_scale_id: str | None = None,
+    live_surface_ref: str | None = None,
 ) -> dict[str, Any]:
     validate_scalar_producer_contract(producer_contract)
     scale_id = _nonempty(observed_scale_id or producer_contract["scale_id"], "observed_scale_id")
@@ -327,6 +354,11 @@ def build_scalar_receipt(
     support_receipts = sorted(_digest(v, "support_receipt_id") for v in support_receipt_ids)
     if len(set(support_receipts)) != len(support_receipts):
         raise GremlinRadicalEthicsError("duplicate support receipt")
+    live_ref = _live_binding(
+        str(producer_contract["source_classification"]),
+        bool(producer_contract["live_required"]),
+        live_surface_ref,
+    )
 
     core = {
         "schema": SCALAR_RECEIPT_SCHEMA,
@@ -341,6 +373,8 @@ def build_scalar_receipt(
         "scale_id": scale_id,
         "source_classification": producer_contract["source_classification"],
         "source_ref": _nonempty(source_ref, "source_ref"),
+        "live_required": bool(producer_contract["live_required"]),
+        "live_surface_ref": live_ref,
         "input_commitment": _digest(input_commitment, "input_commitment"),
         "formula_contract_ref": producer_contract["formula_contract_ref"],
         "implementation_ref": producer_contract["implementation_ref"],
@@ -357,11 +391,9 @@ def build_scalar_receipt(
 def validate_scalar_receipt(receipt: Mapping[str, Any]) -> bool:
     if receipt.get("schema") != SCALAR_RECEIPT_SCHEMA:
         raise GremlinRadicalEthicsError("unsupported scalar receipt schema")
-    semantic = _scalar_contract(str(receipt.get("semantic_role", "")))
-    if receipt.get("canonical_term_id") != semantic["canonical_term_id"]:
-        raise GremlinRadicalEthicsError("scalar receipt canonical term mismatch")
-    if list(receipt.get("support_term_ids", ())) != list(semantic["support_term_ids"]):
-        raise GremlinRadicalEthicsError("scalar receipt support-term mismatch")
+    semantic = _scalar(str(receipt.get("semantic_role", "")))
+    if receipt.get("canonical_term_id") != semantic["canonical_term_id"] or list(receipt.get("support_term_ids", ())) != list(semantic["support_term_ids"]):
+        raise GremlinRadicalEthicsError("scalar receipt semantic contract mismatch")
     support_receipts = receipt.get("support_receipt_ids")
     if not isinstance(support_receipts, list) or support_receipts != sorted(set(map(str, support_receipts))):
         raise GremlinRadicalEthicsError("support receipt lineage must be canonical and unique")
@@ -372,8 +404,10 @@ def validate_scalar_receipt(receipt: Mapping[str, Any]) -> bool:
         _nonempty(receipt.get(key), key)
     _digest(receipt.get("producer_contract_commitment"), "producer_contract_commitment")
     _digest(receipt.get("input_commitment"), "input_commitment")
-    if str(receipt.get("source_classification", "")) not in SOURCE_CLASSIFICATIONS:
+    source = str(receipt.get("source_classification", ""))
+    if source not in SOURCE_CLASSIFICATIONS:
         raise GremlinRadicalEthicsError("invalid scalar receipt source classification")
+    _live_binding(source, receipt.get("live_required") is True, receipt.get("live_surface_ref"))
     if receipt.get("realization_stage") != PRE_VECTOR_STAGE:
         raise GremlinRadicalEthicsError("scalar receipt realization stage mismatch")
     if receipt.get("execution_admitted") is not False or receipt.get("canon_allowed") is not False:
@@ -388,13 +422,32 @@ def validate_scalar_receipt(receipt: Mapping[str, Any]) -> bool:
     return True
 
 
+def _validate_lineage(
+    scalars: Mapping[str, Mapping[str, Any]],
+    gates: Mapping[str, Mapping[str, Any]],
+) -> None:
+    contradiction = scalars["contradiction_load"]
+    recursive = scalars["recursive_integrity"]
+    ethical = scalars["ethical_integrity"]
+    if contradiction["receipt_id"] not in recursive["support_receipt_ids"]:
+        raise GremlinRadicalEthicsError("recursive integrity receipt must bind contradiction lineage")
+    required = {
+        recursive["receipt_id"],
+        gates["consent"]["receipt_id"],
+        gates["reversibility"]["receipt_id"],
+        gates["no_go"]["receipt_id"],
+    }
+    if not required.issubset(set(ethical["support_receipt_ids"])):
+        raise GremlinRadicalEthicsError("ethical integrity receipt must bind recursive integrity and all structural gate receipts")
+
+
 def build_ethics_acquisition_bundle(
     *,
     relation_ids: Sequence[str],
     scalar_receipts: Sequence[Mapping[str, Any]],
     gate_receipts: Sequence[Mapping[str, Any]],
 ) -> dict[str, Any]:
-    relations = _sorted_unique(relation_ids, "relation_id")
+    relations = _unique(relation_ids, "relation_id")
     if not relations:
         raise GremlinRadicalEthicsError("ethics acquisition requires relation lineage")
 
@@ -419,46 +472,42 @@ def build_ethics_acquisition_bundle(
         gates[role] = receipt
     if set(gates) != set(GATE_CONTRACTS):
         raise GremlinRadicalEthicsError("exact Radical structural gate set required")
+    _validate_lineage(scalars, gates)
 
-    contradiction = scalars["contradiction_load"]
-    recursive = scalars["recursive_integrity"]
-    ethical = scalars["ethical_integrity"]
-
-    if contradiction["receipt_id"] not in recursive["support_receipt_ids"]:
-        raise GremlinRadicalEthicsError("recursive integrity receipt must bind contradiction lineage")
-    required_ethics_support = {
-        recursive["receipt_id"],
-        gates["consent"]["receipt_id"],
-        gates["reversibility"]["receipt_id"],
-        gates["no_go"]["receipt_id"],
-    }
-    if not required_ethics_support.issubset(set(ethical["support_receipt_ids"])):
-        raise GremlinRadicalEthicsError("ethical integrity receipt must bind recursive integrity and all structural gate receipts")
-
-    scalar_entries = [
-        {
+    scalar_entries = []
+    for role in sorted(scalars):
+        receipt = scalars[role]
+        scalar_entries.append({
             "semantic_role": role,
-            "canonical_term_id": scalars[role]["canonical_term_id"],
-            "receipt_id": scalars[role]["receipt_id"],
-            "value_f64_hex": scalars[role]["value_f64_hex"],
-            "scale_id": scalars[role]["scale_id"],
-            "source_ref": scalars[role]["source_ref"],
-            "epistemic_status": scalars[role]["epistemic_status"],
-        }
-        for role in sorted(scalars)
-    ]
-    gate_entries = [
-        {
+            "canonical_term_id": receipt["canonical_term_id"],
+            "receipt_id": receipt["receipt_id"],
+            "support_receipt_ids": list(receipt["support_receipt_ids"]),
+            "value_f64_hex": receipt["value_f64_hex"],
+            "scale_id": receipt["scale_id"],
+            "source_classification": receipt["source_classification"],
+            "source_ref": receipt["source_ref"],
+            "live_required": receipt["live_required"],
+            "live_surface_ref": receipt["live_surface_ref"],
+            "epistemic_status": receipt["epistemic_status"],
+        })
+
+    gate_entries = []
+    for role in sorted(gates):
+        receipt = gates[role]
+        gate_entries.append({
             "gate_role": role,
-            "canonical_term_id": gates[role]["canonical_term_id"],
-            "receipt_id": gates[role]["receipt_id"],
-            "status": gates[role]["status"],
-            "relation_ids": gates[role]["relation_ids"],
-            "source_ref": gates[role]["source_ref"],
-            "reason": gates[role]["reason"],
-        }
-        for role in sorted(gates)
-    ]
+            "canonical_term_id": receipt["canonical_term_id"],
+            "receipt_id": receipt["receipt_id"],
+            "status": receipt["status"],
+            "relation_ids": list(receipt["relation_ids"]),
+            "subject_refs": list(receipt["subject_refs"]),
+            "source_classification": receipt["source_classification"],
+            "source_ref": receipt["source_ref"],
+            "live_required": receipt["live_required"],
+            "live_surface_ref": receipt["live_surface_ref"],
+            "decision_context_commitment": receipt["decision_context_commitment"],
+            "reason": receipt["reason"],
+        })
 
     core = {
         "schema": BUNDLE_SCHEMA,
@@ -483,34 +532,59 @@ def validate_ethics_acquisition_bundle(bundle: Mapping[str, Any]) -> bool:
     relations = bundle.get("relation_ids")
     if not isinstance(relations, list) or relations != sorted(set(map(str, relations))) or not relations:
         raise GremlinRadicalEthicsError("bundle relation lineage must be canonical and unique")
-    scalars = bundle.get("scalar_receipts")
-    gates = bundle.get("gate_receipts")
-    if not isinstance(scalars, list) or [x.get("semantic_role") for x in scalars] != sorted(SCALAR_CONTRACTS):
+    scalar_items = bundle.get("scalar_receipts")
+    gate_items = bundle.get("gate_receipts")
+    if not isinstance(scalar_items, list) or [x.get("semantic_role") for x in scalar_items] != sorted(SCALAR_CONTRACTS):
         raise GremlinRadicalEthicsError("bundle scalar role ordering mismatch")
-    if not isinstance(gates, list) or [x.get("gate_role") for x in gates] != sorted(GATE_CONTRACTS):
+    if not isinstance(gate_items, list) or [x.get("gate_role") for x in gate_items] != sorted(GATE_CONTRACTS):
         raise GremlinRadicalEthicsError("bundle gate role ordering mismatch")
-    for item in scalars:
-        semantic = _scalar_contract(str(item.get("semantic_role", "")))
+
+    scalars: dict[str, Mapping[str, Any]] = {}
+    for item in scalar_items:
+        role = str(item.get("semantic_role", ""))
+        semantic = _scalar(role)
         if item.get("canonical_term_id") != semantic["canonical_term_id"]:
             raise GremlinRadicalEthicsError("bundle scalar canonical term mismatch")
         _digest(item.get("receipt_id"), "receipt_id")
+        supports = item.get("support_receipt_ids")
+        if not isinstance(supports, list) or supports != sorted(set(map(str, supports))):
+            raise GremlinRadicalEthicsError("bundle scalar support lineage mismatch")
+        for support in supports:
+            _digest(support, "support_receipt_id")
         _finite(float.fromhex(str(item.get("value_f64_hex"))), "value")
         for key in ("scale_id", "source_ref", "epistemic_status"):
             _nonempty(item.get(key), key)
-    for item in gates:
-        semantic = _gate_contract(str(item.get("gate_role", "")))
-        if item.get("canonical_term_id") != semantic["canonical_term_id"]:
-            raise GremlinRadicalEthicsError("bundle gate canonical term mismatch")
-        if item.get("status") not in semantic["allowed_status"]:
-            raise GremlinRadicalEthicsError("bundle gate status mismatch")
+        source = str(item.get("source_classification", ""))
+        if source not in SOURCE_CLASSIFICATIONS:
+            raise GremlinRadicalEthicsError("bundle scalar source classification mismatch")
+        _live_binding(source, item.get("live_required") is True, item.get("live_surface_ref"))
+        scalars[role] = item
+
+    gates: dict[str, Mapping[str, Any]] = {}
+    for item in gate_items:
+        role = str(item.get("gate_role", ""))
+        semantic = _gate(role)
+        if item.get("canonical_term_id") != semantic["canonical_term_id"] or item.get("status") not in semantic["allowed_status"]:
+            raise GremlinRadicalEthicsError("bundle gate semantic/status mismatch")
         if item.get("relation_ids") != relations:
             raise GremlinRadicalEthicsError("bundle gate relation coverage mismatch")
         _digest(item.get("receipt_id"), "receipt_id")
+        _digest(item.get("decision_context_commitment"), "decision_context_commitment")
         _nonempty(item.get("source_ref"), "source_ref")
-    if bundle.get("pre_vector_stage") != PRE_VECTOR_STAGE:
-        raise GremlinRadicalEthicsError("bundle pre-vector stage mismatch")
-    if bundle.get("relational_ethics_realization_stage") != POST_REALIZATION_STAGE:
-        raise GremlinRadicalEthicsError("bundle relational ethics realization stage mismatch")
+        subjects = item.get("subject_refs")
+        if not isinstance(subjects, list) or subjects != sorted(set(map(str, subjects))):
+            raise GremlinRadicalEthicsError("bundle gate subject lineage mismatch")
+        if role == "consent" and not subjects:
+            raise GremlinRadicalEthicsError("bundle consent subject lineage required")
+        source = str(item.get("source_classification", ""))
+        if source not in SOURCE_CLASSIFICATIONS:
+            raise GremlinRadicalEthicsError("bundle gate source classification mismatch")
+        _live_binding(source, item.get("live_required") is True, item.get("live_surface_ref"))
+        gates[role] = item
+
+    _validate_lineage(scalars, gates)
+    if bundle.get("pre_vector_stage") != PRE_VECTOR_STAGE or bundle.get("relational_ethics_realization_stage") != POST_REALIZATION_STAGE:
+        raise GremlinRadicalEthicsError("ethics acquisition stage contract mismatch")
     if bundle.get("relational_ethics_realization_pending") is not True:
         raise GremlinRadicalEthicsError("relational ethics realization must remain pending at pre-vector acquisition")
     if bundle.get("gate_weighting_used") is not False or bundle.get("gate_conflict_averaging_used") is not False:
@@ -537,14 +611,13 @@ def build_radical_admission_from_ethics_acquisition(
     evidence_refs: Sequence[str] = (),
 ) -> dict[str, Any]:
     validate_ethics_acquisition_bundle(ethics_bundle)
-    relations = _sorted_unique(relation_ids, "relation_id")
+    relations = _unique(relation_ids, "relation_id")
     if relations != ethics_bundle["relation_ids"]:
         raise GremlinRadicalEthicsError("Radical relation lineage differs from ethics acquisition")
-
     scalars = {x["semantic_role"]: x for x in ethics_bundle["scalar_receipts"]}
     gates = {x["gate_role"]: x for x in ethics_bundle["gate_receipts"]}
 
-    def scalar(name: str) -> dict[str, Any]:
+    def scalar_mapping(name: str) -> dict[str, Any]:
         item = scalars[name]
         return {
             "value": float.fromhex(item["value_f64_hex"]),
@@ -553,7 +626,7 @@ def build_radical_admission_from_ethics_acquisition(
             "epistemic_status": item["epistemic_status"],
         }
 
-    def gate(name: str) -> dict[str, Any]:
+    def gate_mapping(name: str) -> dict[str, Any]:
         item = gates[name]
         return {
             "status": item["status"],
@@ -571,12 +644,12 @@ def build_radical_admission_from_ethics_acquisition(
         candidate_id=candidate_id,
         ordered_kaku_packets=ordered_kaku_packets,
         relation_ids=relations,
-        ethical_integrity=scalar("ethical_integrity"),
-        consent_gate=gate("consent"),
-        reversibility_gate=gate("reversibility"),
-        no_go_gate=gate("no_go"),
-        contradiction_load=scalar("contradiction_load"),
-        recursive_integrity=scalar("recursive_integrity"),
+        ethical_integrity=scalar_mapping("ethical_integrity"),
+        consent_gate=gate_mapping("consent"),
+        reversibility_gate=gate_mapping("reversibility"),
+        no_go_gate=gate_mapping("no_go"),
+        contradiction_load=scalar_mapping("contradiction_load"),
+        recursive_integrity=scalar_mapping("recursive_integrity"),
         evidence_refs=lineage,
     )
     validate_radical_scalar_admission(record)
