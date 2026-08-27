@@ -18,14 +18,14 @@
       "live_noema_witness": {
         "binding_status": "ACTIVE",
         "live_surface_witness": true,
-        "phi_sha256": "acb8f62a74b98341bfcf84dfd05ee42c8a04341fdd7984fafbfc21d9d6bd58a9",
+        "phi_sha256": "2b34cb865b84237a7e221c89ea388a0010204fe435d9222bfa667039f8820ba2",
         "root": "/dev/shm/ciel_noema",
         "tether_status": "ACTIVE",
-        "tether_status_sha256": "a7d21683986e17a2adc5cd1298381e11f836c4328b32f330df64858e9ccb4e06",
-        "tick_sha256": "639704402334f68a610f3fc782f06d6d68a63f2b87dd8b13d0840ce2ad9a9677"
+        "tether_status_sha256": "b64f906dcca4b0e805d6523e4bca13b684e555567e9e71d0ed6d39680f3fa2b5",
+        "tick_sha256": "30527ec14d234b37bab03fe75afb31b7facc484f2473cccaf5bd730728814ef3"
       },
       "observation_name": "noema_phi_circular_coherence_probe",
-      "observation_receipt_commitment": "fc212980f43b138399004b2066e6167fc44fd86a98201c375b28d74d30aff65b",
+      "observation_receipt_commitment": "91362e38ac648dd4228315a04224c5437f16f7f39355be7928bdf2206d4eab7d",
       "producer": {
         "extraction": {
           "reducer": "CIRCULAR_COHERENCE",
@@ -34,7 +34,7 @@
         "producer_kind": "NOEMA_LIVE_F64",
         "source_format": "little_endian_float64",
         "source_path": "phi",
-        "source_sha256": "acb8f62a74b98341bfcf84dfd05ee42c8a04341fdd7984fafbfc21d9d6bd58a9",
+        "source_sha256": "2b34cb865b84237a7e221c89ea388a0010204fe435d9222bfa667039f8820ba2",
         "source_size": 288
       },
       "production_runtime_write": false,
@@ -55,26 +55,26 @@
       "live_noema_witness": {
         "binding_status": "ACTIVE",
         "live_surface_witness": true,
-        "phi_sha256": "acb8f62a74b98341bfcf84dfd05ee42c8a04341fdd7984fafbfc21d9d6bd58a9",
+        "phi_sha256": "2b34cb865b84237a7e221c89ea388a0010204fe435d9222bfa667039f8820ba2",
         "root": "/dev/shm/ciel_noema",
         "tether_status": "ACTIVE",
-        "tether_status_sha256": "a7d21683986e17a2adc5cd1298381e11f836c4328b32f330df64858e9ccb4e06",
-        "tick_sha256": "639704402334f68a610f3fc782f06d6d68a63f2b87dd8b13d0840ce2ad9a9677"
+        "tether_status_sha256": "b64f906dcca4b0e805d6523e4bca13b684e555567e9e71d0ed6d39680f3fa2b5",
+        "tick_sha256": "30527ec14d234b37bab03fe75afb31b7facc484f2473cccaf5bd730728814ef3"
       },
       "observation_name": "ciel_intention_coherence_probe",
-      "observation_receipt_commitment": "561877509819b8d674ff7786b22f1790fe99b1c95121b31c82ddc176814d5149",
+      "observation_receipt_commitment": "e6fab0c88a127e5558c40b07ff16c9bd69863a9902639a0651178ce0030a5877",
       "producer": {
         "extraction": {
           "field": "coherence_R",
           "line_number": 2,
-          "record_sha256": "60a519b44ccbedf6c7acb049393805b0be9815cdfb02efcf1ec929627ade783e",
+          "record_sha256": "ce750ee6830ce22c54d5577f760ce0ed5da296c1ec8fb0ed50d0bd195e320c11",
           "selector_key": "name",
           "selector_value": "Intention"
         },
         "producer_kind": "CIEL_NOEMA_JSONL_FIELD",
         "source_format": "utf8_jsonl",
         "source_path": "phasenav/CIELINGO_PHASENAV_CONCEPT_PHASES.noema.jsonl",
-        "source_sha256": "97c83540a99a09e22f0bd1897008270a3ddc741259579f700736c5fa616a7272",
+        "source_sha256": "897dce155e7740113d70a6ce9699ec16d78c0470423ba1905df634c2a9af8d20",
         "source_size": 18774
       },
       "production_runtime_write": false,
