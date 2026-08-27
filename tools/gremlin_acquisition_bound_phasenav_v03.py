@@ -70,13 +70,13 @@ def compile_acquisition_bound_phasenav_ir_v03(
     scalar_admitted_ir = compile_scalar_admitted_phasenav_ir_v02(candidate, legacy_radical)
     validate_scalar_admitted_phasenav_ir_v02(scalar_admitted_ir)
 
-    lineage = _acquisition_lineage(acquired_radical)
     core = {
         "schema": SCHEMA,
         "candidate_id": str(scalar_admitted_ir["candidate_id"]),
         "radical_id": str(scalar_admitted_ir["radical_id"]),
         "radical_scalar_commitment": str(scalar_admitted_ir["radical_scalar_commitment"]),
-        "acquisition_lineage": lineage,
+        "acquired_radical_v02": dict(acquired_radical),
+        "acquisition_lineage": _acquisition_lineage(acquired_radical),
         "scalar_admitted_phasenav_ir_v02": scalar_admitted_ir,
         "realization_stage": "ACQUISITION_BOUND_PHASENAV_IR_AFTER_PRE_VECTOR_ADMISSION",
         "post_realization_complete": False,
@@ -95,9 +95,18 @@ def validate_acquisition_bound_phasenav_ir_v03(record: Mapping[str, Any]) -> boo
         raise GremlinAcquisitionBoundCompileError("candidate and Radical identity required")
     _hash64(record.get("radical_scalar_commitment"), "radical_scalar_commitment")
 
+    acquired = record.get("acquired_radical_v02")
+    if not isinstance(acquired, Mapping):
+        raise GremlinAcquisitionBoundCompileError("acquired Radical envelope required")
+    validate_acquired_radical_scalar_admission(acquired)
+    if acquired.get("status") != "ACQUIRED_PRE_VECTOR_ADMITTED":
+        raise GremlinAcquisitionBoundCompileError("acquired Radical envelope is not admitted")
+
     lineage = record.get("acquisition_lineage")
     if not isinstance(lineage, Mapping):
         raise GremlinAcquisitionBoundCompileError("acquisition lineage required")
+    if lineage != _acquisition_lineage(acquired):
+        raise GremlinAcquisitionBoundCompileError("acquisition lineage differs from acquired Radical envelope")
     _hash64(lineage.get("acquired_radical_commitment"), "acquired_radical_commitment")
 
     radical_observations = lineage.get("radical_observations")
@@ -138,6 +147,14 @@ def validate_acquisition_bound_phasenav_ir_v03(record: Mapping[str, Any]) -> boo
         raise GremlinAcquisitionBoundCompileError("Radical lineage mismatch")
     if str(base.get("radical_scalar_commitment")) != str(record.get("radical_scalar_commitment")):
         raise GremlinAcquisitionBoundCompileError("Radical scalar commitment mismatch")
+
+    legacy_radical = acquired["radical_admission_v01"]
+    if str(legacy_radical.get("radical_id")) != str(record.get("radical_id")):
+        raise GremlinAcquisitionBoundCompileError("acquired Radical identity mismatch")
+    if str(legacy_radical.get("candidate_id")) != str(record.get("candidate_id")):
+        raise GremlinAcquisitionBoundCompileError("acquired candidate identity mismatch")
+    if str(legacy_radical.get("radical_scalar_commitment")) != str(record.get("radical_scalar_commitment")):
+        raise GremlinAcquisitionBoundCompileError("acquired Radical scalar commitment mismatch")
 
     if record.get("realization_stage") != "ACQUISITION_BOUND_PHASENAV_IR_AFTER_PRE_VECTOR_ADMISSION":
         raise GremlinAcquisitionBoundCompileError("wrong acquisition-bound realization stage")
