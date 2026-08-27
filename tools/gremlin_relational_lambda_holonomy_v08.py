@@ -63,10 +63,6 @@ def _hash64(value: Any, name: str) -> str:
     return text
 
 
-def _f64_hex(value: Any, name: str) -> str:
-    return _finite(value, name).hex()
-
-
 def _from_hex(value: Any, name: str) -> float:
     try:
         x = float.fromhex(str(value))
@@ -103,11 +99,11 @@ def build_relational_lambda_field_v08(
         "source_ref": _nonempty(source_ref, "source_ref"),
         "source_commitment": _hash64(source_commitment, "source_commitment"),
         "epistemic_status": _nonempty(epistemic_status, "epistemic_status"),
-        "geometry_derived": False,
-        "holonomy_derived": False,
-        "quantum_entanglement_claimed": False,
-        "execution_admitted": False,
-        "canon_allowed": False,
+        "geometry_derivation_status": "OPEN",
+        "holonomy_derivation_status": "OPEN",
+        "entanglement_status": "OPEN_REQUIRES_QUANTUM_WITNESS",
+        "execution_status": "RESEARCH_BINDING_ONLY",
+        "canon_status": "CANDIDATE",
         "status": "RELATIONAL_LAMBDA_FIELD_BOUND",
     }
     return {**core, "relational_lambda_field_commitment": _seal(RELATIONAL_LAMBDA_FIELD_DOMAIN, core)}
@@ -122,11 +118,17 @@ def validate_relational_lambda_field_v08(field: Mapping[str, Any]) -> bool:
     _hash64(field.get("source_commitment"), "source_commitment")
     if field.get("field_units") != "m^-2" or field.get("field_semantics") != "RELATIONAL_SCALAR_FIELD_CANDIDATE":
         raise RelationalLambdaHolonomyError("relational Lambda field unit/semantic contract mismatch")
-    for key in ("geometry_derived", "holonomy_derived", "quantum_entanglement_claimed", "execution_admitted", "canon_allowed"):
-        if field.get(key) is not False:
-            raise RelationalLambdaHolonomyError(f"relational Lambda field boundary violated: {key}")
-    if field.get("status") != "RELATIONAL_LAMBDA_FIELD_BOUND":
-        raise RelationalLambdaHolonomyError("wrong relational Lambda field status")
+    expected = {
+        "geometry_derivation_status": "OPEN",
+        "holonomy_derivation_status": "OPEN",
+        "entanglement_status": "OPEN_REQUIRES_QUANTUM_WITNESS",
+        "execution_status": "RESEARCH_BINDING_ONLY",
+        "canon_status": "CANDIDATE",
+        "status": "RELATIONAL_LAMBDA_FIELD_BOUND",
+    }
+    for key, value in expected.items():
+        if field.get(key) != value:
+            raise RelationalLambdaHolonomyError(f"relational Lambda field status mismatch: {key}")
     supplied = _hash64(field.get("relational_lambda_field_commitment"), "relational_lambda_field_commitment")
     core = dict(field)
     core.pop("relational_lambda_field_commitment", None)
@@ -157,11 +159,10 @@ def build_relational_lambda_energy_v08(
         "effective_source_energy_j_f64_hex": energy.hex(),
         "energy_density_law": "u_R = Lambda_R*c^4/(8*pi*G)",
         "energy_convention_id": _nonempty(energy_convention_id, "energy_convention_id"),
-        "gradient_energy_included": False,
-        "kinetic_energy_included": False,
-        "geometry_adapter_required": True,
-        "execution_admitted": False,
-        "canon_allowed": False,
+        "dynamic_scalar_energy_terms_status": "OPEN",
+        "geometry_adapter_status": "REQUIRED",
+        "execution_status": "RESEARCH_BINDING_ONLY",
+        "canon_status": "CANDIDATE",
         "status": "RELATIONAL_LAMBDA_EFFECTIVE_SOURCE_ENERGY_BOUND",
     }
     return {**core, "relational_lambda_energy_commitment": _seal(RELATIONAL_LAMBDA_ENERGY_DOMAIN, core)}
@@ -183,16 +184,16 @@ def validate_relational_lambda_energy_v08(energy: Mapping[str, Any]) -> bool:
         raise RelationalLambdaHolonomyError("relational Lambda effective-source energy mismatch")
     if energy.get("energy_density_law") != "u_R = Lambda_R*c^4/(8*pi*G)":
         raise RelationalLambdaHolonomyError("relational Lambda energy law mismatch")
-    for key in ("gradient_energy_included", "kinetic_energy_included"):
-        if energy.get(key) is not False:
-            raise RelationalLambdaHolonomyError(f"unexpected dynamic scalar-field energy flag: {key}")
-    if energy.get("geometry_adapter_required") is not True:
-        raise RelationalLambdaHolonomyError("geometry adapter requirement missing")
-    for key in ("execution_admitted", "canon_allowed"):
-        if energy.get(key) is not False:
-            raise RelationalLambdaHolonomyError(f"relational Lambda energy boundary violated: {key}")
-    if energy.get("status") != "RELATIONAL_LAMBDA_EFFECTIVE_SOURCE_ENERGY_BOUND":
-        raise RelationalLambdaHolonomyError("wrong relational Lambda energy status")
+    expected = {
+        "dynamic_scalar_energy_terms_status": "OPEN",
+        "geometry_adapter_status": "REQUIRED",
+        "execution_status": "RESEARCH_BINDING_ONLY",
+        "canon_status": "CANDIDATE",
+        "status": "RELATIONAL_LAMBDA_EFFECTIVE_SOURCE_ENERGY_BOUND",
+    }
+    for key, value in expected.items():
+        if energy.get(key) != value:
+            raise RelationalLambdaHolonomyError(f"relational Lambda energy status mismatch: {key}")
     supplied = _hash64(energy.get("relational_lambda_energy_commitment"), "relational_lambda_energy_commitment")
     core = dict(energy)
     core.pop("relational_lambda_energy_commitment", None)
@@ -229,11 +230,11 @@ def build_relational_geometry_holonomy_v08(
         "connection_semantics": "INTERNAL_ROTATION_GEOMETRY_CANDIDATE",
         "source_ref": _nonempty(source_ref, "source_ref"),
         "epistemic_status": _nonempty(epistemic_status, "epistemic_status"),
-        "geometry_is_upstream_witness": True,
-        "scalar_field_alone_determines_connection": False,
-        "quantum_entanglement_claimed": False,
-        "execution_admitted": False,
-        "canon_allowed": False,
+        "geometry_provenance": "UPSTREAM_ADAPTER_WITNESS",
+        "connection_derivation_contract": "EXPLICIT_GEOMETRY_ADAPTER_REQUIRED",
+        "entanglement_status": "OPEN_REQUIRES_QUANTUM_WITNESS",
+        "execution_status": "RESEARCH_BINDING_ONLY",
+        "canon_status": "CANDIDATE",
         "status": "RELATIONAL_GEOMETRY_HOLONOMY_BOUND",
     }
     return {**core, "relational_geometry_holonomy_commitment": _seal(RELATIONAL_GEOMETRY_HOLONOMY_DOMAIN, core)}
@@ -254,15 +255,17 @@ def validate_relational_geometry_holonomy_v08(geometry: Mapping[str, Any]) -> bo
         raise RelationalLambdaHolonomyError("holonomy projection mismatch")
     if geometry.get("connection_semantics") != "INTERNAL_ROTATION_GEOMETRY_CANDIDATE":
         raise RelationalLambdaHolonomyError("connection semantic binding mismatch")
-    if geometry.get("geometry_is_upstream_witness") is not True:
-        raise RelationalLambdaHolonomyError("geometry witness boundary missing")
-    if geometry.get("scalar_field_alone_determines_connection") is not False:
-        raise RelationalLambdaHolonomyError("connection requires an explicit geometry adapter")
-    for key in ("quantum_entanglement_claimed", "execution_admitted", "canon_allowed"):
-        if geometry.get(key) is not False:
-            raise RelationalLambdaHolonomyError(f"relational geometry boundary violated: {key}")
-    if geometry.get("status") != "RELATIONAL_GEOMETRY_HOLONOMY_BOUND":
-        raise RelationalLambdaHolonomyError("wrong relational geometry holonomy status")
+    expected = {
+        "geometry_provenance": "UPSTREAM_ADAPTER_WITNESS",
+        "connection_derivation_contract": "EXPLICIT_GEOMETRY_ADAPTER_REQUIRED",
+        "entanglement_status": "OPEN_REQUIRES_QUANTUM_WITNESS",
+        "execution_status": "RESEARCH_BINDING_ONLY",
+        "canon_status": "CANDIDATE",
+        "status": "RELATIONAL_GEOMETRY_HOLONOMY_BOUND",
+    }
+    for key, value in expected.items():
+        if geometry.get(key) != value:
+            raise RelationalLambdaHolonomyError(f"relational geometry status mismatch: {key}")
     supplied = _hash64(geometry.get("relational_geometry_holonomy_commitment"), "relational_geometry_holonomy_commitment")
     core = dict(geometry)
     core.pop("relational_geometry_holonomy_commitment", None)
@@ -312,12 +315,12 @@ def build_qhtri_holonomy_lag_v08(
         "phase_lock_C_f64_hex": phase_lock.hex(),
         "phase_lock_law": "C=cos^2(epsilon/2)",
         "tau_origin": "U1_PROJECTED_GEOMETRIC_HOLONOMY",
-        "coupling_energy_scale_bound": False,
-        "entanglement_witness_bound": False,
-        "quantum_entanglement_claimed": False,
-        "vector_synthesis_allowed": False,
-        "execution_admitted": False,
-        "canon_allowed": False,
+        "coupling_energy_scale_status": "OPEN",
+        "entanglement_witness_status": "OPEN",
+        "entanglement_status": "OPEN_REQUIRES_QUANTUM_WITNESS",
+        "vector_synthesis_status": "HELD_FOR_PREVECTOR_ADMISSION",
+        "execution_status": "RESEARCH_BINDING_ONLY",
+        "canon_status": "CANDIDATE",
         "status": "QHTRI_HOLONOMY_LAG_BOUND",
     }
     return {**core, "qhtri_holonomy_lag_commitment": _seal(QHTRI_HOLONOMY_LAG_DOMAIN, core)}
@@ -353,18 +356,18 @@ def validate_qhtri_holonomy_lag_v08(binding: Mapping[str, Any]) -> bool:
         raise RelationalLambdaHolonomyError("QHTRI epsilon law mismatch")
     if binding.get("phase_lock_law") != "C=cos^2(epsilon/2)" or binding.get("tau_origin") != "U1_PROJECTED_GEOMETRIC_HOLONOMY":
         raise RelationalLambdaHolonomyError("QHTRI holonomy provenance mismatch")
-    for key in (
-        "coupling_energy_scale_bound",
-        "entanglement_witness_bound",
-        "quantum_entanglement_claimed",
-        "vector_synthesis_allowed",
-        "execution_admitted",
-        "canon_allowed",
-    ):
-        if binding.get(key) is not False:
-            raise RelationalLambdaHolonomyError(f"QHTRI holonomy-lag boundary violated: {key}")
-    if binding.get("status") != "QHTRI_HOLONOMY_LAG_BOUND":
-        raise RelationalLambdaHolonomyError("wrong QHTRI holonomy-lag status")
+    expected = {
+        "coupling_energy_scale_status": "OPEN",
+        "entanglement_witness_status": "OPEN",
+        "entanglement_status": "OPEN_REQUIRES_QUANTUM_WITNESS",
+        "vector_synthesis_status": "HELD_FOR_PREVECTOR_ADMISSION",
+        "execution_status": "RESEARCH_BINDING_ONLY",
+        "canon_status": "CANDIDATE",
+        "status": "QHTRI_HOLONOMY_LAG_BOUND",
+    }
+    for key, value in expected.items():
+        if binding.get(key) != value:
+            raise RelationalLambdaHolonomyError(f"QHTRI holonomy-lag status mismatch: {key}")
     supplied = _hash64(binding.get("qhtri_holonomy_lag_commitment"), "qhtri_holonomy_lag_commitment")
     core = dict(binding)
     core.pop("qhtri_holonomy_lag_commitment", None)
