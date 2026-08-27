@@ -1,0 +1,51 @@
+{
+  "schema": "GREMLIN_QHTRI_TORUS_CHARACTER_LIVE_NOEMA_WITNESS_V0_2",
+  "status": "LIVE_NOEMA_WITNESS_GREMLIN_METHOD_BOUNDARY",
+  "epistemic": "CHYBA",
+  "canon_allowed": false,
+  "execution_authority": false,
+  "tether_status": "ACTIVE",
+  "guard_failures": [],
+  "root": "/dev/shm/ciel_noema",
+  "live_phi_dim": 36,
+  "live_phi_format": "little_endian_float64",
+  "live_phi_sha256": "ad875de9ea5cec77be4d4a7abc0002f2cead625d90ffc8b235f1475922e9d8db",
+  "seed_from_live_phi_sha256_prefix_u64": 18355506907894042921,
+  "samples": 20000,
+  "live_gremlin_subsurface_claim": false,
+  "note": "Live NOEMA 36D witness; GREMLIN bounded candidate/audit method. No claim of a separate live GREMLIN producer stream.",
+  "live_point": {
+    "i": 0,
+    "j": 1,
+    "m": 3,
+    "n": 2,
+    "tau": 0.37,
+    "g": 1.25,
+    "direct": -1.0954969800874366,
+    "character": -1.0954969800874366,
+    "abs_error": 0.0
+  },
+  "max_abs_error": {
+    "torsion_potential": 0.0,
+    "anchor_potential": 1.0436096431476471e-14,
+    "character_homomorphism": 5.3752024171836836e-15,
+    "coherence_character": 1.887379141862766e-15,
+    "orientation_gauge": 0.0,
+    "gain_sign_gauge": 1.1018963519404679e-14,
+    "tau_period_gauge": 2.3175905639050143e-14
+  },
+  "verdict": {
+    "anchor_and_torsion_share_character_term_kernel": true,
+    "character_multiplication_homomorphism_numeric": true,
+    "coherence_is_shifted_character_real_part": true,
+    "orientation_gauge_exact_numeric": true,
+    "gain_sign_gauge_exact_numeric": true,
+    "tau_periodicity_exact_numeric": true
+  },
+  "belzebub": {
+    "gcd_normalization_rejected": true,
+    "gcd_counterexample_abs_potential_delta": 2.0,
+    "sum_of_terms_to_single_character_rejected": true,
+    "sum_single_counterexample_abs_delta": 1.0
+  }
+}
