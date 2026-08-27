@@ -1,0 +1,35 @@
+name: GREMLIN Visual Client v0.1
+
+on:
+  push:
+    branches:
+      - feat/gremlin-visual-client-v0.1
+  pull_request:
+    paths:
+      - 'client/gremlin_web_server_v01.py'
+      - 'client/web/index.html'
+      - 'client/web/styles.css'
+      - 'client/web/app.js'
+      - 'tests/test_gremlin_visual_client_v01.py'
+      - 'tests/test_gremlin_phasenav_prototype_pipeline_v01.py'
+      - 'tests/test_native_pnv_contracts.py'
+      - 'spec/GREMLIN_VISUAL_CLIENT_V0_1.md'
+      - '.github/workflows/gremlin-visual-client-v01.yml'
+
+jobs:
+  visual-client:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install Python test runner
+        run: python -m pip install pytest
+      - name: Check browser JavaScript syntax
+        run: node --check client/web/app.js
+      - name: Run visual client, pipeline and native contract tests
+        run: python -m pytest -q tests/test_gremlin_visual_client_v01.py tests/test_gremlin_phasenav_prototype_pipeline_v01.py tests/test_native_pnv_contracts.py
