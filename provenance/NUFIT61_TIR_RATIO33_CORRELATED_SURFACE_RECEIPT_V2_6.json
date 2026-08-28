@@ -3,11 +3,16 @@
   "status": "OFFICIAL_SURFACE_REPLAY_COMPATIBLE__CLAIM_PROMOTION_FALSE",
   "date": "2026-08-28",
   "github_actions": {
-    "run_id": 33134551261,
-    "job_id": 98731493003,
-    "head_commit": "e6ec8740bf228d9a3138ec08707c7ee2a7ecfe97",
+    "first_execution_run_id": 33134551261,
+    "first_execution_job_id": 98731493003,
+    "first_execution_head_commit": "e6ec8740bf228d9a3138ec08707c7ee2a7ecfe97",
+    "first_execution_full_regression": "295 passed in 0.91s",
+    "repeat_execution_run_id": 33134644803,
+    "repeat_execution_job_id": 98731780006,
+    "repeat_execution_head_commit": "09ed71f79966c0c716f97e471f4481603a23deb2",
+    "repeat_execution_full_regression": "300 passed in 0.90s",
     "conclusion": "success",
-    "full_regression": "295 passed in 0.91s"
+    "surface_minima_reproduced_exactly_across_runners": true
   },
   "tested_relation": {
     "source_branch": "TIR / NOEMA tetrahedron",
@@ -65,7 +70,13 @@
     "claim_promotion": false,
     "allowed_statement": "The exact TIR ratio-33 line is compatible with the official NuFIT 6.1 DMS/DMA marginalized surface in both declared Normal-Ordering atmospheric treatments."
   },
-  "cross_repo_pins": {
+  "current_repo_heads_at_evidence_binding": {
+    "TIR_main": "8f0118845e7497964ac92bf26d34410a539b6063",
+    "IDT_main": "2ede618a5d03aa410f1d03b7286494622babd215",
+    "RFC_main": "01240c9d1f022cf59105b00ab15db1954e7f497a",
+    "SOH_main": "206e49e306b246c4b0f4d182b0d32d5511739408"
+  },
+  "module_pins": {
     "TIR_phase_clock_area_scale": "b69ba6055c0535c666e12dbba069ffb87238eee6",
     "IDT_relational_lapse_rate": "11fcd5b798445265fa5f8cd4dc3386f3b0a463c4",
     "RFC_relational_lapse_normal_phase_rate": "8611783d2471a3f6700d2c409b222f40b9752ec5",
