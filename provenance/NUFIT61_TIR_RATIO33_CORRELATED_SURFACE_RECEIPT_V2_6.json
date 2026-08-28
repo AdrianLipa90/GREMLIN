@@ -1,0 +1,75 @@
+{
+  "schema": "GREMLIN_NUFIT61_TIR_RATIO33_CORRELATED_SURFACE_RECEIPT_V2_6",
+  "status": "OFFICIAL_SURFACE_REPLAY_COMPATIBLE__CLAIM_PROMOTION_FALSE",
+  "date": "2026-08-28",
+  "github_actions": {
+    "run_id": 33134551261,
+    "job_id": 98731493003,
+    "head_commit": "e6ec8740bf228d9a3138ec08707c7ee2a7ecfe97",
+    "conclusion": "success",
+    "full_regression": "295 passed in 0.91s"
+  },
+  "tested_relation": {
+    "source_branch": "TIR / NOEMA tetrahedron",
+    "mass_ratio": [1, 2, 10],
+    "exact_identity": "Delta_m31^2 / Delta_m21^2 = (10^2-1^2)/(2^2-1^2) = 33",
+    "surface_line": "Delta_m31^2 = 33 Delta_m21^2"
+  },
+  "nufit_release": {
+    "version": "6.1",
+    "data_cutoff": "November 2025",
+    "official_result_page": "https://www.nu-fit.org/?q=node/309",
+    "surface": "DMS/DMA two-dimensional marginalized Delta-chi-square projection"
+  },
+  "results": {
+    "TBoff-NO": {
+      "atmospheric_treatment": "IC23 without the tabulated Super-Kamiokande atmospheric likelihood",
+      "source_sha256": "58b113927c13f55925558e1ef0a598b357a237cde5c466b9f660cc08569970f6",
+      "source_bytes": 3996028,
+      "acquisition_mode": "explicit_insecure_tls_fallback_with_sha256_pin",
+      "delta_chi2_min_on_ratio33_line": 0.9902209322450616,
+      "delta_m21_sq_eV2_at_profile_min": 7.60612121212121e-05,
+      "delta_m31_sq_eV2_at_profile_min": 0.0025100199999999995,
+      "delta_m32_sq_eV2_at_profile_min": 0.0024339587878787873,
+      "grid_cell_x_log10_dm21": [-4.119, -4.118],
+      "grid_cell_y_dm31_1e3_eV2": [2.51, 2.515],
+      "samples": 40001,
+      "half_resolution_samples": 20001,
+      "half_resolution_delta_chi2_difference": 0.0
+    },
+    "TByes-NO": {
+      "atmospheric_treatment": "IC24 with the tabulated Super-Kamiokande atmospheric likelihood",
+      "source_sha256": "c74bd6df84297a8429cd3b9e1239751cd0762756f1ec0c2a31248d78570b26e4",
+      "source_bytes": 3996408,
+      "acquisition_mode": "explicit_insecure_tls_fallback_with_sha256_pin",
+      "delta_chi2_min_on_ratio33_line": 0.44097506178386237,
+      "delta_m21_sq_eV2_at_profile_min": 7.590621212121212e-05,
+      "delta_m31_sq_eV2_at_profile_min": 0.002504905,
+      "delta_m32_sq_eV2_at_profile_min": 0.0024289987878787877,
+      "grid_cell_x_log10_dm21": [-4.12, -4.119],
+      "grid_cell_y_dm31_1e3_eV2": [2.5, 2.505],
+      "samples": 40001,
+      "half_resolution_samples": 20001,
+      "half_resolution_delta_chi2_difference": 0.0006702210557996136
+    }
+  },
+  "confidence_reference": {
+    "two_dof_one_sigma_delta_chi2_approx": 2.30,
+    "both_ratio_line_minima_inside_two_dof_one_sigma_contour": true
+  },
+  "statistical_firewall": {
+    "profiles_summed": false,
+    "full_six_dimensional_likelihood_used": false,
+    "absolute_mass_scale_promoted": false,
+    "source_mechanism_promoted": false,
+    "claim_promotion": false,
+    "allowed_statement": "The exact TIR ratio-33 line is compatible with the official NuFIT 6.1 DMS/DMA marginalized surface in both declared Normal-Ordering atmospheric treatments."
+  },
+  "cross_repo_pins": {
+    "TIR_phase_clock_area_scale": "b69ba6055c0535c666e12dbba069ffb87238eee6",
+    "IDT_relational_lapse_rate": "11fcd5b798445265fa5f8cd4dc3386f3b0a463c4",
+    "RFC_relational_lapse_normal_phase_rate": "8611783d2471a3f6700d2c409b222f40b9752ec5",
+    "SOH_half_interface": "206e49e306b246c4b0f4d182b0d32d5511739408",
+    "GREMLIN_framework_holonomy_firewall_v24": "76a2d6b46e485723eeaa0a97badd2dae6b9b3b14"
+  }
+}
