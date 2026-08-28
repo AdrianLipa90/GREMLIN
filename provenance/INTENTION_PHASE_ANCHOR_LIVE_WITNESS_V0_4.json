@@ -1,0 +1,51 @@
+{
+  "alignment_status": "UNRESOLVED",
+  "authority": {
+    "canon_allowed": false,
+    "execution_admitted": false,
+    "production_runtime_write": false
+  },
+  "live_gremlin_producer_claim": false,
+  "phase_anchor_receipt": {
+    "canon_allowed": false,
+    "epistemic_status": "LIVE_CIEL_NOEMA_OBSERVED",
+    "execution_admitted": false,
+    "live_noema_witness": {
+      "binding_status": "ACTIVE",
+      "live_surface_witness": true,
+      "phi_sha256": "b45c1e0f28c8bd2336ae421670b2676d066dcc9b92fb1c6433e1226710b7f326",
+      "root": "/dev/shm/ciel_noema",
+      "tether_status": "ACTIVE",
+      "tether_status_sha256": "c0c7ff706212d3b868b023a2f7ad37d0bef72eeebc343fed65868c7cadae8cf0",
+      "tick_sha256": "4d9a8fb3094f015b2c91542bf52481c26206d285aa6be7d386852ec9c24fb0c4"
+    },
+    "observation_name": "intention_phase_anchor",
+    "observation_receipt_commitment": "dbc45a54dae1f4068a253fec12fbc22295e3f1fbba1a2543c8f17d4e99eba33e",
+    "producer": {
+      "extraction": {
+        "field": "geometric_phase_rad",
+        "line_number": 2,
+        "record_sha256": "ce750ee6830ce22c54d5577f760ce0ed5da296c1ec8fb0ed50d0bd195e320c11",
+        "selector_key": "name",
+        "selector_value": "Intention"
+      },
+      "producer_kind": "CIEL_NOEMA_JSONL_FIELD",
+      "source_format": "utf8_jsonl",
+      "source_path": "phasenav/CIELINGO_PHASENAV_CONCEPT_PHASES.noema.jsonl",
+      "source_sha256": "897dce155e7740113d70a6ce9699ec16d78c0470423ba1905df634c2a9af8d20",
+      "source_size": 18774
+    },
+    "production_runtime_write": false,
+    "scale_id": "RADIAN_PHASE/v0.4",
+    "schema": "GREMLIN_SCALAR_OBSERVATION_RECEIPT_V0_2",
+    "semantic_adapter": {
+      "adapter_id": "CIEL_INTENTION_PHASE_ANCHOR/v0.4",
+      "status": "OBSERVED_MAPPING"
+    },
+    "source_ref": "ciel-noema://phasenav/CIELINGO_PHASENAV_CONCEPT_PHASES.noema.jsonl?name=Intention#geometric_phase_rad",
+    "status": "OBSERVATION_ACQUIRED",
+    "value_f64_hex": "0x1.7f59685122318p-1"
+  },
+  "schema": "GREMLIN_INTENTION_PHASE_ANCHOR_LIVE_WITNESS_V0_4",
+  "target_status": "UNRESOLVED"
+}

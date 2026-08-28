@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>GREMLIN Research Client v0.1</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark" aria-hidden="true">G</div>
+      <div>
+        <div class="brand-title">GREMLIN Research Client</div>
+        <div class="brand-subtitle">relation → PhaseNav IR → prototype → falsification receipt</div>
+      </div>
+    </div>
+    <div class="top-status" aria-label="authority status">
+      <span class="badge badge-muted">v0.1</span>
+      <span class="badge badge-safe">reference validation</span>
+      <span class="badge badge-lock">execution admission: off</span>
+    </div>
+  </header>
+
+  <main class="workspace">
+    <section class="panel panel-input" aria-labelledby="input-title">
+      <div class="panel-header">
+        <div>
+          <div class="eyebrow">01 / INPUT</div>
+          <h1 id="input-title">Problem & candidate</h1>
+        </div>
+        <span id="input-state" class="state-dot" title="candidate state"></span>
+      </div>
+
+      <label for="problem-brief">Research problem</label>
+      <textarea id="problem-brief" class="brief" rows="5" placeholder="Describe the problem or invariant you want GREMLIN to investigate. This note stays in the UI in v0.1; executable relations remain explicit."></textarea>
+
+      <div class="field-row">
+        <label for="sample-count">Reference samples</label>
+        <input id="sample-count" type="number" min="1" max="512" value="64">
+      </div>
+
+      <div class="editor-heading">
+        <label for="candidate-editor">Audited relation candidate</label>
+        <span class="schema-tag">GREMLIN_RELATION_CANDIDATE_V0_1</span>
+      </div>
+      <textarea id="candidate-editor" class="json-editor" spellcheck="false" aria-label="candidate JSON"></textarea>
+
+      <div class="button-row">
+        <button id="load-example" class="button button-secondary" type="button">Load example</button>
+        <button id="run-candidate" class="button button-primary" type="button">Compile & test</button>
+      </div>
+
+      <div class="boundary-card">
+        <strong>Authority boundary</strong>
+        <span>GREMLIN may compile and test a survived candidate. Production writes, execution admission and canon promotion remain disabled.</span>
+      </div>
+    </section>
+
+    <section class="panel panel-graph" aria-labelledby="graph-title">
+      <div class="panel-header graph-header">
+        <div>
+          <div class="eyebrow">02 / PHASENAV</div>
+          <h2 id="graph-title">Operator graph</h2>
+        </div>
+        <div id="run-status" class="run-status">idle</div>
+      </div>
+
+      <div id="pipeline" class="pipeline" aria-label="pipeline stages">
+        <span class="pipeline-stage">SURVIVED_AUDIT</span>
+        <span class="pipeline-arrow">→</span>
+        <span class="pipeline-stage">PHASENAV_IR_CANDIDATE</span>
+        <span class="pipeline-arrow">→</span>
+        <span class="pipeline-stage">UNTRUSTED_PROTOTYPE</span>
+        <span class="pipeline-arrow">→</span>
+        <span class="pipeline-stage">VALIDATED_PROTOTYPE</span>
+      </div>
+
+      <div class="graph-shell">
+        <svg id="operator-graph" viewBox="0 0 840 480" role="img" aria-label="PhaseNav relation graph">
+          <text x="420" y="235" text-anchor="middle" class="svg-empty">Run an audited candidate to materialize its T^36 / Z^36 graph.</text>
+        </svg>
+      </div>
+
+      <dl class="ir-summary">
+        <div><dt>Operator</dt><dd id="ir-operator">—</dd></div>
+        <div><dt>Terms</dt><dd id="ir-terms">—</dd></div>
+        <div><dt>IR commitment</dt><dd id="ir-commitment" class="mono ellipsis">—</dd></div>
+        <div><dt>Response commitment</dt><dd id="response-commitment" class="mono ellipsis">—</dd></div>
+      </dl>
+    </section>
+
+    <section class="panel panel-output" aria-labelledby="output-title">
+      <div class="panel-header">
+        <div>
+          <div class="eyebrow">03 / EVIDENCE</div>
+          <h2 id="output-title">Prototype & receipt</h2>
+        </div>
+        <span id="verdict" class="verdict verdict-idle">NO RUN</span>
+      </div>
+
+      <nav class="tabs" aria-label="result views">
+        <button class="tab active" data-tab="prototype" type="button">Prototype</button>
+        <button class="tab" data-tab="audit" type="button">BELZEBUB</button>
+        <button class="tab" data-tab="tests" type="button">Tests</button>
+        <button class="tab" data-tab="receipt" type="button">Receipt</button>
+      </nav>
+
+      <div class="tab-panels">
+        <section id="tab-prototype" class="tab-panel active" aria-label="prototype source">
+          <div class="artifact-meta">
+            <span id="prototype-status" class="artifact-chip">UNTRUSTED_PROTOTYPE</span>
+            <span id="prototype-commitment" class="mono subtle">—</span>
+          </div>
+          <pre id="prototype-source" class="artifact-view">No prototype generated yet.</pre>
+        </section>
+
+        <section id="tab-audit" class="tab-panel" aria-label="BELZEBUB audit">
+          <pre id="audit-view" class="artifact-view">No audit loaded yet.</pre>
+        </section>
+
+        <section id="tab-tests" class="tab-panel" aria-label="experiment tests">
+          <div id="test-grid" class="test-grid"></div>
+          <pre id="test-detail" class="artifact-view compact">No experiment receipt yet.</pre>
+        </section>
+
+        <section id="tab-receipt" class="tab-panel" aria-label="full receipt">
+          <pre id="receipt-view" class="artifact-view">No receipt generated yet.</pre>
+        </section>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <span>GREMLIN visual client v0.1</span>
+    <span>PhaseNav space: T<sup>36</sup> · dual lattice: Z<sup>36</sup></span>
+    <span id="footer-message">Ready.</span>
+  </footer>
+
+  <script src="/app.js" defer></script>
+</body>
+</html>

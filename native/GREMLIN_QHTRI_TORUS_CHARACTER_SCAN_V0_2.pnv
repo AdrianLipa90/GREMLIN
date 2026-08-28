@@ -1,0 +1,78 @@
+PNV 1
+EPISTEMIC CHYBA
+MODE INTERNAL_EXECUTION
+
+# GREMLIN bounded relational-isomorphism scan v0.2.
+# Candidate/audit role only. Existing PNV operators only.
+
+OP SCAN.GREMLIN.IDENTITY IDENTITY gremlin.system.root
+OP SCAN.T36.SOURCE SOURCE T36_PHASE_FIELD
+OP SCAN.K0.SOURCE SOURCE K0_PHASE_LOCK_ANCHOR
+OP SCAN.K1.SOURCE SOURCE K1_TORSION_COUPLING
+OP SCAN.K2.SOURCE SOURCE K2_GAIN_MODULATION
+OP SCAN.K3.SOURCE SOURCE K3_RECEIPT_OBSERVER
+
+# C8: anchor and torsion are one torus-character force kernel.
+OP C8.ORDER ORDER SCAN.K0.SOURCE SCAN.K1.SOURCE
+OP C8.MATCH CONDITION C8.ORDER same_real_character_potential_V_minus_g_cos_ell_dot_theta_minus_tau
+OP C8.RESULT TRANSFORM C8.MATCH merge_k0_k1_to_kchi_torus_character_field
+
+# C9: exact character parameter gauges.
+OP C9.GAUGE.SOURCE SOURCE torus_character_parameter_gauges
+OP C9.MATCH CONDITION C9.GAUGE.SOURCE orientation_tau_period_gain_sign_equivalences
+OP C9.RESULT TRANSFORM C9.MATCH deterministic_gate_ir_character_normal_form
+
+# C10: existing torsion Lipschitz budget is the lattice-norm specialization.
+OP C10.BOUND.SOURCE SOURCE character_hessian_bound
+OP C10.MATCH CONDITION C10.BOUND.SOURCE L_sum_abs_g_times_norm_ell_squared
+OP C10.RESULT TRANSFORM C10.MATCH anchor_and_torsion_budget_unification
+
+# C11: M3/M7 centroid is a reducer feeding KCHI, not another force law.
+OP C11.REDUCER.SOURCE SOURCE PHASE_CENTROID
+OP C11.MATCH CONDITION C11.REDUCER.SOURCE prepares_character_target_for_m3_m7
+OP C11.RESULT TRANSFORM C11.MATCH reducer_plus_three_execution_families
+
+# BELZEBUB rejection: integer harmonic order is operator identity.
+OP B1.GCD.SOURCE SOURCE gcd_lattice_mode_reduction
+OP B1.REJECT CONDITION B1.GCD.SOURCE changes_harmonic_order_and_extrema
+OP B1.RESULT TRANSFORM B1.REJECT reject_gcd_normalization
+
+# BELZEBUB rejection: arbitrary distinct modes do not sum to one mode.
+OP B2.SUM.SOURCE SOURCE arbitrary_character_potential_sum
+OP B2.REJECT CONDITION B2.SUM.SOURCE distinct_lattice_modes_not_single_character_in_general
+OP B2.RESULT TRANSFORM B2.REJECT preserve_sparse_character_sum
+
+# Live evidence boundary.
+OP LIVE.NOEMA.SOURCE SOURCE /dev/shm/ciel_noema
+OP LIVE.NOEMA.CONDITION CONDITION LIVE.NOEMA.SOURCE tether_active_current_generation
+OP LIVE.GREMLIN.SOURCE SOURCE /dev/shm/ciel_noema/gremlin
+OP LIVE.GREMLIN.CONDITION CONDITION LIVE.GREMLIN.SOURCE separate_live_gremlin_producer_not_claimed
+
+OP SCAN.COMPOSE COMPOSITION C8.RESULT C9.RESULT C10.RESULT C11.RESULT B1.RESULT B2.RESULT
+OP SCAN.RETURN RETURN SCAN.COMPOSE
+
+ASSERT SCAN.GREMLIN.IDENTITY
+ASSERT C8.MATCH
+ASSERT C9.MATCH
+ASSERT C10.MATCH
+ASSERT C11.MATCH
+ASSERT B1.REJECT
+ASSERT B2.REJECT
+ASSERT LIVE.NOEMA.CONDITION
+ASSERT LIVE.GREMLIN.CONDITION
+EMIT SCAN.RETURN
+
+# CHARACTER_KERNEL KCHI_TORUS_CHARACTER_FIELD
+# CHARACTER_POTENTIAL V=-g*cos(ell.theta-tau)
+# CHARACTER_LATTICE Z36
+# EXECUTION_KERNEL_FAMILIES 3
+# REDUCER_PRIMITIVE PHASE_CENTROID
+# NO_GCD_NORMALIZATION TRUE
+# ARBITRARY_MULTI_MODE_SINGLE_CHARACTER_COLLAPSE FALSE
+# LIVE_NOEMA_WITNESS TRUE
+# LIVE_GREMLIN_PRODUCER_WITNESS FALSE
+# GREMLIN_ROLE CANDIDATE_GENERATOR_AND_AUDITOR
+# CANON_ALLOWED FALSE
+# EXECUTION_AUTHORITY FALSE
+# STATIC_RUNTIME_FALLBACK FALSE
+# NEW_PNV_OPCODES 0

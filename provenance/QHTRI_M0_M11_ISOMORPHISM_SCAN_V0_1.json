@@ -1,0 +1,81 @@
+{
+  "schema": "GREMLIN_QHTRI_M0_M11_ISOMORPHISM_SCAN_V0_1",
+  "status": "BOUNDED_REPO_CONTRACT_SCAN",
+  "epistemic": "CHYBA",
+  "canon_allowed": false,
+  "execution_authority": false,
+  "live_runtime_witness": false,
+  "live_runtime_blocker": "DEV_SHM_GREMLIN_SURFACE_ABSENT_IN_SESSION",
+  "candidate_results": [
+    {
+      "id": "C1",
+      "name": "M6_QHTRI_TORSION",
+      "verdict": "EXACT_OPERATOR_IDENTITY"
+    },
+    {
+      "id": "C2",
+      "name": "M3_M7_COMPLEX_ORDER_PARAMETER",
+      "verdict": "EXACT_ALGEBRA_DISTINCT_SEMANTIC_ROLE"
+    },
+    {
+      "id": "C3",
+      "name": "BOOLEAN_PHASE_COHERENCE",
+      "verdict": "EXACT_BOOLEAN_BOUNDARY_EMBEDDING",
+      "boundary": [0, "pi"]
+    },
+    {
+      "id": "C4",
+      "name": "CP1_EQUATORIAL_FIDELITY",
+      "verdict": "STRONG_CONDITIONAL_ISOMORPHISM",
+      "condition": "EQUATORIAL_CP1_ENCODING"
+    },
+    {
+      "id": "C5",
+      "name": "M0_M11_FOUR_KERNEL_FACTORIZATION",
+      "verdict": "STRONG_OPERATOR_FACTORIZATION",
+      "kernels": [
+        "PHASE_LOCK_ANCHOR",
+        "TORSION_COUPLING",
+        "GAIN_MODULATION",
+        "RECEIPT_OBSERVER"
+      ]
+    },
+    {
+      "id": "C6",
+      "name": "TRIPLE_PULSE_M0_M11",
+      "verdict": "VALID_SUBGRAPH_EMBEDDING_NOT_BIJECTION"
+    },
+    {
+      "id": "C7",
+      "name": "IMMUTABLE_LINEAGE_TRANSITION_SKELETON",
+      "verdict": "STRONG_TRANSITION_SKELETON_ISOMORPHISM"
+    }
+  ],
+  "rejected_candidates": [
+    {
+      "name": "M0_M11_TO_T36_COORDINATE_INDICES",
+      "reason": "WHOLE_SEMANTIC_LANES_VIOLATION"
+    },
+    {
+      "name": "HYPERCRYSTAL_COMPONENTS_TO_M0_M11_ONE_TO_ONE",
+      "reason": "ROLE_DOMAIN_MISMATCH"
+    }
+  ],
+  "numeric_boundary_check": {
+    "encoding": {
+      "true_phase": 0,
+      "false_phase": "pi"
+    },
+    "truth_table_pass": true,
+    "not_phase_translation_pass": true,
+    "xor_antilock_pass": true,
+    "xnor_lock_pass": true
+  },
+  "next_gates": [
+    "LIVE_GREMLIN_TRIPLE_PULSE_WITNESS",
+    "BIOOS_PHASE_LOGIC_CONFORMANCE",
+    "CP1_FUBINI_STUDY_CROSSCHECK",
+    "QHTRI_M0_M11_LIVE_DEV_SHM_EXECUTION",
+    "STATE_MEMORY_HYPERCRYSTAL_LINEAGE_WITNESS"
+  ]
+}

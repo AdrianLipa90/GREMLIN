@@ -1,0 +1,34 @@
+{
+  "schema": "GREMLIN_CLIENT_PROTOTYPE_REQUEST_V0_1",
+  "request_id": "example-qhtri-001",
+  "target": "python_reference",
+  "sample_count": 32,
+  "candidate": {
+    "schema": "GREMLIN_RELATION_CANDIDATE_V0_1",
+    "candidate_id": "example-character-relation-001",
+    "status": "SURVIVED_AUDIT",
+    "audit": {
+      "belzebub_result": "SURVIVED",
+      "counterexamples_checked": 4
+    },
+    "relations": [
+      {
+        "kind": "phase_lock",
+        "a": 0,
+        "b": 1,
+        "gain": 1.0,
+        "source_ref": "example-lock"
+      },
+      {
+        "kind": "torsion",
+        "i": 2,
+        "j": 3,
+        "m": 3,
+        "n": 2,
+        "tau": 0.37,
+        "gain": 1.25,
+        "source_ref": "example-torsion"
+      }
+    ]
+  }
+}

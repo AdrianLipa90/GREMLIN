@@ -4,6 +4,17 @@ ROOT = Path(__file__).resolve().parents[1]
 NATIVE = ROOT / "native"
 FILES = sorted(NATIVE.glob("*.pnv"))
 ALLOWED = {"SOURCE","IDENTITY","DIFFERENCE","CONDITION","ORDER","TRANSFORM","COMPOSITION","RETURN"}
+REQUIRED_NATIVE = {
+    "BELZEBUB_TOOL_V0_4.pnv",
+    "GREMLIN_NATURAL_QUEUE_TAU_V0_4.pnv",
+    "GREMLIN_PERSISTENT_MEMORY_V0_4.pnv",
+    "GREMLIN_PHASENAV_PROTOTYPE_PIPELINE_V0_1.pnv",
+    "GREMLIN_QHTRI_M0_M11_ISOMORPHISM_SCAN_V0_1.pnv",
+    "GREMLIN_QHTRI_TORUS_CHARACTER_SCAN_V0_2.pnv",
+    "GREMLIN_SYSTEM_V0_4.pnv",
+    "GREMLIN_TRIPLE_PULSE_BOOT_V0_5.pnv",
+    "OCTOPUS_TOOL_V0_4.pnv",
+}
 
 
 def parse_ops(text):
@@ -16,8 +27,8 @@ def parse_ops(text):
     return ops
 
 
-def test_five_native_units_present():
-    assert len(FILES) == 5
+def test_required_native_units_present():
+    assert REQUIRED_NATIVE <= {p.name for p in FILES}
 
 
 def test_native_header_and_epistemic():
@@ -72,6 +83,34 @@ def test_natural_queue_tau_contract():
     assert "# TAU_IS_PRIORITY FALSE" in text
     assert "# MASS_BINDING_REQUIRED TRUE" in text
     assert "# TICK_REQUIRED FALSE" in text
+
+
+def test_torus_character_scan_contract():
+    text=(NATIVE/"GREMLIN_QHTRI_TORUS_CHARACTER_SCAN_V0_2.pnv").read_text()
+    assert "# CHARACTER_KERNEL KCHI_TORUS_CHARACTER_FIELD" in text
+    assert "# CHARACTER_LATTICE Z36" in text
+    assert "# EXECUTION_KERNEL_FAMILIES 3" in text
+    assert "# REDUCER_PRIMITIVE PHASE_CENTROID" in text
+    assert "# NO_GCD_NORMALIZATION TRUE" in text
+    assert "# ARBITRARY_MULTI_MODE_SINGLE_CHARACTER_COLLAPSE FALSE" in text
+    assert "# LIVE_NOEMA_WITNESS TRUE" in text
+    assert "# LIVE_GREMLIN_PRODUCER_WITNESS FALSE" in text
+
+
+def test_phasenav_prototype_pipeline_contract():
+    text=(NATIVE/"GREMLIN_PHASENAV_PROTOTYPE_PIPELINE_V0_1.pnv").read_text()
+    assert "# PIPELINE SURVIVED_AUDIT->PHASENAV_IR_CANDIDATE->UNTRUSTED_PROTOTYPE->VALIDATED_PROTOTYPE" in text
+    assert "# VALIDATED_SCOPE REFERENCE_CONFORMANCE_ONLY" in text
+    assert "# PHASENAV_SPACE T36" in text
+    assert "# PHASENAV_DUAL_LATTICE Z36" in text
+    assert "# EXPLICIT_RELATION_COMPILATION TRUE" in text
+    assert "# TEXT_TO_EXECUTION_INFERENCE FALSE" in text
+    assert "# SANDBOX_REQUIRED TRUE" in text
+    assert "# PRODUCTION_RUNTIME_WRITE FALSE" in text
+    assert "# EXECUTION_AUTHORITY FALSE" in text
+    assert "# CANON_ALLOWED FALSE" in text
+    assert "# BELZEBUB_SURVIVAL_REQUIRED TRUE" in text
+    assert "# PYTHON_ROLE REFERENCE_AND_TEST_HARNESS_ONLY" in text
 
 
 def test_no_python_authority_claim_in_spec():
