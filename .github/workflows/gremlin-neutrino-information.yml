@@ -13,6 +13,9 @@ on:
       - feat/gremlin-neutrino-absolute-scale-crosscheck-v2.2
       - feat/gremlin-complex-overlap-frame-bridge-v2.3
       - feat/gremlin-neutrino-framework-holonomy-firewall-v2.4
+      - feat/gremlin-nufit61-empirical-discriminant-v2.5
+      - feat/gremlin-nufit61-correlated-ratio-line-v2.6
+      - feat/gremlin-nufit61-flavor-discriminant-map-v2.7
   pull_request:
     paths:
       - 'tools/gremlin_three_flavor_neutrino_adapter_v15.py'
@@ -25,6 +28,9 @@ on:
       - 'tools/gremlin_neutrino_absolute_scale_crosscheck_v22.py'
       - 'tools/gremlin_complex_overlap_frame_bridge_v23.py'
       - 'tools/gremlin_neutrino_framework_holonomy_firewall_v24.py'
+      - 'tools/gremlin_nufit61_empirical_discriminant_v25.py'
+      - 'tools/gremlin_nufit61_correlated_ratio_line_v26.py'
+      - 'tools/gremlin_nufit61_flavor_discriminant_map_v27.py'
       - 'tests/test_gremlin_three_flavor_neutrino_adapter_v15.py'
       - 'tests/test_gremlin_belzebub_flavor_information_audit_v16.py'
       - 'tests/test_gremlin_intention_flavor_bridge_v17.py'
@@ -35,6 +41,9 @@ on:
       - 'tests/test_gremlin_neutrino_absolute_scale_crosscheck_v22.py'
       - 'tests/test_gremlin_complex_overlap_frame_bridge_v23.py'
       - 'tests/test_gremlin_neutrino_framework_holonomy_firewall_v24.py'
+      - 'tests/test_gremlin_nufit61_empirical_discriminant_v25.py'
+      - 'tests/test_gremlin_nufit61_correlated_ratio_line_v26.py'
+      - 'tests/test_gremlin_nufit61_flavor_discriminant_map_v27.py'
       - 'spec/GREMLIN_BELZEBUB_FLAVOR_INFORMATION_AUDIT_V1_6.md'
       - 'spec/GREMLIN_INTENTION_FLAVOR_BRIDGE_V1_7.md'
       - 'spec/GREMLIN_INTENTION_MASS_FLAVOR_FACTORIZATION_V1_8.md'
@@ -44,6 +53,9 @@ on:
       - 'spec/GREMLIN_NEUTRINO_ABSOLUTE_SCALE_CROSSCHECK_V2_2.md'
       - 'spec/GREMLIN_COMPLEX_OVERLAP_FRAME_BRIDGE_V2_3.md'
       - 'spec/GREMLIN_NEUTRINO_FRAMEWORK_HOLONOMY_FIREWALL_V2_4.md'
+      - 'spec/GREMLIN_NUFIT61_EMPIRICAL_DISCRIMINANT_V2_5.md'
+      - 'spec/GREMLIN_NUFIT61_CORRELATED_RATIO_LINE_V2_6.md'
+      - 'spec/GREMLIN_NUFIT61_FLAVOR_DISCRIMINANT_MAP_V2_7.md'
       - '.github/workflows/gremlin-neutrino-information.yml'
 
 jobs:
@@ -57,6 +69,16 @@ jobs:
       - name: Install test runner
         run: python -m pip install pytest
       - name: Compile neutrino information modules
-        run: python -m py_compile tools/gremlin_three_flavor_neutrino_adapter_v15.py tools/gremlin_belzebub_flavor_information_audit_v16.py tools/gremlin_intention_flavor_bridge_v17.py tools/gremlin_intention_mass_flavor_factorization_v18.py tools/gremlin_J_identifiability_no_go_v19.py tools/gremlin_J_invariant_reduction_audit_v20.py tools/gremlin_resonance_mass_source_no_go_v21.py tools/gremlin_neutrino_absolute_scale_crosscheck_v22.py tools/gremlin_complex_overlap_frame_bridge_v23.py tools/gremlin_neutrino_framework_holonomy_firewall_v24.py
+        run: python -m py_compile tools/gremlin_three_flavor_neutrino_adapter_v15.py tools/gremlin_belzebub_flavor_information_audit_v16.py tools/gremlin_intention_flavor_bridge_v17.py tools/gremlin_intention_mass_flavor_factorization_v18.py tools/gremlin_J_identifiability_no_go_v19.py tools/gremlin_J_invariant_reduction_audit_v20.py tools/gremlin_resonance_mass_source_no_go_v21.py tools/gremlin_neutrino_absolute_scale_crosscheck_v22.py tools/gremlin_complex_overlap_frame_bridge_v23.py tools/gremlin_neutrino_framework_holonomy_firewall_v24.py tools/gremlin_nufit61_empirical_discriminant_v25.py tools/gremlin_nufit61_correlated_ratio_line_v26.py tools/gremlin_nufit61_flavor_discriminant_map_v27.py
       - name: Run full GREMLIN regression suite
         run: python -m pytest -q
+      - name: Replay official NuFIT 6.1 DMS-DMA surfaces on exact TIR ratio line
+        if: github.ref == 'refs/heads/feat/gremlin-nufit61-correlated-ratio-line-v2.6'
+        run: |
+          python tools/gremlin_nufit61_correlated_ratio_line_v26.py --source-id TBoff-NO --download /tmp/v61.release-TBoff-NO.txt.xz --allow-insecure-tls --samples 40001 --output /tmp/tboff-v26.json
+          python tools/gremlin_nufit61_correlated_ratio_line_v26.py --source-id TByes-NO --download /tmp/v61.release-TByes-NO.txt.xz --allow-insecure-tls --samples 40001 --output /tmp/tbyes-v26.json
+      - name: Map NuFIT 6.1 free-fit versus TIR ratio-33 flavor discrimination
+        if: github.ref == 'refs/heads/feat/gremlin-nufit61-flavor-discriminant-map-v2.7'
+        run: |
+          python -m tools.gremlin_nufit61_flavor_discriminant_map_v27 --source-id TBoff-NO --download /tmp/v61.release-TBoff-NO.txt.xz --allow-insecure-tls --output /tmp/tboff-v27.json
+          python -m tools.gremlin_nufit61_flavor_discriminant_map_v27 --source-id TByes-NO --download /tmp/v61.release-TByes-NO.txt.xz --allow-insecure-tls --output /tmp/tbyes-v27.json

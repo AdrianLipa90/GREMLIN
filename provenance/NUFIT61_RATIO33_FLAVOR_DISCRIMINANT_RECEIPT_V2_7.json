@@ -1,0 +1,98 @@
+{
+  "schema": "GREMLIN_NUFIT61_RATIO33_FLAVOR_DISCRIMINANT_RECEIPT_V2_7",
+  "status": "VACUUM_FLAVOR_DISCRIMINANT_IDENTIFIED__MATTER_AND_DETECTOR_GATES_OPEN",
+  "date": "2026-08-28",
+  "execution": {
+    "run_id": 33135135002,
+    "job_id": 98733297822,
+    "successful_head_commit": "0ea26f40e3940ef9aa989f0b3b159843d72d2c17",
+    "spec_commit": "23cf3fda0592bc04932fa03c6e986f02af579eba",
+    "full_regression": "307 passed in 1.02s",
+    "official_data_replay": "success"
+  },
+  "tested_models": {
+    "reference": "unconstrained NuFIT 6.1 profile mass-splitting spectrum",
+    "candidate": "TIR exact Delta_m31^2 = 33 Delta_m21^2 spectrum profiled on the same NuFIT 6.1 DMS/DMA surface",
+    "pmns_policy": "hold the same NuFIT profile PMNS coordinates within each atmospheric treatment",
+    "evolution": "standard three-flavor vacuum PMNS"
+  },
+  "TBoff_NO": {
+    "pmns": {
+      "sin2_theta12": 0.308,
+      "sin2_theta13": 0.0225,
+      "sin2_theta23": 0.47,
+      "delta_cp_deg": -155.0
+    },
+    "free_spectrum": {
+      "dm21_eV2": 7.53355563733717e-05,
+      "dm31_eV2": 0.00252,
+      "ratio31_21": 33.45034033478945
+    },
+    "ratio33_profiled_spectrum": {
+      "dm21_eV2": 7.60612121212121e-05,
+      "dm31_eV2": 0.0025100199999999995,
+      "delta_chi2": 0.9902209322450616
+    },
+    "ideal_0_2000": {
+      "channel": "mu->mu",
+      "l_over_e_km_per_gev": 1783.0,
+      "max_abs_delta_probability": 0.023495962887909116,
+      "max_abs_delta_mutual_information_bits": 0.03561106793005653,
+      "mutual_information_l_over_e_km_per_gev": 1914.0
+    },
+    "ten_percent_smearing_0_2000": {
+      "channel": "mu->mu",
+      "l_over_e_km_per_gev": 1749.0,
+      "max_abs_delta_probability": 0.01298329111140234,
+      "delta_mutual_information_bits_at_max_abs": 0.012863850771418828,
+      "mutual_information_l_over_e_km_per_gev": 1126.0
+    }
+  },
+  "TByes_NO": {
+    "pmns": {
+      "sin2_theta12": 0.308,
+      "sin2_theta13": 0.0225,
+      "sin2_theta23": 0.47,
+      "delta_cp_deg": -150.0
+    },
+    "free_spectrum": {
+      "dm21_eV2": 7.53355563733717e-05,
+      "dm31_eV2": 0.0025099999999999996,
+      "ratio31_21": 33.317600889016475
+    },
+    "ratio33_profiled_spectrum": {
+      "dm21_eV2": 7.590621212121212e-05,
+      "dm31_eV2": 0.002504905,
+      "delta_chi2": 0.44097506178386237
+    },
+    "ideal_0_2000": {
+      "channel": "mu->mu",
+      "l_over_e_km_per_gev": 1788.5,
+      "max_abs_delta_probability": 0.012412466685309154,
+      "max_abs_delta_mutual_information_bits": 0.01925911077464293,
+      "mutual_information_l_over_e_km_per_gev": 1921.0
+    },
+    "ten_percent_smearing_0_2000": {
+      "channel": "mu->mu",
+      "l_over_e_km_per_gev": 1754.0,
+      "max_abs_delta_probability": 0.006870781483088506,
+      "delta_mutual_information_bits_at_max_abs": 0.006569128345661479,
+      "mutual_information_l_over_e_km_per_gev": 1129.0
+    }
+  },
+  "robust_target": {
+    "channel": "mu->mu",
+    "l_over_e_center_km_per_gev": 1751.5,
+    "l_over_e_half_spread_km_per_gev": 2.5,
+    "selection": "same channel and nearly same L/E maximum in both independent NuFIT atmospheric treatments under 10 percent smearing"
+  },
+  "firewalls": {
+    "matter_effects_included": false,
+    "detector_response_included": false,
+    "flux_cross_section_likelihood_included": false,
+    "smearing_is_detector_model": false,
+    "experimental_exclusion_claim_allowed": false,
+    "claim_promotion": false
+  },
+  "next_required_gate": "Repeat the same constrained-versus-free comparison with standard matter propagation and then fold through experiment-specific energy response before quoting sensitivity."
+}

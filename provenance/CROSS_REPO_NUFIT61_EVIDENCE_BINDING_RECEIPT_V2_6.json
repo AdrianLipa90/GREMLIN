@@ -1,0 +1,46 @@
+{
+  "schema": "GREMLIN_CROSS_REPO_NUFIT61_EVIDENCE_BINDING_RECEIPT_V2_6",
+  "status": "CROSS_REPO_EVIDENCE_HOLONOMY_CLOSED__NON_PROMOTING",
+  "date": "2026-08-28",
+  "gremlin_source": {
+    "branch": "feat/gremlin-nufit61-correlated-ratio-line-v2.6",
+    "surface_receipt_commit": "b9b20f573b95d63cc069cbd0aedfa01f56a28f89",
+    "surface_receipt_path": "provenance/NUFIT61_TIR_RATIO33_CORRELATED_SURFACE_RECEIPT_V2_6.json",
+    "exact_relation": "Delta_m31^2 = 33 Delta_m21^2",
+    "TBoff_NO_delta_chi2_min": 0.9902209322450616,
+    "TByes_NO_delta_chi2_min": 0.44097506178386237,
+    "replayed_exactly_on_multiple_runners": true
+  },
+  "bindings": {
+    "TIR": {
+      "repository": "AdrianLipa90/The-Fundamental-Theory-of-Informational-Relations",
+      "branch": "evidence/nufit61-ratio33-correlated-v0.1",
+      "module_commit": "d171fe9f22620dd5d25e8d9832fbe98d34eddb7f",
+      "path": "TIR/validation/NUFIT61_RATIO33_CORRELATED_SURFACE_EVIDENCE_V0_1.json",
+      "role": "direct empirical compatibility gate for the exact TIR ratio-33 mass-splitting relation"
+    },
+    "IDT": {
+      "repository": "AdrianLipa90/Informational-Dynamics-of-Time",
+      "branch": "evidence/nufit61-neutrino-spectrum-v0.1",
+      "module_commit": "dbe926cab80c366b509b3985ac62eba44668f098",
+      "path": "validation/NUFIT61_NEUTRINO_SPECTRUM_EXTERNAL_GATE_V0_1.json",
+      "role": "external neutrino-spectrum input for downstream phase-to-flavor-to-information tests"
+    },
+    "RFC": {
+      "repository": "AdrianLipa90/Relational-Field-Closure",
+      "branch": "evidence/nufit61-neutrino-spectrum-v0.1",
+      "module_commit": "2440b8f656b95d7582c602c52411a2f9853582ab",
+      "path": "validation/NUFIT61_NEUTRINO_SPECTRUM_EXTERNAL_GATE_V0_1.json",
+      "role": "downstream neutrino-spectrum evidence with source and geometry promotion firewalled"
+    },
+    "SOH": {
+      "repository": "AdrianLipa90/secret-of-a-half",
+      "branch": "research/nufit61-neutrino-crossref-v0.1",
+      "module_commit": "6a48fda20dd1b2cb0be1d8dae5164258dba3d5f3",
+      "path": "research/SOH_X_NUFIT61_NEUTRINO_RATIO33_CROSSREF_V0_1.md",
+      "role": "cross-reference firewall separating mass-spectrum evidence from the half-interface interference kernel"
+    }
+  },
+  "holonomy_rule": "Module commits are pinned once. Reciprocal receipt commits are not recursively repinned.",
+  "claim_promotion": false
+}
