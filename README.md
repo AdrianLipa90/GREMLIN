@@ -81,6 +81,22 @@ canon_allowed=false
 
 Full specification: `spec/GREMLIN_VISUAL_CLIENT_V0_1.md`.
 
+## CIEL-LM composition candidate
+
+The CIELingo/Lingophysics text-generation audit is tracked as a GREMLIN candidate rather than an authority promotion. Confirmation experiments blocked both fixed inference-time structural bias and shared-backbone auxiliary training as stable improvements.
+
+The active research frontier is:
+
+```text
+repaired CIELingo binder
+  -> Lingophysics typed relations
+  -> isolated zero-init residual/reranking expert
+  -> frozen/preserved base lexical LM
+  -> preregistered file-disjoint A/B
+```
+
+See `spec/GREMLIN_CIEL_LM_COMPOSITION_V0_1.md` and `provenance/CIEL_LM_COMPOSITION_AUDIT_V0_1.json`.
+
 Motto: `Verbis utor, informationem in existentiam converto.`
 
 BELZEBUB quarantines untrusted code as data, performs semantic defensive analysis, and emits repair/immunity candidates. Quarantined content has no execution authority.
