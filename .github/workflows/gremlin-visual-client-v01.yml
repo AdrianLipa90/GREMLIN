@@ -17,6 +17,7 @@ on:
       - feat/gremlin-dual-channel-entanglement-probe-v1.2
       - feat/gremlin-oriented-relational-coupling-v1.3
       - feat/gremlin-hermitian-oriented-exchange-v1.4
+      - feat/gremlin-crossrepo-rsi-pmns-audit-v1.7
   pull_request:
     paths:
       - 'client/gremlin_web_server_v01.py'
@@ -41,6 +42,7 @@ on:
       - 'tools/gremlin_dual_channel_entanglement_probe_v12.py'
       - 'tools/gremlin_oriented_relational_coupling_v13.py'
       - 'tools/gremlin_hermitian_oriented_exchange_v14.py'
+      - 'tests/test_gremlin_crossrepo_rsi_pmns_audit_v17.py'
       - 'tests/test_gremlin_kaku_radical_scalar_plane_v01.py'
       - 'tests/test_gremlin_scalar_admitted_phasenav_v02.py'
       - 'tests/test_gremlin_scalar_acquisition_v02.py'
@@ -96,5 +98,5 @@ jobs:
         run: python -m pip install pytest
       - name: Check browser JavaScript syntax
         run: node --check client/web/app.js
-      - name: Run Hermitian-exchange, oriented-coupling, dual-channel, coupling-energy, joint-state, connection-path, Lambda-holonomy, valuation, epistemic, affect, scalar, admission, client and native tests
-        run: python -m pytest -q tests/test_gremlin_hermitian_oriented_exchange_v14.py tests/test_gremlin_oriented_relational_coupling_v13.py tests/test_gremlin_dual_channel_entanglement_probe_v12.py tests/test_gremlin_relational_coupling_energy_v11.py tests/test_gremlin_joint_quantum_witness_v10.py tests/test_gremlin_connection_path_holonomy_v09.py tests/test_gremlin_relational_lambda_holonomy_v08.py tests/test_gremlin_valuation_integrity_bundles_v07.py tests/test_gremlin_epistemic_bundle_v06.py tests/test_gremlin_affect_field_v05.py tests/test_gremlin_kaku_scalar_facets_v04.py tests/test_gremlin_intention_anchor_provenance_v04.py tests/test_gremlin_scalar_source_registry_v03.py tests/test_gremlin_scalar_acquisition_v02.py tests/test_gremlin_kaku_radical_scalar_plane_v01.py tests/test_gremlin_scalar_admitted_phasenav_v02.py tests/test_gremlin_visual_client_v01.py tests/test_gremlin_phasenav_prototype_pipeline_v01.py tests/test_native_pnv_contracts.py
+      - name: Run cross-repo RSI-PMNS, Hermitian-exchange, oriented-coupling, dual-channel, coupling-energy, joint-state, connection-path, Lambda-holonomy, valuation, epistemic, affect, scalar, admission, client and native tests
+        run: python -m pytest -q tests/test_gremlin_crossrepo_rsi_pmns_audit_v17.py tests/test_gremlin_hermitian_oriented_exchange_v14.py tests/test_gremlin_oriented_relational_coupling_v13.py tests/test_gremlin_dual_channel_entanglement_probe_v12.py tests/test_gremlin_relational_coupling_energy_v11.py tests/test_gremlin_joint_quantum_witness_v10.py tests/test_gremlin_connection_path_holonomy_v09.py tests/test_gremlin_relational_lambda_holonomy_v08.py tests/test_gremlin_valuation_integrity_bundles_v07.py tests/test_gremlin_epistemic_bundle_v06.py tests/test_gremlin_affect_field_v05.py tests/test_gremlin_kaku_scalar_facets_v04.py tests/test_gremlin_intention_anchor_provenance_v04.py tests/test_gremlin_scalar_source_registry_v03.py tests/test_gremlin_scalar_acquisition_v02.py tests/test_gremlin_kaku_radical_scalar_plane_v01.py tests/test_gremlin_scalar_admitted_phasenav_v02.py tests/test_gremlin_visual_client_v01.py tests/test_gremlin_phasenav_prototype_pipeline_v01.py tests/test_native_pnv_contracts.py
