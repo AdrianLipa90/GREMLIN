@@ -1,0 +1,73 @@
+{
+  "schema": "GREMLIN_CIEL_LM_COMPOSITION_AUDIT_V0_1",
+  "status": "CANDIDATE_ONLY",
+  "goal": "compose repaired CIELingo and Lingophysics with a text decoder while preserving the lexical prior",
+  "session_runtime": {
+    "gremlin_adapter": "GREMLIN_V0_5_COMPAT",
+    "dream_candidate_id": "gremlin:dream:sha256:1bec4dbb925e87195d855251774039911d67b6051db88f52c5db12db092ac5b1",
+    "candidate_authority": "proposal_and_audit_only"
+  },
+  "binder_repair": {
+    "spec": "CIELINGO_BINDER_REPAIR_SPEC_V0_8",
+    "spec_sha256": "cbdeb0cb6db1d0df5ec2de524ccabc1328d1bc4d4fd1e13a236e9328cdb0ae64",
+    "defects": [
+      "ATLAS_SHADOWING",
+      "SUBSTRING_OVERBINDING"
+    ],
+    "target": "48-slot priority plus normalized exact-boundary matching"
+  },
+  "experiments": [
+    {
+      "id": "V0.3",
+      "mechanism": "full structural sidecar on whole-file holdout",
+      "verdict": "BLOCK_REPLICATION",
+      "mean_delta_nll": -0.03313
+    },
+    {
+      "id": "V0.4",
+      "mechanism": "attention-only independent replication",
+      "verdict": "BLOCK",
+      "mean_delta_nll": -0.00122
+    },
+    {
+      "id": "V0.5",
+      "mechanism": "relation-excess attention pilot",
+      "verdict": "PASS_FROZEN_PILOT_GATE",
+      "mean_delta_nll": 0.002399,
+      "positive_seeds": "4/5",
+      "promotion_status": "UNCONFIRMED"
+    },
+    {
+      "id": "V0.6",
+      "mechanism": "relation-excess independent confirmation",
+      "verdict": "BLOCK_CONFIRMATION",
+      "mean_delta_nll": -0.000375,
+      "positive_seeds": "7/12",
+      "sign_flip_p_one_sided": 0.6951
+    },
+    {
+      "id": "V0.7",
+      "mechanism": "training-only auxiliary objectives through shared backbone",
+      "verdict": "BLOCK_NEGATIVE_TRANSFER",
+      "mean_delta_nll": -0.02744,
+      "positive_seeds": "2/12",
+      "sign_flip_p_one_sided": 0.9993,
+      "aux_loss_start_approx": 0.347,
+      "aux_loss_end_approx": 0.264
+    }
+  ],
+  "lingophysics_finding": {
+    "phase_compatibility_weight": 0.45,
+    "decomposition_required": true,
+    "relation_excess_status": "DIAGNOSTIC_EXPERIMENTAL_CHANNEL",
+    "legacy_pair_bias_status": "PRESERVED"
+  },
+  "selected_candidate": {
+    "architecture": "FROZEN_BASE_LM_PLUS_ISOLATED_ZERO_INIT_STRUCTURAL_RESIDUAL_OR_RERANKER",
+    "base_backbone": "PRESERVED_AND_GRADIENT_ISOLATED",
+    "structural_input": "REPAIRED_CIELINGO_BINDER_PLUS_LINGOPHYSICS_RELATIONS",
+    "initial_residual": 0.0,
+    "next_evidence_gate": "PREREGISTERED_FILE_DISJOINT_A_B_THEN_INDEPENDENT_REPLICATION"
+  },
+  "canon_allowed": false
+}
