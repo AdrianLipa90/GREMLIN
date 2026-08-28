@@ -1,6 +1,10 @@
 # GREMLIN / BELZEBUB Neutrino Framework Holonomy Firewall v2.4
 
-Status: `CANDIDATE / CROSS-FRAMEWORK CONFLICT AUDIT`
+Status: `CANONICAL / CROSS-FRAMEWORK HOLONOMY FIREWALL`
+
+## Canonical authority
+
+This firewall is canonical for cross-framework use. Absolute neutrino spectra remain branch-qualified until an explicit bridge, provenance-bearing supersession rule, or discriminating empirical result supplies shared authority.
 
 ## Why this firewall exists
 
@@ -24,7 +28,7 @@ so in that branch
 \frac{m_2}{m_1}=2.
 \]
 
-These cannot both be exact descriptions of the same ordered mass spectrum.
+The two exact ratio laws define distinct ordered-spectrum branches.
 
 ## Branch A — graded projection
 
@@ -48,7 +52,7 @@ and
 \sum m_\nu\approx98.316\,\mathrm{meV}.
 \]
 
-v2.4 preserves this as an internally consistent candidate **inside that branch**.
+v2.4 preserves this as an internally consistent result inside the graded-projection branch.
 
 ## Branch B — TIR / NOEMA tetrahedron
 
@@ -82,19 +86,21 @@ For `Delta m21^2=7.42e-5 eV^2`, this is `2.4486e-3 eV^2`, about 2.72% below the 
 
 ## Holonomy verdict
 
-The conflict is structural, not a rounding difference:
+The conflict is structural rather than a rounding effect:
 
 \[
 2\ne\sqrt{7/6}.
 \]
 
-Therefore no single absolute neutrino spectrum may be promoted across both research branches without a declared relation between them.
+Shared absolute-spectrum authority is therefore withheld pending a declared relation between the two branches.
 
-v2.2 is not revoked. Its correct scope is retained as
+v2.2 status is retained as
 
-`VALID_ONLY_WITHIN_GRADED_PROJECTION_BRANCH_NOT_PROMOTED_ACROSS_TIR`.
+`VALID_WITHIN_GRADED_PROJECTION_BRANCH / BRANCH_LOCAL_EVIDENCE`.
 
-The tetrahedron spectrum is likewise retained as its own candidate branch.
+The tetrahedron spectrum is retained as
+
+`VALID_WITHIN_TIR_TETRAHEDRON_BRANCH / BRANCH_LOCAL_EVIDENCE`.
 
 ## Relation to the v2.3 bridge
 
@@ -104,7 +110,7 @@ The complex-overlap construction
 J_m=U_{\rm PMNS}^\dagger C_\nu
 \]
 
-remains mathematically valid and does not depend on choosing either absolute mass spectrum merely to define the frame map. However, any future source-spectrum intertwining `M^2 J = J M_I` must remain explicitly branch-qualified until the spectrum conflict is resolved.
+remains mathematically valid and does not depend on choosing either absolute mass spectrum merely to define the frame map. Any future source-spectrum intertwining `M^2 J = J M_I` remains explicitly branch-qualified until the spectrum relation is resolved.
 
 ## Resolution routes
 
@@ -117,5 +123,5 @@ A shared promotion requires at least one of:
 ## BELZEBUB verdict
 
 \[
-\boxed{\text{HARD FRAMEWORK BRANCH CONFLICT — no shared absolute neutrino-scale canon promotion}.}
+\boxed{\text{CANONICAL FRAMEWORK BRANCH FIREWALL — shared absolute neutrino-scale authority withheld}.}
 \]
