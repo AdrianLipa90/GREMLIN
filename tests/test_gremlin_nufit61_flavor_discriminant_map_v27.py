@@ -73,5 +73,5 @@ def test_profile_coordinate_parser_uses_minimum_rows(tmp_path):
     assert point.sin2_theta23 == 0.47
     assert point.delta_cp_deg == 210.0
     assert math.isclose(spectrum.dm21_eV2, 10.0 ** -4.123, rel_tol=1e-15)
-    assert spectrum.dm31_eV2 == 2.510e-3
+    assert math.isclose(spectrum.dm31_eV2, 2.510e-3, rel_tol=1e-15, abs_tol=1e-18)
     assert all(value == 0.0 for value in result["profile_minima_delta_chi2"].values())
