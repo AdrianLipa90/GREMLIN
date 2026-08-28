@@ -68,17 +68,12 @@ def shannon_bits_v16(probabilities: Sequence[float]) -> float:
 def uniform_prior_mutual_information_bits_v16(channel: Sequence[Sequence[float]]) -> dict[str, float]:
     if len(channel) != 3 or any(len(row) != 3 for row in channel):
         raise BelzebubFlavorInformationAuditError("channel must be 3x3")
-    # channel[beta][alpha] = P(Y=beta | X=alpha), P(X=alpha)=1/3.
     column_entropies = [shannon_bits_v16([channel[b][a] for b in range(3)]) for a in range(3)]
     output = [math.fsum(channel[b][a] for a in range(3)) / 3.0 for b in range(3)]
     h_y = shannon_bits_v16(output)
     h_y_given_x = math.fsum(column_entropies) / 3.0
     mutual = max(0.0, h_y - h_y_given_x)
-    return {
-        "H_Y_bits": h_y,
-        "H_Y_given_X_bits": h_y_given_x,
-        "I_XY_bits": mutual,
-    }
+    return {"H_Y_bits": h_y, "H_Y_given_X_bits": h_y_given_x, "I_XY_bits": mutual}
 
 
 def _probability_matrix_from_unitary(u: Sequence[Sequence[complex]]) -> list[list[float]]:
@@ -97,7 +92,6 @@ def _global_phase_control(u: Sequence[Sequence[complex]], chi: float = 0.731) ->
 def _flavor_rephasing_control(u: Sequence[Sequence[complex]]) -> float:
     phases = (0.31, -0.77, 1.19)
     d = [cmath.exp(1j * p) for p in phases]
-    # U' = D^dagger U D for a consistent rephasing of flavor basis.
     transformed = [[d[i].conjugate() * u[i][j] * d[j] for j in range(3)] for i in range(3)]
     return _max_probability_delta(_probability_matrix_from_unitary(u), _probability_matrix_from_unitary(transformed))
 
@@ -107,7 +101,6 @@ def _pure_column_diagnostics(u: Sequence[Sequence[complex]]) -> tuple[list[float
     purities: list[float] = []
     for alpha in range(3):
         norm2 = math.fsum(abs(u[beta][alpha]) ** 2 for beta in range(3))
-        # rho=|psi><psi| -> Tr(rho^2)=||psi||^4.
         norms.append(norm2)
         purities.append(norm2 * norm2)
     return norms, purities
@@ -120,41 +113,27 @@ def phase_alias_witness_v16(delta_rad: float = 0.37) -> dict[str, float]:
     alias = math.pi - delta
     p1 = math.sin(delta) ** 2
     p2 = math.sin(alias) ** 2
-    return {
-        "delta_1_rad": delta,
-        "delta_2_rad": alias,
-        "sin2_delta_1": p1,
-        "sin2_delta_2": p2,
-        "probability_difference": abs(p1 - p2),
-    }
+    return {"delta_1_rad": delta, "delta_2_rad": alias, "sin2_delta_1": p1, "sin2_delta_2": p2, "probability_difference": abs(p1 - p2)}
 
 
-def build_belzebub_flavor_information_audit_v16(
-    *,
-    propagation: Mapping[str, Any],
-    adapter: Mapping[str, Any],
-    channel: str = "standard",
-) -> dict[str, Any]:
+def build_belzebub_flavor_information_audit_v16(*, propagation: Mapping[str, Any], adapter: Mapping[str, Any], channel: str = "standard") -> dict[str, Any]:
     validate_three_flavor_neutrino_propagation_v15(propagation, adapter=adapter)
     if channel not in {"standard", "total"}:
         raise BelzebubFlavorInformationAuditError("channel must be standard or total")
-
     p_key = "P_standard" if channel == "standard" else "P_total"
     u_key = "U_standard" if channel == "standard" else "U_total"
     p = _decode_probabilities(propagation[p_key], p_key)
     u = _decode_unitary(propagation[u_key], u_key)
-
     conservation = max(abs(math.fsum(p[b][a] for b in range(3)) - 1.0) for a in range(3))
     entropies = [shannon_bits_v16([p[b][a] for b in range(3)]) for a in range(3)]
     max_entropy = math.log2(3.0)
-    entropy_bound_residual = max(max(0.0, -h), max(0.0, h - max_entropy) for h in entropies)
+    entropy_bound_residual = max((max(max(0.0, -h), max(0.0, h - max_entropy)) for h in entropies), default=0.0)
     channel_info = uniform_prior_mutual_information_bits_v16(p)
     norms, purities = _pure_column_diagnostics(u)
     global_phase_delta = _global_phase_control(u)
     rephase_delta = _flavor_rephasing_control(u)
     alias = phase_alias_witness_v16()
     identity_delta = max(abs(p[b][a] - (1.0 if a == b else 0.0)) for b in range(3) for a in range(3))
-
     checks = {
         "A01_probability_normalization": conservation <= 2e-10,
         "A02_shannon_alphabet_bound": entropy_bound_residual <= 2e-12,
@@ -165,7 +144,6 @@ def build_belzebub_flavor_information_audit_v16(
         "A07_uniform_prior_information_bound": -2e-12 <= channel_info["I_XY_bits"] <= max_entropy + 2e-12,
     }
     survived = all(checks.values())
-
     core = {
         "schema": AUDIT_SCHEMA,
         "auditor": "BELZEBUB",
@@ -213,17 +191,8 @@ def build_belzebub_flavor_information_audit_v16(
     return {**core, "belzebub_flavor_information_audit_commitment": _seal(core)}
 
 
-def validate_belzebub_flavor_information_audit_v16(
-    receipt: Mapping[str, Any],
-    *,
-    propagation: Mapping[str, Any],
-    adapter: Mapping[str, Any],
-) -> bool:
-    expected = build_belzebub_flavor_information_audit_v16(
-        propagation=propagation,
-        adapter=adapter,
-        channel=str(receipt.get("channel")),
-    )
+def validate_belzebub_flavor_information_audit_v16(receipt: Mapping[str, Any], *, propagation: Mapping[str, Any], adapter: Mapping[str, Any]) -> bool:
+    expected = build_belzebub_flavor_information_audit_v16(propagation=propagation, adapter=adapter, channel=str(receipt.get("channel")))
     if receipt != expected:
         raise BelzebubFlavorInformationAuditError("BELZEBUB audit receipt mismatch")
     return True
