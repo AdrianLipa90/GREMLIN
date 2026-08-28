@@ -80,5 +80,5 @@ jobs:
       - name: Map NuFIT 6.1 free-fit versus TIR ratio-33 flavor discrimination
         if: github.ref == 'refs/heads/feat/gremlin-nufit61-flavor-discriminant-map-v2.7'
         run: |
-          python tools/gremlin_nufit61_flavor_discriminant_map_v27.py --source-id TBoff-NO --download /tmp/v61.release-TBoff-NO.txt.xz --allow-insecure-tls --output /tmp/tboff-v27.json
-          python tools/gremlin_nufit61_flavor_discriminant_map_v27.py --source-id TByes-NO --download /tmp/v61.release-TByes-NO.txt.xz --allow-insecure-tls --output /tmp/tbyes-v27.json
+          python -m tools.gremlin_nufit61_flavor_discriminant_map_v27 --source-id TBoff-NO --download /tmp/v61.release-TBoff-NO.txt.xz --allow-insecure-tls --output /tmp/tboff-v27.json
+          python -m tools.gremlin_nufit61_flavor_discriminant_map_v27 --source-id TByes-NO --download /tmp/v61.release-TByes-NO.txt.xz --allow-insecure-tls --output /tmp/tbyes-v27.json
