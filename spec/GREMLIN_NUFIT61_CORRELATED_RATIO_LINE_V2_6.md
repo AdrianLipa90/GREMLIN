@@ -1,6 +1,6 @@
 # GREMLIN / BELZEBUB NuFIT 6.1 Correlated Ratio-Line Replay v2.6
 
-Status: `OFFICIAL_SURFACE_REPLAY / CLAIM_PROMOTION_FALSE`
+Status: `OFFICIAL_SURFACE_REPLAY_COMPATIBLE / CLAIM_PROMOTION_FALSE`
 
 ## Target
 
@@ -52,8 +52,7 @@ The exact TIR ratio line is therefore
 or, in table coordinates,
 
 \[
-\boxed{
-x(y)=\log_{10}\!\left(\frac{y\times10^{-3}}{33}\right)}.
+\boxed{x(y)=\log_{10}\!\left(\frac{y\times10^{-3}}{33}\right)}.
 \]
 
 ## Evaluation
@@ -72,9 +71,47 @@ CI attempts ordinary certificate-verified HTTPS first. If the NuFIT host certifi
 
 The fallback is never silent: the acquisition mode is written into the receipt, and the downloaded bytes must still match the pinned official SHA-256 and byte count exactly before parsing.
 
+## Executed result
+
+GitHub Actions run `33134551261`, job `98731493003`, completed successfully. Full GREMLIN regression: `295 passed in 0.91s`.
+
+For `TBoff-NO`, the exact ratio line reaches
+
+\[
+\boxed{\Delta\chi^2_{\min}=0.9902209322450616}
+\]
+
+at approximately
+
+\[
+\Delta m^2_{21}=7.6061212\times10^{-5}\,\mathrm{eV}^2,
+\qquad
+\Delta m^2_{31}=2.5100200\times10^{-3}\,\mathrm{eV}^2.
+\]
+
+For `TByes-NO`, the exact ratio line reaches
+
+\[
+\boxed{\Delta\chi^2_{\min}=0.44097506178386237}
+\]
+
+at approximately
+
+\[
+\Delta m^2_{21}=7.5906212\times10^{-5}\,\mathrm{eV}^2,
+\qquad
+\Delta m^2_{31}=2.5049050\times10^{-3}\,\mathrm{eV}^2.
+\]
+
+Both values are below the standard two-parameter one-sigma contour reference `Delta chi^2 ~= 2.30` on the published two-dimensional surface. The two atmospheric treatments are reported separately and are not added.
+
+The half-resolution minimum shift is `0.0` for `TBoff-NO` and approximately `6.70e-4` for `TByes-NO`, so the recorded line-profile minima are numerically stable at the declared scan resolution.
+
+The exact source hashes, byte counts, acquisition mode, grid cells and profiled coordinates are frozen in `provenance/NUFIT61_TIR_RATIO33_CORRELATED_SURFACE_RECEIPT_V2_6.json`.
+
 ## Interpretation gate
 
-A small `Delta chi^2` on the DMS/DMA surface means the exact ratio line is compatible with this marginalized NuFIT projection. It does not establish the TIR source mechanism, the absolute neutrino mass spectrum, PMNS source binding, or the full six-parameter likelihood.
+A small `Delta chi^2` on the DMS/DMA surface means the exact ratio line is compatible with this marginalized NuFIT projection. The source mechanism, absolute neutrino spectrum, PMNS source binding and full six-dimensional likelihood remain separate evidential gates.
 
 Claim promotion remains false.
 
@@ -82,8 +119,10 @@ Claim promotion remains false.
 
 The ratio test is a mass-spectrum discriminant. Current TIR, IDT, RFC and Secret-of-a-Half phase/lapse/interference gates remain provenance-relevant to the larger neutrino-information program, while the numerical v2.6 statistic itself depends only on the exact TIR mass-splitting ratio and the external NuFIT DMS/DMA surface.
 
-## BELZEBUB decision rule
+## BELZEBUB verdict
 
-The receipt reports the minimum published `Delta chi^2` reached by the exact TIR line separately for `TBoff-NO` and `TByes-NO`.
+\[
+\boxed{\text{EXACT TIR RATIO-33 LINE COMPATIBLE WITH BOTH NuFIT 6.1 NO DMS/DMA SURFACES}}
+\]
 
-The two atmospheric treatments remain separate. Their Delta-chi-square values are not added.
+Status remains `OFFICIAL_SURFACE_REPLAY_COMPATIBLE / CLAIM_PROMOTION_FALSE`.
