@@ -1,6 +1,10 @@
 # GREMLIN / BELZEBUB Complex-Overlap Frame Bridge v2.3
 
-Status: `CANDIDATE / CONDITIONAL BRIDGE CONSTRUCTION`
+Status: `CANONICAL / CONDITIONAL BRIDGE CONSTRUCTION`
+
+## Canonical scope
+
+The construction below is canonical as the GREMLIN neutrino amplitude bridge under its explicit source-binding precondition. The physical cross-Hilbert embedding remains an open evidential debt and is carried as part of the canonical statement rather than silently filled.
 
 ## Source structure
 
@@ -58,7 +62,7 @@ The complex overlaps must be retained.
 
 ## Embedding firewall
 
-The current source set does not yet explicitly prove that the geometric neutrino fixed-point triple is the same labelled orthonormal triple inside the symbolic/intention Hilbert space used by `R(S,I)`.
+The current source set leaves the identification between the geometric neutrino fixed-point triple and the labelled orthonormal triple inside the symbolic/intention Hilbert space as an explicit evidential debt.
 
 Accordingly v2.3 distinguishes:
 
@@ -85,4 +89,4 @@ Current status:
 \boxed{\text{arbitrary matrix freedom structurally removed; physical cross-Hilbert embedding still open}.}
 \]
 
-The next evidential target is not another free matrix parameter. It is an explicit source-grounded identification of the three neutrino geometric modes with the three orthonormal overlap modes in the same intention/symbolic Hilbert space, together with declared PMNS basis orientation.
+The next evidential target is an explicit source-grounded identification of the three neutrino geometric modes with the three orthonormal overlap modes in the same intention/symbolic Hilbert space, together with declared PMNS basis orientation.
