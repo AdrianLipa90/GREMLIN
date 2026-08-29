@@ -14,6 +14,7 @@ from gremlin_mcp.core import (
     species_profile,
     status,
 )
+from gremlin_mcp.pipeline import collect, enqueue_synthesis, fanout
 from gremlin_mcp.workers import WorkerBroker, broker as memory_broker
 
 broker: WorkerBroker = memory_broker
@@ -25,10 +26,12 @@ mcp = MCPServer(
     instructions=(
         "GREMLIN MCP is a research/candidate interface. Use gremlin_bestiary to inspect "
         "the animal topology, gremlin_species for one role, gremlin_plan to build a "
-        "mass-orbit/vector lane plan, and gremlin_prototype for the existing fail-closed "
-        "reference prototype pipeline. External backends can register as animal workers, "
-        "claim bounded same-species batches, and submit CANDIDATE results. MCP calls never "
-        "grant production execution or canon authority."
+        "mass-orbit/vector lane plan, gremlin_fanout to queue an explicit specialist route, "
+        "gremlin_collect to inspect specialist completion, gremlin_synthesize to queue BELZEBUB "
+        "after all supplied specialists finish, and gremlin_prototype for the existing fail-closed "
+        "reference prototype pipeline. External backends can register as animal workers, claim "
+        "bounded same-species batches, and submit CANDIDATE results. MCP calls never grant "
+        "production execution or canon authority."
     ),
     version=__version__,
 )
@@ -75,6 +78,35 @@ def gremlin_species(species: str) -> dict[str, Any]:
 def gremlin_plan(route_counts: dict[str, int], vector_width: int = 8) -> dict[str, Any]:
     """Build a deterministic mass-orbit/vector-lane execution plan for routed work."""
     return plan_bestiary(route_counts, vector_width=vector_width)
+
+
+@mcp.tool()
+def gremlin_fanout(
+    payload: dict[str, Any],
+    species: list[str],
+    request_id: str | None = None,
+) -> dict[str, Any]:
+    """Queue one payload to an explicit specialist route mask.
+
+    This does not pretend to be an implicit semantic OCTOPUS decision: the
+    caller supplies the route mask and GREMLIN supplies lineage and queueing.
+    """
+    return fanout(broker, payload, species, request_id=request_id)
+
+
+@mcp.tool()
+def gremlin_collect(task_ids: list[str]) -> dict[str, Any]:
+    """Collect current states and CANDIDATE outputs for a specialist fanout."""
+    return collect(broker, task_ids)
+
+
+@mcp.tool()
+def gremlin_synthesize(
+    specialist_task_ids: list[str],
+    request_id: str | None = None,
+) -> dict[str, Any]:
+    """Queue BELZEBUB synthesis after every supplied specialist task is DONE."""
+    return enqueue_synthesis(broker, specialist_task_ids, request_id=request_id)
 
 
 @mcp.tool()
