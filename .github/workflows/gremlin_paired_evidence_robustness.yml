@@ -1,0 +1,53 @@
+name: GREMLIN Paired Evidence Robustness
+
+on:
+  push:
+    branches:
+      - feat/gremlin-external-research-eval-v0.1
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  paired-evidence-robustness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install test dependency
+        run: python -m pip install --disable-pip-version-check pytest
+      - name: Run paired evidence contract tests
+        run: python -m pytest -q tests/test_evidence_robustness.py
+      - name: Generate synthetic paired evidence receipt
+        run: python -m tools.gremlin_paired_evidence_probe_v01 --out artifacts/gremlin_paired_evidence_probe_v01.json
+      - name: Verify preregistered robustness gates
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          data=json.loads(Path('artifacts/gremlin_paired_evidence_probe_v01.json').read_text(encoding='utf-8'))
+          metrics=data['metrics']
+          gates={
+              'probe_pass': data['status'] == 'PASS',
+              'clean_stability_rate_eq_1': metrics['clean_stability_rate'] == 1.0,
+              'contradiction_detection_rate_eq_1': metrics['contradiction_detection_rate'] == 1.0,
+              'unresolved_without_hound_rate_eq_1': metrics['unresolved_without_hound_rate'] == 1.0,
+              'unsafe_auto_flip_rate_eq_0': metrics['unsafe_auto_flip_rate'] == 0.0,
+              'invalid_receipt_rejection_rate_eq_1': metrics['invalid_receipt_rejection_rate'] == 1.0,
+              'official_drnoise_not_executed': data['official_drnoise_dataset_executed'] is False,
+              'official_drnoise_score_not_claimed': data['official_drnoise_score_claimed'] is False,
+          }
+          print(json.dumps({'gates':gates,'metrics':metrics},indent=2,sort_keys=True))
+          if not all(gates.values()): raise SystemExit(1)
+          PY
+      - name: Upload paired evidence robustness receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gremlin-paired-evidence-robustness-v01
+          path: artifacts/gremlin_paired_evidence_probe_v01.json
+          if-no-files-found: warn
