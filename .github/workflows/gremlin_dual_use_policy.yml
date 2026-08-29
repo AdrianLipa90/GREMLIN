@@ -1,0 +1,36 @@
+name: GREMLIN Dual-Use Policy
+
+on:
+  push:
+    branches:
+      - feat/gremlin-dual-use-capability-v0.1
+  pull_request:
+    branches:
+      - feat/gremlin-research-engine-v0.1
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  dual-use-policy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install test dependency
+        run: python -m pip install --disable-pip-version-check pytest
+      - name: Run dual-use policy unit tests
+        run: python -m pytest -q tests/test_dual_use_policy.py
+      - name: Run deterministic policy receipt probe
+        run: python -m tools.gremlin_dual_use_policy_probe_v01 --out artifacts/gremlin_dual_use_policy_probe.json
+      - name: Upload policy receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gremlin-dual-use-policy
+          path: artifacts/gremlin_dual_use_policy_probe.json
+          if-no-files-found: warn
