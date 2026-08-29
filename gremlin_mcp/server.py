@@ -15,6 +15,8 @@ from gremlin_mcp.core import (
     status,
 )
 from gremlin_mcp.pipeline import collect, enqueue_synthesis, fanout
+from gremlin_mcp.relational_cases import extract_relations, operator_signature
+from gremlin_mcp.relational_research import execute_relational_research
 from gremlin_mcp.research_executor import execute_research
 from gremlin_mcp.router import auto_fanout, route
 from gremlin_mcp.web import fetch_url, research, search_web
@@ -25,23 +27,27 @@ broker: WorkerBroker = memory_broker
 mcp = MCPServer(
     "GREMLIN",
     title="GREMLIN Bestiary",
-    description="Standalone research MCP adapter for GREMLIN Bestiary semantic routing, scheduling, internet evidence acquisition, external animal workers and reference execution.",
+    description="Standalone research MCP adapter for GREMLIN Bestiary semantic routing, scheduling, internet evidence acquisition, relational-case typing, external animal workers and reference execution.",
     instructions=(
         "GREMLIN MCP is a research/candidate interface. Use gremlin_bestiary to inspect "
         "the animal topology, gremlin_species for one role, gremlin_plan to build a "
         "mass-orbit/vector lane plan, gremlin_route for an auditable OCTOPUS semantic route, "
+        "gremlin_relation_parse for deterministic Polish case-typed relation frames, "
+        "gremlin_relation_signature to inspect an operator's grammatical ports, "
         "gremlin_web_search for bounded internet evidence acquisition, gremlin_web_fetch for "
         "a receipt-bearing HTTPS document fetch, gremlin_research for route + multi-provider "
         "evidence acquisition, gremlin_research_execute to run the resulting staged plan through "
-        "the built-in reference Bestiary worker ABI and BELZEBUB candidate synthesis, "
-        "gremlin_auto_fanout to route and queue confident specialist work, gremlin_fanout for an "
-        "explicit caller-supplied route, gremlin_collect to inspect specialist completion, "
-        "gremlin_synthesize to queue BELZEBUB after all supplied specialists finish, and "
-        "gremlin_prototype for the existing fail-closed reference prototype pipeline. Internet "
-        "access is HTTPS-only, blocks local/private/link-local/reserved targets, validates redirects "
-        "and bounds response size. External backends can register as animal workers, claim bounded "
-        "same-species batches, and submit CANDIDATE results. MCP calls never grant production "
-        "execution or canon authority."
+        "the built-in reference Bestiary worker ABI and BELZEBUB candidate synthesis, and "
+        "gremlin_research_relational to attach case-typed relation constraints to SPIDER, MOLE, "
+        "HOUND and BELZEBUB outputs. Use gremlin_auto_fanout to route and queue confident "
+        "specialist work, gremlin_fanout for an explicit caller-supplied route, gremlin_collect "
+        "to inspect specialist completion, gremlin_synthesize to queue BELZEBUB after all supplied "
+        "specialists finish, and gremlin_prototype for the existing fail-closed reference prototype "
+        "pipeline. Internet access is HTTPS-only, blocks local/private/link-local/reserved targets, "
+        "validates redirects and bounds response size. External backends can register as animal "
+        "workers, claim bounded same-species batches, and submit CANDIDATE results. Grammatical "
+        "case is treated as a relation port while semantic role remains operator-local. MCP calls "
+        "never grant production execution or canon authority."
     ),
     version=__version__,
 )
@@ -69,6 +75,16 @@ def gremlin_status() -> dict[str, Any]:
         "mode": "HTTPS_ONLY_FAIL_CLOSED",
         "providers": ["crossref", "arxiv", "duckduckgo"],
         "reference_executor": "BUILTIN_REFERENCE_BESTIARY_EXECUTOR",
+        "production_runtime_write": False,
+        "execution_admitted": False,
+        "canon_allowed": False,
+    }
+    result["relational_cases"] = {
+        "status": "AVAILABLE",
+        "language": "pl",
+        "case_ports": ["NOM", "GEN", "DAT", "ACC", "INS", "LOC", "VOC"],
+        "model": "GRAMMATICAL_CASE_PORT_PLUS_OPERATOR_LOCAL_ROLE",
+        "reference_parser": "DETERMINISTIC_POLISH_REFERENCE_RULES_V0_1",
         "production_runtime_write": False,
         "execution_admitted": False,
         "canon_allowed": False,
@@ -108,6 +124,18 @@ def gremlin_route(
         min_score=min_score,
         relative_cutoff=relative_cutoff,
     )
+
+
+@mcp.tool()
+def gremlin_relation_parse(text: str, language: str = "pl") -> dict[str, Any]:
+    """Parse bounded Polish relation frames into grammatical case ports and operator-local roles."""
+    return extract_relations(text, language=language)
+
+
+@mcp.tool()
+def gremlin_relation_signature(operator: str) -> dict[str, Any]:
+    """Return required/optional grammatical ports and operator-local roles for a relation operator."""
+    return operator_signature(operator)
 
 
 @mcp.tool()
@@ -167,6 +195,28 @@ def gremlin_research_execute(
     """Acquire internet evidence, execute staged Bestiary reference workers and synthesize a candidate."""
     return execute_research(
         query,
+        providers=providers or ["crossref", "arxiv", "duckduckgo"],
+        limit_per_provider=limit_per_provider,
+        max_species=max_species,
+        max_sources=max_sources,
+    )
+
+
+@mcp.tool()
+def gremlin_research_relational(
+    query: str,
+    relation_text: str | None = None,
+    language: str = "pl",
+    providers: list[str] | None = None,
+    limit_per_provider: int = 6,
+    max_species: int = 4,
+    max_sources: int = 12,
+) -> dict[str, Any]:
+    """Execute internet research and propagate case-typed relation frames into Bestiary synthesis."""
+    return execute_relational_research(
+        query,
+        relation_text=relation_text,
+        language=language,
         providers=providers or ["crossref", "arxiv", "duckduckgo"],
         limit_per_provider=limit_per_provider,
         max_species=max_species,
