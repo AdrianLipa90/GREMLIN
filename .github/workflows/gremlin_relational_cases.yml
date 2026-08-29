@@ -23,7 +23,7 @@ jobs:
       - name: Run relational case unit tests
         run: python -m pytest -q tests/test_relational_cases.py
       - name: Run relational case receipt probe
-        run: python tools/gremlin_relational_cases_probe_v01.py --out artifacts/gremlin_relational_cases_probe.json
+        run: python -m tools.gremlin_relational_cases_probe_v01 --out artifacts/gremlin_relational_cases_probe.json
       - name: Upload relational case receipt
         if: always()
         uses: actions/upload-artifact@v4
