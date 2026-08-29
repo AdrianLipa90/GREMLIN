@@ -1,0 +1,33 @@
+name: GREMLIN Relational Algebra
+
+on:
+  push:
+    branches:
+      - feat/gremlin-research-engine-v0.1
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  relational-algebra:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install test dependency
+        run: python -m pip install --disable-pip-version-check pytest
+      - name: Run relational algebra unit tests
+        run: python -m pytest -q tests/test_relational_algebra.py
+      - name: Run relational algebra receipt probe
+        run: python -m tools.gremlin_relational_algebra_probe_v01 --out artifacts/gremlin_relational_algebra_probe.json
+      - name: Upload relational algebra receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gremlin-relational-algebra
+          path: artifacts/gremlin_relational_algebra_probe.json
+          if-no-files-found: warn
