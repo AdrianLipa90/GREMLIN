@@ -21,7 +21,7 @@ jobs:
       - name: Install test dependency
         run: python -m pip install --disable-pip-version-check pytest
       - name: Run web research unit tests
-        run: python -m pytest -q tests/test_web_research.py
+        run: python -m pytest -q tests/test_web_research.py tests/test_research_executor.py
 
   web-live:
     runs-on: ubuntu-latest
@@ -51,4 +51,26 @@ jobs:
         with:
           name: gremlin-web-live-${{ matrix.name }}
           path: artifacts/gremlin_web_live_${{ matrix.name }}.json
+          if-no-files-found: warn
+
+  research-execute-live:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run live executable GREMLIN Bestiary research probe
+        run: >-
+          python tools/gremlin_research_execute_live_probe_v01.py
+          --query "audit evidence contradictions dependencies graph derive relation between Shannon entropy information geometry and quantum gravity"
+          --limit 5
+          --out artifacts/gremlin_research_execute_live.json
+      - name: Upload executable research receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gremlin-research-execute-live
+          path: artifacts/gremlin_research_execute_live.json
           if-no-files-found: warn
