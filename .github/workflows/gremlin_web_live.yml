@@ -26,6 +26,14 @@ jobs:
   web-live:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: focused
+            query: information geometry quantum gravity Shannon entropy
+          - name: audit
+            query: audit evidence contradictions dependencies graph derive relation between Shannon entropy information geometry and quantum gravity
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -34,12 +42,13 @@ jobs:
       - name: Run live GREMLIN internet research probe
         run: >-
           python tools/gremlin_web_live_probe_v01.py
-          --query "information geometry quantum gravity Shannon entropy"
+          --query "${{ matrix.query }}"
           --limit 5
+          --out "artifacts/gremlin_web_live_${{ matrix.name }}.json"
       - name: Upload live research receipt
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: gremlin-web-live-receipt
-          path: artifacts/gremlin_web_live_receipt.json
+          name: gremlin-web-live-${{ matrix.name }}
+          path: artifacts/gremlin_web_live_${{ matrix.name }}.json
           if-no-files-found: warn
