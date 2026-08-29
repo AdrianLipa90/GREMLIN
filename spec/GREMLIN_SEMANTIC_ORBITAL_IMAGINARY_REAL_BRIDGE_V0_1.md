@@ -17,7 +17,7 @@ Let
 \qquad n\in\mathbb Z_7.
 \]
 
-On the live `/dev/shm/ciel_noema` surface used for the v0.2 audit, the observed indices are
+On the live `/dev/shm/ciel_noema` surface used for the audit, the observed indices are
 
 \[
 \boxed{n\in\{0,1,2,3\}},
@@ -31,14 +31,28 @@ The reference class is `Resonance`, with serialized phase anchor
 \phi_0=-2.84156\ \mathrm{rad}.
 \]
 
-The orbit-vector source yields, for the `Intention` class,
+For the `Intention` class the exact `C7` lattice value derived from this anchor is
 
 \[
+\boxed{
 \operatorname{wrap}\!\left(\phi_0-3\frac{2\pi}{7}\right)
-=0.748831604387\ldots
+=0.7488316041026213\ldots
+}
 \]
 
-while the older concept-phase metadata contains `0.748729`. In this gate the orbit-vector lattice is the phase source and the old metadata field is treated as a stale derived field for that class.
+The phase independently reconstructed from the serialized 36D orbit-vector is
+
+\[
+0.7488316043875249\ldots,
+\]
+
+which differs from the exact lattice value by about
+
+\[
+2.849\times10^{-10}\ \mathrm{rad}.
+\]
+
+This separation is intentional: `EXACT_C7_LATTICE_VALUE` and `SERIALIZED_VECTOR_RECONSTRUCTION` are distinct provenance layers. The older concept-phase metadata contains `0.748729`; in this gate it is treated as a stale derived field for the `Intention` class.
 
 ## Semantic law and phase lift
 
@@ -153,7 +167,7 @@ Then identically
 \boxed{\omega^2=\frac{\mu_{\rm sem}}{r^3}.}
 \]
 
-This is an exact algebraic Kepler-form reparameterization of the internal scheduler. `mu_sem` is not identified here with `G*M` or with a physical gravitational parameter.
+This is an exact algebraic Kepler-form reparameterization of the internal scheduler. `mu_sem` remains source-typed as an internal semantic parameter in this candidate.
 
 ## Bestiary decomposition
 
@@ -163,7 +177,7 @@ This is an exact algebraic Kepler-form reparameterization of the internal schedu
 - `MOLE`: construct the complex radial-orientation carrier.
 - `OWL`: separate exact algebraic identities from physical-source claims.
 - `ANT`: retain alternate radial embeddings as candidates rather than silently promoting them.
-- `MANTIS`: prune direct deletion of `i`, modulus-only bridges, wrapped-phase-only semantic laws, and unsourced `mu_sem = G*M` identifications.
+- `MANTIS`: prune direct deletion of `i`, modulus-only bridges, wrapped-phase-only semantic laws, and unsourced physical attribution of `mu_sem`.
 - `BELZEBUB`: aggregate only the source-typed candidate kernel.
 
 ## Promotion gates
