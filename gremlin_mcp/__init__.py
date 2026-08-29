@@ -1,3 +1,3 @@
 """Standalone MCP adapter for GREMLIN Bestiary."""
 
-__version__ = "0.4.0"
+__version__ = "0.5.0"
