@@ -1,6 +1,6 @@
 # GREMLIN BESTIARY v0.1
 
-Status: CANDIDATE / benchmarked in deterministic virtual-service topology only.
+Status: CANDIDATE / deterministic topology threshold crossed; live 5-CPU promotion threshold not met.
 
 ## Goal
 
@@ -25,15 +25,13 @@ RAW
 
 HUMMINGBIRD does not interpret. Specialist outputs remain candidates. GREMLIN remains root aggregate authority. Canon promotion is outside this topology.
 
-## Benchmark model
+## Deterministic topology benchmark
 
 `tools/gremlin_bestiary_bench_v01.py` generates 10,000 deterministic input items with seed 616.
 
 For every item, the monolithic baseline performs all seven specialist transforms serially. The Bestiary router selects 3-5 relevant specialist queues and executes them concurrently, followed by BELZEBUB synthesis.
 
-Service costs are deterministic virtual units. The benchmark measures scheduling/topology throughput; it is not a live wall-clock or hardware benchmark.
-
-### Results
+Service costs are deterministic virtual units. This benchmark measures scheduling/topology throughput; it is not a live wall-clock or hardware benchmark.
 
 | Topology | MOLE workers | BELZEBUB workers | Speedup |
 |---|---:|---:|---:|
@@ -41,43 +39,46 @@ Service costs are deterministic virtual units. The benchmark measures scheduling
 | duplicate synthesis only | 1 | 2 | 9.9704x |
 | duplicate deep-dig + synthesis | 2 | 2 | 13.2240x |
 
-Default candidate topology therefore crosses the predeclared >=10x threshold:
+Default candidate topology crosses the predeclared >=10x virtual-service threshold at ~13.2240x.
+
+## Live same-runtime replay
+
+`tools/gremlin_bestiary_live_bench_v02.py` replays one frozen RAW workload through three paths on `/dev/shm/ciel_noema`:
+
+1. legacy monolithic serial generalist;
+2. resource-matched generalist with the same process-worker budget as Bestiary;
+3. Bestiary with OCTOPUS routing to only the 3-5 declared relevant specialist transforms.
+
+Run recorded in `provenance/GREMLIN_BESTIARY_LIVE_WALLCLOCK_V0_2.json`:
 
 ```text
-HUMMINGBIRD 1
-OCTOPUS     1
-SPIDER      1
-RAVEN       1
-HOUND       1
-MOLE        2
-OWL         1
-ANT         1
-MANTIS      1
-BELZEBUB    2
+items                      = 2000
+seed                       = 616
+visible CPU count          = 5
+workers                    = 5
+frozen RAW sha256          = 7156342a021d71bf8b710042cc7cc69724d344d20bc79972766f8d18a4538584
+
+legacy serial              = 212.5227 items/s
+resource-matched generalist= 578.5577 items/s
+Bestiary                   = 948.0248 items/s
+
+Bestiary / legacy serial   = 4.4608x
+Bestiary / matched         = 1.6386x
+
+lineage integrity          = PASS
+output equivalence         = PASS
+dropped objects            = 0
+duplicate input IDs        = 0
 ```
 
-Deterministic benchmark values for 10,000 items / seed 616:
+End-to-end p50/p95 latency:
 
 ```text
-baseline_serial_service_units  ~= 87344.1756
-bestiary_makespan_service_units ~= 6604.9702
-throughput_speedup              ~= 13.2240x
-candidate_threshold              = 10.0x
-candidate                        = true
+legacy serial              = 4612.13 / 8974.18 ms
+resource-matched generalist= 1798.28 / 3296.73 ms
+Bestiary                   = 1062.61 / 1989.70 ms
 ```
 
-## Why the result can exceed worker-count scaling
+The live >=10x promotion gate is therefore **not met** on the current 5-CPU runtime. The measured operational gain versus the legacy serial path is ~4.46x; routing/specialization alone gives ~1.64x against an equally parallel generalist.
 
-The topology combines two effects: parallel service and avoided generalist work. OCTOPUS routes each item only to relevant specialists instead of forcing every item through every transform. The benchmark reports the combined topology gain and separately exposes worker counts.
-
-## Next gate
-
-A live candidate requires replaying one frozen RAW workload through both paths on the same runtime generation and hardware budget:
-
-```text
-MONOLITHIC GREMLIN replay
-vs
-BESTIARY replay
-```
-
-Required measurements: accepted items/s, p50/p95 end-to-end latency, total CPU time, peak RSS, queue depth, dropped/duplicated object count, lineage integrity and output-equivalence class. Promotion requires >=10x accepted-item throughput without lineage loss or weaker fail-closed behavior.
+This result preserves the architecture as a candidate but blocks promotion on the current evidence. Further work should target bounded queueing, lower process/serialization overhead, native PhaseNav execution, and specialist batching/vectorization before repeating the same frozen-workload gate.
