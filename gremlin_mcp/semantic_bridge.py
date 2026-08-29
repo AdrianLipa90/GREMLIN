@@ -7,11 +7,13 @@ from typing import Any, Mapping, Sequence
 from gremlin_mcp.guarded_research import apply_claim_evidence_guard
 from gremlin_mcp.research_executor import execute_research
 from gremlin_mcp.semantic_evidence import SemanticEvidenceProducer, normalize_producer_output, run_producer
+from gremlin_mcp.source_family import bind_guard_evidence_to_families
 
 SCHEMA = "GREMLIN_SEMANTIC_GUARDED_BRIDGE_V0_1"
-VERSION = "0.1.1"
+VERSION = "0.1.2"
 SEMANTIC_PRODUCER_OUTPUT_INVALID = "SEMANTIC_PRODUCER_OUTPUT_INVALID"
 SEMANTIC_COVERAGE_INCOMPLETE = "SEMANTIC_COVERAGE_INCOMPLETE"
+SEMANTIC_SOURCE_FAMILY_BINDING_FAILED = "SEMANTIC_SOURCE_FAMILY_BINDING_FAILED"
 SEMANTIC_EVIDENCE_UNRESOLVED = "SEMANTIC_EVIDENCE_UNRESOLVED"
 
 
@@ -160,18 +162,21 @@ def _semantic_wrapper(
     *,
     validation: Mapping[str, Any],
     producer_output: Mapping[str, Any],
+    family_binding: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     core = {
         "schema": SCHEMA,
         "version": VERSION,
         "validation": dict(validation),
         "coverage": validation.get("coverage"),
+        "provenance_families": None if family_binding is None else dict(family_binding),
         "producer": producer_output.get("producer"),
         "external_semantic_provider_executed": bool(producer_output.get("external_semantic_provider_executed", False)),
         "fixture_semantics_claimed_as_real": False,
         "unresolved_policy": "PRESERVE_NOT_COERCE",
         "unclassified_source_policy": "QUARANTINE_NOT_NEUTRAL",
-        "source_family_policy": "PRODUCER_DECLARED_UNVERIFIED_NOT_INDEPENDENCE_PROOF",
+        "source_family_policy": "DETERMINISTIC_EXECUTION_PROVENANCE_FAMILY_OVERRIDES_PRODUCER_DECLARATION",
+        "source_family_independence_status": "HEURISTIC_NOT_PROOF",
         "authority": _authority(),
     }
     return {
@@ -187,13 +192,18 @@ def _quarantine_semantic(
     validation: Mapping[str, Any],
     producer_output: Mapping[str, Any],
     reason: str,
+    family_binding: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     result = dict(execution)
     result["quarantined_synthesis"] = result.get("synthesis")
     result["synthesis"] = None
     result["status"] = status
     result["semantic_evidence"] = {
-        **_semantic_wrapper(validation=validation, producer_output=producer_output),
+        **_semantic_wrapper(
+            validation=validation,
+            producer_output=producer_output,
+            family_binding=family_binding,
+        ),
         "synthesis_authorized": False,
         "quarantine_reason": reason,
     }
@@ -241,26 +251,51 @@ def apply_semantic_producer_output(
         )
 
     normalized = validation["normalized"]
+    try:
+        family_binding = bind_guard_evidence_to_families(
+            normalized["guard_evidence"],
+            citations=execution.get("citations") or [],
+        )
+    except ValueError as exc:
+        failed_binding = {
+            "status": "INVALID_FAIL_CLOSED",
+            "error": str(exc),
+            "producer_family_authority": "NONE",
+        }
+        return _quarantine_semantic(
+            execution,
+            status=SEMANTIC_SOURCE_FAMILY_BINDING_FAILED,
+            validation=validation,
+            producer_output=producer_output,
+            family_binding=failed_binding,
+            reason="DETERMINISTIC_EXECUTION_PROVENANCE_FAMILY_BINDING_REQUIRED_BEFORE_INDEPENDENCE_ACCOUNTING",
+        )
+
     if normalized["resolved_count"] == 0:
         return _quarantine_semantic(
             execution,
             status=SEMANTIC_EVIDENCE_UNRESOLVED,
             validation=validation,
             producer_output=producer_output,
+            family_binding=family_binding,
             reason="NO_SUPPORT_OR_CONTRADICT_CLASSIFICATION_AVAILABLE_AFTER_PRESERVING_UNRESOLVED",
         )
 
     guarded = apply_claim_evidence_guard(
         execution,
         claim_id=claim_id,
-        claim_evidence=normalized["guard_evidence"],
+        claim_evidence=family_binding["guard_evidence"],
         hound_receipt=hound_receipt,
         require_execution_source_binding=True,
         require_execution_content_binding=True,
     )
     result = dict(guarded)
     result["semantic_evidence"] = {
-        **_semantic_wrapper(validation=validation, producer_output=producer_output),
+        **_semantic_wrapper(
+            validation=validation,
+            producer_output=producer_output,
+            family_binding=family_binding,
+        ),
         "synthesis_authorized": result.get("synthesis") is not None,
         "quarantine_reason": result.get("claim_evidence_guard", {}).get("quarantine_reason"),
         "resolved_count": normalized["resolved_count"],
