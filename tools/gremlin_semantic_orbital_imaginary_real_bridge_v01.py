@@ -32,8 +32,8 @@ def semantic_value(B: float, omega: float, N: float, A_R: float, phi_lift: float
 def complex_orbital(m_sem: float, phi: float) -> complex:
     m = float(m_sem)
     p = float(phi)
-    if not math.isfinite(m) or m < 0.0 or not math.isfinite(p):
-        raise ValueError("semantic mass must be finite/non-negative and phase finite")
+    if not math.isfinite(m) or m <= 0.0 or not math.isfinite(p):
+        raise ValueError("semantic mass must be finite/positive and phase finite")
     return m * cmath.exp(1j * p)
 
 
