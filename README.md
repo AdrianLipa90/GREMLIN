@@ -113,7 +113,33 @@ External worker roles are `SPIDER`, `RAVEN`, `HOUND`, `MOLE`, `OWL`, `ANT`, `MAN
 
 Claims are same-species batches bounded by both the worker-declared maximum and the existing mass-orbit/vector-lane scheduler. Results are bound to task lineage by BLAKE2b commitments and remain candidate-only.
 
-Worker state in v0.2 is process-resident (`PROCESS_MEMORY_V0_2`). Durable WAL-backed state is a later gate.
+For a worker running as a separate process, use one shared Streamable HTTP GREMLIN server. A stdio server belongs to the process launched by its MCP host, so launching a second stdio GREMLIN process would create a different process-resident broker.
+
+The package also includes `GremlinWorkerClient`, a batch-aware helper for plugging in a model, solver, graph engine, search backend, or accelerator without reimplementing MCP plumbing:
+
+```python
+from gremlin_mcp.worker_client import GremlinWorkerClient
+
+async def spider(batch):
+    return [
+        {"task_id": task["task_id"], "output": my_backend(task["payload"])}
+        for task in batch["tasks"]
+    ]
+
+worker = GremlinWorkerClient(
+    "http://127.0.0.1:8766/mcp",
+    worker_id="my-spider",
+    species=["SPIDER"],
+    handler=spider,
+    vector_width=8,
+    max_batch=32,
+)
+await worker.serve()
+```
+
+A runnable skeleton is in `examples/mcp_worker_spider.py`. Its handler is intentionally only an echo demonstration; replace it with the actual backend for the selected animal role.
+
+Worker state in v0.2 is process-resident (`PROCESS_MEMORY_V0_2`). Durable WAL-backed state is the next persistence gate.
 
 The MCP adapter is fail-closed with respect to native authority:
 
