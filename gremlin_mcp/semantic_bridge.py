@@ -9,8 +9,9 @@ from gremlin_mcp.research_executor import execute_research
 from gremlin_mcp.semantic_evidence import SemanticEvidenceProducer, normalize_producer_output, run_producer
 
 SCHEMA = "GREMLIN_SEMANTIC_GUARDED_BRIDGE_V0_1"
-VERSION = "0.1.0"
+VERSION = "0.1.1"
 SEMANTIC_PRODUCER_OUTPUT_INVALID = "SEMANTIC_PRODUCER_OUTPUT_INVALID"
+SEMANTIC_COVERAGE_INCOMPLETE = "SEMANTIC_COVERAGE_INCOMPLETE"
 SEMANTIC_EVIDENCE_UNRESOLVED = "SEMANTIC_EVIDENCE_UNRESOLVED"
 
 
@@ -36,6 +37,46 @@ def _authority() -> dict[str, bool]:
     }
 
 
+def _coverage(
+    *,
+    classifications: Sequence[Mapping[str, Any]],
+    source_receipts: Sequence[Mapping[str, Any]],
+) -> dict[str, Any]:
+    receipt_ids = [str(row.get("source_id") or "").strip() for row in source_receipts]
+    receipt_ids = [sid for sid in receipt_ids if sid]
+    classified_ids = [str(row.get("source_id") or "").strip() for row in classifications]
+    classified_ids = [sid for sid in classified_ids if sid]
+
+    receipt_set = set(receipt_ids)
+    classified_set = set(classified_ids)
+    missing = sorted(receipt_set - classified_set)
+    unexpected = sorted(classified_set - receipt_set)
+    duplicate_receipts = sorted({sid for sid in receipt_ids if receipt_ids.count(sid) > 1})
+    duplicate_classifications = sorted({sid for sid in classified_ids if classified_ids.count(sid) > 1})
+    receipt_count = len(receipt_set)
+    classified_known_count = len(classified_set & receipt_set)
+    rate = 1.0 if receipt_count == 0 else classified_known_count / receipt_count
+
+    return {
+        "policy": "STRICT_ALL_EXECUTION_SOURCES_CLASSIFIED",
+        "source_receipt_count": receipt_count,
+        "classified_source_count": classified_known_count,
+        "coverage_rate": rate,
+        "complete": (
+            not missing
+            and not unexpected
+            and not duplicate_receipts
+            and not duplicate_classifications
+            and receipt_set == classified_set
+        ),
+        "missing_source_ids": missing,
+        "unexpected_source_ids": unexpected,
+        "duplicate_source_receipt_ids": duplicate_receipts,
+        "duplicate_classification_source_ids": duplicate_classifications,
+        "unclassified_source_policy": "QUARANTINE_NOT_NEUTRAL",
+    }
+
+
 def verify_semantic_producer_output(
     output: Mapping[str, Any],
     *,
@@ -51,8 +92,13 @@ def verify_semantic_producer_output(
             "valid": False,
             "errors": ["CLASSIFICATIONS_MUST_BE_LIST"],
             "normalized": None,
+            "coverage": None,
             "authority": _authority(),
         }
+
+    coverage = _coverage(classifications=classifications, source_receipts=source_receipts)
+    if coverage["duplicate_source_receipt_ids"]:
+        errors.append("DUPLICATE_SOURCE_RECEIPT")
 
     normalized = normalize_producer_output(
         claim_id=claim_id,
@@ -104,6 +150,7 @@ def verify_semantic_producer_output(
         "valid": not errors,
         "errors": errors,
         "normalized": normalized,
+        "coverage": coverage,
         "integrity_scope": "UNKEYED_COMMITMENT_LOCAL_PIPELINE_BINDING_NOT_SENDER_AUTHENTICATION",
         "authority": _authority(),
     }
@@ -118,10 +165,12 @@ def _semantic_wrapper(
         "schema": SCHEMA,
         "version": VERSION,
         "validation": dict(validation),
+        "coverage": validation.get("coverage"),
         "producer": producer_output.get("producer"),
         "external_semantic_provider_executed": bool(producer_output.get("external_semantic_provider_executed", False)),
         "fixture_semantics_claimed_as_real": False,
         "unresolved_policy": "PRESERVE_NOT_COERCE",
+        "unclassified_source_policy": "QUARANTINE_NOT_NEUTRAL",
         "source_family_policy": "PRODUCER_DECLARED_UNVERIFIED_NOT_INDEPENDENCE_PROOF",
         "authority": _authority(),
     }
@@ -161,6 +210,7 @@ def apply_semantic_producer_output(
     *,
     producer_output: Mapping[str, Any],
     hound_receipt: Mapping[str, Any] | None = None,
+    require_complete_coverage: bool = True,
 ) -> dict[str, Any]:
     claim_id = str(producer_output.get("claim_id") or "").strip()
     if not claim_id:
@@ -178,6 +228,16 @@ def apply_semantic_producer_output(
             validation=validation,
             producer_output=producer_output,
             reason="SEMANTIC_PRODUCER_OUTPUT_MUST_REVALIDATE_AGAINST_CURRENT_EXECUTION_RECEIPTS",
+        )
+
+    coverage = validation["coverage"]
+    if require_complete_coverage and not coverage["complete"]:
+        return _quarantine_semantic(
+            execution,
+            status=SEMANTIC_COVERAGE_INCOMPLETE,
+            validation=validation,
+            producer_output=producer_output,
+            reason="EVERY_EXECUTION_SOURCE_MUST_BE_CLASSIFIED_AS_SUPPORT_CONTRADICT_OR_UNRESOLVED",
         )
 
     normalized = validation["normalized"]
@@ -223,6 +283,7 @@ def execute_research_with_semantic_producer(
     limit_per_provider: int = 6,
     max_species: int = 4,
     max_sources: int = 12,
+    require_complete_coverage: bool = True,
 ) -> dict[str, Any]:
     execution = execute_research(
         query,
@@ -254,4 +315,5 @@ def execute_research_with_semantic_producer(
         execution,
         producer_output=producer_output,
         hound_receipt=hound_receipt,
+        require_complete_coverage=require_complete_coverage,
     )
