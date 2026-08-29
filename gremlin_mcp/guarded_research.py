@@ -11,11 +11,13 @@ from gremlin_mcp.evidence_robustness import (
     excerpt_commitment,
 )
 from gremlin_mcp.research_executor import execute_research
+from gremlin_mcp.research_provenance import verify_source_receipt_set
 
 SCHEMA = "GREMLIN_GUARDED_RESEARCH_V0_1"
-VERSION = "0.1.2"
+VERSION = "0.1.3"
 SOURCE_BINDING_FAILED = "CLAIM_EVIDENCE_SOURCE_BINDING_FAILED"
 CONTENT_BINDING_FAILED = "CLAIM_EVIDENCE_CONTENT_BINDING_FAILED"
+SOURCE_RECEIPT_INTEGRITY_FAILED = "SOURCE_RECEIPT_INTEGRITY_FAILED"
 
 
 def _canonical(value: Any) -> bytes:
@@ -59,17 +61,14 @@ def _citation_binding(execution: Mapping[str, Any]) -> dict[str, Any]:
 
 def _content_binding(execution: Mapping[str, Any], rows: list[dict[str, Any]]) -> dict[str, Any]:
     receipts = list(execution.get("source_receipts") or [])
-    by_id: dict[str, Mapping[str, Any]] = {}
-    duplicate_receipts: list[str] = []
-    for receipt in receipts:
-        sid = str(receipt.get("source_id") or "").strip()
-        if not sid:
-            continue
-        if sid in by_id:
-            duplicate_receipts.append(sid)
-        by_id[sid] = receipt
+    receipt_integrity = verify_source_receipt_set(receipts, citations=execution.get("citations") or [])
+    errors: list[dict[str, Any]] = list(receipt_integrity["errors"])
+    by_id: dict[str, Mapping[str, Any]] = {
+        str(receipt.get("source_id") or "").strip(): receipt
+        for receipt in receipts
+        if str(receipt.get("source_id") or "").strip()
+    }
 
-    errors: list[dict[str, Any]] = []
     for row in rows:
         sid = str(row.get("evidence_id") or "").strip()
         receipt = by_id.get(sid)
@@ -103,10 +102,6 @@ def _content_binding(execution: Mapping[str, Any], rows: list[dict[str, Any]]) -
         if payload != expected_excerpt:
             errors.append({"evidence_id": sid, "code": "PAYLOAD_NOT_BOUND_TO_EXCERPT"})
 
-    if duplicate_receipts:
-        for sid in sorted(set(duplicate_receipts)):
-            errors.append({"evidence_id": sid, "code": "DUPLICATE_SOURCE_RECEIPT"})
-
     receipt_basis = [
         {
             "source_id": str(row.get("source_id") or ""),
@@ -122,7 +117,8 @@ def _content_binding(execution: Mapping[str, Any], rows: list[dict[str, Any]]) -
         "errors": errors,
         "source_receipt_count": len(receipts),
         "source_receipt_set_commitment": _commit(b"GREMLIN-SOURCE-RECEIPT-SET/v0.1", receipt_basis),
-        "binding_rule": "SOURCE_ID+CONTENT_COMMITMENT+LITERAL_EXCERPT+EXCERPT_COMMITMENT",
+        "receipt_integrity": receipt_integrity,
+        "binding_rule": "VERIFIED_SOURCE_RECEIPT+SOURCE_ID+CONTENT_COMMITMENT+LITERAL_EXCERPT+EXCERPT_COMMITMENT",
     }
 
 
@@ -200,14 +196,21 @@ def apply_claim_evidence_guard(
 
     content_binding = _content_binding(execution, rows)
     if require_execution_content_binding and not content_binding["valid"]:
+        receipt_integrity = content_binding["receipt_integrity"]
+        status = CONTENT_BINDING_FAILED if receipt_integrity["valid"] else SOURCE_RECEIPT_INTEGRITY_FAILED
+        reason = (
+            "CLAIM_EVIDENCE_MUST_BIND_TO_EXACT_EXECUTION_CONTENT_AND_LITERAL_EXCERPT"
+            if receipt_integrity["valid"]
+            else "SOURCE_RECEIPT_INTEGRITY_MUST_VERIFY_BEFORE_SEMANTIC_ASSESSMENT"
+        )
         return _quarantine(
             execution,
-            status=CONTENT_BINDING_FAILED,
+            status=status,
             claim_id=claim_id,
             bundle=bundle,
             source_binding=source_binding,
             content_binding=content_binding,
-            reason="CLAIM_EVIDENCE_MUST_BIND_TO_EXACT_EXECUTION_CONTENT_AND_LITERAL_EXCERPT",
+            reason=reason,
         )
 
     assessment = assess_evidence_bundle(bundle, hound_receipt=hound_receipt)
@@ -271,16 +274,35 @@ def execute_guarded_research(
     if not rows:
         base = dict(result)
         source_binding = _citation_binding(base)
+        receipt_integrity = verify_source_receipt_set(
+            base.get("source_receipts") or [],
+            citations=base.get("citations") or [],
+        )
+        if not receipt_integrity["valid"] and (base.get("citations") or base.get("source_receipts")):
+            base["quarantined_synthesis"] = base.get("synthesis")
+            base["synthesis"] = None
+            base["status"] = SOURCE_RECEIPT_INTEGRITY_FAILED
+            synthesis_authorized = False
+        else:
+            synthesis_authorized = base.get("synthesis") is not None
         guard = {
             "schema": SCHEMA,
             "version": VERSION,
-            "status": "NO_TYPED_CLAIM_EVIDENCE",
+            "status": "NO_TYPED_CLAIM_EVIDENCE" if receipt_integrity["valid"] else SOURCE_RECEIPT_INTEGRITY_FAILED,
             "semantic_contradiction_test_completed": False,
-            "synthesis_authorized": base.get("synthesis") is not None,
+            "synthesis_authorized": synthesis_authorized,
             "source_binding": {**source_binding, "required": True},
-            "content_binding": {"required": True, "completed": False},
+            "content_binding": {
+                "required": True,
+                "completed": False,
+                "receipt_integrity": receipt_integrity,
+            },
             "source_content_authority": "UNTRUSTED_EVIDENCE_ONLY",
-            "reason": "RETRIEVAL_CONTENT_IS_NOT_AUTOMATICALLY_CLASSIFIED_AS_SUPPORT_OR_CONTRADICTION",
+            "reason": (
+                "RETRIEVAL_CONTENT_IS_NOT_AUTOMATICALLY_CLASSIFIED_AS_SUPPORT_OR_CONTRADICTION"
+                if receipt_integrity["valid"]
+                else "SOURCE_RECEIPT_INTEGRITY_FAILED_BEFORE_SEMANTIC_CLASSIFICATION"
+            ),
             "authority": _authority(),
         }
         guard["guard_commitment"] = _commit(b"GREMLIN-GUARDED-RESEARCH/v0.1", guard)
