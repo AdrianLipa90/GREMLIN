@@ -53,6 +53,48 @@ SURVIVED_AUDIT
 
 `VALIDATED_PROTOTYPE` currently carries `validation_scope=REFERENCE_CONFORMANCE_ONLY`.
 
+## Standalone MCP adapter v0.1
+
+GREMLIN can also run as a standalone Model Context Protocol server for research integration. This path does not require NOEMA or `/dev/shm/ciel_noema` for discovery, Bestiary inspection, scheduler planning, or the existing Python reference prototype pipeline.
+
+Install from the repository root:
+
+```text
+python -m pip install -e .
+```
+
+Run over stdio:
+
+```text
+gremlin-mcp
+```
+
+Or expose a local Streamable HTTP endpoint:
+
+```text
+gremlin-mcp --transport streamable-http --host 127.0.0.1 --port 8766
+```
+
+Default HTTP MCP endpoint: `http://127.0.0.1:8766/mcp`.
+
+Exposed MCP tools:
+
+- `gremlin_status`
+- `gremlin_bestiary`
+- `gremlin_species`
+- `gremlin_plan`
+- `gremlin_prototype`
+
+The MCP adapter is fail-closed with respect to native authority:
+
+```text
+production_runtime_write=false
+execution_admitted=false
+canon_allowed=false
+```
+
+Full specification: `spec/GREMLIN_MCP_SERVER_V0_1.md`.
+
 ## Visual research client v0.1
 
 The local visual client exposes the prototype pipeline as a three-pane workspace:
