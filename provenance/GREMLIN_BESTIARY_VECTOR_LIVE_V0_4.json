@@ -1,0 +1,92 @@
+{
+  "bestiary_individual": {
+    "cpu_s": 7.536349999999999,
+    "items_per_s": 1054.8850031931145,
+    "max_queue_depth": 2000,
+    "p50_e2e_latency_ms": 979.1871039997204,
+    "p95_e2e_latency_ms": 1786.4887079995242,
+    "peak_rss_kib": 105388,
+    "wall_s": 1.8959412580006756,
+    "workers": 5
+  },
+  "bestiary_orbital_item_batch": {
+    "cpu_s": 7.243283000000002,
+    "item_batch_width": 54,
+    "item_batches": 38,
+    "items_per_s": 1049.3343005091958,
+    "max_queue_depth": 38,
+    "p50_e2e_latency_ms": 1053.329215001213,
+    "p95_e2e_latency_ms": 1861.2483980014076,
+    "peak_rss_kib": 106284,
+    "wall_s": 1.9059702890008339,
+    "workers": 5
+  },
+  "bestiary_species_vector": {
+    "belzebub_batches": 16,
+    "belzebub_lane_width": 128,
+    "cpu_s": 6.935344999999991,
+    "dispatch_compression": 32.2563025210084,
+    "items_per_s": 1129.075539081953,
+    "max_queue_depth": 238,
+    "p50_e2e_latency_ms": 1609.4253920000483,
+    "p95_e2e_latency_ms": 1744.7311799987801,
+    "peak_rss_kib": 111276,
+    "species_dispatches": 238,
+    "species_plan": [
+      {"batch_count": 55, "lane_width": 20, "omega": 144.16126222072552, "route_count": 1085, "species": "MANTIS"},
+      {"batch_count": 45, "lane_width": 25, "omega": 90.03220615877717, "route_count": 1110, "species": "ANT"},
+      {"batch_count": 36, "lane_width": 31, "omega": 60.73745796940267, "route_count": 1101, "species": "RAVEN"},
+      {"batch_count": 32, "lane_width": 34, "omega": 49.19734095521616, "route_count": 1056, "species": "HOUND"},
+      {"batch_count": 29, "lane_width": 39, "omega": 38.03632305138804, "route_count": 1109, "species": "OWL"},
+      {"batch_count": 25, "lane_width": 45, "omega": 28.631912268131693, "route_count": 1106, "species": "SPIDER"},
+      {"batch_count": 16, "lane_width": 70, "omega": 11.919214016412836, "route_count": 1110, "species": "MOLE"}
+    ],
+    "vector_width": 8,
+    "wall_s": 1.7713606669985893,
+    "workers": 5
+  },
+  "candidate": false,
+  "candidate_threshold": 10.0,
+  "cpu_count_visible": 5,
+  "frozen_raw_sha256": "7156342a021d71bf8b710042cc7cc69724d344d20bc79972766f8d18a4538584",
+  "integrity": {
+    "dropped_by_path": [0, 0, 0, 0, 0],
+    "duplicate_input_ids": 0,
+    "input_items": 2000,
+    "lineage_integrity": "PASS",
+    "output_equivalence": "PASS",
+    "output_equivalence_mismatches": 0,
+    "unique_input_ids": 2000
+  },
+  "items": 2000,
+  "legacy_serial": {
+    "cpu_s": 8.714593,
+    "items_per_s": 229.40795524171136,
+    "max_queue_depth": 1,
+    "p50_e2e_latency_ms": 4489.447383000879,
+    "p95_e2e_latency_ms": 8275.431733000005,
+    "peak_rss_kib": 96940,
+    "wall_s": 8.718093485000281,
+    "workers": 1
+  },
+  "receipt_sha256": "012dd2aebf7e0d54069eb886f33e1735db0d0b1a3c6e5466b8fb6bb48dc57fa0",
+  "resource_matched_generalist": {
+    "cpu_s": 12.595099000000005,
+    "items_per_s": 620.8588098462267,
+    "max_queue_depth": 2000,
+    "p50_e2e_latency_ms": 1705.3449915001693,
+    "p95_e2e_latency_ms": 3070.5155080013355,
+    "peak_rss_kib": 102956,
+    "wall_s": 3.2213443190012185,
+    "workers": 5
+  },
+  "schema": "GREMLIN_BESTIARY_VECTOR_LIVE_V0_4",
+  "seed": 616,
+  "speedup_vector_vs_generalist": 1.8185705367724436,
+  "speedup_vector_vs_legacy": 4.921693050671777,
+  "speedup_vector_vs_old_bestiary": 1.0703304489724144,
+  "speedup_vector_vs_orbital_item_batch": 1.075992215763901,
+  "surface": "/dev/shm/ciel_noema",
+  "validation_scope": "LIVE_SAME_RUNTIME_GENERATION_CPU_REPLAY",
+  "workers": 5
+}
