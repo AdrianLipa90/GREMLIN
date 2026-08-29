@@ -53,9 +53,9 @@ SURVIVED_AUDIT
 
 `VALIDATED_PROTOTYPE` currently carries `validation_scope=REFERENCE_CONFORMANCE_ONLY`.
 
-## Standalone MCP adapter v0.4
+## Standalone MCP adapter v0.5
 
-GREMLIN can run as a standalone Model Context Protocol server for research integration. This path does not require NOEMA or `/dev/shm/ciel_noema` for discovery, Bestiary inspection, scheduler planning, external animal-worker coordination, durable local queue state, or the existing Python reference prototype pipeline.
+GREMLIN can run as a standalone Model Context Protocol server for research integration. This path does not require NOEMA or `/dev/shm/ciel_noema` for discovery, Bestiary inspection, OCTOPUS reference routing, scheduler planning, external animal-worker coordination, durable local queue state, or the existing Python reference prototype pipeline.
 
 Install from the repository root:
 
@@ -83,18 +83,49 @@ Core MCP tools:
 - `gremlin_bestiary`
 - `gremlin_species`
 - `gremlin_plan`
+- `gremlin_route`
+- `gremlin_auto_fanout`
 - `gremlin_fanout`
 - `gremlin_collect`
 - `gremlin_synthesize`
 - `gremlin_prototype`
 
-### High-level Bestiary pipeline
+### OCTOPUS semantic routing v0.5
 
-An MCP host can now queue one research payload across an explicit specialist route and then hand completed candidates to BELZEBUB:
+The standalone reference path now implements an auditable OCTOPUS route decision:
 
 ```text
-payload + explicit route mask
-  -> gremlin_fanout
+payload
+  -> gremlin_route / OCTOPUS
+  -> ranked semantic + structural evidence
+  -> bounded route mask
+  -> gremlin_auto_fanout
+  -> specialist queues
+```
+
+The v0.5 reference router is deterministic and dependency-free. It uses explicit semantic cue weights plus structural JSON evidence for `SPIDER`, `RAVEN`, `HOUND`, `MOLE`, `OWL`, `ANT`, and `MANTIS`. Every score contribution is returned to the caller; routing is therefore inspectable rather than an opaque model decision.
+
+Each decision receives a BLAKE2b-256 `route_commitment`. Automatic fanout binds that commitment into every downstream worker task. If no positive evidence clears the configured threshold, `gremlin_auto_fanout` queues nothing and returns `NO_CONFIDENT_ROUTE_NOT_QUEUED`.
+
+Example:
+
+```text
+gremlin_route({
+  "problem": "Audit evidence for contradictions in this dependency graph",
+  "dependencies": ["A->B"],
+  "sources": ["paper-a"]
+})
+```
+
+The explicit `gremlin_fanout` tool remains available when the MCP host already knows the desired route mask.
+
+### High-level Bestiary pipeline
+
+A host can now use either OCTOPUS auto-routing or an explicit route and then hand completed candidates to BELZEBUB:
+
+```text
+payload
+  -> OCTOPUS route / explicit route mask
   -> SPIDER / RAVEN / HOUND / MOLE / OWL / ANT / MANTIS
   -> gremlin_collect
   -> gremlin_synthesize
@@ -102,7 +133,7 @@ payload + explicit route mask
   -> CANDIDATE synthesis
 ```
 
-The route mask is explicit in v0.4. The standalone adapter therefore does not claim an implicit semantic OCTOPUS decision where none has been implemented yet. `gremlin_synthesize` fails closed until every supplied specialist task is complete.
+`gremlin_synthesize` fails closed until every supplied specialist task is complete.
 
 ### External animal workers
 
@@ -185,6 +216,7 @@ Specifications:
 - `spec/GREMLIN_MCP_WORKER_ABI_V0_2.md`
 - `spec/GREMLIN_MCP_PERSISTENCE_V0_3.md`
 - `spec/GREMLIN_MCP_PIPELINE_V0_4.md`
+- `spec/GREMLIN_MCP_OCTOPUS_ROUTER_V0_5.md`
 
 ## Visual research client v0.1
 

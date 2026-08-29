@@ -1,9 +1,9 @@
-name: GREMLIN MCP v0.4
+name: GREMLIN MCP v0.5
 
 on:
   push:
     branches:
-      - feat/gremlin-mcp-v0.1
+      - feat/gremlin-octopus-semantic-router-v0.5
   pull_request:
     paths:
       - 'gremlin_mcp/**'
@@ -17,10 +17,12 @@ on:
       - 'tests/test_gremlin_mcp_worker_client_v02.py'
       - 'tests/test_gremlin_mcp_persistence_v03.py'
       - 'tests/test_gremlin_mcp_pipeline_v04.py'
+      - 'tests/test_gremlin_mcp_octopus_router_v05.py'
       - 'spec/GREMLIN_MCP_SERVER_V0_1.md'
       - 'spec/GREMLIN_MCP_WORKER_ABI_V0_2.md'
       - 'spec/GREMLIN_MCP_PERSISTENCE_V0_3.md'
       - 'spec/GREMLIN_MCP_PIPELINE_V0_4.md'
+      - 'spec/GREMLIN_MCP_OCTOPUS_ROUTER_V0_5.md'
       - 'pyproject.toml'
       - 'README.md'
       - '.github/workflows/gremlin-mcp-v01.yml'
@@ -43,3 +45,4 @@ jobs:
           tests/test_gremlin_mcp_worker_client_v02.py
           tests/test_gremlin_mcp_persistence_v03.py
           tests/test_gremlin_mcp_pipeline_v04.py
+          tests/test_gremlin_mcp_octopus_router_v05.py
