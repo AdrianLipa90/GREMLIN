@@ -53,9 +53,9 @@ SURVIVED_AUDIT
 
 `VALIDATED_PROTOTYPE` currently carries `validation_scope=REFERENCE_CONFORMANCE_ONLY`.
 
-## Standalone MCP adapter v0.1
+## Standalone MCP adapter v0.2
 
-GREMLIN can also run as a standalone Model Context Protocol server for research integration. This path does not require NOEMA or `/dev/shm/ciel_noema` for discovery, Bestiary inspection, scheduler planning, or the existing Python reference prototype pipeline.
+GREMLIN can run as a standalone Model Context Protocol server for research integration. This path does not require NOEMA or `/dev/shm/ciel_noema` for discovery, Bestiary inspection, scheduler planning, external animal-worker coordination, or the existing Python reference prototype pipeline.
 
 Install from the repository root:
 
@@ -77,13 +77,43 @@ gremlin-mcp --transport streamable-http --host 127.0.0.1 --port 8766
 
 Default HTTP MCP endpoint: `http://127.0.0.1:8766/mcp`.
 
-Exposed MCP tools:
+Core MCP tools:
 
 - `gremlin_status`
 - `gremlin_bestiary`
 - `gremlin_species`
 - `gremlin_plan`
 - `gremlin_prototype`
+
+### External animal workers
+
+Any backend that can call MCP tools can register as a scheduler-backed GREMLIN animal worker. The v0.2 contract is pull-based and does not require GREMLIN to call arbitrary worker URLs:
+
+```text
+backend
+  -> gremlin_worker_register
+  -> gremlin_worker_claim
+  -> local model / solver / search / GPU work
+  -> gremlin_worker_submit
+  -> CANDIDATE result
+```
+
+Worker tools:
+
+- `gremlin_worker_register`
+- `gremlin_worker_heartbeat`
+- `gremlin_worker_list`
+- `gremlin_worker_enqueue`
+- `gremlin_worker_claim`
+- `gremlin_worker_submit`
+- `gremlin_worker_result`
+- `gremlin_worker_queue`
+
+External worker roles are `SPIDER`, `RAVEN`, `HOUND`, `MOLE`, `OWL`, `ANT`, `MANTIS`, and `BELZEBUB`. Capture remains owned by HUMMINGBIRD and routing remains owned by OCTOPUS.
+
+Claims are same-species batches bounded by both the worker-declared maximum and the existing mass-orbit/vector-lane scheduler. Results are bound to task lineage by BLAKE2b commitments and remain candidate-only.
+
+Worker state in v0.2 is process-resident (`PROCESS_MEMORY_V0_2`). Durable WAL-backed state is a later gate.
 
 The MCP adapter is fail-closed with respect to native authority:
 
@@ -93,7 +123,10 @@ execution_admitted=false
 canon_allowed=false
 ```
 
-Full specification: `spec/GREMLIN_MCP_SERVER_V0_1.md`.
+Specifications:
+
+- `spec/GREMLIN_MCP_SERVER_V0_1.md`
+- `spec/GREMLIN_MCP_WORKER_ABI_V0_2.md`
 
 ## Visual research client v0.1
 
