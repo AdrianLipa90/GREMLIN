@@ -10,8 +10,8 @@ from tools.gremlin_bestiary_vector_species_v03 import (
     validate_plan,
 )
 
-SCHEMA = "GREMLIN_MCP_V0_1"
-VERSION = "0.1.0"
+SCHEMA = "GREMLIN_MCP_V0_2"
+VERSION = "0.2.0"
 
 BESTIARY_ROLES: dict[str, dict[str, str]] = {
     "HUMMINGBIRD": {
@@ -69,6 +69,22 @@ TOPOLOGY = (
     "GREMLIN",
 )
 
+MCP_TOOLS = [
+    "gremlin_status",
+    "gremlin_bestiary",
+    "gremlin_species",
+    "gremlin_plan",
+    "gremlin_prototype",
+    "gremlin_worker_register",
+    "gremlin_worker_heartbeat",
+    "gremlin_worker_list",
+    "gremlin_worker_enqueue",
+    "gremlin_worker_claim",
+    "gremlin_worker_submit",
+    "gremlin_worker_result",
+    "gremlin_worker_queue",
+]
+
 
 def authority_state() -> dict[str, bool]:
     return {
@@ -87,13 +103,15 @@ def status() -> dict[str, Any]:
         "noema_required": False,
         "phasenav_native_authority_required": False,
         "transport_capabilities": ["stdio", "streamable-http"],
-        "tools": [
-            "gremlin_status",
-            "gremlin_bestiary",
-            "gremlin_species",
-            "gremlin_plan",
-            "gremlin_prototype",
-        ],
+        "worker_abi": {
+            "version": "0.2.0",
+            "model": "PULL_LEASE_SUBMIT",
+            "callback_networking": False,
+            "same_species_batches": True,
+            "orbit_lane_bounded": True,
+            "state_persistence": "PROCESS_MEMORY_V0_2",
+        },
+        "tools": list(MCP_TOOLS),
         "topology": list(TOPOLOGY),
         "authority": authority_state(),
     }
