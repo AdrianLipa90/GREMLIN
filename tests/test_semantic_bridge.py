@@ -55,12 +55,29 @@ def _execution():
     }
 
 
-def test_resolved_support_and_contradict_flow_into_hound_guard():
+def _all_unresolved_assignments():
+    return [
+        FixtureAssignment("src-a", "journal-a", "The observation supports the claim.", UNRESOLVED, 0.3),
+        FixtureAssignment("src-b", "journal-b", "The independent analysis contradicts the claim.", UNRESOLVED, 0.4),
+        FixtureAssignment("src-u", "journal-u", "The available text is insufficient to resolve the claim.", UNRESOLVED, 1.0),
+    ]
+
+
+def _support_plus_unresolved_assignments():
+    return [
+        FixtureAssignment("src-a", "journal-a", "The observation supports the claim.", SUPPORT, 0.8),
+        FixtureAssignment("src-b", "journal-b", "The independent analysis contradicts the claim.", UNRESOLVED, 0.2),
+        FixtureAssignment("src-u", "journal-u", "The available text is insufficient to resolve the claim.", UNRESOLVED, 1.0),
+    ]
+
+
+def test_resolved_support_and_contradict_flow_into_hound_guard_with_complete_coverage():
     execution = _execution()
     producer = FixtureSemanticEvidenceProducer(
         [
             FixtureAssignment("src-a", "journal-a", "The observation supports the claim.", SUPPORT, 0.8),
             FixtureAssignment("src-b", "journal-b", "The independent analysis contradicts the claim.", CONTRADICT, 0.9),
+            FixtureAssignment("src-u", "journal-u", "The available text is insufficient to resolve the claim.", UNRESOLVED, 1.0),
         ]
     )
     output = run_producer(producer, claim_id="claim-x", source_receipts=execution["source_receipts"])
@@ -69,38 +86,47 @@ def test_resolved_support_and_contradict_flow_into_hound_guard():
     assert result["synthesis"] is None
     assert result["quarantined_synthesis"] is not None
     assert result["claim_evidence_guard"]["assessment"]["contradiction_detected"] is True
-    assert result["semantic_evidence"]["validation"]["valid"] is True
-    assert result["semantic_evidence"]["resolved_count"] == 2
-    assert result["semantic_evidence"]["unresolved_count"] == 0
+    semantic = result["semantic_evidence"]
+    assert semantic["validation"]["valid"] is True
+    assert semantic["coverage"]["complete"] is True
+    assert semantic["coverage"]["coverage_rate"] == 1.0
+    assert semantic["resolved_count"] == 2
+    assert semantic["unresolved_count"] == 1
 
 
-def test_all_unresolved_quarantines_instead_of_silently_releasing_synthesis():
+def test_partial_semantic_coverage_quarantines_instead_of_treating_missing_sources_as_neutral():
     execution = _execution()
     producer = FixtureSemanticEvidenceProducer(
-        [
-            FixtureAssignment(
-                "src-u",
-                "journal-u",
-                "The available text is insufficient to resolve the claim.",
-                UNRESOLVED,
-                1.0,
-            )
-        ]
+        [FixtureAssignment("src-a", "journal-a", "The observation supports the claim.", SUPPORT, 0.8)]
     )
+    output = run_producer(producer, claim_id="claim-partial", source_receipts=execution["source_receipts"])
+    result = bridge.apply_semantic_producer_output(execution, producer_output=output)
+    assert result["status"] == bridge.SEMANTIC_COVERAGE_INCOMPLETE
+    assert result["synthesis"] is None
+    assert result["quarantined_synthesis"] is not None
+    coverage = result["semantic_evidence"]["coverage"]
+    assert coverage["complete"] is False
+    assert coverage["coverage_rate"] == 1 / 3
+    assert coverage["missing_source_ids"] == ["src-b", "src-u"]
+    assert coverage["unclassified_source_policy"] == "QUARANTINE_NOT_NEUTRAL"
+
+
+def test_all_unresolved_with_complete_coverage_quarantines_instead_of_silently_releasing_synthesis():
+    execution = _execution()
+    producer = FixtureSemanticEvidenceProducer(_all_unresolved_assignments())
     output = run_producer(producer, claim_id="claim-u", source_receipts=execution["source_receipts"])
     result = bridge.apply_semantic_producer_output(execution, producer_output=output)
     assert result["status"] == bridge.SEMANTIC_EVIDENCE_UNRESOLVED
     assert result["synthesis"] is None
     assert result["quarantined_synthesis"] is not None
     assert result["semantic_evidence"]["synthesis_authorized"] is False
-    assert result["semantic_evidence"]["validation"]["normalized"]["unresolved_count"] == 1
+    assert result["semantic_evidence"]["coverage"]["complete"] is True
+    assert result["semantic_evidence"]["validation"]["normalized"]["unresolved_count"] == 3
 
 
-def test_tampered_derived_guard_evidence_is_rejected_before_guard_execution():
+def test_tampered_derived_guard_evidence_is_rejected_before_coverage_or_guard_execution():
     execution = _execution()
-    producer = FixtureSemanticEvidenceProducer(
-        [FixtureAssignment("src-a", "journal-a", "The observation supports the claim.", SUPPORT, 0.8)]
-    )
+    producer = FixtureSemanticEvidenceProducer(_support_plus_unresolved_assignments())
     output = run_producer(producer, claim_id="claim-t", source_receipts=execution["source_receipts"])
     output["guard_evidence"][0]["stance"] = CONTRADICT
     result = bridge.apply_semantic_producer_output(execution, producer_output=output)
@@ -112,9 +138,7 @@ def test_tampered_derived_guard_evidence_is_rejected_before_guard_execution():
 
 def test_producer_envelope_identity_mismatch_is_rejected():
     execution = _execution()
-    producer = FixtureSemanticEvidenceProducer(
-        [FixtureAssignment("src-a", "journal-a", "The observation supports the claim.", SUPPORT, 0.8)]
-    )
+    producer = FixtureSemanticEvidenceProducer(_support_plus_unresolved_assignments())
     output = run_producer(producer, claim_id="claim-p", source_receipts=execution["source_receipts"])
     output["producer"]["producer_id"] = "different-producer"
     result = bridge.apply_semantic_producer_output(execution, producer_output=output)
@@ -122,32 +146,63 @@ def test_producer_envelope_identity_mismatch_is_rejected():
     assert "PRODUCER_ID_ENVELOPE_MISMATCH" in result["semantic_evidence"]["validation"]["errors"]
 
 
-def test_fixture_producer_support_only_can_pass_to_candidate_but_never_canon():
+def test_support_plus_explicit_unresolved_can_pass_to_candidate_but_never_canon():
     execution = _execution()
-    producer = FixtureSemanticEvidenceProducer(
-        [FixtureAssignment("src-a", "journal-a", "The observation supports the claim.", SUPPORT, 0.8)]
-    )
+    producer = FixtureSemanticEvidenceProducer(_support_plus_unresolved_assignments())
     output = run_producer(producer, claim_id="claim-s", source_receipts=execution["source_receipts"])
     result = bridge.apply_semantic_producer_output(execution, producer_output=output)
     assert result["synthesis"] is not None
     assert result["claim_evidence_guard"]["assessment"]["candidate_stance"] == SUPPORT
+    assert result["semantic_evidence"]["coverage"]["complete"] is True
     assert result["semantic_evidence"]["external_semantic_provider_executed"] is False
     assert result["semantic_evidence"]["fixture_semantics_claimed_as_real"] is False
     assert result["authority"]["canon_allowed"] is False
 
 
-def test_execute_wrapper_uses_same_bridge_without_network(monkeypatch):
+def test_strict_coverage_can_only_be_disabled_explicitly():
+    execution = _execution()
+    producer = FixtureSemanticEvidenceProducer(
+        [FixtureAssignment("src-a", "journal-a", "The observation supports the claim.", SUPPORT, 0.8)]
+    )
+    output = run_producer(producer, claim_id="claim-nonstrict", source_receipts=execution["source_receipts"])
+    result = bridge.apply_semantic_producer_output(
+        execution,
+        producer_output=output,
+        require_complete_coverage=False,
+    )
+    assert result["synthesis"] is not None
+    assert result["semantic_evidence"]["coverage"]["complete"] is False
+    assert result["authority"]["canon_allowed"] is False
+
+
+def test_execute_wrapper_uses_strict_coverage_by_default_without_network(monkeypatch):
     execution = _execution()
     monkeypatch.setattr(bridge, "execute_research", lambda *args, **kwargs: execution)
-    producer = FixtureSemanticEvidenceProducer(
+    partial = FixtureSemanticEvidenceProducer(
         [FixtureAssignment("src-a", "journal-a", "The observation supports the claim.", SUPPORT, 0.8)]
     )
     result = bridge.execute_research_with_semantic_producer(
         "test query",
         claim_id="claim-wrapper",
+        producer=partial,
+        providers=["fixture"],
+    )
+    assert result["status"] == bridge.SEMANTIC_COVERAGE_INCOMPLETE
+    assert result["synthesis"] is None
+    assert result["semantic_evidence"]["validation"]["valid"] is True
+    assert result["semantic_evidence"]["external_semantic_provider_executed"] is False
+
+
+def test_execute_wrapper_passes_complete_fixture_coverage_without_network(monkeypatch):
+    execution = _execution()
+    monkeypatch.setattr(bridge, "execute_research", lambda *args, **kwargs: execution)
+    producer = FixtureSemanticEvidenceProducer(_support_plus_unresolved_assignments())
+    result = bridge.execute_research_with_semantic_producer(
+        "test query",
+        claim_id="claim-wrapper-full",
         producer=producer,
         providers=["fixture"],
     )
     assert result["synthesis"] is not None
-    assert result["semantic_evidence"]["validation"]["valid"] is True
+    assert result["semantic_evidence"]["coverage"]["complete"] is True
     assert result["semantic_evidence"]["external_semantic_provider_executed"] is False
