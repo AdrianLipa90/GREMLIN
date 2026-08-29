@@ -1,0 +1,52 @@
+name: GREMLIN External Research Eval
+
+on:
+  push:
+    branches:
+      - feat/gremlin-external-research-eval-v0.1
+  pull_request:
+    branches:
+      - feat/gremlin-dual-use-capability-v0.1
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  external-eval-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install test dependency
+        run: python -m pip install --disable-pip-version-check pytest
+      - name: Run external-eval adapter tests
+        run: python -m pytest -q tests/test_external_eval.py
+      - name: Run deterministic adapter receipt probe
+        run: python -m tools.gremlin_external_eval_probe_v01 --out artifacts/gremlin_external_eval_probe_v01.json
+      - name: Verify no fake external score was emitted
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          data=json.loads(Path('artifacts/gremlin_external_eval_probe_v01.json').read_text(encoding='utf-8'))
+          gates={
+              'contract_probe_pass': data['status'] == 'PASS',
+              'external_dataset_not_claimed': data['external_dataset_executed'] is False,
+              'external_judge_not_claimed': data['external_answer_judge_executed'] is False,
+              'answer_accuracy_unscored': data['aggregate']['answer_accuracy'] is None,
+              'external_judge_required': data['aggregate']['answer_accuracy_status'] == 'EXTERNAL_SEMANTIC_JUDGE_REQUIRED',
+          }
+          print(json.dumps({'gates': gates}, indent=2, sort_keys=True))
+          if not all(gates.values()): raise SystemExit(1)
+          PY
+      - name: Upload external-eval contract receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gremlin-external-research-eval-v01
+          path: artifacts/gremlin_external_eval_probe_v01.json
+          if-no-files-found: warn
