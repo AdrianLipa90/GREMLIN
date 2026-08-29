@@ -1,0 +1,49 @@
+{
+  "schema": "GREMLIN_SEMANTIC_ORBITAL_RADIAL_ANGULAR_FACTORIZATION_LIVE_V0_5",
+  "status": "PASS_CURRENT_LIVE_RADIAL_ANGULAR_FACTOR_SEPARATION_CANDIDATE",
+  "epistemic": "CHYBA",
+  "promotion_state": "CANDIDATE_ONLY",
+  "canon_allowed": false,
+  "runtime_execution_authority": false,
+  "surface": "/dev/shm/ciel_noema",
+  "surface_status": "ACTIVE",
+  "items": 115,
+  "inputs": {
+    "mass_file": "/dev/shm/ciel_noema/phasenav/CIELINGO_PHASENAV_NAME_MASS.noema.jsonl",
+    "mass_file_sha256": "b6032c4b879d5adba33ded2bfa10837945d28be5a44b17821e99d15f02978032",
+    "orbit_file": "/dev/shm/ciel_noema/phasenav/CIELINGO_PHASENAV_ORBIT_VECTORS.noema.jsonl",
+    "orbit_file_sha256": "75b9348f1f29546c7fd16065efe6565434261c3874986128170d569610c173c6",
+    "pncs_mass_contract_head": "7a54596c1794be29e0b85f5c363213cc81eb87d7",
+    "mass_contract_id": "PNV_SEMANTIC_MASS_V1",
+    "runtime_source_sha256": "0b4df86cd01db313ea46ebac0eceee9cf6df0673391edd1a3fb2667c30464a32"
+  },
+  "mass_model": {
+    "formula": "m_k=round(kappa*(1+alpha_M*k)+(2/7)*R_k,10)",
+    "kappa": 0.009193150006360484,
+    "alpha_M": 0.0072973113787402075,
+    "kappa_alpha_M": 0.00006708527814787997,
+    "serialized_coherence_R_unique": [0.228524],
+    "inferred_R_min": 0.22852419618110542,
+    "inferred_R_max": 0.22852419655185932,
+    "inferred_R_std": 1.0159334307979962e-10,
+    "observed_step_mean": 0.00006708527807017555,
+    "observed_step_std": 4.1377110603979414e-11,
+    "observed_minus_theory_step": -7.770441733633004e-14,
+    "max_abs_arithmetic_progression_residual": 7.075388885890987e-11,
+    "mass_vs_phase_index_corr": 1.0
+  },
+  "c7_orientation": {
+    "delta7": 0.8975979010256552,
+    "reference_card_id": "001",
+    "counts": {"0": 39, "1": 38, "2": 19, "3": 19, "4": 0, "5": 0, "6": 0},
+    "max_lattice_residual_rad": 7.962957848661745e-09,
+    "mass_vs_c7_index_corr": -0.023299453378081845,
+    "mass_residual_vs_c7_index_corr_after_linear_k_fit": 0.0990903484874939,
+    "c7_coefficient_after_controlling_phase_index": 2.692469927198469e-12
+  },
+  "classification": "CURRENT_LIVE_FACTOR_SEPARATION_ONLY",
+  "physical_mass_gate": "PNCS semantic_mass remains a dimensionless realization/integrity coordinate; no physical mass-energy conversion scale is admitted here.",
+  "live_receipt_path": "/dev/shm/ciel_noema/session/gremlin_semantic_orbital_radial_angular_factorization_live_v0_5.json",
+  "live_receipt_file_sha256": "40026d74f66b640f45620e09b768344d2a3a18b1014e22288d237dc0082435f9",
+  "receipt_sha256": "3497012f83e46e4d6cffd4c782980c81e2e05377a2c62a4961c18bef7fa279be"
+}
