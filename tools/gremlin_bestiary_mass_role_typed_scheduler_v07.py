@@ -8,9 +8,12 @@ from tools.gremlin_semantic_orbital_mass_role_firewall_v06 import role_separated
 
 BESTIARY_COMPAT = "GREMLIN_BESTIARY_V02_INERTIAL_SERVICE_LOAD_COMPAT"
 FOUNDATION_COMPAT = "CIEL_FOUNDATION_P3_SOURCE_ATTRACTOR_COMPAT"
+HISTORICAL_INERTIAL_COMPAT = "CIEL_KEPLER_INERTIAL_SIM_COMPAT"
 EQUIVALENCE_CANDIDATE = "SEMANTIC_EQUIVALENCE_CANDIDATE"
 
-KNOWN_PROFILE_IDS = frozenset({BESTIARY_COMPAT, FOUNDATION_COMPAT, EQUIVALENCE_CANDIDATE})
+KNOWN_PROFILE_IDS = frozenset(
+    {BESTIARY_COMPAT, FOUNDATION_COMPAT, HISTORICAL_INERTIAL_COMPAT, EQUIVALENCE_CANDIDATE}
+)
 
 
 class TypedSchedulerError(ValueError):
@@ -103,6 +106,32 @@ def bestiary_species_witness(species: str, *, tau: float = 1.0, omega0: float = 
         tau=t,
         omega0=o0,
         legacy_omega=legacy,
+    )
+
+
+def historical_inertial_sim_witness(
+    k: float,
+    M_sem: float,
+    radius: float,
+) -> TypedOrbitWitness:
+    """Exact crosswalk for archived CIEL kepler_ciel_sim.py.
+
+    The historical simulation initializes v_circ^2 = k/(M_sem*r), so
+    omega^2 = k/(M_sem*r^3). This is the same inertial/load mass role as
+    the current Bestiary compatibility branch.
+    """
+    kk = _positive(k, "k")
+    mass = _positive(M_sem, "M_sem")
+    r = _positive(radius, "radius")
+    return _witness(
+        species=None,
+        profile_id=HISTORICAL_INERTIAL_COMPAT,
+        mu_source=kk,
+        q_coupling=1.0,
+        m_inertial=mass,
+        radius=r,
+        tau=1.0,
+        omega0=math.sqrt(kk),
     )
 
 
