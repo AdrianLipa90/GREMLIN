@@ -16,6 +16,7 @@ from gremlin_mcp.core import (
 )
 from gremlin_mcp.pipeline import collect, enqueue_synthesis, fanout
 from gremlin_mcp.router import auto_fanout, route
+from gremlin_mcp.web import fetch_url, research, search_web
 from gremlin_mcp.workers import WorkerBroker, broker as memory_broker
 
 broker: WorkerBroker = memory_broker
@@ -23,17 +24,21 @@ broker: WorkerBroker = memory_broker
 mcp = MCPServer(
     "GREMLIN",
     title="GREMLIN Bestiary",
-    description="Standalone research MCP adapter for GREMLIN Bestiary semantic routing, scheduling, external animal workers and reference execution.",
+    description="Standalone research MCP adapter for GREMLIN Bestiary semantic routing, scheduling, internet evidence acquisition, external animal workers and reference execution.",
     instructions=(
         "GREMLIN MCP is a research/candidate interface. Use gremlin_bestiary to inspect "
         "the animal topology, gremlin_species for one role, gremlin_plan to build a "
         "mass-orbit/vector lane plan, gremlin_route for an auditable OCTOPUS semantic route, "
-        "gremlin_auto_fanout to route and queue confident specialist work, gremlin_fanout for "
-        "an explicit caller-supplied route, gremlin_collect to inspect specialist completion, "
-        "gremlin_synthesize to queue BELZEBUB after all supplied specialists finish, and "
-        "gremlin_prototype for the existing fail-closed reference prototype pipeline. External "
-        "backends can register as animal workers, claim bounded same-species batches, and submit "
-        "CANDIDATE results. MCP calls never grant production execution or canon authority."
+        "gremlin_web_search for bounded internet evidence acquisition, gremlin_web_fetch for "
+        "a receipt-bearing HTTPS document fetch, gremlin_research for route + multi-provider "
+        "evidence acquisition, gremlin_auto_fanout to route and queue confident specialist work, "
+        "gremlin_fanout for an explicit caller-supplied route, gremlin_collect to inspect "
+        "specialist completion, gremlin_synthesize to queue BELZEBUB after all supplied specialists "
+        "finish, and gremlin_prototype for the existing fail-closed reference prototype pipeline. "
+        "Internet access is HTTPS-only, blocks local/private/link-local/reserved targets, validates "
+        "redirects and bounds response size. External backends can register as animal workers, "
+        "claim bounded same-species batches, and submit CANDIDATE results. MCP calls never grant "
+        "production execution or canon authority."
     ),
     version=__version__,
 )
@@ -56,6 +61,14 @@ def gremlin_status() -> dict[str, Any]:
     """Return MCP mode, capabilities, topology and fail-closed authority state."""
     result = status()
     result["worker_queue"] = broker.queue_status()
+    result["internet_research"] = {
+        "status": "AVAILABLE",
+        "mode": "HTTPS_ONLY_FAIL_CLOSED",
+        "providers": ["crossref", "arxiv", "duckduckgo"],
+        "production_runtime_write": False,
+        "execution_admitted": False,
+        "canon_allowed": False,
+    }
     return result
 
 
@@ -90,6 +103,52 @@ def gremlin_route(
         max_species=max_species,
         min_score=min_score,
         relative_cutoff=relative_cutoff,
+    )
+
+
+@mcp.tool()
+def gremlin_web_fetch(
+    url: str,
+    timeout_s: float = 10.0,
+    max_bytes: int = 1_000_000,
+    max_chars: int = 120_000,
+) -> dict[str, Any]:
+    """Fetch one public HTTPS text/JSON/XML resource with SSRF firewall and provenance receipt."""
+    return fetch_url(
+        url,
+        timeout_s=timeout_s,
+        max_bytes=max_bytes,
+        max_chars=max_chars,
+    )
+
+
+@mcp.tool()
+def gremlin_web_search(
+    query: str,
+    providers: list[str] | None = None,
+    limit_per_provider: int = 6,
+) -> dict[str, Any]:
+    """Search bounded public internet providers and return deduplicated candidate evidence."""
+    return search_web(
+        query,
+        providers=providers or ["crossref", "arxiv", "duckduckgo"],
+        limit_per_provider=limit_per_provider,
+    )
+
+
+@mcp.tool()
+def gremlin_research(
+    query: str,
+    providers: list[str] | None = None,
+    limit_per_provider: int = 6,
+    max_species: int = 4,
+) -> dict[str, Any]:
+    """Run OCTOPUS routing plus bounded internet evidence acquisition for a research query."""
+    return research(
+        query,
+        providers=providers or ["crossref", "arxiv", "duckduckgo"],
+        limit_per_provider=limit_per_provider,
+        max_species=max_species,
     )
 
 
