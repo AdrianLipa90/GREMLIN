@@ -1,0 +1,79 @@
+{
+  "schema": "GREMLIN_BESTIARY_ORBITAL_LIVE_V0_3",
+  "validation_scope": "LIVE_SAME_RUNTIME_GENERATION_CPU_REPLAY",
+  "surface": "/dev/shm/ciel_noema",
+  "tether_guard": {
+    "schema": "noema.aux-tether-guard/v2",
+    "tether_status": "ACTIVE",
+    "failures": []
+  },
+  "items": 2000,
+  "seed": 616,
+  "workers": 5,
+  "cpu_count_visible": 5,
+  "frozen_raw_sha256": "7156342a021d71bf8b710042cc7cc69724d344d20bc79972766f8d18a4538584",
+  "orbit_model": "omega0*tau/sqrt(mass*radius^3)",
+  "omega0": "2*pi*7.83",
+  "hummingbird": {
+    "analogue": "MERCURY",
+    "mass": 0.05,
+    "radius": 0.39,
+    "omega": 903.3576313133244
+  },
+  "belzebub": {
+    "analogue": "JUPITER",
+    "mass": 2.6,
+    "radius": 5.2,
+    "omega": 2.573060163149409
+  },
+  "legacy_serial": {
+    "items_per_s": 213.51488671545596,
+    "wall_s": 9.367028364000362,
+    "cpu_s": 9.351913000000001,
+    "p50_e2e_latency_ms": 4782.242750000478,
+    "p95_e2e_latency_ms": 8926.13369100036,
+    "max_queue_depth": 1
+  },
+  "resource_matched_generalist": {
+    "items_per_s": 564.9638791037577,
+    "wall_s": 3.5400493269989965,
+    "cpu_s": 13.794198000000003,
+    "p50_e2e_latency_ms": 1864.9842039994837,
+    "p95_e2e_latency_ms": 3373.0222630001663,
+    "max_queue_depth": 2000
+  },
+  "bestiary_individual": {
+    "items_per_s": 921.8724939690678,
+    "wall_s": 2.169497422999484,
+    "cpu_s": 8.671692000000004,
+    "p50_e2e_latency_ms": 1144.7245785002451,
+    "p95_e2e_latency_ms": 2088.873026999863,
+    "max_queue_depth": 2000
+  },
+  "bestiary_orbital_batched": {
+    "items_per_s": 1020.646022738283,
+    "wall_s": 1.9595432259993686,
+    "cpu_s": 7.558636999999997,
+    "p50_e2e_latency_ms": 1117.1968229991762,
+    "p95_e2e_latency_ms": 1921.9200970001111,
+    "max_queue_depth": 38,
+    "orbital_chunk_size": 54,
+    "orbital_batches": 38
+  },
+  "speedup_orbital_vs_legacy": 4.780210122296828,
+  "speedup_orbital_vs_generalist": 1.8065686329494308,
+  "speedup_orbital_vs_old_bestiary": 1.1071444580626888,
+  "scalar_five_cpu_ideal_ceiling_for_frozen_cost_model": 8.11685393258427,
+  "candidate_threshold": 10.0,
+  "candidate": false,
+  "integrity": {
+    "input_items": 2000,
+    "unique_input_ids": 2000,
+    "duplicate_input_ids": 0,
+    "dropped_by_path": [0, 0, 0, 0],
+    "output_equivalence_mismatches": 0,
+    "lineage_integrity": "PASS",
+    "output_equivalence": "PASS"
+  },
+  "receipt_sha256": "f437f33ecb7830977461cffc4fe5f22941140238cc02cf05235f824c0cb27865"
+}
