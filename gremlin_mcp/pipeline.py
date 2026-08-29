@@ -48,12 +48,13 @@ def fanout(
     species: Iterable[str],
     *,
     request_id: str | None = None,
+    route_context: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Explicitly fan one payload out to selected specialist animals.
+    """Fan one payload out to selected specialist animals.
 
-    This is intentionally not an implicit OCTOPUS semantic router. The caller
-    supplies the route mask, while GREMLIN owns task identity, lineage and the
-    worker queue.
+    Callers may supply an audited route_context. Explicit manual fanout keeps
+    the previous contract when route_context is omitted; OCTOPUS auto-routing
+    uses it to bind the semantic route commitment into every worker task.
     """
     if not isinstance(payload, Mapping):
         raise ValueError("payload must be a mapping")
@@ -64,26 +65,36 @@ def fanout(
     if not rid or len(rid) > 64:
         raise ValueError("request_id must contain 1..64 characters")
 
+    route_meta: dict[str, Any] | None = None
+    if route_context is not None:
+        if not isinstance(route_context, Mapping):
+            raise ValueError("route_context must be a mapping")
+        route_meta = dict(route_context)
+        _canonical(route_meta)
+
+    digest_input: dict[str, Any] = {"request_id": rid, "payload": body, "species": roles}
+    if route_meta is not None:
+        digest_input["route_context"] = route_meta
     digest = hashlib.blake2b(
-        b"GREMLIN-MCP-FANOUT/v0.4\x00" + _canonical({"request_id": rid, "payload": body, "species": roles}),
+        b"GREMLIN-MCP-FANOUT/v0.4\x00" + _canonical(digest_input),
         digest_size=16,
     ).hexdigest()
+
     rows: list[dict[str, Any]] = []
     for name in roles:
         task_id = f"{rid[:48]}-{name.lower()}-{digest[:12]}"
-        task = broker.enqueue(
-            name,
-            {
-                "schema": PIPELINE_SCHEMA,
-                "request_id": rid,
-                "route_species": name,
-                "payload": body,
-            },
-            task_id=task_id,
-        )
+        task_payload: dict[str, Any] = {
+            "schema": PIPELINE_SCHEMA,
+            "request_id": rid,
+            "route_species": name,
+            "payload": body,
+        }
+        if route_meta is not None:
+            task_payload["route_context"] = route_meta
+        task = broker.enqueue(name, task_payload, task_id=task_id)
         rows.append({"species": name, "task_id": task_id, "task_commitment": task["task_commitment"]})
 
-    return {
+    result = {
         "schema": PIPELINE_SCHEMA,
         "request_id": rid,
         "route_mask": list(roles),
@@ -91,6 +102,9 @@ def fanout(
         "status": "SPECIALISTS_QUEUED",
         "authority": _authority(),
     }
+    if route_meta is not None:
+        result["route_context"] = route_meta
+    return result
 
 
 def collect(broker: WorkerBroker, task_ids: Iterable[str]) -> dict[str, Any]:
