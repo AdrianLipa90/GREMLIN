@@ -15,8 +15,9 @@
     "residual_hardening_spec_sha256": "6e108da964ab17120c128b4a05f395b8412c2a1450a9ffddb2527c619427f92b",
     "benchmark_pr": 6,
     "benchmark_branch": "exp/ciel-lm-v0.10-v2-prereg",
-    "benchmark_head_sha": "b04baee74946b61239ea758fece40e152018fc5c",
-    "benchmark_preregistration_sha256": "d6dce9cd0c0b239e3870695bf0b452327f8dde4f7ae9367b9cf469bf4ef855bf"
+    "benchmark_head_sha": "689fdb4a24ee08bcae450c2ab9561a77342e2884",
+    "benchmark_github_freeze_sha256": "51ade35ba904ed5354aaa7efd37c6c19468333a17cb7ae4781fe2e564bf01e9b",
+    "benchmark_local_full_prereg_sha256": "d6dce9cd0c0b239e3870695bf0b452327f8dde4f7ae9367b9cf469bf4ef855bf"
   },
   "architecture": {
     "base_lm": "external_frozen_logit_provider",
@@ -48,6 +49,8 @@
     "v1_empirical_execution": false,
     "v1_outcome_observed": false,
     "v2_status": "FROZEN_BEFORE_RUNNER_IMPLEMENTATION",
+    "v2_github_freeze_sha256": "51ade35ba904ed5354aaa7efd37c6c19468333a17cb7ae4781fe2e564bf01e9b",
+    "v2_local_full_prereg_sha256": "d6dce9cd0c0b239e3870695bf0b452327f8dde4f7ae9367b9cf469bf4ef855bf",
     "v2_negative_controls": [
       "shuffled_relation_features",
       "post_training_zero_structural_exact_base"
