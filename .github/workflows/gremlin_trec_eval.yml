@@ -1,0 +1,47 @@
+name: GREMLIN TREC Eval Reference
+
+on:
+  push:
+    branches:
+      - feat/gremlin-external-research-eval-v0.1
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  trec-reference:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install test dependency
+        run: python -m pip install --disable-pip-version-check pytest
+      - name: Run TREC reference scorer tests
+        run: python -m pytest -q tests/test_trec_eval.py
+      - name: Run deterministic TREC receipt probe
+        run: python -m tools.gremlin_trec_eval_probe_v01 --out artifacts/gremlin_trec_eval_probe_v01.json
+      - name: Verify reference-only scope
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          data=json.loads(Path('artifacts/gremlin_trec_eval_probe_v01.json').read_text(encoding='utf-8'))
+          gates={
+              'probe_pass': data['status'] == 'PASS',
+              'external_dataset_not_claimed': data['external_dataset_executed'] is False,
+              'leaderboard_not_claimed': data['leaderboard_score_claimed'] is False,
+          }
+          print(json.dumps({'gates':gates,'metrics':data['metrics']},indent=2,sort_keys=True))
+          if not all(gates.values()): raise SystemExit(1)
+          PY
+      - name: Upload TREC reference receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gremlin-trec-eval-reference-v01
+          path: artifacts/gremlin_trec_eval_probe_v01.json
+          if-no-files-found: warn
