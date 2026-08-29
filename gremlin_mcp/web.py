@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from html.parser import HTMLParser
 import hashlib
 import ipaddress
 import json
 import socket
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -19,7 +19,9 @@ WEB_VERSION = "0.1.0"
 USER_AGENT = "GREMLIN-Research/0.1 (+https://github.com/AdrianLipa90/GREMLIN)"
 DEFAULT_TIMEOUT_S = 10.0
 DEFAULT_MAX_BYTES = 1_000_000
+DEFAULT_RETRIES = 2
 MAX_LIMIT = 25
+RETRYABLE_HTTP = frozenset({408, 425, 429, 500, 502, 503, 504})
 
 
 class WebAccessError(RuntimeError):
@@ -101,50 +103,77 @@ def _opener() -> urllib.request.OpenerDirector:
     return urllib.request.build_opener(_SafeRedirectHandler())
 
 
+def _backoff_s(attempt: int, retry_after: str | None = None) -> float:
+    if retry_after:
+        try:
+            value = float(retry_after.strip())
+        except ValueError:
+            value = -1.0
+        if value >= 0.0:
+            return min(2.0, value)
+    return min(2.0, 0.25 * (2**attempt))
+
+
 def _request_bytes(
     url: str,
     *,
     timeout_s: float = DEFAULT_TIMEOUT_S,
     max_bytes: int = DEFAULT_MAX_BYTES,
     accept: str = "text/html,application/json,application/xml,text/xml,text/plain;q=0.9,*/*;q=0.1",
+    retries: int = DEFAULT_RETRIES,
 ) -> tuple[bytes, dict[str, Any]]:
     safe = validate_url(url)
     timeout = float(timeout_s)
     limit = int(max_bytes)
+    retry_count = int(retries)
     if not (0.1 <= timeout <= 60.0):
         raise ValueError("timeout_s must be in [0.1, 60]")
     if not (1 <= limit <= 8_000_000):
         raise ValueError("max_bytes must be in [1, 8000000]")
-    request = urllib.request.Request(
-        safe,
-        headers={
-            "User-Agent": USER_AGENT,
-            "Accept": accept,
-            "Accept-Encoding": "identity",
-        },
-        method="GET",
-    )
-    try:
-        with _opener().open(request, timeout=timeout) as response:
-            body = response.read(limit + 1)
-            if len(body) > limit:
-                raise WebAccessError("response exceeded max_bytes")
-            content_type = response.headers.get_content_type().lower()
-            charset = response.headers.get_content_charset() or "utf-8"
-            meta = {
-                "url": response.geturl(),
-                "status": int(getattr(response, "status", 200)),
-                "content_type": content_type,
-                "charset": charset,
-                "content_length": len(body),
-                "etag": response.headers.get("ETag"),
-                "last_modified": response.headers.get("Last-Modified"),
-            }
-            return body, meta
-    except urllib.error.HTTPError as exc:
-        raise WebAccessError(f"HTTP {exc.code} for {safe}") from exc
-    except urllib.error.URLError as exc:
-        raise WebAccessError(f"network error for {safe}: {exc.reason}") from exc
+    if not (0 <= retry_count <= 5):
+        raise ValueError("retries must be in 0..5")
+
+    for attempt in range(retry_count + 1):
+        request = urllib.request.Request(
+            safe,
+            headers={
+                "User-Agent": USER_AGENT,
+                "Accept": accept,
+                "Accept-Encoding": "identity",
+            },
+            method="GET",
+        )
+        try:
+            with _opener().open(request, timeout=timeout) as response:
+                body = response.read(limit + 1)
+                if len(body) > limit:
+                    raise WebAccessError("response exceeded max_bytes")
+                content_type = response.headers.get_content_type().lower()
+                charset = response.headers.get_content_charset() or "utf-8"
+                meta = {
+                    "url": response.geturl(),
+                    "status": int(getattr(response, "status", 200)),
+                    "content_type": content_type,
+                    "charset": charset,
+                    "content_length": len(body),
+                    "etag": response.headers.get("ETag"),
+                    "last_modified": response.headers.get("Last-Modified"),
+                    "network_attempts": attempt + 1,
+                }
+                return body, meta
+        except urllib.error.HTTPError as exc:
+            if exc.code in RETRYABLE_HTTP and attempt < retry_count:
+                time.sleep(_backoff_s(attempt, exc.headers.get("Retry-After") if exc.headers else None))
+                continue
+            raise WebAccessError(f"HTTP {exc.code} for {safe} after {attempt + 1} attempt(s)") from exc
+        except (urllib.error.URLError, TimeoutError, ConnectionError, OSError) as exc:
+            if attempt < retry_count:
+                time.sleep(_backoff_s(attempt))
+                continue
+            reason = getattr(exc, "reason", str(exc))
+            raise WebAccessError(f"network error for {safe} after {attempt + 1} attempt(s): {reason}") from exc
+
+    raise WebAccessError(f"network request exhausted retries for {safe}")
 
 
 class _TextExtractor(HTMLParser):
@@ -203,6 +232,7 @@ def fetch_url(
         "http_status": meta["status"],
         "content_type": content_type,
         "bytes": len(body),
+        "network_attempts": meta.get("network_attempts", 1),
         "sha256": hashlib.sha256(body).hexdigest(),
         "text": clipped,
         "text_truncated": len(text) > len(clipped),
@@ -259,6 +289,7 @@ def search_crossref(query: str, *, limit: int = 8) -> dict[str, Any]:
         "provider": "crossref",
         "query": q,
         "results": items,
+        "network_attempts": meta.get("network_attempts", 1),
         "source_sha256": hashlib.sha256(body).hexdigest(),
         "authority": _authority(),
     }
@@ -286,11 +317,14 @@ def search_arxiv(query: str, *, limit: int = 8) -> dict[str, Any]:
             for node in entry.findall("a:author", ns)
         ]
         links = {node.attrib.get("rel", "alternate"): node.attrib.get("href") for node in entry.findall("a:link", ns)}
+        url_value = links.get("alternate") or entry.findtext("a:id", default="", namespaces=ns)
+        if url_value.startswith("http://"):
+            url_value = "https://" + url_value[len("http://") :]
         items.append(
             {
                 "provider": "arxiv",
                 "title": title,
-                "url": links.get("alternate") or entry.findtext("a:id", default="", namespaces=ns),
+                "url": url_value,
                 "authors": [x for x in authors if x],
                 "published": entry.findtext("a:published", default=None, namespaces=ns),
                 "updated": entry.findtext("a:updated", default=None, namespaces=ns),
@@ -302,6 +336,7 @@ def search_arxiv(query: str, *, limit: int = 8) -> dict[str, Any]:
         "provider": "arxiv",
         "query": q,
         "results": items,
+        "network_attempts": meta.get("network_attempts", 1),
         "source_sha256": hashlib.sha256(body).hexdigest(),
         "authority": _authority(),
     }
@@ -383,6 +418,7 @@ def search_duckduckgo(query: str, *, limit: int = 8) -> dict[str, Any]:
         "provider": "duckduckgo",
         "query": q,
         "results": items,
+        "network_attempts": meta.get("network_attempts", 1),
         "source_sha256": hashlib.sha256(body).hexdigest(),
         "authority": _authority(),
     }
@@ -462,6 +498,86 @@ def search_web(
     return core
 
 
+def _contains_any(text: str, terms: Iterable[str]) -> bool:
+    lowered = text.casefold()
+    return any(term in lowered for term in terms)
+
+
+def build_research_plan(query: str, *, max_species: int = 4) -> dict[str, Any]:
+    q = str(query).strip()
+    if not q:
+        raise ValueError("query must be non-empty")
+    stages: list[dict[str, Any]] = []
+
+    def add_stage(stage_id: str, payload: dict[str, Any]) -> None:
+        decision = route(payload, max_species=max_species)
+        stages.append(
+            {
+                "stage_id": stage_id,
+                "status": "PLANNED",
+                "route_mask": decision["route_mask"],
+                "route_commitment": decision["route_commitment"],
+                "scores": decision["scores"],
+            }
+        )
+
+    add_stage(
+        "ACQUIRE_EVIDENCE",
+        {
+            "query": q,
+            "task": "internet research source review evidence provenance",
+            "evidence": {"requested": True, "provenance_required": True},
+        },
+    )
+
+    if _contains_any(q, ("relation", "dependenc", "graph", "connect", "bridge", "isomorph", "mapping", "topology")):
+        add_stage(
+            "MAP_RELATIONS",
+            {
+                "query": q,
+                "task": "relation dependency graph mapping topology bridge isomorphism",
+                "dependencies": [],
+                "relations": [],
+            },
+        )
+
+    if _contains_any(q, ("derive", "deriv", "proof", "equation", "formula", "solve", "mechanism", "wyprowadz", "dowod", "rownan")):
+        add_stage(
+            "DERIVE_CANDIDATE",
+            {
+                "query": q,
+                "task": "derive proof equation formula solve mechanism",
+                "equations": [],
+            },
+        )
+
+    if _contains_any(q, ("audit", "contradict", "falsif", "validate", "verify", "error", "mismatch", "regression", "sprzecz", "blad")):
+        add_stage(
+            "ADVERSARIAL_CHECK",
+            {
+                "query": q,
+                "task": "contradiction falsify validate verify regression error mismatch test",
+                "contradictions": [],
+                "tests": [],
+            },
+        )
+
+    species_union: list[str] = []
+    for stage in stages:
+        for species in stage["route_mask"]:
+            if species not in species_union:
+                species_union.append(species)
+    core = {
+        "schema": "GREMLIN_RESEARCH_PLAN_V0_1",
+        "query": q,
+        "stages": stages,
+        "species_union": species_union,
+        "authority": _authority(),
+    }
+    core["plan_commitment"] = _commitment(b"GREMLIN-RESEARCH-PLAN/v0.1\0", core)
+    return core
+
+
 def research(
     query: str,
     *,
@@ -472,6 +588,7 @@ def research(
     q = str(query).strip()
     if not q:
         raise ValueError("query must be non-empty")
+    plan = build_research_plan(q, max_species=max_species)
     routing_payload = {
         "query": q,
         "task": "internet research source review",
@@ -484,9 +601,10 @@ def research(
         "version": WEB_VERSION,
         "query": q,
         "octopus": decision,
+        "research_plan": plan,
         "evidence": evidence,
         "status": "EVIDENCE_READY" if evidence["results"] else "NO_EVIDENCE",
-        "next_stage": "SPECIALIST_ANALYSIS_THEN_BELZEBUB_SYNTHESIS",
+        "next_stage": "EXECUTE_RESEARCH_PLAN_THEN_BELZEBUB_SYNTHESIS",
         "authority": _authority(),
     }
     core["research_commitment"] = _commitment(b"GREMLIN-RESEARCH/v0.1\0", core)
