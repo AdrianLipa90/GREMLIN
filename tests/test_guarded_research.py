@@ -8,6 +8,7 @@ from gremlin_mcp.evidence_robustness import (
     build_hound_receipt,
     excerpt_commitment,
 )
+from gremlin_mcp.research_provenance import source_receipt_commitment
 
 
 def _text(source_id: str) -> str:
@@ -32,14 +33,15 @@ def _citation(source_id: str):
 
 
 def _source_receipt(source_id: str):
-    return {
+    receipt = {
         "source_id": source_id,
         "content_basis": "TITLE_PLUS_AVAILABLE_METADATA_AND_ABSTRACT",
         "content_commitment": _content(source_id),
         "content_length_chars": len(_text(source_id)),
         "evidence_text": _text(source_id),
-        "source_receipt_commitment": f"receipt:{source_id}",
     }
+    receipt["source_receipt_commitment"] = source_receipt_commitment(receipt)
+    return receipt
 
 
 def _base_execution():
@@ -89,6 +91,7 @@ def test_conflict_quarantines_existing_belzebub_synthesis():
     assert guard["assessment"]["candidate_stance"] is None
     assert guard["source_binding"]["valid"] is True
     assert guard["content_binding"]["valid"] is True
+    assert guard["content_binding"]["receipt_integrity"]["valid"] is True
 
 
 def test_valid_exact_bundle_hound_receipt_releases_only_reconciled_candidate():
@@ -106,6 +109,7 @@ def test_valid_exact_bundle_hound_receipt_releases_only_reconciled_candidate():
     assert guard["assessment"]["state"] == RECONCILED_CANDIDATE
     assert guard["synthesis_authorized"] is True
     assert guard["content_binding"]["valid"] is True
+    assert guard["content_binding"]["receipt_integrity"]["valid"] is True
     assert result["authority"]["canon_allowed"] is False
 
 
@@ -163,6 +167,29 @@ def test_excerpt_tamper_after_commitment_is_rejected():
     assert "PAYLOAD_NOT_BOUND_TO_EXCERPT" in codes
 
 
+def test_source_receipt_evidence_text_tamper_is_rejected_before_semantic_assessment():
+    execution = _base_execution()
+    execution["source_receipts"][0]["evidence_text"] += " tampered"
+    execution["source_receipts"][0]["content_length_chars"] = len(execution["source_receipts"][0]["evidence_text"])
+    result = guarded.apply_claim_evidence_guard(execution, claim_id="claim-receipt-text-tamper", claim_evidence=_conflict())
+    guard = result["claim_evidence_guard"]
+    assert result["status"] == guarded.SOURCE_RECEIPT_INTEGRITY_FAILED
+    assert guard["assessment"] is None
+    assert guard["content_binding"]["receipt_integrity"]["valid"] is False
+    codes = {e["code"] for e in guard["content_binding"]["receipt_integrity"]["errors"]}
+    assert "SOURCE_RECEIPT_COMMITMENT_MISMATCH" in codes
+
+
+def test_source_receipt_length_tamper_is_rejected():
+    execution = _base_execution()
+    execution["source_receipts"][1]["content_length_chars"] += 1
+    result = guarded.apply_claim_evidence_guard(execution, claim_id="claim-receipt-length-tamper", claim_evidence=_conflict())
+    assert result["status"] == guarded.SOURCE_RECEIPT_INTEGRITY_FAILED
+    codes = {e["code"] for e in result["claim_evidence_guard"]["content_binding"]["receipt_integrity"]["errors"]}
+    assert "CONTENT_LENGTH_MISMATCH" in codes
+    assert "SOURCE_RECEIPT_COMMITMENT_MISMATCH" in codes
+
+
 def test_no_typed_evidence_does_not_invent_semantic_stances(monkeypatch):
     monkeypatch.setattr(guarded, "execute_research", lambda *args, **kwargs: _base_execution())
     result = guarded.execute_guarded_research("test query", claim_evidence=None)
@@ -171,7 +198,19 @@ def test_no_typed_evidence_does_not_invent_semantic_stances(monkeypatch):
     assert guard["semantic_contradiction_test_completed"] is False
     assert guard["source_binding"]["citation_count"] == 3
     assert guard["content_binding"]["completed"] is False
+    assert guard["content_binding"]["receipt_integrity"]["valid"] is True
     assert "NOT_AUTOMATICALLY_CLASSIFIED" in guard["reason"]
+
+
+def test_no_typed_evidence_still_quarantines_invalid_receipt(monkeypatch):
+    execution = _base_execution()
+    execution["source_receipts"][2]["evidence_text"] += " injected"
+    monkeypatch.setattr(guarded, "execute_research", lambda *args, **kwargs: execution)
+    result = guarded.execute_guarded_research("test query", claim_evidence=None)
+    assert result["status"] == guarded.SOURCE_RECEIPT_INTEGRITY_FAILED
+    assert result["synthesis"] is None
+    assert result["quarantined_synthesis"] is not None
+    assert result["claim_evidence_guard"]["synthesis_authorized"] is False
 
 
 def test_live_wrapper_quarantines_conflicting_typed_evidence_without_network(monkeypatch):
