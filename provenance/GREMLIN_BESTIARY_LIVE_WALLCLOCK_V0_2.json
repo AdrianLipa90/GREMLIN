@@ -1,0 +1,55 @@
+{
+  "bestiary": {
+    "cpu_s": 8.399145999999998,
+    "items_per_s": 948.0247690865748,
+    "max_queue_depth": 2000,
+    "p50_e2e_latency_ms": 1062.6120720007748,
+    "p95_e2e_latency_ms": 1989.7017359999154,
+    "peak_rss_kib": 106532,
+    "wall_s": 2.1096495210003923,
+    "workers": 5
+  },
+  "candidate": false,
+  "candidate_threshold": 10.0,
+  "cpu_count_visible": 5,
+  "frozen_raw_sha256": "7156342a021d71bf8b710042cc7cc69724d344d20bc79972766f8d18a4538584",
+  "integrity": {
+    "dropped_by_path": [0, 0, 0],
+    "duplicate_input_ids": 0,
+    "input_items": 2000,
+    "lineage_integrity": "PASS",
+    "output_equivalence": "PASS",
+    "output_equivalence_mismatches": 0,
+    "unique_input_ids": 2000
+  },
+  "items": 2000,
+  "legacy_monolithic_serial": {
+    "cpu_s": 9.409938,
+    "items_per_s": 212.52267701843738,
+    "max_queue_depth": 1,
+    "p50_e2e_latency_ms": 4612.128918499366,
+    "p95_e2e_latency_ms": 8974.183902999357,
+    "peak_rss_kib": 97700,
+    "wall_s": 9.410760432998359,
+    "workers": 1
+  },
+  "note": "resource-matched comparison isolates routing/specialization from extra worker parallelism",
+  "receipt_sha256": "674cb9e52adb8cb07be054825c5f6869b553c53d8306a2465fac6289c31aebfe",
+  "resource_matched_generalist": {
+    "cpu_s": 13.444933999999998,
+    "items_per_s": 578.5577116293261,
+    "max_queue_depth": 2000,
+    "p50_e2e_latency_ms": 1798.281403501278,
+    "p95_e2e_latency_ms": 3296.7320990010194,
+    "peak_rss_kib": 104100,
+    "wall_s": 3.456872079999812,
+    "workers": 5
+  },
+  "schema": "GREMLIN_BESTIARY_LIVE_WALLCLOCK_V0_2",
+  "seed": 616,
+  "speedup_vs_legacy_serial": 4.460816993211171,
+  "speedup_vs_resource_matched_generalist": 1.6386001777018246,
+  "surface": "/dev/shm/ciel_noema",
+  "validation_scope": "LIVE_SAME_RUNTIME_GENERATION_CPU_REPLAY",
+  "workers": 5
+}
