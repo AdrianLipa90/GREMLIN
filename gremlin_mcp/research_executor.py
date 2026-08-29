@@ -11,7 +11,7 @@ from gremlin_mcp.web import research
 from gremlin_mcp.workers import WorkerBroker
 
 EXECUTOR_SCHEMA = "GREMLIN_RESEARCH_EXECUTOR_V0_1"
-EXECUTOR_VERSION = "0.1.1"
+EXECUTOR_VERSION = "0.1.2"
 
 # Generic discourse terms remain excluded from concept nodes. Relational verbs are
 # handled separately as candidate graph operators rather than discarded as noise.
@@ -119,6 +119,21 @@ def _source_id(row: Mapping[str, Any]) -> str:
     return "SRC-" + _commit(b"GREMLIN-RESEARCH-SOURCE/v0.1\0", basis)[:16]
 
 
+def _source_text(source: Mapping[str, Any]) -> str:
+    return " ".join(
+        value for value in (str(source.get("title") or ""), str(source.get("summary") or "")) if value
+    )
+
+
+def _content_commitment(source: Mapping[str, Any]) -> str:
+    basis = {
+        "content_basis": str(source.get("content_basis") or ""),
+        "title": str(source.get("title") or ""),
+        "summary": str(source.get("summary") or ""),
+    }
+    return _commit(b"GREMLIN-RESEARCH-CONTENT/v0.1\0", basis)
+
+
 def _prepare_sources(rows: Iterable[Mapping[str, Any]], *, max_sources: int) -> list[dict[str, Any]]:
     limit = int(max_sources)
     if not (1 <= limit <= 50):
@@ -137,16 +152,27 @@ def _prepare_sources(rows: Iterable[Mapping[str, Any]], *, max_sources: int) -> 
             "updated": row.get("updated"),
             "container": row.get("container"),
             "summary": str(row.get("summary") or "").strip(),
+            "content_basis": "TITLE_PLUS_AVAILABLE_METADATA_AND_ABSTRACT",
         }
-        source["content_basis"] = "TITLE_PLUS_AVAILABLE_METADATA_AND_ABSTRACT"
+        source["content_commitment"] = _content_commitment(source)
+        source["content_length_chars"] = len(_source_text(source))
         sources.append(source)
     return sources
 
 
-def _source_text(source: Mapping[str, Any]) -> str:
-    return " ".join(
-        value for value in (str(source.get("title") or ""), str(source.get("summary") or "")) if value
-    )
+def _source_receipt(source: Mapping[str, Any]) -> dict[str, Any]:
+    text = _source_text(source)
+    core = {
+        "source_id": source["source_id"],
+        "content_basis": source["content_basis"],
+        "content_commitment": source["content_commitment"],
+        "content_length_chars": len(text),
+        "evidence_text": text,
+    }
+    return {
+        **core,
+        "source_receipt_commitment": _commit(b"GREMLIN-RESEARCH-SOURCE-RECEIPT/v0.1\0", core),
+    }
 
 
 def _owl(context: Mapping[str, Any]) -> dict[str, Any]:
@@ -485,6 +511,7 @@ def execute_research(
             "stage_executions": [],
             "synthesis": None,
             "citations": [],
+            "source_receipts": [],
             "authority": _authority(),
         }
         core["execution_commitment"] = _commit(b"GREMLIN-RESEARCH-EXECUTION/v0.1\0", core)
@@ -592,9 +619,12 @@ def execute_research(
             "url": row.get("url"),
             "doi": row.get("doi"),
             "published": row.get("published"),
+            "content_basis": row.get("content_basis"),
+            "content_commitment": row.get("content_commitment"),
         }
         for row in sources
     ]
+    source_receipts = [_source_receipt(row) for row in sources]
     core = {
         "schema": EXECUTOR_SCHEMA,
         "version": EXECUTOR_VERSION,
@@ -605,6 +635,7 @@ def execute_research(
         "stage_executions": stage_executions,
         "synthesis": synthesis_result,
         "citations": citations,
+        "source_receipts": source_receipts,
         "worker_abi_exercised": True,
         "authority": _authority(),
     }
