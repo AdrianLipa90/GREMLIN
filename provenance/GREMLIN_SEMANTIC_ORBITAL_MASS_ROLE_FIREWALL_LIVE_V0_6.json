@@ -1,0 +1,73 @@
+{
+  "schema": "GREMLIN_SEMANTIC_ORBITAL_MASS_ROLE_FIREWALL_LIVE_V0_6",
+  "status": "PASS_MASS_ROLE_CONFLICT_IDENTIFIED_GENERALIZED_ROLE_BRIDGE_CANDIDATE",
+  "epistemic": "CHYBA",
+  "promotion_state": "CANDIDATE_ONLY",
+  "canon_allowed": false,
+  "runtime_execution_authority": false,
+  "surface": "/dev/shm/ciel_noema",
+  "surface_status": "ACTIVE",
+  "gremlin_parent_head": "5151210372d2647b830ef40df4b6216c2064d14f",
+  "source_pins": {
+    "current_bestiary_native_blob_sha": "63b967a656ef8db85890ac80934a8e0bc61f865f",
+    "historical_ciel_archive_sha256": "fef25a4cb20380483fec5b3e84ad8a2d1465e6a53ecf6dfd9ec42ec67d82e9ef",
+    "historical_foundation_semantic_mass_py_sha256": "bd48c3ea201c2244d890fb010e836f227d56bb0a0b68f21d4499a79620327264",
+    "historical_nbody_gravity_py_sha256": "77f94b45af0d51dc17b6f80ceec7b1e8e17261a6217640aba0a58349be5f5396"
+  },
+  "role_kernel": {
+    "law": "omega^2=(mu_source/r^3)*(q_coupling/m_inertial)",
+    "eta": "eta_G=q_coupling/m_inertial",
+    "equivalence_branch": "q_coupling=m_inertial -> eta_G=1 -> omega^2=mu_source/r^3",
+    "physical_equivalence_gate": "OPEN"
+  },
+  "profiles": {
+    "bestiary": {
+      "law": "omega^2=(omega0*tau)^2/(m*r^3)",
+      "omega_sq_mass_exponent": -1.0,
+      "period_mass_exponent": 0.5,
+      "embedding": {
+        "mu_source": "(omega0*tau)^2",
+        "q_coupling": 1.0,
+        "m_inertial": "m"
+      },
+      "classification": "INERTIAL_SERVICE_LOAD_EMBEDDING"
+    },
+    "foundation_p3": {
+      "law": "T^2=a^3/M_sem -> omega^2=4*pi^2*M_sem/a^3",
+      "omega_sq_mass_exponent": 1.0,
+      "period_mass_exponent": -0.5,
+      "embedding": {
+        "mu_source": "4*pi^2*M_sem",
+        "eta_G": 1.0
+      },
+      "classification": "SOURCE_ATTRACTOR_EMBEDDING"
+    },
+    "objectcard_legacy": {
+      "law": "T proportional m^(3/2) -> omega^2 proportional m^(-3)",
+      "omega_sq_mass_exponent": -3.0,
+      "period_mass_exponent": 1.5,
+      "required_net_source_charge_exponent_if_m_inertial_exp_1": -2.0,
+      "classification": "ROLE_SOURCE_UNRESOLVED"
+    },
+    "nbody": {
+      "law": "omega^2=G*(M1+M2)/r^3",
+      "embedding": {
+        "mu_source": "G*(M1+M2)",
+        "eta_G": 1.0
+      },
+      "classification": "SOURCE_MASS_RELATIVE_TWO_BODY"
+    }
+  },
+  "v03_radius_binding_reclassification": "EXACT_FOR_BESTIARY_INTERNAL_SERVICE_CADENCE_PROFILE_ONLY",
+  "next_gates": [
+    "freeze mass_role_profile_id for each orbital consumer",
+    "bind Bestiary ORBIT.MASS to PNCS semantic mass or rename service-load coordinate",
+    "source-bind mu_source",
+    "source-bind q_coupling/m_inertial and test eta_G universality",
+    "resolve or retire ObjectCard m^(3/2) legacy profile",
+    "re-run PNLF radius admission after role typing"
+  ],
+  "live_receipt_path": "/dev/shm/ciel_noema/session/gremlin_semantic_orbital_mass_role_firewall_live_v0_6.json",
+  "live_receipt_file_sha256": "fa6a22fc06a321b45bf362c264b704a8eec55a313321508a1c02e28171682e76",
+  "receipt_sha256": "68ec27c050d38a27b604ddf0d0f228ffecf283ee9793846247dfebae06389e2d"
+}
