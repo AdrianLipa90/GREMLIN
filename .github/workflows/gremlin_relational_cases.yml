@@ -31,3 +31,24 @@ jobs:
           name: gremlin-relational-cases
           path: artifacts/gremlin_relational_cases_probe.json
           if-no-files-found: warn
+
+  relational-research-live:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run case-typed live internet research probe
+        run: >-
+          python -m tools.gremlin_relational_research_live_probe_v01
+          --limit 5
+          --out artifacts/gremlin_relational_research_live.json
+      - name: Upload relational research receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gremlin-relational-research-live
+          path: artifacts/gremlin_relational_research_live.json
+          if-no-files-found: warn
