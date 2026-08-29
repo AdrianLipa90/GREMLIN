@@ -17,14 +17,14 @@ def _fake_acquisition(*, with_evidence: bool = True):
             "title": "Information geometry, entropy and emergent gravity",
             "url": "https://arxiv.org/abs/2601.00001v1",
             "published": "2026-01-02T00:00:00Z",
-            "summary": "A candidate bridge between entropy geometry and gravity is studied.",
+            "summary": "The geometry describes an entropy relation and connects it with gravity.",
         },
         {
             "provider": "arxiv",
             "title": "Information geometry, entropy and emergent gravity",
             "url": "https://arxiv.org/abs/2601.00001v2",
             "published": "2026-01-03T00:00:00Z",
-            "summary": "A revised candidate bridge between entropy geometry and gravity is studied.",
+            "summary": "A revised model describes the geometry and relates entropy to gravity.",
         },
         {
             "provider": "crossref",
@@ -86,6 +86,10 @@ def test_execute_research_uses_worker_abi_and_belzebub(monkeypatch) -> None:
     candidate = result["synthesis"]["result"]
     assert candidate["epistemic_status"] == "CANDIDATE_SYNTHESIS"
     assert candidate["candidate_bridge"]
+    assert "DESCRIBES" in candidate["observed_relation_operators"]
+    assert "CONNECTS" in candidate["observed_relation_operators"]
+    assert "RELATES" in candidate["observed_relation_operators"]
+    assert candidate["relation_directionality"] == "UNRESOLVED_PENDING_SENTENCE_OR_FULL_TEXT_PARSE"
     assert candidate["equation_status"] == "UNRESOLVED_FROM_METADATA"
     assert candidate["contradiction_status"] == "TEXT_LEVEL_CHECK_REQUIRED"
     assert candidate["authority"]["canon_allowed"] is False
@@ -93,10 +97,16 @@ def test_execute_research_uses_worker_abi_and_belzebub(monkeypatch) -> None:
     assert all(row["source_id"].startswith("SRC-") for row in result["citations"])
     assert len(result["execution_commitment"]) == 64
 
+    spider = result["stage_executions"][0]["results"][1]["candidate"]
+    operators = {row["operator"] for row in spider["relation_predicates"]}
+    assert {"DESCRIBES", "CONNECTS", "RELATES"} <= operators
+    assert all(row["directionality"] == "UNRESOLVED_FROM_TERM_LEVEL_EXTRACTION" for row in spider["relation_edges"])
+
     hound = result["stage_executions"][-1]["results"][0]["candidate"]
     assert hound["species"] == "HOUND"
     assert len(hound["version_or_duplicate_clusters"]) == 1
     assert hound["contradictions"] == []
+    assert any(row["target"] == "SUBJECT_PREDICATE_OBJECT_PARSE" for row in hound["test_targets"])
 
 
 def test_execute_research_fails_closed_without_evidence(monkeypatch) -> None:
