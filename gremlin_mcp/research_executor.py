@@ -11,15 +11,52 @@ from gremlin_mcp.web import research
 from gremlin_mcp.workers import WorkerBroker
 
 EXECUTOR_SCHEMA = "GREMLIN_RESEARCH_EXECUTOR_V0_1"
-EXECUTOR_VERSION = "0.1.0"
+EXECUTOR_VERSION = "0.1.1"
 
+# Generic discourse terms remain excluded from concept nodes. Relational verbs are
+# handled separately as candidate graph operators rather than discarded as noise.
 _STOPWORDS = {
     "about", "after", "against", "approach", "approaches", "between", "consider", "considered",
-    "could", "derive", "describe", "described", "describes", "evidence", "from", "into", "more",
-    "other", "paper", "papers", "present", "presented", "presents", "relation", "research", "review",
-    "show", "shown", "shows", "source", "sources", "studied", "studies", "study", "that", "their",
-    "there", "these", "this", "through", "using", "with", "within", "would", "audit",
-    "contradictions", "dependencies", "graph",
+    "could", "evidence", "from", "into", "more", "other", "paper", "papers", "present",
+    "presented", "presents", "relation", "research", "review", "show", "shown", "shows",
+    "source", "sources", "studied", "studies", "study", "that", "their", "there", "these",
+    "this", "through", "using", "with", "within", "would", "audit", "contradictions",
+    "dependencies", "graph",
+}
+_RELATION_FORMS = {
+    "describe": "DESCRIBES",
+    "described": "DESCRIBES",
+    "describes": "DESCRIBES",
+    "relate": "RELATES",
+    "related": "RELATES",
+    "relates": "RELATES",
+    "connect": "CONNECTS",
+    "connected": "CONNECTS",
+    "connects": "CONNECTS",
+    "link": "LINKS",
+    "linked": "LINKS",
+    "links": "LINKS",
+    "imply": "IMPLIES",
+    "implied": "IMPLIES",
+    "implies": "IMPLIES",
+    "encode": "ENCODES",
+    "encoded": "ENCODES",
+    "encodes": "ENCODES",
+    "map": "MAPS_TO",
+    "mapped": "MAPS_TO",
+    "maps": "MAPS_TO",
+    "derive": "DERIVES",
+    "derived": "DERIVES",
+    "derives": "DERIVES",
+    "generate": "GENERATES",
+    "generated": "GENERATES",
+    "generates": "GENERATES",
+    "constrain": "CONSTRAINS",
+    "constrained": "CONSTRAINS",
+    "constrains": "CONSTRAINS",
+    "couple": "COUPLES",
+    "coupled": "COUPLES",
+    "couples": "COUPLES",
 }
 _TOKEN_RE = re.compile(r"[A-Za-z][A-Za-z0-9_-]{2,}")
 
@@ -50,14 +87,26 @@ def _normalized_title(value: str) -> str:
     return " ".join("".join(ch.lower() if ch.isalnum() else " " for ch in str(value)).split())
 
 
+def _lexemes(value: str) -> list[str]:
+    return [match.strip("_-") for match in _TOKEN_RE.findall(str(value).casefold())]
+
+
 def _tokens(value: str) -> set[str]:
     out: set[str] = set()
-    for match in _TOKEN_RE.findall(str(value).casefold()):
-        token = match.strip("_-")
-        if len(token) < 4 or token in _STOPWORDS or token.isdigit():
+    for token in _lexemes(value):
+        if (
+            len(token) < 4
+            or token in _STOPWORDS
+            or token in _RELATION_FORMS
+            or token.isdigit()
+        ):
             continue
         out.add(token)
     return out
+
+
+def _relation_operators(value: str) -> set[str]:
+    return {_RELATION_FORMS[token] for token in _lexemes(value) if token in _RELATION_FORMS}
 
 
 def _source_id(row: Mapping[str, Any]) -> str:
@@ -129,13 +178,21 @@ def _spider(context: Mapping[str, Any]) -> dict[str, Any]:
     sources = list(context["sources"])
     query_tokens = _tokens(str(context["query"]))
     coverage: dict[str, list[str]] = defaultdict(list)
+    predicate_coverage: dict[str, list[str]] = defaultdict(list)
     source_tokens: dict[str, set[str]] = {}
+    source_predicates: dict[str, set[str]] = {}
+
     for source in sources:
         sid = source["source_id"]
-        tokens = _tokens(_source_text(source))
+        text = _source_text(source)
+        tokens = _tokens(text)
+        predicates = _relation_operators(text)
         source_tokens[sid] = tokens
+        source_predicates[sid] = predicates
         for token in sorted(tokens):
             coverage[token].append(sid)
+        for predicate in sorted(predicates):
+            predicate_coverage[predicate].append(sid)
 
     ranked = sorted(
         ((token, ids) for token, ids in coverage.items() if len(ids) >= 2 or token in query_tokens),
@@ -144,6 +201,10 @@ def _spider(context: Mapping[str, Any]) -> dict[str, Any]:
     concepts = [
         {"concept": token, "source_count": len(ids), "support_source_ids": ids[:12]}
         for token, ids in ranked
+    ]
+    relation_predicates = [
+        {"operator": predicate, "source_count": len(ids), "support_source_ids": ids[:12]}
+        for predicate, ids in sorted(predicate_coverage.items(), key=lambda item: (-len(item[1]), item[0]))
     ]
 
     edges: list[dict[str, Any]] = []
@@ -156,12 +217,21 @@ def _spider(context: Mapping[str, Any]) -> dict[str, Any]:
                 if left in source_tokens[source["source_id"]] and right in source_tokens[source["source_id"]]
             ]
             if ids:
+                predicates = sorted(
+                    {
+                        predicate
+                        for sid in ids
+                        for predicate in source_predicates.get(sid, set())
+                    }
+                )
                 edges.append(
                     {
                         "left": left,
                         "right": right,
                         "cooccurrence_source_count": len(ids),
                         "support_source_ids": ids[:10],
+                        "operator_candidates": predicates,
+                        "directionality": "UNRESOLVED_FROM_TERM_LEVEL_EXTRACTION",
                     }
                 )
     edges.sort(key=lambda row: (-row["cooccurrence_source_count"], row["left"], row["right"]))
@@ -170,8 +240,10 @@ def _spider(context: Mapping[str, Any]) -> dict[str, Any]:
         "role": "relation, dependency and isomorphism scan",
         "epistemic_status": "RELATION_CANDIDATES",
         "concepts": concepts,
+        "relation_predicates": relation_predicates,
         "relation_edges": edges[:24],
-        "relation_basis": "TERM_COOCCURRENCE_IN_TITLE_OR_AVAILABLE_ABSTRACT",
+        "relation_basis": "CONCEPT_COOCCURRENCE_PLUS_OBSERVED_RELATIONAL_VERBS_IN_TITLE_OR_AVAILABLE_ABSTRACT",
+        "directionality_gate": "SENTENCE_OR_FULL_TEXT_PARSE_REQUIRED_FOR_SUBJECT_PREDICATE_OBJECT",
         "authority": _authority(),
     }
 
@@ -180,6 +252,7 @@ def _mole(context: Mapping[str, Any]) -> dict[str, Any]:
     spider = _spider(context)
     concepts = spider["concepts"]
     path = [row["concept"] for row in concepts[:5]]
+    operators = [row["operator"] for row in spider.get("relation_predicates", [])[:8]]
     support: list[str] = []
     for row in concepts[:5]:
         for sid in row["support_source_ids"]:
@@ -190,9 +263,11 @@ def _mole(context: Mapping[str, Any]) -> dict[str, Any]:
         "role": "deep local derivation",
         "epistemic_status": "STRUCTURAL_DERIVATION_CANDIDATE",
         "candidate_concept_path": path,
+        "candidate_relation_operators": operators,
         "support_source_ids": support[:16],
         "equation_status": "UNRESOLVED_FROM_METADATA",
         "derivation_gate": "REQUIRES_FULL_TEXT_OR_EXPLICIT_PREMISES_FOR_EQUATION_LEVEL_PROMOTION",
+        "directionality_gate": "REQUIRES_SUBJECT_PREDICATE_OBJECT_RESOLUTION",
         "authority": _authority(),
     }
 
@@ -235,6 +310,11 @@ def _hound(context: Mapping[str, Any]) -> dict[str, Any]:
                 "priority": "HIGH",
             },
             {
+                "target": "SUBJECT_PREDICATE_OBJECT_PARSE",
+                "reason": "observed relation verbs are meaningful but directionality requires sentence context",
+                "priority": "HIGH",
+            },
+            {
                 "target": "VERSION_DIFF_AUDIT",
                 "reason": "same-title or version clusters should be compared before synthesis",
                 "priority": "MEDIUM" if version_clusters else "LOW",
@@ -243,6 +323,7 @@ def _hound(context: Mapping[str, Any]) -> dict[str, Any]:
         "limitations": {
             "sources_without_abstract_or_summary": missing_summary,
             "text_level_contradiction_test_completed": False,
+            "directed_relation_parse_completed": False,
         },
         "authority": _authority(),
     }
@@ -282,15 +363,23 @@ def _belzebub(bundle: Mapping[str, Any], context: Mapping[str, Any]) -> dict[str
     owl_candidates = by_species.get("OWL", [])
 
     concepts: list[str] = []
+    operators: list[str] = []
     for candidate in spider_candidates:
         for row in candidate.get("concepts", [])[:8]:
             concept = str(row.get("concept") or "")
             if concept and concept not in concepts:
                 concepts.append(concept)
+        for row in candidate.get("relation_predicates", [])[:8]:
+            operator = str(row.get("operator") or "")
+            if operator and operator not in operators:
+                operators.append(operator)
     for candidate in mole_candidates:
         for concept in candidate.get("candidate_concept_path", [])[:5]:
             if concept and concept not in concepts:
                 concepts.append(concept)
+        for operator in candidate.get("candidate_relation_operators", [])[:8]:
+            if operator and operator not in operators:
+                operators.append(operator)
 
     version_clusters = sum(
         len(candidate.get("version_or_duplicate_clusters", [])) for candidate in hound_candidates
@@ -300,14 +389,16 @@ def _belzebub(bundle: Mapping[str, Any], context: Mapping[str, Any]) -> dict[str
 
     if concepts:
         bridge = " -> ".join(concepts[:5])
+        operator_note = f" Observed relation operators: {', '.join(operators[:6])}." if operators else ""
         summary = (
-            f"Candidate literature bridge extracted from the current evidence bundle: {bridge}. "
-            "The bridge is structural and evidence-indexed; equation-level derivation remains gated."
+            f"Candidate literature concept path extracted from the current evidence bundle: {bridge}."
+            f"{operator_note} Operators are evidence-bearing relation candidates; directed subject-predicate-object "
+            "assignment remains gated until sentence/full-text parsing."
         )
     else:
         bridge = None
         summary = (
-            "The evidence bundle was collected and audited, but no stable multi-source concept bridge "
+            "The evidence bundle was collected and audited, but no stable multi-source concept path "
             "cleared the deterministic reference extractor."
         )
 
@@ -317,6 +408,8 @@ def _belzebub(bundle: Mapping[str, Any], context: Mapping[str, Any]) -> dict[str
         "epistemic_status": "CANDIDATE_SYNTHESIS",
         "answer": summary,
         "candidate_bridge": bridge,
+        "observed_relation_operators": operators,
+        "relation_directionality": "UNRESOLVED_PENDING_SENTENCE_OR_FULL_TEXT_PARSE",
         "source_count": len(source_ids),
         "support_source_ids": source_ids,
         "owl_audit_count": len(owl_candidates),
