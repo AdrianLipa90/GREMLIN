@@ -6,7 +6,6 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 import hashlib
 import json
 import os
-from pathlib import Path
 import time
 
 from tools.gremlin_bestiary_live_bench_v02 import (
@@ -74,14 +73,17 @@ def orbital_parallel(items, workers):
             for oid, value in fut.result():
                 outputs[oid] = value
                 finished.append(now)
-    extra = {
-        "orbital_chunk_size": chunk,
-        "orbital_batches": len(batches),
-        "hummingbird_omega": service_omega(PROFILES["HUMMINGBIRD"]),
-        "belzebub_omega": service_omega(PROFILES["BELZEBUB"]),
-        "orbit_model": "omega0*tau/sqrt(mass*radius^3)",
-    }
-    return outputs, metrics(t0, finished, r0, ru(), len(items), qdepth, workers, extra)
+    m = metrics(t0, finished, r0, ru(), len(items), qdepth, workers)
+    m.update(
+        {
+            "orbital_chunk_size": chunk,
+            "orbital_batches": len(batches),
+            "hummingbird_omega": service_omega(PROFILES["HUMMINGBIRD"]),
+            "belzebub_omega": service_omega(PROFILES["BELZEBUB"]),
+            "orbit_model": "omega0*tau/sqrt(mass*radius^3)",
+        }
+    )
+    return outputs, m
 
 
 def main() -> int:
