@@ -10,70 +10,35 @@ from tools.gremlin_bestiary_vector_species_v03 import (
     validate_plan,
 )
 
-SCHEMA = "GREMLIN_MCP_V0_2"
-VERSION = "0.2.0"
+SCHEMA = "GREMLIN_MCP_V0_5"
+VERSION = "0.5.0"
 
 BESTIARY_ROLES: dict[str, dict[str, str]] = {
-    "HUMMINGBIRD": {
-        "stage": "capture",
-        "role": "fast append-only capture",
-    },
-    "OCTOPUS": {
-        "stage": "routing",
-        "role": "route mask and bounded semantic fanout",
-    },
-    "SPIDER": {
-        "stage": "specialist",
-        "role": "relation, dependency and isomorphism scan",
-    },
-    "RAVEN": {
-        "stage": "specialist",
-        "role": "memory and similarity scan",
-    },
-    "HOUND": {
-        "stage": "specialist",
-        "role": "contradiction, anomaly and test-target scan",
-    },
-    "MOLE": {
-        "stage": "specialist",
-        "role": "deep local derivation",
-    },
-    "OWL": {
-        "stage": "specialist",
-        "role": "epistemic audit",
-    },
-    "ANT": {
-        "stage": "specialist",
-        "role": "bounded combinatorial scan",
-    },
-    "MANTIS": {
-        "stage": "specialist",
-        "role": "duplicate and dead-branch pruning",
-    },
-    "BELZEBUB": {
-        "stage": "synthesis",
-        "role": "defensive candidate synthesis",
-    },
-    "GREMLIN": {
-        "stage": "aggregate",
-        "role": "aggregate verified heads and emit research candidates",
-    },
+    "HUMMINGBIRD": {"stage": "capture", "role": "fast append-only capture"},
+    "OCTOPUS": {"stage": "routing", "role": "auditable semantic route mask and bounded fanout"},
+    "SPIDER": {"stage": "specialist", "role": "relation, dependency and isomorphism scan"},
+    "RAVEN": {"stage": "specialist", "role": "memory and similarity scan"},
+    "HOUND": {"stage": "specialist", "role": "contradiction, anomaly and test-target scan"},
+    "MOLE": {"stage": "specialist", "role": "deep local derivation"},
+    "OWL": {"stage": "specialist", "role": "epistemic audit"},
+    "ANT": {"stage": "specialist", "role": "bounded combinatorial scan"},
+    "MANTIS": {"stage": "specialist", "role": "duplicate and dead-branch pruning"},
+    "BELZEBUB": {"stage": "synthesis", "role": "defensive candidate synthesis"},
+    "GREMLIN": {"stage": "aggregate", "role": "aggregate verified heads and emit research candidates"},
 }
 
-TOPOLOGY = (
-    "RAW",
-    "HUMMINGBIRD",
-    "OCTOPUS",
-    "SPECIALISTS",
-    "BELZEBUB",
-    "GREMLIN",
-)
+TOPOLOGY = ("RAW", "HUMMINGBIRD", "OCTOPUS", "SPECIALISTS", "BELZEBUB", "GREMLIN")
 
 MCP_TOOLS = [
     "gremlin_status",
     "gremlin_bestiary",
     "gremlin_species",
     "gremlin_plan",
+    "gremlin_route",
+    "gremlin_auto_fanout",
+    "gremlin_fanout",
+    "gremlin_collect",
+    "gremlin_synthesize",
     "gremlin_prototype",
     "gremlin_worker_register",
     "gremlin_worker_heartbeat",
@@ -103,13 +68,20 @@ def status() -> dict[str, Any]:
         "noema_required": False,
         "phasenav_native_authority_required": False,
         "transport_capabilities": ["stdio", "streamable-http"],
+        "octopus_router": {
+            "version": "0.5.0",
+            "mode": "DETERMINISTIC_AUDITABLE_SEMANTIC_ROUTER",
+            "opaque_model_dependency": False,
+            "route_commitment": "BLAKE2B_256",
+            "no_evidence_policy": "NO_CONFIDENT_ROUTE_NOT_QUEUED",
+        },
         "worker_abi": {
             "version": "0.2.0",
             "model": "PULL_LEASE_SUBMIT",
             "callback_networking": False,
             "same_species_batches": True,
             "orbit_lane_bounded": True,
-            "state_persistence": "PROCESS_MEMORY_V0_2",
+            "state_persistence": "PROCESS_MEMORY_OR_SQLITE_WAL",
         },
         "tools": list(MCP_TOOLS),
         "topology": list(TOPOLOGY),
@@ -120,11 +92,7 @@ def status() -> dict[str, Any]:
 def bestiary_manifest() -> dict[str, Any]:
     entries: list[dict[str, Any]] = []
     for name, meta in BESTIARY_ROLES.items():
-        entry: dict[str, Any] = {
-            "name": name,
-            **meta,
-            "scheduler_profile": None,
-        }
+        entry: dict[str, Any] = {"name": name, **meta, "scheduler_profile": None}
         if name in PROFILES:
             profile = PROFILES[name]
             entry["scheduler_profile"] = {
@@ -195,11 +163,7 @@ def plan_bestiary(route_counts: Mapping[str, int], *, vector_width: int = 8) -> 
 
 
 def run_prototype(request: Mapping[str, Any]) -> dict[str, Any]:
-    """Run the existing fail-closed GREMLIN reference prototype pipeline.
-
-    Import is intentionally lazy so status/planning stay lightweight and do not
-    require the PhaseNav reference pipeline until this MCP tool is invoked.
-    """
+    """Run the existing fail-closed GREMLIN reference prototype pipeline."""
     if not isinstance(request, Mapping):
         raise ValueError("request must be a mapping")
     from tools.gremlin_client_protocol_v01 import run_client_request
