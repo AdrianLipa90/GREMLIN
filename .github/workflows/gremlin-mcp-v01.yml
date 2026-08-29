@@ -1,0 +1,45 @@
+name: GREMLIN MCP v0.4
+
+on:
+  push:
+    branches:
+      - feat/gremlin-mcp-v0.1
+  pull_request:
+    paths:
+      - 'gremlin_mcp/**'
+      - 'tools/__init__.py'
+      - 'tools/gremlin_bestiary_orbital_scheduler_v02.py'
+      - 'tools/gremlin_bestiary_vector_species_v03.py'
+      - 'tools/gremlin_client_protocol_v01.py'
+      - 'examples/mcp_worker_spider.py'
+      - 'tests/test_gremlin_mcp_v01.py'
+      - 'tests/test_gremlin_mcp_worker_abi_v02.py'
+      - 'tests/test_gremlin_mcp_worker_client_v02.py'
+      - 'tests/test_gremlin_mcp_persistence_v03.py'
+      - 'tests/test_gremlin_mcp_pipeline_v04.py'
+      - 'spec/GREMLIN_MCP_SERVER_V0_1.md'
+      - 'spec/GREMLIN_MCP_WORKER_ABI_V0_2.md'
+      - 'spec/GREMLIN_MCP_PERSISTENCE_V0_3.md'
+      - 'spec/GREMLIN_MCP_PIPELINE_V0_4.md'
+      - 'pyproject.toml'
+      - 'README.md'
+      - '.github/workflows/gremlin-mcp-v01.yml'
+
+jobs:
+  mcp-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install GREMLIN MCP and test runner
+        run: python -m pip install -e . pytest
+      - name: Run standalone MCP contract suite
+        run: >-
+          python -m pytest -q
+          tests/test_gremlin_mcp_v01.py
+          tests/test_gremlin_mcp_worker_abi_v02.py
+          tests/test_gremlin_mcp_worker_client_v02.py
+          tests/test_gremlin_mcp_persistence_v03.py
+          tests/test_gremlin_mcp_pipeline_v04.py

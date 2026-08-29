@@ -53,6 +53,139 @@ SURVIVED_AUDIT
 
 `VALIDATED_PROTOTYPE` currently carries `validation_scope=REFERENCE_CONFORMANCE_ONLY`.
 
+## Standalone MCP adapter v0.4
+
+GREMLIN can run as a standalone Model Context Protocol server for research integration. This path does not require NOEMA or `/dev/shm/ciel_noema` for discovery, Bestiary inspection, scheduler planning, external animal-worker coordination, durable local queue state, or the existing Python reference prototype pipeline.
+
+Install from the repository root:
+
+```text
+python -m pip install -e .
+```
+
+Run over stdio:
+
+```text
+gremlin-mcp
+```
+
+Or expose a local Streamable HTTP endpoint:
+
+```text
+gremlin-mcp --transport streamable-http --host 127.0.0.1 --port 8766
+```
+
+Default HTTP MCP endpoint: `http://127.0.0.1:8766/mcp`.
+
+Core MCP tools:
+
+- `gremlin_status`
+- `gremlin_bestiary`
+- `gremlin_species`
+- `gremlin_plan`
+- `gremlin_fanout`
+- `gremlin_collect`
+- `gremlin_synthesize`
+- `gremlin_prototype`
+
+### High-level Bestiary pipeline
+
+An MCP host can now queue one research payload across an explicit specialist route and then hand completed candidates to BELZEBUB:
+
+```text
+payload + explicit route mask
+  -> gremlin_fanout
+  -> SPIDER / RAVEN / HOUND / MOLE / OWL / ANT / MANTIS
+  -> gremlin_collect
+  -> gremlin_synthesize
+  -> BELZEBUB
+  -> CANDIDATE synthesis
+```
+
+The route mask is explicit in v0.4. The standalone adapter therefore does not claim an implicit semantic OCTOPUS decision where none has been implemented yet. `gremlin_synthesize` fails closed until every supplied specialist task is complete.
+
+### External animal workers
+
+Any backend that can call MCP tools can register as a scheduler-backed GREMLIN animal worker. The Worker ABI is pull-based and does not require GREMLIN to call arbitrary worker URLs:
+
+```text
+backend
+  -> gremlin_worker_register
+  -> gremlin_worker_claim
+  -> local model / solver / search / GPU work
+  -> gremlin_worker_submit
+  -> CANDIDATE result
+```
+
+Worker tools:
+
+- `gremlin_worker_register`
+- `gremlin_worker_heartbeat`
+- `gremlin_worker_list`
+- `gremlin_worker_enqueue`
+- `gremlin_worker_claim`
+- `gremlin_worker_submit`
+- `gremlin_worker_result`
+- `gremlin_worker_queue`
+
+External worker roles are `SPIDER`, `RAVEN`, `HOUND`, `MOLE`, `OWL`, `ANT`, `MANTIS`, and `BELZEBUB`. Capture remains owned by HUMMINGBIRD and semantic routing remains owned by OCTOPUS.
+
+Claims are same-species batches bounded by both the worker-declared maximum and the existing mass-orbit/vector-lane scheduler. Results are bound to task lineage by BLAKE2b commitments and remain candidate-only.
+
+For a worker running as a separate process, use one shared Streamable HTTP GREMLIN server. A stdio server belongs to the process launched by its MCP host, so launching a second stdio GREMLIN process creates a different broker unless both are intentionally pointed at the same durable state file.
+
+The package also includes `GremlinWorkerClient`, a batch-aware helper for plugging in a model, solver, graph engine, search backend, or accelerator without reimplementing MCP plumbing:
+
+```python
+from gremlin_mcp.worker_client import GremlinWorkerClient
+
+async def spider(batch):
+    return [
+        {"task_id": task["task_id"], "output": my_backend(task["payload"])}
+        for task in batch["tasks"]
+    ]
+
+worker = GremlinWorkerClient(
+    "http://127.0.0.1:8766/mcp",
+    worker_id="my-spider",
+    species=["SPIDER"],
+    handler=spider,
+    vector_width=8,
+    max_batch=32,
+)
+await worker.serve()
+```
+
+A runnable skeleton is in `examples/mcp_worker_spider.py`. Its handler is intentionally only an echo demonstration; replace it with the actual backend for the selected animal role.
+
+### Durable worker state
+
+Without a state path, worker coordination remains process-resident. For restart-safe standalone coordination, enable the SQLite WAL backend explicitly:
+
+```text
+gremlin-mcp --transport streamable-http \
+  --state-path ./gremlin-worker.sqlite3
+```
+
+or set `GREMLIN_MCP_STATE_PATH`.
+
+Durable mode persists worker registrations, queued tasks, active leases, task commitments and candidate results. Hydration validates task commitments and lease/task lineage and fails closed on corruption. Expired leases are returned to `QUEUED` after restart.
+
+The MCP adapter is fail-closed with respect to native authority:
+
+```text
+production_runtime_write=false
+execution_admitted=false
+canon_allowed=false
+```
+
+Specifications:
+
+- `spec/GREMLIN_MCP_SERVER_V0_1.md`
+- `spec/GREMLIN_MCP_WORKER_ABI_V0_2.md`
+- `spec/GREMLIN_MCP_PERSISTENCE_V0_3.md`
+- `spec/GREMLIN_MCP_PIPELINE_V0_4.md`
+
 ## Visual research client v0.1
 
 The local visual client exposes the prototype pipeline as a three-pane workspace:
