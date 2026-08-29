@@ -6,6 +6,7 @@ on:
       - "tools/gremlin_bestiary_mass_role_typed_scheduler_v07.py"
       - "tests/test_gremlin_bestiary_mass_role_typed_scheduler_v07.py"
       - "spec/GREMLIN_BESTIARY_MASS_ROLE_TYPED_SCHEDULER_V0_7.md"
+      - "provenance/GREMLIN_BESTIARY_MASS_ROLE_TYPED_SCHEDULER_LIVE_V0_7.json"
       - ".github/workflows/gremlin-bestiary-mass-role-typed-scheduler-v07.yml"
   workflow_dispatch:
 
