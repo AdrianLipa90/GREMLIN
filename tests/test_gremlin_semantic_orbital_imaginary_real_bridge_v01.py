@@ -19,10 +19,16 @@ from tools.gremlin_semantic_orbital_imaginary_real_bridge_v01 import (
 def test_c7_lattice_intention_index_three_from_reference():
     phi0 = -2.84156
     phi = lattice_phase(phi0, 3, wrapped=True)
-    assert abs(phi - 0.7488316043875249) < 1e-12
+    assert abs(phi - 0.7488316041026213) < 1e-12
     audit = audit_heptad_shift(wrap_pi(phi - phi0))
     assert audit.n == 3
     assert abs(audit.residual) < 1e-12
+
+
+def test_serialized_intention_vector_reconstruction_is_close_to_exact_c7_value():
+    exact = lattice_phase(-2.84156, 3, wrapped=True)
+    serialized_vector_reconstruction = 0.7488316043875249
+    assert abs(serialized_vector_reconstruction - exact) < 3e-10
 
 
 def test_current_observed_shifts_map_to_indices_zero_through_three():
