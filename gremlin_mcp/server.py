@@ -15,6 +15,7 @@ from gremlin_mcp.core import (
     status,
 )
 from gremlin_mcp.pipeline import collect, enqueue_synthesis, fanout
+from gremlin_mcp.router import auto_fanout, route
 from gremlin_mcp.workers import WorkerBroker, broker as memory_broker
 
 broker: WorkerBroker = memory_broker
@@ -22,28 +23,24 @@ broker: WorkerBroker = memory_broker
 mcp = MCPServer(
     "GREMLIN",
     title="GREMLIN Bestiary",
-    description="Standalone research MCP adapter for GREMLIN Bestiary scheduling, external animal workers and reference execution.",
+    description="Standalone research MCP adapter for GREMLIN Bestiary semantic routing, scheduling, external animal workers and reference execution.",
     instructions=(
         "GREMLIN MCP is a research/candidate interface. Use gremlin_bestiary to inspect "
         "the animal topology, gremlin_species for one role, gremlin_plan to build a "
-        "mass-orbit/vector lane plan, gremlin_fanout to queue an explicit specialist route, "
-        "gremlin_collect to inspect specialist completion, gremlin_synthesize to queue BELZEBUB "
-        "after all supplied specialists finish, and gremlin_prototype for the existing fail-closed "
-        "reference prototype pipeline. External backends can register as animal workers, claim "
-        "bounded same-species batches, and submit CANDIDATE results. MCP calls never grant "
-        "production execution or canon authority."
+        "mass-orbit/vector lane plan, gremlin_route for an auditable OCTOPUS semantic route, "
+        "gremlin_auto_fanout to route and queue confident specialist work, gremlin_fanout for "
+        "an explicit caller-supplied route, gremlin_collect to inspect specialist completion, "
+        "gremlin_synthesize to queue BELZEBUB after all supplied specialists finish, and "
+        "gremlin_prototype for the existing fail-closed reference prototype pipeline. External "
+        "backends can register as animal workers, claim bounded same-species batches, and submit "
+        "CANDIDATE results. MCP calls never grant production execution or canon authority."
     ),
     version=__version__,
 )
 
 
 def configure_state(state_path: str | None) -> WorkerBroker:
-    """Select process-memory or durable SQLite-WAL worker coordination.
-
-    Passing ``None`` keeps the in-process broker used by embedded MCP hosts and
-    tests. A path creates a fresh persistent broker and makes all worker tools
-    share that durable state.
-    """
+    """Select process-memory or durable SQLite-WAL worker coordination."""
     global broker
     if state_path is None or not str(state_path).strip():
         broker = memory_broker
@@ -81,16 +78,47 @@ def gremlin_plan(route_counts: dict[str, int], vector_width: int = 8) -> dict[st
 
 
 @mcp.tool()
+def gremlin_route(
+    payload: dict[str, Any],
+    max_species: int = 4,
+    min_score: float = 2.0,
+    relative_cutoff: float = 0.45,
+) -> dict[str, Any]:
+    """Ask OCTOPUS for an auditable deterministic semantic specialist route mask."""
+    return route(
+        payload,
+        max_species=max_species,
+        min_score=min_score,
+        relative_cutoff=relative_cutoff,
+    )
+
+
+@mcp.tool()
+def gremlin_auto_fanout(
+    payload: dict[str, Any],
+    request_id: str | None = None,
+    max_species: int = 4,
+    min_score: float = 2.0,
+    relative_cutoff: float = 0.45,
+) -> dict[str, Any]:
+    """Route with OCTOPUS and queue work only when positive semantic evidence is present."""
+    return auto_fanout(
+        broker,
+        payload,
+        request_id=request_id,
+        max_species=max_species,
+        min_score=min_score,
+        relative_cutoff=relative_cutoff,
+    )
+
+
+@mcp.tool()
 def gremlin_fanout(
     payload: dict[str, Any],
     species: list[str],
     request_id: str | None = None,
 ) -> dict[str, Any]:
-    """Queue one payload to an explicit specialist route mask.
-
-    This does not pretend to be an implicit semantic OCTOPUS decision: the
-    caller supplies the route mask and GREMLIN supplies lineage and queueing.
-    """
+    """Queue one payload to an explicit caller-supplied specialist route mask."""
     return fanout(broker, payload, species, request_id=request_id)
 
 
