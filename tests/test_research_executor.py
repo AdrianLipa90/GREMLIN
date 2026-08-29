@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import gremlin_mcp.research_executor as executor
+from gremlin_mcp.research_provenance import verify_source_receipt_set
 
 
 def _fake_acquisition(*, with_evidence: bool = True):
@@ -103,6 +104,12 @@ def test_execute_research_uses_worker_abi_and_belzebub(monkeypatch) -> None:
         assert citation["content_commitment"] == receipt["content_commitment"]
         assert receipt["content_length_chars"] == len(receipt["evidence_text"])
         assert len(receipt["source_receipt_commitment"]) == 64
+    provenance = verify_source_receipt_set(result["source_receipts"], citations=result["citations"])
+    assert provenance["valid"] is True
+    assert provenance["errors"] == []
+    assert provenance["receipt_count"] == 4
+    assert provenance["citation_count"] == 4
+    assert len(provenance["receipt_set_commitment"]) == 64
     assert len(result["execution_commitment"]) == 64
 
     spider = result["stage_executions"][0]["results"][1]["candidate"]
@@ -125,4 +132,6 @@ def test_execute_research_fails_closed_without_evidence(monkeypatch) -> None:
     assert result["synthesis"] is None
     assert result["citations"] == []
     assert result["source_receipts"] == []
+    provenance = verify_source_receipt_set(result["source_receipts"], citations=result["citations"])
+    assert provenance["valid"] is True
     assert result["authority"]["canon_allowed"] is False
