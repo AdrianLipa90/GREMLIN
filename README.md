@@ -84,3 +84,9 @@ Full specification: `spec/GREMLIN_VISUAL_CLIENT_V0_1.md`.
 Motto: `Verbis utor, informationem in existentiam converto.`
 
 BELZEBUB quarantines untrusted code as data, performs semantic defensive analysis, and emits repair/immunity candidates. Quarantined content has no execution authority.
+
+## License
+
+GREMLIN is distributed under the **CIEL Research Non-Commercial License v2.0** (`LicenseRef-CIEL-Research-NonCommercial-2.0`). The license permits non-commercial research execution, reproducibility, benchmarking, profiling, vectorization, security review, and project-native agent/orchestration experiments while reserving commercial use, production deployment, hosted services, AI/ML development use, and model extraction for separate written authorization.
+
+See [`LICENSE`](LICENSE) for the canonical terms.
