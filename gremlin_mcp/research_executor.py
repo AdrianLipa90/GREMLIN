@@ -14,10 +14,12 @@ EXECUTOR_SCHEMA = "GREMLIN_RESEARCH_EXECUTOR_V0_1"
 EXECUTOR_VERSION = "0.1.0"
 
 _STOPWORDS = {
-    "about", "after", "against", "between", "could", "derive", "evidence", "from", "into",
-    "more", "other", "paper", "papers", "relation", "research", "review", "source", "sources",
-    "that", "their", "there", "these", "this", "through", "using", "with", "within", "would",
-    "audit", "contradictions", "dependencies", "graph", "information", "quantum",
+    "about", "after", "against", "approach", "approaches", "between", "consider", "considered",
+    "could", "derive", "describe", "described", "describes", "evidence", "from", "into", "more",
+    "other", "paper", "papers", "present", "presented", "presents", "relation", "research", "review",
+    "show", "shown", "shows", "source", "sources", "studied", "studies", "study", "that", "their",
+    "there", "these", "this", "through", "using", "with", "within", "would", "audit",
+    "contradictions", "dependencies", "graph",
 }
 _TOKEN_RE = re.compile(r"[A-Za-z][A-Za-z0-9_-]{2,}")
 
