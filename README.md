@@ -53,7 +53,7 @@ SURVIVED_AUDIT
 
 `VALIDATED_PROTOTYPE` currently carries `validation_scope=REFERENCE_CONFORMANCE_ONLY`.
 
-## Standalone MCP adapter v0.2
+## Standalone MCP adapter v0.3
 
 GREMLIN can run as a standalone Model Context Protocol server for research integration. This path does not require NOEMA or `/dev/shm/ciel_noema` for discovery, Bestiary inspection, scheduler planning, external animal-worker coordination, or the existing Python reference prototype pipeline.
 
@@ -87,7 +87,7 @@ Core MCP tools:
 
 ### External animal workers
 
-Any backend that can call MCP tools can register as a scheduler-backed GREMLIN animal worker. The v0.2 contract is pull-based and does not require GREMLIN to call arbitrary worker URLs:
+Any backend that can call MCP tools can register as a scheduler-backed GREMLIN animal worker. The Worker ABI is pull-based and does not require GREMLIN to call arbitrary worker URLs:
 
 ```text
 backend
@@ -113,7 +113,7 @@ External worker roles are `SPIDER`, `RAVEN`, `HOUND`, `MOLE`, `OWL`, `ANT`, `MAN
 
 Claims are same-species batches bounded by both the worker-declared maximum and the existing mass-orbit/vector-lane scheduler. Results are bound to task lineage by BLAKE2b commitments and remain candidate-only.
 
-For a worker running as a separate process, use one shared Streamable HTTP GREMLIN server. A stdio server belongs to the process launched by its MCP host, so launching a second stdio GREMLIN process would create a different process-resident broker.
+For a worker running as a separate process, use one shared Streamable HTTP GREMLIN server. A stdio server belongs to the process launched by its MCP host, so launching a second stdio GREMLIN process creates a different broker unless both are intentionally pointed at the same durable state file.
 
 The package also includes `GremlinWorkerClient`, a batch-aware helper for plugging in a model, solver, graph engine, search backend, or accelerator without reimplementing MCP plumbing:
 
@@ -139,7 +139,18 @@ await worker.serve()
 
 A runnable skeleton is in `examples/mcp_worker_spider.py`. Its handler is intentionally only an echo demonstration; replace it with the actual backend for the selected animal role.
 
-Worker state in v0.2 is process-resident (`PROCESS_MEMORY_V0_2`). Durable WAL-backed state is the next persistence gate.
+### Durable worker state
+
+Without a state path, worker coordination remains process-resident. For restart-safe standalone coordination, enable the SQLite WAL backend explicitly:
+
+```text
+gremlin-mcp --transport streamable-http \
+  --state-path ./gremlin-worker.sqlite3
+```
+
+or set `GREMLIN_MCP_STATE_PATH`.
+
+Durable mode persists worker registrations, queued tasks, active leases, task commitments and candidate results. Hydration validates task commitments and lease/task lineage and fails closed on corruption. Expired leases are returned to `QUEUED` after restart.
 
 The MCP adapter is fail-closed with respect to native authority:
 
@@ -153,6 +164,7 @@ Specifications:
 
 - `spec/GREMLIN_MCP_SERVER_V0_1.md`
 - `spec/GREMLIN_MCP_WORKER_ABI_V0_2.md`
+- `spec/GREMLIN_MCP_PERSISTENCE_V0_3.md`
 
 ## Visual research client v0.1
 
