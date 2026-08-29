@@ -1,0 +1,23 @@
+name: GREMLIN semantic orbital PNLF radius v0.3
+
+on:
+  push:
+    branches:
+      - feat/semantic-orbital-pnlf-radius-source-v0.3
+  pull_request:
+    branches:
+      - feat/semantic-orbital-newton-einstein-ab-bridge-v0.2
+
+jobs:
+  reference:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pytest
+        run: python -m pip install pytest
+      - name: Run PNLF radius source tests
+        run: python -m pytest -q tests/test_gremlin_semantic_orbital_pnlf_radius_source_v03.py
