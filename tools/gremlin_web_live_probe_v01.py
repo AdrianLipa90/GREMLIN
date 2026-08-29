@@ -13,7 +13,7 @@ if str(ROOT) not in sys.path:
 from gremlin_mcp.web import fetch_url, research
 
 DEFAULT_QUERY = "information geometry quantum gravity Shannon entropy"
-FETCH_PROBE_URL = "https://api.crossref.org/works?rows=1"
+FETCH_PROBE_URL = "https://www.iana.org/help/example-domains"
 
 
 def main() -> int:
@@ -32,6 +32,7 @@ def main() -> int:
     fetch = fetch_url(FETCH_PROBE_URL, max_bytes=250_000, max_chars=2_000)
 
     evidence = result["evidence"]
+    plan = result["research_plan"]
     top = [
         {
             "provider": row.get("provider"),
@@ -51,6 +52,16 @@ def main() -> int:
         "verdict": verdict,
         "octopus_route_mask": result["octopus"]["route_mask"],
         "octopus_route_commitment": result["octopus"]["route_commitment"],
+        "research_plan_species_union": plan.get("species_union", []),
+        "research_plan_stages": [
+            {
+                "stage_id": stage.get("stage_id"),
+                "route_mask": stage.get("route_mask", []),
+                "route_commitment": stage.get("route_commitment"),
+            }
+            for stage in plan.get("stages", [])
+        ],
+        "research_plan_commitment": plan.get("plan_commitment"),
         "providers_requested": evidence.get("providers_requested", []),
         "providers_completed": evidence.get("providers_completed", []),
         "provider_errors": evidence.get("provider_errors", []),
@@ -64,6 +75,7 @@ def main() -> int:
             "http_status": fetch.get("http_status"),
             "content_type": fetch.get("content_type"),
             "bytes": fetch.get("bytes"),
+            "network_attempts": fetch.get("network_attempts"),
             "sha256": fetch.get("sha256"),
             "receipt_commitment": fetch.get("receipt_commitment"),
         },
