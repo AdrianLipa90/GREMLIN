@@ -18,6 +18,7 @@ on:
       - 'tests/test_gremlin_mcp_persistence_v03.py'
       - 'tests/test_gremlin_mcp_pipeline_v04.py'
       - 'tests/test_gremlin_mcp_octopus_router_v05.py'
+      - 'tests/test_relational_cases.py'
       - 'spec/GREMLIN_MCP_SERVER_V0_1.md'
       - 'spec/GREMLIN_MCP_WORKER_ABI_V0_2.md'
       - 'spec/GREMLIN_MCP_PERSISTENCE_V0_3.md'
@@ -46,3 +47,4 @@ jobs:
           tests/test_gremlin_mcp_persistence_v03.py
           tests/test_gremlin_mcp_pipeline_v04.py
           tests/test_gremlin_mcp_octopus_router_v05.py
+          tests/test_relational_cases.py
