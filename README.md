@@ -53,9 +53,9 @@ SURVIVED_AUDIT
 
 `VALIDATED_PROTOTYPE` currently carries `validation_scope=REFERENCE_CONFORMANCE_ONLY`.
 
-## Standalone MCP adapter v0.3
+## Standalone MCP adapter v0.4
 
-GREMLIN can run as a standalone Model Context Protocol server for research integration. This path does not require NOEMA or `/dev/shm/ciel_noema` for discovery, Bestiary inspection, scheduler planning, external animal-worker coordination, or the existing Python reference prototype pipeline.
+GREMLIN can run as a standalone Model Context Protocol server for research integration. This path does not require NOEMA or `/dev/shm/ciel_noema` for discovery, Bestiary inspection, scheduler planning, external animal-worker coordination, durable local queue state, or the existing Python reference prototype pipeline.
 
 Install from the repository root:
 
@@ -83,7 +83,26 @@ Core MCP tools:
 - `gremlin_bestiary`
 - `gremlin_species`
 - `gremlin_plan`
+- `gremlin_fanout`
+- `gremlin_collect`
+- `gremlin_synthesize`
 - `gremlin_prototype`
+
+### High-level Bestiary pipeline
+
+An MCP host can now queue one research payload across an explicit specialist route and then hand completed candidates to BELZEBUB:
+
+```text
+payload + explicit route mask
+  -> gremlin_fanout
+  -> SPIDER / RAVEN / HOUND / MOLE / OWL / ANT / MANTIS
+  -> gremlin_collect
+  -> gremlin_synthesize
+  -> BELZEBUB
+  -> CANDIDATE synthesis
+```
+
+The route mask is explicit in v0.4. The standalone adapter therefore does not claim an implicit semantic OCTOPUS decision where none has been implemented yet. `gremlin_synthesize` fails closed until every supplied specialist task is complete.
 
 ### External animal workers
 
@@ -109,7 +128,7 @@ Worker tools:
 - `gremlin_worker_result`
 - `gremlin_worker_queue`
 
-External worker roles are `SPIDER`, `RAVEN`, `HOUND`, `MOLE`, `OWL`, `ANT`, `MANTIS`, and `BELZEBUB`. Capture remains owned by HUMMINGBIRD and routing remains owned by OCTOPUS.
+External worker roles are `SPIDER`, `RAVEN`, `HOUND`, `MOLE`, `OWL`, `ANT`, `MANTIS`, and `BELZEBUB`. Capture remains owned by HUMMINGBIRD and semantic routing remains owned by OCTOPUS.
 
 Claims are same-species batches bounded by both the worker-declared maximum and the existing mass-orbit/vector-lane scheduler. Results are bound to task lineage by BLAKE2b commitments and remain candidate-only.
 
@@ -165,6 +184,7 @@ Specifications:
 - `spec/GREMLIN_MCP_SERVER_V0_1.md`
 - `spec/GREMLIN_MCP_WORKER_ABI_V0_2.md`
 - `spec/GREMLIN_MCP_PERSISTENCE_V0_3.md`
+- `spec/GREMLIN_MCP_PIPELINE_V0_4.md`
 
 ## Visual research client v0.1
 
