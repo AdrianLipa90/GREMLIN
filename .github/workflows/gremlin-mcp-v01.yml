@@ -11,8 +11,10 @@ on:
       - 'tools/gremlin_bestiary_orbital_scheduler_v02.py'
       - 'tools/gremlin_bestiary_vector_species_v03.py'
       - 'tools/gremlin_client_protocol_v01.py'
+      - 'examples/mcp_worker_spider.py'
       - 'tests/test_gremlin_mcp_v01.py'
       - 'tests/test_gremlin_mcp_worker_abi_v02.py'
+      - 'tests/test_gremlin_mcp_worker_client_v02.py'
       - 'spec/GREMLIN_MCP_SERVER_V0_1.md'
       - 'spec/GREMLIN_MCP_WORKER_ABI_V0_2.md'
       - 'pyproject.toml'
@@ -29,5 +31,9 @@ jobs:
           python-version: '3.12'
       - name: Install GREMLIN MCP and test runner
         run: python -m pip install -e . pytest
-      - name: Run standalone MCP and Worker ABI contract tests
-        run: python -m pytest -q tests/test_gremlin_mcp_v01.py tests/test_gremlin_mcp_worker_abi_v02.py
+      - name: Run standalone MCP, Worker ABI and external worker client tests
+        run: >-
+          python -m pytest -q
+          tests/test_gremlin_mcp_v01.py
+          tests/test_gremlin_mcp_worker_abi_v02.py
+          tests/test_gremlin_mcp_worker_client_v02.py
