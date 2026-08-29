@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 from typing import Any
 
 from mcp.server import MCPServer
@@ -13,7 +14,9 @@ from gremlin_mcp.core import (
     species_profile,
     status,
 )
-from gremlin_mcp.workers import broker
+from gremlin_mcp.workers import WorkerBroker, broker as memory_broker
+
+broker: WorkerBroker = memory_broker
 
 mcp = MCPServer(
     "GREMLIN",
@@ -29,6 +32,23 @@ mcp = MCPServer(
     ),
     version=__version__,
 )
+
+
+def configure_state(state_path: str | None) -> WorkerBroker:
+    """Select process-memory or durable SQLite-WAL worker coordination.
+
+    Passing ``None`` keeps the in-process broker used by embedded MCP hosts and
+    tests. A path creates a fresh persistent broker and makes all worker tools
+    share that durable state.
+    """
+    global broker
+    if state_path is None or not str(state_path).strip():
+        broker = memory_broker
+        return broker
+    from gremlin_mcp.persistent_workers import PersistentWorkerBroker
+
+    broker = PersistentWorkerBroker(str(state_path))
+    return broker
 
 
 @mcp.tool()
@@ -152,11 +172,20 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--host", default="127.0.0.1", help="HTTP bind host")
     parser.add_argument("--port", default=8766, type=int, help="HTTP bind port")
     parser.add_argument("--path", default="/mcp", help="Streamable HTTP MCP path")
+    parser.add_argument(
+        "--state-path",
+        default=os.environ.get("GREMLIN_MCP_STATE_PATH"),
+        help=(
+            "optional SQLite worker-state path; also read from GREMLIN_MCP_STATE_PATH. "
+            "Without it the standalone worker broker is process-resident."
+        ),
+    )
     return parser
 
 
 def main() -> None:
     args = build_parser().parse_args()
+    configure_state(args.state_path)
     if args.transport == "stdio":
         mcp.run("stdio")
         return
