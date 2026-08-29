@@ -33,6 +33,7 @@
     ]
   },
   "reference_validation": {
+    "validation_scope": "REFERENCE_CONFORMANCE_ONLY",
     "hermetic_tests": "6/6 PASS",
     "zero_init_exact_base_logits": true,
     "zero_structural_exact_base_logits_after_training": true,
