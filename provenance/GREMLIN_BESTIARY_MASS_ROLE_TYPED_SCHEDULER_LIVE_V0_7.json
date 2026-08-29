@@ -1,0 +1,56 @@
+{
+  "aux_runtime_instance_id": "02fa0255553be1e62a27201d4bb95c3a",
+  "canon_allowed": false,
+  "created_unix_ns": 1788026322985338124,
+  "epistemic": "CHYBA",
+  "git": {
+    "canonical_firewall_head": "3c597fff0927818e7891b353ffed0664d6f8029c",
+    "canonical_firewall_pr": 17,
+    "typed_scheduler_head": "f6b9431e38252cbe2650663a7e9c609d5adf126e",
+    "typed_scheduler_pr": 21
+  },
+  "gremlin_native_authoring": {
+    "canonical_authoring_witness_matches": [],
+    "status": "BLOCKED_FAIL_CLOSED",
+    "vector_guessing": false
+  },
+  "historical_source_pins": {
+    "archive_sha256": "fef25a4cb20380483fec5b3e84ad8a2d1465e6a53ecf6dfd9ec42ec67d82e9ef",
+    "kepler_ciel_sim_py_sha256": "d7b5cea2673bea6979bd7a99077d90d7e9f84ae010b6c5cd2d9fa1ac704f8581",
+    "orbital_shell_py_sha256": "8d57507edfa1060fe825e10d93ef7d9a6bc63738cddd67c182f81dbdb9796990",
+    "semantic_mass_py_sha256": "bd48c3ea201c2244d890fb010e836f227d56bb0a0b68f21d4499a79620327264"
+  },
+  "hosted_ci": {
+    "conclusion": "success",
+    "job_id": 99138634059,
+    "reference_tests": 8,
+    "workflow_run_id": 33266971888
+  },
+  "kernel": "omega^2=(mu_source/r^3)*(q_coupling/m_inertial)",
+  "pnlf_boundary": {
+    "existing_ids": [
+      "mass_model_id",
+      "orbit_quantizer_id",
+      "proper_time_model_id"
+    ],
+    "numeric_pair_alone_sufficient": false,
+    "scheduler_provenance": "mass_role_profile_id must be carried by explicit compatibility/quantizer profile or lineage/profile transition",
+    "schema_change": false
+  },
+  "profiles": {
+    "CIEL_FOUNDATION_P3_SOURCE_ATTRACTOR_COMPAT": "PASS_EXACT_HISTORICAL_SOURCE_CROSSWALK",
+    "CIEL_KEPLER_INERTIAL_SIM_COMPAT": "PASS_EXACT_HISTORICAL_INERTIAL_CROSSWALK",
+    "GREMLIN_BESTIARY_V02_INERTIAL_SERVICE_LOAD_COMPAT": "PASS_EXACT_LEGACY_CADENCE",
+    "SEMANTIC_EQUIVALENCE_CANDIDATE": "CONDITIONAL_CANDIDATE_ONLY"
+  },
+  "promotion_state": "CANDIDATE_ONLY",
+  "receipt_sha256": "f8ca2d4de93168fce99ac684ac14e19d04bab9ec9a2d9b493870822a0e9e544b",
+  "runtime_execution_authority": false,
+  "schema": "GREMLIN_BESTIARY_MASS_ROLE_TYPED_SCHEDULER_LIVE_V0_7",
+  "static_fallback": false,
+  "status": "PASS_EXACT_TYPED_SCHEDULER_COMPATIBILITY_WITH_LIVE_PROVENANCE",
+  "surface": "/dev/shm/ciel_noema",
+  "surface_status": "ACTIVE",
+  "tether_runtime_instance_id": "1db7f26adcefba3a700eaae6b086047b",
+  "working_state_sha256": "f783cb4fefef74a4a067d683f8b45fb3b838f3d1f1dfdff6e5bf6d2b2437de9d"
+}

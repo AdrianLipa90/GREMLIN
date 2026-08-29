@@ -1,0 +1,68 @@
+{
+  "schema": "GREMLIN_SEMANTIC_ORBITAL_RFC_SOURCE_DENSITY_LIVE_V0_4",
+  "status": "PASS_EXACT_STRUCTURAL_CROSSWALK_SOURCE_REALIZATION_PENDING",
+  "epistemic": "CHYBA",
+  "promotion_state": "CANDIDATE_ONLY",
+  "canon_allowed": false,
+  "runtime_execution_authority": false,
+  "surface": "/dev/shm/ciel_noema",
+  "surface_status": "ACTIVE",
+  "gremlin_parent_head": "900c423d143286114274c2ee5d2076c47421a436",
+  "rfc_parent": {
+    "repo": "AdrianLipa90/Relational-Field-Closure",
+    "main_head": "6001960e7d2dde60765bc110fc7d2c532b79b531",
+    "gate": "RF-S13"
+  },
+  "formula": {
+    "generator": "rho_E=[B*omega*N/(A*R)]*(phi_lift+kappa)",
+    "kappa": "ln(2)/(24*pi)",
+    "AR_typing": "A*R relational cell volume"
+  },
+  "c7_lift": {
+    "delta7": 0.8975979010256552,
+    "q_definition": "q=7*w-n",
+    "phi_lift": "phi0+q*delta7",
+    "complex_periodicity": "z(q+7)=z(q)",
+    "source_full_turn_increment_per_Q": 6.283185307179586,
+    "source_adjacent_increment_per_Q": 0.8975979010256552
+  },
+  "normalized_live_classes_Q_eq_1": [
+    {
+      "n": 0,
+      "winding": 0,
+      "q": 0,
+      "phi_lift": -2.84156,
+      "rho_over_Q": -2.8323668499936394
+    },
+    {
+      "n": 1,
+      "winding": 0,
+      "q": -1,
+      "phi_lift": -3.739157901025655,
+      "rho_over_Q": -3.7299647510192946
+    },
+    {
+      "n": 2,
+      "winding": 0,
+      "q": -2,
+      "phi_lift": -4.63675580205131,
+      "rho_over_Q": -4.627562652044949
+    },
+    {
+      "n": 3,
+      "winding": 0,
+      "q": -3,
+      "phi_lift": -5.534353703076965,
+      "rho_over_Q": -5.525160553070604
+    }
+  ],
+  "source_binding": {
+    "B": "typed as action by RFC RF-S13; physical realization pending",
+    "N": "typed as occupation by RFC RF-S13; physical current receipt pending",
+    "A_times_R": "typed as relational cell volume by RFC RF-S13; physical cell-volume receipt pending"
+  },
+  "physical_source_status": "PENDING",
+  "live_receipt_path": "/dev/shm/ciel_noema/session/gremlin_semantic_orbital_rfc_source_density_live_v0_4.json",
+  "live_receipt_file_sha256": "211fcbbebb49cae689cac88c7b7bb9c645bfbf31ad9bc871983b391a5fdef28e",
+  "receipt_sha256": "cc38a057fbec38a2825a1573110bf12175e3dc8ac6ad663ff4a2e45d0f63287c"
+}

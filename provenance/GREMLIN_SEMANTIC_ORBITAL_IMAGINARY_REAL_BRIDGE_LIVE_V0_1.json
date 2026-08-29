@@ -1,0 +1,66 @@
+{
+  "schema": "GREMLIN_SEMANTIC_ORBITAL_IMAGINARY_REAL_BRIDGE_LIVE_V0_1",
+  "status": "PASS_EXACT_STRUCTURAL_CANDIDATE_WITH_SOURCE_GATES",
+  "epistemic": "CHYBA",
+  "promotion_state": "CANDIDATE_ONLY",
+  "canon_allowed": false,
+  "runtime_execution_authority": false,
+  "surface": "/dev/shm/ciel_noema",
+  "surface_status": "ACTIVE",
+  "gremlin_source": {
+    "repo": "AdrianLipa90/GREMLIN",
+    "branch": "feat/bestiary-vector-species-v0.3",
+    "head": "44d16d8a911c9871bbd1f7a44ba5a5e7f725d5de"
+  },
+  "constants": {
+    "kappa": "ln(2)/(24*pi)",
+    "delta7": "2*pi/7",
+    "delta7_numeric": 0.8975979010256552,
+    "omega0": "2*pi*7.83"
+  },
+  "live_phase_lattice": {
+    "reference_card_id": "001",
+    "reference_name": "Resonance",
+    "reference_phase_rad": -2.84156,
+    "observed_heptad_indices": [0, 1, 2, 3],
+    "unoccupied_heptad_indices_current_live_set": [4, 5, 6],
+    "max_c7_shift_residual_rad": 7.962957848661745e-09,
+    "intention": {
+      "heptad_index": 3,
+      "exact_c7_lattice_phase_rad": 0.7488316041026213,
+      "serialized_vector_reconstruction_phase_rad": 0.7488316043875249,
+      "serialized_vector_minus_exact_c7_rad": 2.8490365622246827e-10,
+      "old_metadata_phase_rad": 0.748729,
+      "metadata_status": "STALE_DERIVED_FIELD_FOR_THIS_GATE"
+    }
+  },
+  "semantic_formula": {
+    "law": "S(t)=[B(t)*omega(t)*N(t)/A_R(t)]*(phi_lift(t)+kappa)",
+    "phase_requirement": "LIFTED_PHASE_REQUIRED",
+    "source_gate": "B,N,A_R are not source-bound on the current live surface"
+  },
+  "imaginary_real_bridge": {
+    "complex_orbital": "z=m_sem*exp(i*phi)",
+    "pair_carrier": "z_a^* z_b=m_a*m_b*exp(i*(phi_b-phi_a))",
+    "real_projection": "Re(z_a^* z_b)=m_a*m_b*cos(Delta_phi)",
+    "holonomy_transport": "pair phase increment=tau_b-tau_a",
+    "max_numeric_identity_error": 1.3877787807814457e-17
+  },
+  "mass_orbit_kepler_isomorphism": {
+    "scheduler_law": "omega=omega0*tau/sqrt(m*r^3)",
+    "reparameterization": "mu_sem=(omega0*tau)^2/m",
+    "kepler_form": "omega^2=mu_sem/r^3",
+    "classification": "EXACT_ALGEBRAIC_KEPLER_FORM_ISOMORPHISM_INTERNAL_SCHEDULER_ONLY",
+    "max_numeric_residual": 1.1368683772161603e-13,
+    "physical_source_gate": "mu_sem has no physical gravitational attribution in this candidate"
+  },
+  "next_gates": [
+    "source-bind B,N,A_R",
+    "bind semantic orbital radius/band to scheduler radius",
+    "derive rotation/Einstein correction as typed phase or Hamiltonian term",
+    "bind AB holonomy from declared connection/path source",
+    "validate semantic formula against HTRI/QHTRI actuation"
+  ],
+  "live_receipt_path": "/dev/shm/ciel_noema/session/gremlin_bestiary_semantic_orbital_imaginary_real_bridge_v0_2.json",
+  "live_receipt_file_sha256": "20c42b96f6c47daab5bd98b7a5f0643b642ba5433e5141bc9f62a06f0e0d1eb6"
+}

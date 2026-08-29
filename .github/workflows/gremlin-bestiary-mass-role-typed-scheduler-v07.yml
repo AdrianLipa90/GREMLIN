@@ -1,0 +1,25 @@
+name: GREMLIN Bestiary mass-role typed scheduler v0.7
+
+on:
+  pull_request:
+    paths:
+      - "tools/gremlin_bestiary_mass_role_typed_scheduler_v07.py"
+      - "tests/test_gremlin_bestiary_mass_role_typed_scheduler_v07.py"
+      - "spec/GREMLIN_BESTIARY_MASS_ROLE_TYPED_SCHEDULER_V0_7.md"
+      - "provenance/GREMLIN_BESTIARY_MASS_ROLE_TYPED_SCHEDULER_LIVE_V0_7.json"
+      - ".github/workflows/gremlin-bestiary-mass-role-typed-scheduler-v07.yml"
+  workflow_dispatch:
+
+jobs:
+  reference:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install pytest
+        run: python -m pip install pytest
+      - name: Run typed scheduler tests
+        run: python -m pytest -q tests/test_gremlin_bestiary_mass_role_typed_scheduler_v07.py

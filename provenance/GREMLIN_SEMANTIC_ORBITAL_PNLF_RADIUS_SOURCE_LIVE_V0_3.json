@@ -1,0 +1,43 @@
+{
+  "schema": "GREMLIN_SEMANTIC_ORBITAL_PNLF_RADIUS_SOURCE_LIVE_V0_3",
+  "status": "PASS_EXACT_INVERSE_THEOREM_LIVE_SOURCE_PENDING",
+  "epistemic": "CHYBA",
+  "promotion_state": "CANDIDATE_ONLY",
+  "canon_allowed": false,
+  "runtime_execution_authority": false,
+  "surface": "/dev/shm/ciel_noema",
+  "surface_status": "ACTIVE",
+  "parent_gremlin_head": "26140ff85a3f1c00f058bcf0b83458432e1d4ef1",
+  "pnlf_source": {
+    "repo": "AdrianLipa90/PhaseNav-Natural-Coding-System",
+    "head": "7a54596c1794be29e0b85f5c363213cc81eb87d7",
+    "contract": "PNLF_ORBITAL_MEMORY_V0_1",
+    "required_fields": [
+      "semantic_mass",
+      "orbit_period"
+    ],
+    "distinct_coordinates": [
+      "r_phase",
+      "E_bind",
+      "L_phase"
+    ]
+  },
+  "theorem": {
+    "forward": "omega=omega0*tau/sqrt(m*r^3); T=2*pi/omega",
+    "inverse": "r=[(omega0*tau)^2/(m*(2*pi/T)^2)]^(1/3)",
+    "domain": "m>0, T>0, tau>0, omega0>0",
+    "zero_mass_policy": "FAIL_CLOSED_FOR_SCHEDULER_RADIUS_BINDING"
+  },
+  "live_source_scan": {
+    "json_like_files_scanned": 22,
+    "orbit_period_records_found": 0,
+    "binding_status": "SOURCE_PENDING"
+  },
+  "notes": [
+    "r_phase is not identified with scheduler radius",
+    "orbital band selection remains separate"
+  ],
+  "live_receipt_path": "/dev/shm/ciel_noema/session/gremlin_semantic_orbital_pnlf_radius_source_live_v0_3.json",
+  "live_receipt_file_sha256": "c13a02900c0c10d6e7c3b8855579785286bacb4a0f4c82eb912aad6905db92c9",
+  "receipt_sha256": "a7456caabf84385612682c1ea7610980f9d512e413e033ad8b5a1b6c71456e8b"
+}

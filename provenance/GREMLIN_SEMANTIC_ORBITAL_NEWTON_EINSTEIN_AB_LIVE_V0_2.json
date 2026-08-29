@@ -1,0 +1,38 @@
+{
+  "schema": "GREMLIN_SEMANTIC_ORBITAL_NEWTON_EINSTEIN_AB_LIVE_V0_2",
+  "status": "PASS_EXACT_STRUCTURAL_CANDIDATE_WITH_SOURCE_GATES",
+  "epistemic": "CHYBA",
+  "promotion_state": "CANDIDATE_ONLY",
+  "surface": "/dev/shm/ciel_noema",
+  "surface_status": "ACTIVE",
+  "parent_head": "90d8e450d500d4cb9b5532ff49018c61fb49c87c",
+  "scheduler_kepler_newton": {
+    "max_omega_residual": 1.1368683772161603e-13,
+    "max_circular_balance_residual": 5.820766091346741e-11,
+    "classification": "EXACT_ALGEBRAIC_CLOSURE_UP_TO_FLOAT_SERIALIZATION"
+  },
+  "normalized_phase_probe_only": {
+    "u1_additive_multiplicative_residual": 3.3306690738754696e-16,
+    "real_pair_projection_residual": 1.734723475976807e-18,
+    "semantic_transport_delta_residual": 0.0
+  },
+  "source_status": {
+    "rotation": "OPEN_SOURCE_BINDING",
+    "weak_field_GR": "OPEN_SOURCE_BINDING",
+    "AB_holonomy": "OPEN_CONNECTION_PATH_BINDING",
+    "mu_sem_physical_attribution": "OPEN_SOURCE_BINDING",
+    "B_N_A_R": "OPEN_SOURCE_BINDING"
+  },
+  "bestiary_verdict": {
+    "SPIDER": "radial/cadence and phase-transport split is algebraically consistent",
+    "RAVEN": "existing scheduler admits exact Kepler-form and Newton circular closure; weak-field GR enters as a typed per-orbit phase candidate",
+    "HOUND": "physical ownership fields remain explicit source gates and lifted phase remains required",
+    "MOLE": "complex orbital transports by exp(i*tau_total); real relation depends on relative transported phase",
+    "OWL": "exact identities remain separated from normalized source-gated probes",
+    "ANT": "alternate relativistic/rotation parameterizations remain candidate space",
+    "MANTIS": "double counting of base Kepler cadence and apsidal phase is pruned",
+    "BELZEBUB": "candidate kernel accepted for executable validation; promotion remains source-gated"
+  },
+  "live_receipt_path": "/dev/shm/ciel_noema/session/gremlin_semantic_orbital_newton_einstein_ab_live_v0_2.json",
+  "live_receipt_file_sha256": "44eadd6d3a8ec1b46aea72f66636fbfb9d31e3bb00cf35ae6a548edc013113df"
+}

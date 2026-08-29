@@ -1,0 +1,27 @@
+name: GREMLIN semantic orbital bridge v0.1
+
+on:
+  push:
+    branches:
+      - feat/semantic-orbital-imaginary-real-bridge-v0.1
+  pull_request:
+    paths:
+      - 'spec/GREMLIN_SEMANTIC_ORBITAL_IMAGINARY_REAL_BRIDGE_V0_1.md'
+      - 'tools/gremlin_semantic_orbital_imaginary_real_bridge_v01.py'
+      - 'tests/test_gremlin_semantic_orbital_imaginary_real_bridge_v01.py'
+      - 'provenance/GREMLIN_SEMANTIC_ORBITAL_IMAGINARY_REAL_BRIDGE_LIVE_V0_1.json'
+      - '.github/workflows/gremlin-semantic-orbital-bridge-v01.yml'
+
+jobs:
+  reference:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install pytest
+        run: python -m pip install --disable-pip-version-check pytest
+      - name: Run semantic orbital bridge tests
+        run: python -m pytest -q tests/test_gremlin_semantic_orbital_imaginary_real_bridge_v01.py
