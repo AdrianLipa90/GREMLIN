@@ -1,0 +1,32 @@
+{
+  "schema": "GREMLIN_ORBIT_SOURCE_COUPLING_IDENTIFIABILITY_PROVENANCE_V0_8",
+  "status": "T0_T1_T2_GREEN_T3_BLOCKED",
+  "authority": {
+    "candidate_only": true,
+    "runtime_execution_authority": false,
+    "canon_write_authority": false
+  },
+  "normalized_base_main": "f775cd5f0b2619692e6d2250e2c6204776b6ce24",
+  "implementation_test_head": "098b5787f17d5e0f8db7896185c08f4c429299bb",
+  "hosted_ci": {
+    "run_id": 33271238087,
+    "conclusion": "success",
+    "test_file": "tests/test_gremlin_orbit_source_coupling_identifiability_v08.py"
+  },
+  "validated_claims": [
+    "K_orb = omega^2 * r^3 round-trips from the role-typed kernel",
+    "positive mu_source/eta_G rescaling preserves K_orb",
+    "independent mu_source reconstructs eta_G uniquely",
+    "independent eta_G reconstructs mu_source uniquely",
+    "both-unsourced factorization fails closed",
+    "eta_G=1 is never silently inserted",
+    "RFC extensive-source conversion keeps C_mu explicit"
+  ],
+  "live_noema": {
+    "status": "BLOCKED_ENVIRONMENT_GUARD_UNAVAILABLE",
+    "attempted_guard": "/mnt/data/noema_boot/v3/adapter/noema_aux_tether_guard.py",
+    "observed_error": "guard path not present in current execution environment",
+    "receipt_emitted": false
+  },
+  "next_gate": "T3 live NOEMA receipt on a session with the canonical tether guard available"
+}
