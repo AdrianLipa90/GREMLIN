@@ -8,7 +8,7 @@ from gremlin_mcp.semantic_bridge import execute_research_with_semantic_producer
 from gremlin_mcp.semantic_evidence import SemanticEvidenceProducer
 
 SCHEMA = "GREMLIN_SEMANTIC_PRODUCER_REGISTRY_V0_1"
-VERSION = "0.1.0"
+VERSION = "0.1.1"
 
 
 class ProducerAdmissionError(RuntimeError):
@@ -57,6 +57,18 @@ def producer_descriptor(producer: SemanticEvidenceProducer) -> dict[str, Any]:
         "class_module": producer.__class__.__module__,
         "class_name": producer.__class__.__qualname__,
     }
+
+
+def _transport_receipt(producer: SemanticEvidenceProducer) -> dict[str, Any] | None:
+    accessor = getattr(producer, "transport_receipt", None)
+    if not callable(accessor):
+        return None
+    value = accessor()
+    if value is None:
+        return None
+    if not isinstance(value, Mapping):
+        raise ProducerAdmissionError("producer transport_receipt() must return a mapping or None")
+    return dict(value)
 
 
 class SemanticProducerRegistry:
@@ -183,14 +195,17 @@ def execute_registered_semantic_research(
         max_sources=max_sources,
         require_complete_coverage=require_complete_coverage,
     )
+    transport = _transport_receipt(producer)
     out = dict(result)
     out["semantic_producer_admission"] = admission
+    out["semantic_provider_transport"] = transport
     out["authority"] = _authority()
     out["registered_semantic_execution_commitment"] = _commit(
         b"GREMLIN-REGISTERED-SEMANTIC-EXECUTION/v0.1",
         {
             "registry_commitment": registry.registry_commitment,
             "admission_commitment": admission["admission_commitment"],
+            "transport_receipt_commitment": None if transport is None else transport.get("transport_receipt_commitment"),
             "semantic_guarded_execution_commitment": out.get("semantic_guarded_execution_commitment"),
             "execution_commitment": out.get("execution_commitment"),
             "status": out.get("status"),
