@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from gremlin_mcp.relational_cases import bind_relation, extract_relations, operator_signature
+from gremlin_mcp.relational_cases import CASES, bind_relation, extract_relations, operator_signature
 
 
 def _one(text: str):
@@ -65,12 +65,39 @@ def test_belongs_to_uses_genitive_port() -> None:
     assert bindings["GEN"]["entity"] == "systemu"
 
 
+def test_gives_uses_dative_recipient_and_accusative_object() -> None:
+    relation = _one("Daję Zosi książkę.")
+    assert relation["operator"] == "GIVES"
+    bindings = _by_case(relation)
+    assert bindings["NOM"]["entity"] == "@speaker"
+    assert bindings["DAT"]["entity"] == "Zosi"
+    assert bindings["DAT"]["operator_role"] == "recipient"
+    assert bindings["ACC"]["entity"] == "książkę"
+    assert bindings["ACC"]["operator_role"] == "transferred_object"
+
+
+def test_vocative_is_address_activation_port() -> None:
+    relation = _one("Zosiu, spójrz tutaj.")
+    assert relation["operator"] == "ADDRESSES"
+    bindings = _by_case(relation)
+    assert bindings["NOM"]["entity"] == "@speaker"
+    assert bindings["VOC"]["entity"] == "Zosiu"
+    assert bindings["VOC"]["operator_role"] == "addressee"
+    assert bindings["VOC"]["confidence"] < 1.0
+
+
+def test_all_seven_polish_cases_exist_as_relational_ports() -> None:
+    assert set(CASES) == {"NOM", "GEN", "DAT", "ACC", "INS", "LOC", "VOC"}
+
+
 def test_operator_signature_keeps_same_case_distinct_by_operator_role() -> None:
     naming = operator_signature("NAMES")
     connected = operator_signature("CONNECTED_WITH")
+    speaking = operator_signature("SPEAKS_ABOUT")
     assert naming["roles"]["INS"] == "assigned_name_or_designation"
     assert connected["roles"]["INS"] == "counterpart_in_relation"
-    assert naming["roles"]["INS"] != connected["roles"]["INS"]
+    assert speaking["roles"]["INS"] == "interlocutor"
+    assert len({naming["roles"]["INS"], connected["roles"]["INS"], speaking["roles"]["INS"]}) == 3
 
 
 def test_binding_fails_closed_on_unadmitted_case() -> None:
