@@ -15,6 +15,7 @@ from gremlin_mcp.core import (
     status,
 )
 from gremlin_mcp.pipeline import collect, enqueue_synthesis, fanout
+from gremlin_mcp.research_executor import execute_research
 from gremlin_mcp.router import auto_fanout, route
 from gremlin_mcp.web import fetch_url, research, search_web
 from gremlin_mcp.workers import WorkerBroker, broker as memory_broker
@@ -31,14 +32,16 @@ mcp = MCPServer(
         "mass-orbit/vector lane plan, gremlin_route for an auditable OCTOPUS semantic route, "
         "gremlin_web_search for bounded internet evidence acquisition, gremlin_web_fetch for "
         "a receipt-bearing HTTPS document fetch, gremlin_research for route + multi-provider "
-        "evidence acquisition, gremlin_auto_fanout to route and queue confident specialist work, "
-        "gremlin_fanout for an explicit caller-supplied route, gremlin_collect to inspect "
-        "specialist completion, gremlin_synthesize to queue BELZEBUB after all supplied specialists "
-        "finish, and gremlin_prototype for the existing fail-closed reference prototype pipeline. "
-        "Internet access is HTTPS-only, blocks local/private/link-local/reserved targets, validates "
-        "redirects and bounds response size. External backends can register as animal workers, "
-        "claim bounded same-species batches, and submit CANDIDATE results. MCP calls never grant "
-        "production execution or canon authority."
+        "evidence acquisition, gremlin_research_execute to run the resulting staged plan through "
+        "the built-in reference Bestiary worker ABI and BELZEBUB candidate synthesis, "
+        "gremlin_auto_fanout to route and queue confident specialist work, gremlin_fanout for an "
+        "explicit caller-supplied route, gremlin_collect to inspect specialist completion, "
+        "gremlin_synthesize to queue BELZEBUB after all supplied specialists finish, and "
+        "gremlin_prototype for the existing fail-closed reference prototype pipeline. Internet "
+        "access is HTTPS-only, blocks local/private/link-local/reserved targets, validates redirects "
+        "and bounds response size. External backends can register as animal workers, claim bounded "
+        "same-species batches, and submit CANDIDATE results. MCP calls never grant production "
+        "execution or canon authority."
     ),
     version=__version__,
 )
@@ -65,6 +68,7 @@ def gremlin_status() -> dict[str, Any]:
         "status": "AVAILABLE",
         "mode": "HTTPS_ONLY_FAIL_CLOSED",
         "providers": ["crossref", "arxiv", "duckduckgo"],
+        "reference_executor": "BUILTIN_REFERENCE_BESTIARY_EXECUTOR",
         "production_runtime_write": False,
         "execution_admitted": False,
         "canon_allowed": False,
@@ -149,6 +153,24 @@ def gremlin_research(
         providers=providers or ["crossref", "arxiv", "duckduckgo"],
         limit_per_provider=limit_per_provider,
         max_species=max_species,
+    )
+
+
+@mcp.tool()
+def gremlin_research_execute(
+    query: str,
+    providers: list[str] | None = None,
+    limit_per_provider: int = 6,
+    max_species: int = 4,
+    max_sources: int = 12,
+) -> dict[str, Any]:
+    """Acquire internet evidence, execute staged Bestiary reference workers and synthesize a candidate."""
+    return execute_research(
+        query,
+        providers=providers or ["crossref", "arxiv", "duckduckgo"],
+        limit_per_provider=limit_per_provider,
+        max_species=max_species,
+        max_sources=max_sources,
     )
 
 
