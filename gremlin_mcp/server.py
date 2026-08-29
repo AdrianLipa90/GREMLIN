@@ -13,16 +13,19 @@ from gremlin_mcp.core import (
     species_profile,
     status,
 )
+from gremlin_mcp.workers import broker
 
 mcp = MCPServer(
     "GREMLIN",
     title="GREMLIN Bestiary",
-    description="Standalone research MCP adapter for GREMLIN Bestiary scheduling and reference execution.",
+    description="Standalone research MCP adapter for GREMLIN Bestiary scheduling, external animal workers and reference execution.",
     instructions=(
         "GREMLIN MCP is a research/candidate interface. Use gremlin_bestiary to inspect "
         "the animal topology, gremlin_species for one role, gremlin_plan to build a "
         "mass-orbit/vector lane plan, and gremlin_prototype for the existing fail-closed "
-        "reference prototype pipeline. MCP calls never grant production execution or canon authority."
+        "reference prototype pipeline. External backends can register as animal workers, "
+        "claim bounded same-species batches, and submit CANDIDATE results. MCP calls never "
+        "grant production execution or canon authority."
     ),
     version=__version__,
 )
@@ -31,7 +34,9 @@ mcp = MCPServer(
 @mcp.tool()
 def gremlin_status() -> dict[str, Any]:
     """Return MCP mode, capabilities, topology and fail-closed authority state."""
-    return status()
+    result = status()
+    result["worker_queue"] = broker.queue_status()
+    return result
 
 
 @mcp.tool()
@@ -56,6 +61,84 @@ def gremlin_plan(route_counts: dict[str, int], vector_width: int = 8) -> dict[st
 def gremlin_prototype(request: dict[str, Any]) -> dict[str, Any]:
     """Run GREMLIN's existing reference candidate -> PhaseNav IR -> prototype -> test pipeline."""
     return run_prototype(request)
+
+
+@mcp.tool()
+def gremlin_worker_register(
+    worker_id: str,
+    species: list[str],
+    capabilities: list[str] | None = None,
+    vector_width: int = 8,
+    max_batch: int = 128,
+) -> dict[str, Any]:
+    """Register or refresh an external backend as one or more GREMLIN animal workers."""
+    return broker.register_worker(
+        worker_id,
+        species,
+        capabilities=capabilities or (),
+        vector_width=vector_width,
+        max_batch=max_batch,
+    )
+
+
+@mcp.tool()
+def gremlin_worker_heartbeat(worker_id: str) -> dict[str, Any]:
+    """Refresh a registered GREMLIN worker heartbeat."""
+    return broker.heartbeat(worker_id)
+
+
+@mcp.tool()
+def gremlin_worker_list() -> dict[str, Any]:
+    """List currently registered external GREMLIN animal workers."""
+    return broker.list_workers()
+
+
+@mcp.tool()
+def gremlin_worker_enqueue(
+    species: str,
+    payload: dict[str, Any],
+    task_id: str | None = None,
+) -> dict[str, Any]:
+    """Queue one JSON task for a scheduler-backed GREMLIN animal worker."""
+    return broker.enqueue(species, payload, task_id=task_id)
+
+
+@mcp.tool()
+def gremlin_worker_claim(
+    worker_id: str,
+    species: str | None = None,
+    limit: int | None = None,
+    lease_seconds: int | None = None,
+) -> dict[str, Any]:
+    """Claim one bounded same-species batch using GREMLIN orbit/vector lane limits."""
+    return broker.claim(
+        worker_id,
+        species=species,
+        limit=limit,
+        lease_seconds=lease_seconds,
+    )
+
+
+@mcp.tool()
+def gremlin_worker_submit(
+    worker_id: str,
+    lease_id: str,
+    results: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Submit exact lease results; the MCP envelope remains CANDIDATE and fail-closed."""
+    return broker.submit(worker_id, lease_id, results)
+
+
+@mcp.tool()
+def gremlin_worker_result(task_id: str) -> dict[str, Any]:
+    """Read current state or candidate output for one GREMLIN worker task."""
+    return broker.task_result(task_id)
+
+
+@mcp.tool()
+def gremlin_worker_queue() -> dict[str, Any]:
+    """Return per-species queue counts, active leases and persistence scope."""
+    return broker.queue_status()
 
 
 def build_parser() -> argparse.ArgumentParser:
