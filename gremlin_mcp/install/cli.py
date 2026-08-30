@@ -3,14 +3,17 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+import sys
 from typing import Any, Sequence
 
 from .config import load_effective_config
 from .device import build_activation_request, device_identity_status, ensure_device_identity
 from .doctor import run_doctor
 from .integrations import gremlin_stdio_entry, inspect_json_mcp, install_json_mcp, remove_json_mcp
+from .license_activation import activate_license_key, import_license_file, installed_license_status
 from .paths import resolve_paths
 from .provider_integrations import connect_provider, disconnect_provider, list_providers, test_provider
+from .readiness import evaluate_readiness
 from .secrets import resolve_secret_store, secret_store_status
 
 
@@ -53,6 +56,12 @@ def _doctor(args: argparse.Namespace) -> int:
     return 1 if payload["status"] == "FAIL" else 0
 
 
+def _ready(args: argparse.Namespace) -> int:
+    payload = evaluate_readiness(resolve_paths(platform=args.platform))
+    _emit(payload, as_json=args.json)
+    return 0 if payload["status"] == "READY" else 1
+
+
 def _init(args: argparse.Namespace) -> int:
     paths = resolve_paths(platform=args.platform)
     for directory in (paths.config_dir, paths.state_dir, paths.cache_dir, paths.data_dir, paths.logs_dir, paths.diagnostics_dir):
@@ -63,6 +72,29 @@ def _init(args: argparse.Namespace) -> int:
         config_path.write_text(DEFAULT_CONFIG_TEXT, encoding="utf-8")
         created = True
     _emit({"schema": "GREMLIN_INSTALL_INIT_V0_1", "status": "READY", "config_created": created, "paths": paths.as_dict()}, as_json=args.json)
+    return 0
+
+
+def _license_status(args: argparse.Namespace) -> int:
+    payload = installed_license_status(resolve_paths(platform=args.platform))
+    _emit(payload, as_json=args.json)
+    return 0 if payload.get("status") == "ACTIVE" else 1
+
+
+def _license_activate(args: argparse.Namespace) -> int:
+    if bool(args.stdin) == bool(args.key_file):
+        raise SystemExit("choose exactly one of --stdin or --key-file")
+    key = sys.stdin.read().strip() if args.stdin else Path(args.key_file).read_text(encoding="utf-8").strip()
+    if not key:
+        raise SystemExit("license key is empty")
+    result = activate_license_key(key, resolve_paths(platform=args.platform))
+    _emit(result.as_dict(), as_json=args.json)
+    return 0
+
+
+def _license_import(args: argparse.Namespace) -> int:
+    result = import_license_file(args.file, resolve_paths(platform=args.platform))
+    _emit(result.as_dict(), as_json=args.json)
     return 0
 
 
@@ -157,6 +189,24 @@ def build_parser() -> argparse.ArgumentParser:
     init.add_argument("--json", action="store_true")
     init.set_defaults(func=_init)
 
+    license_cmd = sub.add_parser("license", help="activate or inspect the installed GREMLIN entitlement")
+    license_sub = license_cmd.add_subparsers(dest="license_command", required=True)
+    license_status = license_sub.add_parser("status", help="verify the installed signed license")
+    license_status.add_argument("--platform", choices=("windows", "linux"))
+    license_status.add_argument("--json", action="store_true")
+    license_status.set_defaults(func=_license_status)
+    license_activate = license_sub.add_parser("activate", help="verify and install a GRM1 customer license key")
+    license_activate.add_argument("--stdin", action="store_true", help="read the GRM1 key from stdin so it is not exposed in the process list")
+    license_activate.add_argument("--key-file", help="read a GRM1 key from a local text file")
+    license_activate.add_argument("--platform", choices=("windows", "linux"))
+    license_activate.add_argument("--json", action="store_true")
+    license_activate.set_defaults(func=_license_activate)
+    license_import = license_sub.add_parser("import", help="verify and install a signed license.json file")
+    license_import.add_argument("file")
+    license_import.add_argument("--platform", choices=("windows", "linux"))
+    license_import.add_argument("--json", action="store_true")
+    license_import.set_defaults(func=_license_import)
+
     config = sub.add_parser("config", help="inspect effective operational configuration")
     config_sub = config.add_subparsers(dest="config_command", required=True)
     show = config_sub.add_parser("show", help="show effective config after env/policy precedence")
@@ -204,6 +254,11 @@ def build_parser() -> argparse.ArgumentParser:
     remove = integrations_sub.add_parser("remove", help="advanced: remove GREMLIN from a generic JSON MCP config")
     _integration_common(remove)
     remove.set_defaults(func=_integration_remove)
+
+    ready = sub.add_parser("ready", help="return one customer-facing READY / ACTION_REQUIRED verdict")
+    ready.add_argument("--platform", choices=("windows", "linux"))
+    ready.add_argument("--json", action="store_true")
+    ready.set_defaults(func=_ready)
 
     doctor = sub.add_parser("doctor", help="run sanitized installation/product diagnostics")
     doctor.add_argument("--platform", choices=("windows", "linux"))
