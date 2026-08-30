@@ -1,0 +1,10 @@
+#!/usr/bin/make -f
+
+%:
+	dh $@
+
+override_dh_auto_build:
+	@echo "GREMLIN binaries are prebuilt by the release pipeline."
+
+override_dh_auto_test:
+	@echo "Tests run before Debian packaging in CI."
