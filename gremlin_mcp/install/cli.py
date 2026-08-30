@@ -15,6 +15,10 @@ from .secrets import resolve_secret_store, secret_store_status
 
 
 DEFAULT_CONFIG_TEXT = """schema = \"GREMLIN_CONFIG_V0_1\"\n\n[runtime]\ntransport = \"stdio\"\nstate = \"auto\"\n\n[network]\ninternet = true\nlocal_http = false\n\n[research]\nmax_workers = 4\nmax_sources = 24\n\n[logging]\nlevel = \"info\"\n"""
+PROVIDER_IDS = (
+    "codex", "opencode", "claude-code", "claude-desktop",
+    "gemini", "cursor", "vscode", "windsurf",
+)
 
 
 def _emit(payload: Any, *, as_json: bool) -> None:
@@ -133,7 +137,7 @@ def _integration_common(parser: argparse.ArgumentParser) -> None:
 
 
 def _provider_common(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("provider", choices=("codex", "opencode"))
+    parser.add_argument("provider", choices=PROVIDER_IDS)
     parser.add_argument("--platform", choices=("windows", "linux"))
     parser.add_argument("--json", action="store_true")
     parser.set_defaults(func=_provider_action)
@@ -179,7 +183,7 @@ def build_parser() -> argparse.ArgumentParser:
     integrations = sub.add_parser("integrations", help="connect GREMLIN to supported AI clients or custom MCP configs")
     integrations_sub = integrations.add_subparsers(dest="integration_command", required=True)
 
-    providers = integrations_sub.add_parser("providers", help="discover Codex/OpenCode and show MCP connection status")
+    providers = integrations_sub.add_parser("providers", help="discover supported AI clients and show MCP connection status")
     providers.add_argument("--platform", choices=("windows", "linux"))
     providers.add_argument("--json", action="store_true")
     providers.set_defaults(func=_providers_list)
