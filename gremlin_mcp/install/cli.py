@@ -6,9 +6,11 @@ from pathlib import Path
 from typing import Any, Sequence
 
 from .config import load_effective_config
+from .device import build_activation_request, device_identity_status, ensure_device_identity
 from .doctor import run_doctor
 from .integrations import gremlin_stdio_entry, inspect_json_mcp, install_json_mcp, remove_json_mcp
 from .paths import resolve_paths
+from .secrets import resolve_secret_store, secret_store_status
 
 
 DEFAULT_CONFIG_TEXT = """schema = \"GREMLIN_CONFIG_V0_1\"\n\n[runtime]\ntransport = \"stdio\"\nstate = \"auto\"\n\n[network]\ninternet = true\nlocal_http = false\n\n[research]\nmax_workers = 4\nmax_sources = 24\n\n[logging]\nlevel = \"info\"\n"""
@@ -65,6 +67,44 @@ def _init(args: argparse.Namespace) -> int:
         "config_created": created,
         "paths": paths.as_dict(),
     }
+    _emit(payload, as_json=args.json)
+    return 0
+
+
+def _device_status(args: argparse.Namespace) -> int:
+    paths = resolve_paths(platform=args.platform)
+    store_state = secret_store_status(paths)
+    if not bool(store_state.get("available")):
+        payload = {
+            "schema": "GREMLIN_DEVICE_STATUS_V0_1",
+            "status": "SECRET_STORE_UNAVAILABLE",
+            "secret_store": store_state,
+            "identity": None,
+        }
+    else:
+        store = resolve_secret_store(paths)
+        payload = {
+            "schema": "GREMLIN_DEVICE_STATUS_V0_1",
+            "status": "READY",
+            "secret_store": store_state,
+            "identity": device_identity_status(store),
+        }
+    _emit(payload, as_json=args.json)
+    return 0
+
+
+def _device_init(args: argparse.Namespace) -> int:
+    paths = resolve_paths(platform=args.platform)
+    store = resolve_secret_store(paths)
+    payload = ensure_device_identity(store)
+    _emit(payload, as_json=args.json)
+    return 0
+
+
+def _device_activation_request(args: argparse.Namespace) -> int:
+    paths = resolve_paths(platform=args.platform)
+    store = resolve_secret_store(paths)
+    payload = build_activation_request(license_id=args.license_id, store=store)
     _emit(payload, as_json=args.json)
     return 0
 
@@ -130,6 +170,22 @@ def build_parser() -> argparse.ArgumentParser:
     show.add_argument("--platform", choices=("windows", "linux"))
     show.add_argument("--json", action="store_true")
     show.set_defaults(func=_config_show)
+
+    device = sub.add_parser("device", help="manage the installation Ed25519 identity")
+    device_sub = device.add_subparsers(dest="device_command", required=True)
+    device_status = device_sub.add_parser("status", help="show secret-store and device identity status")
+    device_status.add_argument("--platform", choices=("windows", "linux"))
+    device_status.add_argument("--json", action="store_true")
+    device_status.set_defaults(func=_device_status)
+    device_init = device_sub.add_parser("init", help="create or recover the installation identity in OS secret storage")
+    device_init.add_argument("--platform", choices=("windows", "linux"))
+    device_init.add_argument("--json", action="store_true")
+    device_init.set_defaults(func=_device_init)
+    activation_request = device_sub.add_parser("activation-request", help="create a signed device activation proof")
+    activation_request.add_argument("--license-id", required=True)
+    activation_request.add_argument("--platform", choices=("windows", "linux"))
+    activation_request.add_argument("--json", action="store_true")
+    activation_request.set_defaults(func=_device_activation_request)
 
     integrations = sub.add_parser("integrations", help="inspect and safely modify MCP client configuration")
     integrations_sub = integrations.add_subparsers(dest="integration_command", required=True)
