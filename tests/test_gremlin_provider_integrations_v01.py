@@ -127,8 +127,7 @@ def test_gemini_connect_is_user_scoped_stdio() -> None:
         "gemini", linux_paths(), env={"HOME": "/home/alice"}, which=which_core, runner=runner,
     )
     command = runner.commands[0]
-    assert command[:7] == ["/usr/bin/gemini", "mcp", "add", "--scope", "user", "--transport"]
-    assert "stdio" in command
+    assert command[:7] == ["/usr/bin/gemini", "mcp", "add", "--scope", "user", "--transport", "stdio"]
     assert "gremlin" in command
     assert result.status == "CONNECTED_CONFIGURED"
 
