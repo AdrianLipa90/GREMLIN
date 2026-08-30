@@ -21,11 +21,13 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Install test dependency
-        run: python -m pip install --disable-pip-version-check pytest
+      - name: Install GREMLIN and test dependency
+        run: python -m pip install --disable-pip-version-check -e . pytest
       - name: Run family quorum unit tests
         run: python -m pytest -q tests/test_evidence_quorum.py
       - name: Run strict semantic quorum integration tests
         run: python -m pytest -q tests/test_semantic_quorum_bridge.py
       - name: Run existing semantic bridge regression tests
         run: python -m pytest -q tests/test_semantic_bridge.py tests/test_source_family.py tests/test_semantic_evidence.py
+      - name: Import strict quorum MCP entrypoint
+        run: python -c "import gremlin_mcp.quorum_server as q; assert callable(q.gremlin_evidence_family_quorum); assert callable(q.gremlin_semantic_quorum_apply)"
