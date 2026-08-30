@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
 
+from .keycodec import verify_license_key
 from .license import LicenseError, license_status, load_license
 from .profile import ClientProfileError, load_client_profile
 
@@ -26,6 +27,41 @@ class ProductRuntime:
         return cls(require_license=require_license)
 
     @classmethod
+    def from_configuration(
+        cls,
+        *,
+        license_path: str | Path | None = None,
+        license_key: str | None = None,
+        public_key_path: str | Path | None = None,
+        profile_path: str | Path | None = None,
+        require_license: bool = True,
+    ) -> "ProductRuntime":
+        runtime = cls(require_license=require_license)
+        if license_path and license_key:
+            runtime.configuration_error = "CONFIGURE_LICENSE_PATH_OR_LICENSE_KEY_NOT_BOTH"
+            return runtime
+        has_license = bool(license_path or license_key)
+        if not has_license and not public_key_path:
+            if require_license:
+                runtime.configuration_error = "LICENSE_REQUIRED"
+            return runtime
+        if has_license != bool(public_key_path):
+            runtime.configuration_error = "LICENSE_AND_PUBLIC_KEY_MUST_BE_CONFIGURED_TOGETHER"
+            return runtime
+        try:
+            if license_key:
+                payload = verify_license_key(license_key, public_key_path)  # type: ignore[arg-type]
+            else:
+                payload = load_license(license_path, public_key_path)  # type: ignore[arg-type]
+            profile = load_client_profile(profile_path, payload) if profile_path else None
+        except (LicenseError, ClientProfileError, OSError) as exc:
+            runtime.configuration_error = str(exc)
+            return runtime
+        runtime.license_payload = payload
+        runtime.client_profile = profile
+        return runtime
+
+    @classmethod
     def from_paths(
         cls,
         *,
@@ -34,23 +70,12 @@ class ProductRuntime:
         profile_path: str | Path | None = None,
         require_license: bool = True,
     ) -> "ProductRuntime":
-        runtime = cls(require_license=require_license)
-        if not license_path and not public_key_path:
-            if require_license:
-                runtime.configuration_error = "LICENSE_REQUIRED"
-            return runtime
-        if not license_path or not public_key_path:
-            runtime.configuration_error = "LICENSE_AND_PUBLIC_KEY_MUST_BE_CONFIGURED_TOGETHER"
-            return runtime
-        try:
-            payload = load_license(license_path, public_key_path)
-            profile = load_client_profile(profile_path, payload) if profile_path else None
-        except (LicenseError, ClientProfileError, OSError) as exc:
-            runtime.configuration_error = str(exc)
-            return runtime
-        runtime.license_payload = payload
-        runtime.client_profile = profile
-        return runtime
+        return cls.from_configuration(
+            license_path=license_path,
+            public_key_path=public_key_path,
+            profile_path=profile_path,
+            require_license=require_license,
+        )
 
     @property
     def configured(self) -> bool:
