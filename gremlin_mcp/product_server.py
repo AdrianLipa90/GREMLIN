@@ -34,14 +34,16 @@ mcp = MCPServer(
 
 def configure_product(
     *,
-    license_path: str | None,
-    public_key_path: str | None,
+    license_path: str | None = None,
+    license_key: str | None = None,
+    public_key_path: str | None = None,
     profile_path: str | None = None,
     require_license: bool = True,
 ) -> ProductRuntime:
     global product_runtime
-    product_runtime = ProductRuntime.from_paths(
+    product_runtime = ProductRuntime.from_configuration(
         license_path=license_path,
+        license_key=license_key,
         public_key_path=public_key_path,
         profile_path=profile_path,
         require_license=require_license,
@@ -345,6 +347,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--port", default=8766, type=int)
     parser.add_argument("--path", default="/mcp")
     parser.add_argument("--license-path", default=os.environ.get("GREMLIN_LICENSE_PATH"))
+    parser.add_argument("--license-key", default=os.environ.get("GREMLIN_LICENSE_KEY"))
     parser.add_argument("--public-key", default=os.environ.get("GREMLIN_LICENSE_PUBLIC_KEY"))
     parser.add_argument("--client-profile", default=os.environ.get("GREMLIN_CLIENT_PROFILE"))
     parser.add_argument("--state-path", default=os.environ.get("GREMLIN_MCP_STATE_PATH"))
@@ -360,6 +363,7 @@ def main() -> None:
     args = build_parser().parse_args()
     configure_product(
         license_path=args.license_path,
+        license_key=args.license_key,
         public_key_path=args.public_key,
         profile_path=args.client_profile,
         require_license=not args.allow_unlicensed_research,
