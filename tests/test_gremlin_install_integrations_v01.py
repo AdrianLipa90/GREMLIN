@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
 from gremlin_mcp.install.integrations import gremlin_stdio_entry, inspect_json_mcp, install_json_mcp, remove_json_mcp
 from gremlin_mcp.install.paths import resolve_paths
 
@@ -58,6 +60,19 @@ def test_generic_json_mcp_remove_preserves_other_configuration(tmp_path) -> None
     assert installed["setting"] == 7
     assert "gremlin" not in installed["mcpServers"]
     assert installed["mcpServers"]["other"]["command"] == "other"
+
+
+def test_integration_client_id_cannot_escape_backup_root(tmp_path) -> None:
+    config = tmp_path / "client.json"
+    config.write_text(json.dumps({"mcpServers": {}}), encoding="utf-8")
+    with pytest.raises(ValueError, match="safe identifier"):
+        install_json_mcp(
+            client_id="../../outside",
+            config_path=config,
+            entry={"command": "gremlin-product-mcp"},
+            backup_root=tmp_path / "backups",
+        )
+    assert not (tmp_path / "outside").exists()
 
 
 def test_windows_stdio_entry_uses_windows_separators_even_when_tested_on_linux() -> None:
