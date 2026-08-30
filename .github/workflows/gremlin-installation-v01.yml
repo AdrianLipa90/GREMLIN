@@ -78,7 +78,7 @@ jobs:
           python-version: '3.12'
       - name: Install GREMLIN and pytest
         run: python -m pip install --disable-pip-version-check -e . pytest
-      - name: Run Windows installation, activation, customer-profile and provider tests including live DPAPI roundtrip
+      - name: Run Windows installation, activation, issuer, customer-profile and provider tests including live DPAPI roundtrip
         run: >-
           python -m pytest -q
           tests/test_gremlin_install_paths_v01.py
@@ -86,6 +86,7 @@ jobs:
           tests/test_gremlin_install_doctor_v01.py
           tests/test_gremlin_install_integrations_v01.py
           tests/test_gremlin_install_activation_v01.py
+          tests/test_gremlin_install_issuer_v01.py
           tests/test_gremlin_install_profile_v01.py
           tests/test_gremlin_install_device_v01.py
           tests/test_gremlin_install_secrets_v01.py
