@@ -34,12 +34,24 @@ def prepare(*, public_key: Path, output: Path, version: str, preview: bool) -> P
         raise ValueError("repository LICENSE is required for installer resources")
     shutil.copy2(license_source, output / "LICENSE.txt")
 
+    for name in ("README-FIRST.txt", "MCP-SETUP.md"):
+        source = Path("packaging/common") / name
+        if not source.is_file():
+            raise ValueError(f"customer onboarding resource is required: {source}")
+        shutil.copy2(source, output / name)
+
     metadata = {
-        "schema": "GREMLIN_INSTALLER_RESOURCES_V0_1",
+        "schema": "GREMLIN_INSTALLER_RESOURCES_V0_2",
         "version": str(version),
         "preview": bool(preview),
         "built_at": datetime.now(timezone.utc).isoformat(),
         "private_key_included": False,
+        "onboarding": {
+            "control_center": True,
+            "license_activation": "GRM1_OR_SIGNED_JSON",
+            "provider_autodetect": True,
+            "ready_gate": True,
+        },
     }
     (output / "build-metadata.json").write_text(
         json.dumps(metadata, ensure_ascii=False, indent=2, sort_keys=True) + "\n",

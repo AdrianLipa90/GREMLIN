@@ -1,8 +1,11 @@
 [Desktop Entry]
 Type=Application
-Name=GREMLIN Control Center
-Comment=Configure GREMLIN licensing, MCP integrations and diagnostics
-Exec=gremlin-control-center
+Name=GREMLIN for Linux
+GenericName=AI MCP Orchestrator
+Comment=Connect GREMLIN to Codex, OpenCode, Claude Code, Gemini, Cursor, VS Code and Windsurf
+Exec=/usr/bin/gremlin-control-center
+TryExec=/usr/bin/gremlin-control-center
 Terminal=false
-Categories=Development;Utility;
+Categories=Development;Utility;ArtificialIntelligence;
+Keywords=MCP;AI;Codex;OpenCode;Claude;Gemini;Cursor;VSCode;Windsurf;
 StartupNotify=true

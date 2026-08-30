@@ -91,6 +91,11 @@ def gremlin_stdio_entry(paths: GremlinPaths) -> dict[str, Any]:
         "env": {
             "GREMLIN_LICENSE_PATH": paths.license_file,
             "GREMLIN_LICENSE_PUBLIC_KEY": public_key,
+            # Canonical path remains stable across the customer lifecycle.  The
+            # runtime treats a missing profile as optional unless the signed
+            # license metadata explicitly sets profile_required=true.  A profile
+            # delivered later therefore becomes active on the next MCP start
+            # without reconnecting every AI client.
             "GREMLIN_CLIENT_PROFILE": paths.client_profile_file,
             "GREMLIN_MCP_STATE_PATH": paths.state_db,
         },

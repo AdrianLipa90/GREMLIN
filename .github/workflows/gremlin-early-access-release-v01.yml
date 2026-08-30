@@ -1,0 +1,210 @@
+name: GREMLIN Early Access Release v0.1
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Early Access product version (for example 0.5.0-ea.1)'
+        required: true
+        default: '0.5.0-ea.1'
+      deb_version:
+        description: 'Debian package version (for example 0.5.0~ea1-1)'
+        required: true
+        default: '0.5.0~ea1-1'
+
+concurrency:
+  group: gremlin-early-access-release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  GREMLIN_VERSION: ${{ inputs.version }}
+  GREMLIN_DEB_VERSION: ${{ inputs.deb_version }}
+
+jobs:
+  release-input-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require stable issuer verifier and signed smoke entitlement
+        env:
+          PUBLIC_KEY_B64: ${{ vars.GREMLIN_ISSUER_PUBLIC_KEY_B64 }}
+          SMOKE_GRM1: ${{ secrets.GREMLIN_RELEASE_SMOKE_GRM1 }}
+        run: |
+          test -n "$PUBLIC_KEY_B64" || { echo 'GREMLIN_ISSUER_PUBLIC_KEY_B64 repository variable is required'; exit 1; }
+          test -n "$SMOKE_GRM1" || { echo 'GREMLIN_RELEASE_SMOKE_GRM1 Actions secret is required'; exit 1; }
+          case "$SMOKE_GRM1" in GRM1-*) ;; *) echo 'release smoke entitlement is not a GRM1 key'; exit 1;; esac
+
+  linux-early-access:
+    needs: release-input-gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install native build dependencies
+        run: >-
+          sudo apt-get update && sudo apt-get install -y
+          build-essential libsecret-tools libx11-dev libxcursor-dev libxi-dev
+          libxrandr-dev libxkbcommon-dev libwayland-dev libgl1-mesa-dev
+      - name: Install GREMLIN and Nuitka build dependencies
+        run: python -m pip install --disable-pip-version-check -e . nuitka zstandard
+      - name: Stage stable issuer public key
+        env:
+          PUBLIC_KEY_B64: ${{ vars.GREMLIN_ISSUER_PUBLIC_KEY_B64 }}
+        run: |
+          printf '%s' "$PUBLIC_KEY_B64" | base64 --decode > "$RUNNER_TEMP/issuer-public.pem"
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          from gremlin_mcp.product.license import load_public_key
+          load_public_key(Path(os.environ['RUNNER_TEMP'])/'issuer-public.pem')
+          print('stable Ed25519 issuer verifier: PASS')
+          PY
+      - name: Build standalone GREMLIN runtime
+        run: python tools/build_gremlin_standalone_v01.py --clean
+      - name: Build native Control Center release
+        run: cargo build --release --manifest-path control_center/Cargo.toml
+      - name: Stage Linux release resources
+        run: |
+          mkdir -p dist/linux/control-center
+          cp control_center/target/release/gremlin-control-center dist/linux/control-center/gremlin-control-center
+          python tools/prepare_installer_resources_v01.py --public-key "$RUNNER_TEMP/issuer-public.pem" --output dist/linux/resources --version "$GREMLIN_VERSION"
+          test ! -f dist/linux/resources/PREVIEW_BUILD.txt
+      - name: Build clean Debian Early Access package
+        run: >-
+          python tools/build_gremlin_deb_v01.py
+          --version "$GREMLIN_DEB_VERSION"
+          --output dist/installer/GREMLIN-Early-Access-Linux-amd64.deb
+      - name: Install release package
+        run: sudo apt-get install -y ./dist/installer/GREMLIN-Early-Access-Linux-amd64.deb
+      - name: Smoke real Early Access activation path
+        env:
+          SMOKE_GRM1: ${{ secrets.GREMLIN_RELEASE_SMOKE_GRM1 }}
+        run: |
+          printf '%s' "$SMOKE_GRM1" | /usr/bin/gremlinctl license activate --stdin --platform linux --json
+          /usr/bin/gremlinctl license status --platform linux --json | tee "$RUNNER_TEMP/license.json"
+          /usr/bin/gremlinctl profile status --platform linux --json | tee "$RUNNER_TEMP/profile.json"
+          /usr/bin/gremlinctl integrations providers --platform linux --json | tee "$RUNNER_TEMP/providers.json"
+          /usr/bin/gremlinctl ready --platform linux --json > "$RUNNER_TEMP/ready.json" || test $? -eq 1
+          python - <<'PY'
+          import json, os
+          root=os.environ['RUNNER_TEMP']
+          lic=json.load(open(root+'/license.json'))
+          providers=json.load(open(root+'/providers.json'))
+          ready=json.load(open(root+'/ready.json'))
+          ids={x['provider_id'] for x in providers['providers']}
+          assert lic['status']=='ACTIVE'
+          assert providers['platform']=='linux'
+          assert 'claude-desktop' not in ids
+          assert ready['product']['status']=='LICENSED'
+          assert ready['runtime']['available'] is True
+          PY
+          test -x /usr/bin/gremlin-control-center
+          test -f /usr/share/gremlin/issuer-public.pem
+          test -f /usr/share/gremlin/README-FIRST.txt
+          test -f /usr/share/gremlin/MCP-SETUP.md
+          test ! -f /usr/share/gremlin/PREVIEW_BUILD.txt
+      - name: Hash Linux release
+        run: sha256sum dist/installer/GREMLIN-Early-Access-Linux-amd64.deb | tee dist/installer/SHA256SUMS-linux.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: GREMLIN-Early-Access-Linux-${{ inputs.version }}
+          path: |
+            dist/installer/GREMLIN-Early-Access-Linux-amd64.deb
+            dist/installer/SHA256SUMS-linux.txt
+          if-no-files-found: error
+
+  windows-early-access:
+    needs: release-input-gate
+    runs-on: windows-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install GREMLIN and Nuitka build dependencies
+        run: python -m pip install --disable-pip-version-check -e . nuitka zstandard
+      - name: Stage stable issuer public key
+        shell: pwsh
+        env:
+          PUBLIC_KEY_B64: ${{ vars.GREMLIN_ISSUER_PUBLIC_KEY_B64 }}
+        run: |
+          $bytes = [Convert]::FromBase64String($env:PUBLIC_KEY_B64)
+          $public = Join-Path $env:RUNNER_TEMP 'issuer-public.pem'
+          [IO.File]::WriteAllBytes($public, $bytes)
+          python -c "from gremlin_mcp.product.license import load_public_key; import os; load_public_key(os.path.join(os.environ['RUNNER_TEMP'],'issuer-public.pem')); print('stable Ed25519 issuer verifier: PASS')"
+      - name: Build standalone GREMLIN runtime
+        run: python tools/build_gremlin_standalone_v01.py --clean
+      - name: Build native Control Center release
+        run: cargo build --release --manifest-path control_center/Cargo.toml
+      - name: Stage Windows release resources
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force dist/windows/control-center | Out-Null
+          Copy-Item control_center/target/release/gremlin-control-center.exe dist/windows/control-center/gremlin-control-center.exe
+          python tools/prepare_installer_resources_v01.py --public-key (Join-Path $env:RUNNER_TEMP 'issuer-public.pem') --output dist/windows/resources --version $env:GREMLIN_VERSION
+          if (Test-Path dist/windows/resources/PREVIEW_BUILD.txt) { throw 'Production release contains preview marker' }
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup --yes --no-progress
+      - name: Build clean Windows Early Access installer
+        shell: pwsh
+        run: |
+          $iscc = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
+          if (-not (Test-Path $iscc)) { $iscc = (Get-Command ISCC.exe).Source }
+          & $iscc "/DMyAppVersion=$env:GREMLIN_VERSION" "packaging\windows\GREMLIN.iss"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $versioned = Get-ChildItem dist\installer\GREMLIN-Early-Access-Windows-x64-Setup-*.exe | Select-Object -First 1
+          Copy-Item $versioned.FullName dist\installer\GREMLIN-Early-Access-Windows-x64-Setup.exe -Force
+      - name: Install release package silently
+        shell: pwsh
+        run: |
+          $installer = Resolve-Path dist\installer\GREMLIN-Early-Access-Windows-x64-Setup.exe
+          $p = Start-Process -FilePath $installer -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART' -Wait -PassThru
+          if ($p.ExitCode -ne 0) { exit $p.ExitCode }
+      - name: Smoke real Early Access activation path
+        shell: pwsh
+        env:
+          SMOKE_GRM1: ${{ secrets.GREMLIN_RELEASE_SMOKE_GRM1 }}
+        run: |
+          $root = Join-Path $env:LOCALAPPDATA 'Programs\GREMLIN'
+          $ctl = Join-Path $root 'gremlinctl.exe'
+          $env:SMOKE_GRM1 | & $ctl license activate --stdin --platform windows --json
+          if ($LASTEXITCODE -ne 0) { throw 'Production-verifier GRM1 activation failed' }
+          $license = & $ctl license status --platform windows --json | ConvertFrom-Json
+          if ($license.status -ne 'ACTIVE') { throw 'Release license is not ACTIVE' }
+          $providers = & $ctl integrations providers --platform windows --json | ConvertFrom-Json
+          $ids = @($providers.providers | ForEach-Object { $_.provider_id })
+          if ($providers.platform -ne 'windows' -or $ids -notcontains 'claude-desktop') { throw 'Windows release provider matrix invalid' }
+          $readyRaw = & $ctl ready --platform windows --json
+          if ($LASTEXITCODE -notin @(0,1)) { throw 'Readiness command failed unexpectedly' }
+          $ready = $readyRaw | ConvertFrom-Json
+          if ($ready.product.status -ne 'LICENSED' -or -not $ready.runtime.available) { throw 'Windows release readiness invalid' }
+          if (-not (Test-Path (Join-Path $root 'gremlin-control-center.exe'))) { throw 'Control Center missing' }
+          if (-not (Test-Path (Join-Path $root 'resources\README-FIRST.txt'))) { throw 'README-FIRST missing' }
+          if (-not (Test-Path (Join-Path $root 'resources\MCP-SETUP.md'))) { throw 'MCP-SETUP missing' }
+          if (Test-Path (Join-Path $root 'resources\PREVIEW_BUILD.txt')) { throw 'Production release contains preview marker' }
+      - name: Hash Windows release
+        shell: pwsh
+        run: |
+          $installer = Resolve-Path dist\installer\GREMLIN-Early-Access-Windows-x64-Setup.exe
+          $hash = (Get-FileHash -Algorithm SHA256 $installer).Hash.ToLowerInvariant()
+          "$hash  GREMLIN-Early-Access-Windows-x64-Setup.exe" | Set-Content dist\installer\SHA256SUMS-windows.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: GREMLIN-Early-Access-Windows-${{ inputs.version }}
+          path: |
+            dist/installer/GREMLIN-Early-Access-Windows-x64-Setup.exe
+            dist/installer/SHA256SUMS-windows.txt
+          if-no-files-found: error

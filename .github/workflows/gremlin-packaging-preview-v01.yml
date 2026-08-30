@@ -3,6 +3,7 @@ name: GREMLIN Packaging Preview v0.1
 on:
   push:
     branches:
+      - main
       - feat/gremlin-installation-control-center-v0.1
     paths:
       - 'gremlin_mcp/**'
@@ -11,21 +12,26 @@ on:
       - 'tools/build_gremlin_standalone_v01.py'
       - 'tools/build_gremlin_deb_v01.py'
       - 'tools/prepare_installer_resources_v01.py'
+      - 'tools/smoke_installed_customer_flow_v01.py'
       - 'pyproject.toml'
       - '.github/workflows/gremlin-packaging-preview-v01.yml'
   workflow_dispatch:
+
+concurrency:
+  group: gremlin-packaging-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
 
 env:
-  GREMLIN_VERSION: 0.5.0-preview.1
-  GREMLIN_DEB_VERSION: 0.5.0~preview1-1
+  GREMLIN_VERSION: 0.5.0-preview.3
+  GREMLIN_DEB_VERSION: 0.5.0~preview3-1
 
 jobs:
   linux-preview-package:
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -54,45 +60,87 @@ jobs:
         run: |
           mkdir -p dist/linux/control-center
           cp control_center/target/release/gremlin-control-center dist/linux/control-center/gremlin-control-center
-      - name: Create ephemeral preview verifier
+      - name: Create ephemeral preview verifier and customer key
         run: |
           gremlin-license keygen --private "$RUNNER_TEMP/preview-private.pem" --public "$RUNNER_TEMP/preview-public.pem"
+          gremlin-license issue \
+            --private "$RUNNER_TEMP/preview-private.pem" \
+            --out "$RUNNER_TEMP/preview-license.json" \
+            --key-out "$RUNNER_TEMP/preview-license.key" \
+            --license-id "CI-PREVIEW-LINUX-${GITHUB_RUN_ID}" \
+            --customer "ci-linux-preview" \
+            --edition RESEARCH \
+            --features "MCP_STDIO,PERSISTENT_STATE" \
+            --issued-at 2026-01-01 \
+            --expires-at 2030-12-31 \
+            --updates-until 2030-12-31 \
+            --max-workers 4 \
+            --max-sources 24
           python tools/prepare_installer_resources_v01.py --public-key "$RUNNER_TEMP/preview-public.pem" --output dist/linux/resources --version "$GREMLIN_VERSION" --preview
           rm -f "$RUNNER_TEMP/preview-private.pem"
-      - name: Smoke standalone runtime before packaging
+      - name: Smoke Linux standalone runtime and provider matrix
         run: |
           dist/linux/runtime/gremlinctl paths --platform linux --json
           dist/linux/runtime/gremlinctl doctor --platform linux --json
+          dist/linux/runtime/gremlinctl profile --help >/dev/null
+          dist/linux/runtime/gremlinctl integrations providers --platform linux --json | tee "$RUNNER_TEMP/providers-linux.json"
+          python - <<'PY'
+          import json, os
+          p=json.load(open(os.environ['RUNNER_TEMP']+'/providers-linux.json'))
+          ids={x['provider_id'] for x in p['providers']}
+          assert p['platform']=='linux'
+          assert {'codex','opencode','claude-code','gemini','cursor','vscode','windsurf'} <= ids
+          assert 'claude-desktop' not in ids
+          PY
           dist/linux/runtime/gremlin-product-mcp --help >/dev/null
-      - name: Build Debian package
+      - name: Build Debian preview package
         run: >-
           python tools/build_gremlin_deb_v01.py
           --version "$GREMLIN_DEB_VERSION"
-          --output "dist/installer/gremlin_${GREMLIN_DEB_VERSION}_amd64.deb"
-      - name: Inspect and install Debian package
+          --output "dist/installer/GREMLIN-Early-Access-Linux-amd64-PREVIEW.deb"
+      - name: Inspect and install Debian preview package
         run: |
-          dpkg-deb --info "dist/installer/gremlin_${GREMLIN_DEB_VERSION}_amd64.deb"
-          sudo apt-get install -y "./dist/installer/gremlin_${GREMLIN_DEB_VERSION}_amd64.deb"
-      - name: Smoke installed Debian package
+          dpkg-deb --info "dist/installer/GREMLIN-Early-Access-Linux-amd64-PREVIEW.deb"
+          sudo apt-get install -y "./dist/installer/GREMLIN-Early-Access-Linux-amd64-PREVIEW.deb"
+      - name: Smoke installed Debian entitlement and resources
         run: |
           /usr/bin/gremlinctl paths --platform linux --json
           /usr/bin/gremlinctl doctor --platform linux --json
+          cat "$RUNNER_TEMP/preview-license.key" | /usr/bin/gremlinctl license activate --stdin --platform linux --json
+          /usr/bin/gremlinctl license status --platform linux --json | tee "$RUNNER_TEMP/license-installed-linux.json"
+          /usr/bin/gremlinctl profile status --platform linux --json | tee "$RUNNER_TEMP/profile-installed-linux.json"
+          python - <<'PY'
+          import json, os
+          root=os.environ['RUNNER_TEMP']
+          lic=json.load(open(root+'/license-installed-linux.json'))
+          profile=json.load(open(root+'/profile-installed-linux.json'))
+          assert lic['status']=='ACTIVE'
+          assert profile['status']=='NOT_CONFIGURED'
+          PY
           test -x /usr/bin/gremlin-control-center
           test -f /usr/share/gremlin/issuer-public.pem
+          test -f /usr/share/gremlin/README-FIRST.txt
+          test -f /usr/share/gremlin/MCP-SETUP.md
           test -f /usr/share/gremlin/PREVIEW_BUILD.txt
-      - name: Hash Debian artifact
-        run: sha256sum "dist/installer/gremlin_${GREMLIN_DEB_VERSION}_amd64.deb" | tee dist/installer/SHA256SUMS-linux.txt
+      - name: Customer Connect-Test-READY-Disconnect gate
+        run: >-
+          python tools/smoke_installed_customer_flow_v01.py
+          --ctl /usr/bin/gremlinctl
+          --platform linux
+          --license-key-file "$RUNNER_TEMP/preview-license.key"
+      - name: Hash Linux preview artifact
+        run: sha256sum "dist/installer/GREMLIN-Early-Access-Linux-amd64-PREVIEW.deb" | tee dist/installer/SHA256SUMS-linux-PREVIEW.txt
       - uses: actions/upload-artifact@v4
         with:
           name: gremlin-linux-preview-${{ env.GREMLIN_VERSION }}
           path: |
-            dist/installer/*.deb
-            dist/installer/SHA256SUMS-linux.txt
+            dist/installer/GREMLIN-Early-Access-Linux-amd64-PREVIEW.deb
+            dist/installer/SHA256SUMS-linux-PREVIEW.txt
           if-no-files-found: error
 
   windows-preview-package:
     runs-on: windows-latest
-    timeout-minutes: 45
+    timeout-minutes: 50
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -105,57 +153,84 @@ jobs:
         run: python tools/build_gremlin_standalone_v01.py --clean
       - name: Build native Control Center release
         run: cargo build --release --manifest-path control_center/Cargo.toml
-      - name: Stage Control Center and preview verifier
+      - name: Stage Control Center, verifier and preview customer key
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force dist/windows/control-center | Out-Null
           Copy-Item control_center/target/release/gremlin-control-center.exe dist/windows/control-center/gremlin-control-center.exe
           $private = Join-Path $env:RUNNER_TEMP 'preview-private.pem'
           $public = Join-Path $env:RUNNER_TEMP 'preview-public.pem'
+          $licenseJson = Join-Path $env:RUNNER_TEMP 'preview-license.json'
+          $licenseKey = Join-Path $env:RUNNER_TEMP 'preview-license.key'
           gremlin-license keygen --private $private --public $public
+          gremlin-license issue --private $private --out $licenseJson --key-out $licenseKey --license-id "CI-PREVIEW-WINDOWS-$env:GITHUB_RUN_ID" --customer 'ci-windows-preview' --edition RESEARCH --features 'MCP_STDIO,PERSISTENT_STATE' --issued-at 2026-01-01 --expires-at 2030-12-31 --updates-until 2030-12-31 --max-workers 4 --max-sources 24
           python tools/prepare_installer_resources_v01.py --public-key $public --output dist/windows/resources --version $env:GREMLIN_VERSION --preview
           Remove-Item $private -Force
-      - name: Smoke standalone runtime before installer
+      - name: Smoke Windows standalone runtime and provider matrix
         shell: pwsh
         run: |
           & .\dist\windows\runtime\gremlinctl.exe paths --platform windows --json
           & .\dist\windows\runtime\gremlinctl.exe doctor --platform windows --json
+          & .\dist\windows\runtime\gremlinctl.exe profile --help | Out-Null
+          $providers = & .\dist\windows\runtime\gremlinctl.exe integrations providers --platform windows --json | ConvertFrom-Json
+          if ($providers.platform -ne 'windows') { throw 'Provider matrix is not Windows-scoped' }
+          $ids = @($providers.providers | ForEach-Object { $_.provider_id })
+          foreach ($required in @('codex','opencode','claude-code','gemini','cursor','vscode','windsurf','claude-desktop')) {
+            if ($ids -notcontains $required) { throw "Missing Windows provider: $required" }
+          }
           & .\dist\windows\runtime\gremlin-product-mcp.exe --help | Out-Null
       - name: Install Inno Setup
         shell: pwsh
         run: choco install innosetup --yes --no-progress
-      - name: Build Windows installer
+      - name: Build Windows preview installer
         shell: pwsh
         run: |
           $iscc = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
           if (-not (Test-Path $iscc)) { $iscc = (Get-Command ISCC.exe).Source }
           & $iscc "/DMyAppVersion=$env:GREMLIN_VERSION" "packaging\windows\GREMLIN.iss"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $versioned = Get-ChildItem dist\installer\GREMLIN-Early-Access-Windows-x64-Setup-*.exe | Select-Object -First 1
+          Copy-Item $versioned.FullName dist\installer\GREMLIN-Early-Access-Windows-x64-Setup-PREVIEW.exe -Force
       - name: Install preview silently
         shell: pwsh
         run: |
-          $installer = Get-ChildItem dist\installer\GREMLIN-Setup-*-x64.exe | Select-Object -First 1
-          $process = Start-Process -FilePath $installer.FullName -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART' -Wait -PassThru
+          $installer = Resolve-Path dist\installer\GREMLIN-Early-Access-Windows-x64-Setup-PREVIEW.exe
+          $process = Start-Process -FilePath $installer -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART' -Wait -PassThru
           if ($process.ExitCode -ne 0) { exit $process.ExitCode }
-      - name: Smoke installed Windows package
+      - name: Smoke installed Windows entitlement and resources
         shell: pwsh
         run: |
           $root = Join-Path $env:LOCALAPPDATA 'Programs\GREMLIN'
-          & (Join-Path $root 'gremlinctl.exe') paths --platform windows --json
-          & (Join-Path $root 'gremlinctl.exe') doctor --platform windows --json
+          $ctl = Join-Path $root 'gremlinctl.exe'
+          & $ctl paths --platform windows --json
+          & $ctl doctor --platform windows --json
+          Get-Content (Join-Path $env:RUNNER_TEMP 'preview-license.key') -Raw | & $ctl license activate --stdin --platform windows --json
+          if ($LASTEXITCODE -ne 0) { throw 'Installed Windows license activation failed' }
+          $license = & $ctl license status --platform windows --json | ConvertFrom-Json
+          if ($license.status -ne 'ACTIVE') { throw 'Installed Windows license is not ACTIVE' }
+          $profile = & $ctl profile status --platform windows --json | ConvertFrom-Json
+          if ($profile.status -ne 'NOT_CONFIGURED') { throw 'Optional customer profile unexpectedly blocks Windows preview' }
           if (-not (Test-Path (Join-Path $root 'gremlin-control-center.exe'))) { throw 'Control Center missing' }
           if (-not (Test-Path (Join-Path $root 'resources\issuer-public.pem'))) { throw 'Verifier missing' }
+          if (-not (Test-Path (Join-Path $root 'resources\README-FIRST.txt'))) { throw 'README-FIRST missing' }
+          if (-not (Test-Path (Join-Path $root 'resources\MCP-SETUP.md'))) { throw 'MCP-SETUP missing' }
           if (-not (Test-Path (Join-Path $root 'resources\PREVIEW_BUILD.txt'))) { throw 'Preview marker missing' }
-      - name: Hash Windows installer
+      - name: Customer Connect-Test-READY-Disconnect gate
         shell: pwsh
         run: |
-          $installer = Get-ChildItem dist\installer\GREMLIN-Setup-*-x64.exe | Select-Object -First 1
-          $hash = (Get-FileHash -Algorithm SHA256 $installer.FullName).Hash.ToLowerInvariant()
-          "$hash  $($installer.Name)" | Set-Content dist\installer\SHA256SUMS-windows.txt
+          $ctl = Join-Path $env:LOCALAPPDATA 'Programs\GREMLIN\gremlinctl.exe'
+          $key = Join-Path $env:RUNNER_TEMP 'preview-license.key'
+          python tools/smoke_installed_customer_flow_v01.py --ctl $ctl --platform windows --license-key-file $key
+      - name: Hash Windows preview artifact
+        shell: pwsh
+        run: |
+          $installer = Resolve-Path dist\installer\GREMLIN-Early-Access-Windows-x64-Setup-PREVIEW.exe
+          $hash = (Get-FileHash -Algorithm SHA256 $installer).Hash.ToLowerInvariant()
+          "$hash  GREMLIN-Early-Access-Windows-x64-Setup-PREVIEW.exe" | Set-Content dist\installer\SHA256SUMS-windows-PREVIEW.txt
       - uses: actions/upload-artifact@v4
         with:
           name: gremlin-windows-preview-${{ env.GREMLIN_VERSION }}
           path: |
-            dist/installer/GREMLIN-Setup-*-x64.exe
-            dist/installer/SHA256SUMS-windows.txt
+            dist/installer/GREMLIN-Early-Access-Windows-x64-Setup-PREVIEW.exe
+            dist/installer/SHA256SUMS-windows-PREVIEW.txt
           if-no-files-found: error
