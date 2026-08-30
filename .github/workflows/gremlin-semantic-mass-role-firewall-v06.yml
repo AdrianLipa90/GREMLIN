@@ -1,0 +1,24 @@
+name: GREMLIN semantic mass role firewall v0.6
+
+on:
+  pull_request:
+    paths:
+      - "tools/gremlin_semantic_mass_role_firewall_v06.py"
+      - "tests/test_gremlin_semantic_mass_role_firewall_v06.py"
+      - "spec/GREMLIN_SEMANTIC_MASS_ROLE_FIREWALL_V0_6.md"
+      - "provenance/GREMLIN_SEMANTIC_MASS_ROLE_FIREWALL_LIVE_V0_6.json"
+      - ".github/workflows/gremlin-semantic-mass-role-firewall-v06.yml"
+  workflow_dispatch:
+
+jobs:
+  reference:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install pytest
+        run: python -m pip install pytest
+      - name: Run semantic mass-role firewall tests
+        run: python -m pytest -q tests/test_gremlin_semantic_mass_role_firewall_v06.py
