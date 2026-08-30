@@ -12,6 +12,7 @@ on:
       - 'tools/build_gremlin_standalone_v01.py'
       - 'tools/build_gremlin_deb_v01.py'
       - 'tools/prepare_installer_resources_v01.py'
+      - 'tools/smoke_installed_customer_flow_v01.py'
       - 'pyproject.toml'
       - '.github/workflows/gremlin-packaging-preview-v01.yml'
   workflow_dispatch:
@@ -101,34 +102,32 @@ jobs:
         run: |
           dpkg-deb --info "dist/installer/GREMLIN-Early-Access-Linux-amd64-PREVIEW.deb"
           sudo apt-get install -y "./dist/installer/GREMLIN-Early-Access-Linux-amd64-PREVIEW.deb"
-      - name: Smoke installed Debian customer path
+      - name: Smoke installed Debian entitlement and resources
         run: |
           /usr/bin/gremlinctl paths --platform linux --json
           /usr/bin/gremlinctl doctor --platform linux --json
           cat "$RUNNER_TEMP/preview-license.key" | /usr/bin/gremlinctl license activate --stdin --platform linux --json
           /usr/bin/gremlinctl license status --platform linux --json | tee "$RUNNER_TEMP/license-installed-linux.json"
           /usr/bin/gremlinctl profile status --platform linux --json | tee "$RUNNER_TEMP/profile-installed-linux.json"
-          /usr/bin/gremlinctl integrations providers --platform linux --json | tee "$RUNNER_TEMP/providers-installed-linux.json"
-          /usr/bin/gremlinctl ready --platform linux --json > "$RUNNER_TEMP/ready-installed-linux.json" || test $? -eq 1
           python - <<'PY'
           import json, os
           root=os.environ['RUNNER_TEMP']
           lic=json.load(open(root+'/license-installed-linux.json'))
           profile=json.load(open(root+'/profile-installed-linux.json'))
-          providers=json.load(open(root+'/providers-installed-linux.json'))
-          ready=json.load(open(root+'/ready-installed-linux.json'))
-          ids={x['provider_id'] for x in providers['providers']}
           assert lic['status']=='ACTIVE'
           assert profile['status']=='NOT_CONFIGURED'
-          assert providers['platform']=='linux' and 'claude-desktop' not in ids
-          assert ready['product']['status']=='LICENSED'
-          assert ready['runtime']['available'] is True
           PY
           test -x /usr/bin/gremlin-control-center
           test -f /usr/share/gremlin/issuer-public.pem
           test -f /usr/share/gremlin/README-FIRST.txt
           test -f /usr/share/gremlin/MCP-SETUP.md
           test -f /usr/share/gremlin/PREVIEW_BUILD.txt
+      - name: Customer Connect-Test-READY-Disconnect gate
+        run: >-
+          python tools/smoke_installed_customer_flow_v01.py
+          --ctl /usr/bin/gremlinctl
+          --platform linux
+          --license-key-file "$RUNNER_TEMP/preview-license.key"
       - name: Hash Linux preview artifact
         run: sha256sum "dist/installer/GREMLIN-Early-Access-Linux-amd64-PREVIEW.deb" | tee dist/installer/SHA256SUMS-linux-PREVIEW.txt
       - uses: actions/upload-artifact@v4
@@ -198,7 +197,7 @@ jobs:
           $installer = Resolve-Path dist\installer\GREMLIN-Early-Access-Windows-x64-Setup-PREVIEW.exe
           $process = Start-Process -FilePath $installer -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART' -Wait -PassThru
           if ($process.ExitCode -ne 0) { exit $process.ExitCode }
-      - name: Smoke installed Windows customer path
+      - name: Smoke installed Windows entitlement and resources
         shell: pwsh
         run: |
           $root = Join-Path $env:LOCALAPPDATA 'Programs\GREMLIN'
@@ -211,18 +210,17 @@ jobs:
           if ($license.status -ne 'ACTIVE') { throw 'Installed Windows license is not ACTIVE' }
           $profile = & $ctl profile status --platform windows --json | ConvertFrom-Json
           if ($profile.status -ne 'NOT_CONFIGURED') { throw 'Optional customer profile unexpectedly blocks Windows preview' }
-          $providers = & $ctl integrations providers --platform windows --json | ConvertFrom-Json
-          $ids = @($providers.providers | ForEach-Object { $_.provider_id })
-          if ($providers.platform -ne 'windows' -or $ids -notcontains 'claude-desktop') { throw 'Installed Windows provider matrix invalid' }
-          $readyRaw = & $ctl ready --platform windows --json
-          if ($LASTEXITCODE -notin @(0,1)) { throw 'Readiness command failed unexpectedly' }
-          $ready = $readyRaw | ConvertFrom-Json
-          if ($ready.product.status -ne 'LICENSED' -or -not $ready.runtime.available) { throw 'Installed Windows product readiness invalid' }
           if (-not (Test-Path (Join-Path $root 'gremlin-control-center.exe'))) { throw 'Control Center missing' }
           if (-not (Test-Path (Join-Path $root 'resources\issuer-public.pem'))) { throw 'Verifier missing' }
           if (-not (Test-Path (Join-Path $root 'resources\README-FIRST.txt'))) { throw 'README-FIRST missing' }
           if (-not (Test-Path (Join-Path $root 'resources\MCP-SETUP.md'))) { throw 'MCP-SETUP missing' }
           if (-not (Test-Path (Join-Path $root 'resources\PREVIEW_BUILD.txt'))) { throw 'Preview marker missing' }
+      - name: Customer Connect-Test-READY-Disconnect gate
+        shell: pwsh
+        run: |
+          $ctl = Join-Path $env:LOCALAPPDATA 'Programs\GREMLIN\gremlinctl.exe'
+          $key = Join-Path $env:RUNNER_TEMP 'preview-license.key'
+          python tools/smoke_installed_customer_flow_v01.py --ctl $ctl --platform windows --license-key-file $key
       - name: Hash Windows preview artifact
         shell: pwsh
         run: |
