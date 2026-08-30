@@ -167,6 +167,12 @@ impl GremlinControlCenter {
         self.doctor.as_ref().and_then(|v| v.get("config")).and_then(|v| v.get("runtime")).and_then(|v| v.get("transport")).and_then(Value::as_str).unwrap_or("stdio")
     }
 
+    fn platform_name(&self) -> &str {
+        self.providers.as_ref().and_then(|v| v.get("platform")).and_then(Value::as_str)
+            .map(|v| if v == "windows" { "Windows x64" } else { "Linux amd64" })
+            .unwrap_or(if cfg!(windows) { "Windows x64" } else { "Linux amd64" })
+    }
+
     fn nav(&mut self, ui: &mut egui::Ui) {
         ui.horizontal(|ui| {
             ui.selectable_value(&mut self.tab, Tab::Overview, "Overview");
@@ -179,17 +185,24 @@ impl GremlinControlCenter {
 
     fn overview(&mut self, ui: &mut egui::Ui) {
         ui.heading("GREMLIN AI Research Orchestrator");
+        ui.label(format!("{} edition", self.platform_name()));
         ui.add_space(8.0);
         egui::Grid::new("overview_status").num_columns(2).spacing([24.0, 12.0]).show(ui, |ui| {
             ui.label("System"); ui.strong(self.overall_status()); ui.end_row();
+            ui.label("Platform"); ui.strong(self.platform_name()); ui.end_row();
             ui.label("License"); ui.strong(self.product_status()); ui.end_row();
             ui.label("Device identity"); ui.strong(self.device_status()); ui.end_row();
             ui.label("MCP transport"); ui.strong(self.runtime_transport()); ui.end_row();
         });
         ui.add_space(16.0);
-        if ui.button("Run diagnostics").clicked() {
-            self.refresh_doctor(); self.refresh_device(); self.refresh_providers();
-        }
+        ui.horizontal(|ui| {
+            if ui.button("Connect an AI provider").clicked() {
+                self.tab = Tab::Integrations;
+            }
+            if ui.button("Run diagnostics").clicked() {
+                self.refresh_doctor(); self.refresh_device(); self.refresh_providers();
+            }
+        });
         if let Some(err) = &self.doctor_error { ui.add_space(8.0); ui.label(err); }
     }
 
@@ -214,8 +227,9 @@ impl GremlinControlCenter {
         let detected = provider.get("detected").and_then(Value::as_bool).unwrap_or(false);
         let connected = provider.get("connected").and_then(Value::as_bool).unwrap_or(false);
         let status = provider.get("connection_status").and_then(Value::as_str).unwrap_or("UNKNOWN");
-        let executable = provider.get("executable").and_then(Value::as_str).unwrap_or("Not found on PATH");
-        let config = provider.get("config_path").and_then(Value::as_str).unwrap_or("Unknown");
+        let executable = provider.get("executable").and_then(Value::as_str).unwrap_or("Not found");
+        let config = provider.get("config_path").and_then(Value::as_str).unwrap_or("Managed by client");
+        let mode = provider.get("integration_mode").and_then(Value::as_str).unwrap_or("MCP");
 
         egui::Frame::group(ui.style()).show(ui, |ui| {
             ui.horizontal(|ui| {
@@ -223,8 +237,9 @@ impl GremlinControlCenter {
                 ui.separator();
                 ui.strong(status);
             });
+            ui.label(format!("Integration: {}", if mode == "NATIVE_CLI" { "Native client MCP interface" } else { "Safe config merge" }));
             ui.label(format!("Client detected: {}", if detected { "yes" } else { "no" }));
-            ui.label(format!("Executable: {executable}"));
+            if detected { ui.label(format!("Executable: {executable}")); }
             ui.label(format!("Config: {config}"));
             ui.add_space(8.0);
             ui.horizontal(|ui| {
@@ -246,10 +261,10 @@ impl GremlinControlCenter {
 
     fn integrations(&mut self, ui: &mut egui::Ui) {
         ui.horizontal(|ui| {
-            ui.heading("Connect GREMLIN to your AI client");
+            ui.heading(format!("AI Providers — {}", self.platform_name()));
             if ui.button("Refresh detection").clicked() { self.refresh_providers(); }
         });
-        ui.label("GREMLIN runs as a local MCP server. Select an installed client below; Control Center configures the client through its own MCP interface where available.");
+        ui.label("GREMLIN runs as a local stdio MCP server. Control Center uses each client's native MCP interface when available and an atomic backed-up config merge otherwise.");
         ui.add_space(12.0);
 
         let providers_owned: Vec<Value> = self.providers.as_ref()
@@ -258,7 +273,7 @@ impl GremlinControlCenter {
             .cloned()
             .unwrap_or_default();
         if providers_owned.is_empty() {
-            ui.label("No supported AI clients detected yet.");
+            ui.label("No supported AI clients are available for this platform.");
         } else {
             for provider in &providers_owned {
                 self.provider_card(ui, provider);
@@ -294,6 +309,7 @@ impl GremlinControlCenter {
 
     fn settings(&mut self, ui: &mut egui::Ui) {
         ui.heading("Settings");
+        ui.label(format!("Platform package: {}", self.platform_name()));
         ui.label(format!("Effective transport: {}", self.runtime_transport()));
         ui.label("Provider connections are managed independently from GREMLIN licensing and device activation.");
     }
@@ -311,7 +327,13 @@ impl GremlinControlCenter {
 impl eframe::App for GremlinControlCenter {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::TopBottomPanel::top("top_bar").show(ctx, |ui| {
-            ui.horizontal(|ui| { ui.strong("GREMLIN Control Center"); ui.separator(); ui.label(self.overall_status()); });
+            ui.horizontal(|ui| {
+                ui.strong("GREMLIN Control Center");
+                ui.separator();
+                ui.label(self.platform_name());
+                ui.separator();
+                ui.label(self.overall_status());
+            });
             self.nav(ui);
         });
         egui::CentralPanel::default().show(ctx, |ui| match self.tab {
@@ -326,7 +348,7 @@ impl eframe::App for GremlinControlCenter {
 
 fn main() -> eframe::Result<()> {
     let options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default().with_inner_size([980.0, 700.0]).with_min_inner_size([760.0, 520.0]),
+        viewport: egui::ViewportBuilder::default().with_inner_size([1040.0, 760.0]).with_min_inner_size([800.0, 560.0]),
         ..Default::default()
     };
     eframe::run_native("GREMLIN Control Center", options, Box::new(|_cc| Ok(Box::<GremlinControlCenter>::default())))
