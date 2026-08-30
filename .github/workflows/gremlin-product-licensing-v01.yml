@@ -8,6 +8,7 @@ on:
       - 'gremlin_mcp/product/**'
       - 'gremlin_mcp/product_server.py'
       - 'tests/test_gremlin_product_licensing_v01.py'
+      - 'tests/test_gremlin_product_license_key_v01.py'
       - 'pyproject.toml'
       - '.github/workflows/gremlin-product-licensing-v01.yml'
   pull_request:
@@ -15,6 +16,7 @@ on:
       - 'gremlin_mcp/product/**'
       - 'gremlin_mcp/product_server.py'
       - 'tests/test_gremlin_product_licensing_v01.py'
+      - 'tests/test_gremlin_product_license_key_v01.py'
       - 'pyproject.toml'
   workflow_dispatch:
 
@@ -33,8 +35,8 @@ jobs:
       - name: Install GREMLIN and test dependency
         run: python -m pip install --disable-pip-version-check -e . pytest
       - name: Run product licensing tests
-        run: python -m pytest -q tests/test_gremlin_product_licensing_v01.py
-      - name: Verify license CLI is packaged
+        run: python -m pytest -q tests/test_gremlin_product_licensing_v01.py tests/test_gremlin_product_license_key_v01.py
+      - name: Verify product CLIs are packaged
         run: |
           gremlin-license --help >/dev/null
           gremlin-product-mcp --help >/dev/null
