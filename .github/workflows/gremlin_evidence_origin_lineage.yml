@@ -1,0 +1,44 @@
+name: GREMLIN Evidence Origin Lineage
+
+on:
+  push:
+    branches:
+      - feat/gremlin-evidence-origin-lineage-v0.1
+  pull_request:
+    branches:
+      - feat/gremlin-evidence-kind-policy-v0.1
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  evidence-origin-lineage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install GREMLIN and test dependency
+        run: python -m pip install --disable-pip-version-check -e . pytest
+      - name: Run evidence origin unit tests
+        run: python -m pytest -q tests/test_evidence_origin.py
+      - name: Run semantic origin integration tests
+        run: python -m pytest -q tests/test_semantic_origin_bridge.py
+      - name: Run upstream strict evidence regressions
+        run: python -m pytest -q tests/test_evidence_kind.py tests/test_semantic_kind_bridge.py tests/test_evidence_quorum.py tests/test_semantic_quorum_bridge.py tests/test_semantic_bridge.py tests/test_semantic_evidence.py tests/test_source_family.py
+      - name: Import strict evidence origin MCP entrypoint
+        run: python -c "import gremlin_mcp.origin_lineage_server as o; assert callable(o.gremlin_evidence_origin_assign); assert callable(o.gremlin_evidence_origin_verify); assert callable(o.gremlin_evidence_origin_policy); assert callable(o.gremlin_semantic_origin_apply)"
+      - name: Generate deterministic origin lineage receipt
+        run: python -m tools.gremlin_evidence_origin_lineage_probe_v01 --out artifacts/gremlin_evidence_origin_lineage_probe.json
+      - name: Verify preregistered origin lineage gates
+        run: python -c "import json; r=json.load(open('artifacts/gremlin_evidence_origin_lineage_probe.json')); assert r['status']=='PASS'; assert all(r['checks'].values()); assert r['external_benchmark_claimed'] is False; assert r['automatic_origin_inference_executed'] is False; assert r['independence_proof_claimed'] is False"
+      - name: Upload origin lineage receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gremlin-evidence-origin-lineage
+          path: artifacts/gremlin_evidence_origin_lineage_probe.json
+          if-no-files-found: warn
