@@ -92,15 +92,15 @@ jobs:
           assert 'claude-desktop' not in ids
           PY
           dist/linux/runtime/gremlin-product-mcp --help >/dev/null
-      - name: Build Debian package
+      - name: Build Debian preview package
         run: >-
           python tools/build_gremlin_deb_v01.py
           --version "$GREMLIN_DEB_VERSION"
-          --output "dist/installer/GREMLIN-Early-Access-Linux-amd64.deb"
-      - name: Inspect and install Debian package
+          --output "dist/installer/GREMLIN-Early-Access-Linux-amd64-PREVIEW.deb"
+      - name: Inspect and install Debian preview package
         run: |
-          dpkg-deb --info "dist/installer/GREMLIN-Early-Access-Linux-amd64.deb"
-          sudo apt-get install -y "./dist/installer/GREMLIN-Early-Access-Linux-amd64.deb"
+          dpkg-deb --info "dist/installer/GREMLIN-Early-Access-Linux-amd64-PREVIEW.deb"
+          sudo apt-get install -y "./dist/installer/GREMLIN-Early-Access-Linux-amd64-PREVIEW.deb"
       - name: Smoke installed Debian customer path
         run: |
           /usr/bin/gremlinctl paths --platform linux --json
@@ -129,14 +129,14 @@ jobs:
           test -f /usr/share/gremlin/README-FIRST.txt
           test -f /usr/share/gremlin/MCP-SETUP.md
           test -f /usr/share/gremlin/PREVIEW_BUILD.txt
-      - name: Hash Linux delivery artifact
-        run: sha256sum "dist/installer/GREMLIN-Early-Access-Linux-amd64.deb" | tee dist/installer/SHA256SUMS-linux.txt
+      - name: Hash Linux preview artifact
+        run: sha256sum "dist/installer/GREMLIN-Early-Access-Linux-amd64-PREVIEW.deb" | tee dist/installer/SHA256SUMS-linux-PREVIEW.txt
       - uses: actions/upload-artifact@v4
         with:
           name: gremlin-linux-preview-${{ env.GREMLIN_VERSION }}
           path: |
-            dist/installer/GREMLIN-Early-Access-Linux-amd64.deb
-            dist/installer/SHA256SUMS-linux.txt
+            dist/installer/GREMLIN-Early-Access-Linux-amd64-PREVIEW.deb
+            dist/installer/SHA256SUMS-linux-PREVIEW.txt
           if-no-files-found: error
 
   windows-preview-package:
@@ -183,7 +183,7 @@ jobs:
       - name: Install Inno Setup
         shell: pwsh
         run: choco install innosetup --yes --no-progress
-      - name: Build Windows installer and clean delivery copy
+      - name: Build Windows preview installer
         shell: pwsh
         run: |
           $iscc = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
@@ -191,11 +191,11 @@ jobs:
           & $iscc "/DMyAppVersion=$env:GREMLIN_VERSION" "packaging\windows\GREMLIN.iss"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           $versioned = Get-ChildItem dist\installer\GREMLIN-Early-Access-Windows-x64-Setup-*.exe | Select-Object -First 1
-          Copy-Item $versioned.FullName dist\installer\GREMLIN-Early-Access-Windows-x64-Setup.exe -Force
+          Copy-Item $versioned.FullName dist\installer\GREMLIN-Early-Access-Windows-x64-Setup-PREVIEW.exe -Force
       - name: Install preview silently
         shell: pwsh
         run: |
-          $installer = Resolve-Path dist\installer\GREMLIN-Early-Access-Windows-x64-Setup.exe
+          $installer = Resolve-Path dist\installer\GREMLIN-Early-Access-Windows-x64-Setup-PREVIEW.exe
           $process = Start-Process -FilePath $installer -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART' -Wait -PassThru
           if ($process.ExitCode -ne 0) { exit $process.ExitCode }
       - name: Smoke installed Windows customer path
@@ -223,16 +223,16 @@ jobs:
           if (-not (Test-Path (Join-Path $root 'resources\README-FIRST.txt'))) { throw 'README-FIRST missing' }
           if (-not (Test-Path (Join-Path $root 'resources\MCP-SETUP.md'))) { throw 'MCP-SETUP missing' }
           if (-not (Test-Path (Join-Path $root 'resources\PREVIEW_BUILD.txt'))) { throw 'Preview marker missing' }
-      - name: Hash Windows delivery artifact
+      - name: Hash Windows preview artifact
         shell: pwsh
         run: |
-          $installer = Resolve-Path dist\installer\GREMLIN-Early-Access-Windows-x64-Setup.exe
+          $installer = Resolve-Path dist\installer\GREMLIN-Early-Access-Windows-x64-Setup-PREVIEW.exe
           $hash = (Get-FileHash -Algorithm SHA256 $installer).Hash.ToLowerInvariant()
-          "$hash  GREMLIN-Early-Access-Windows-x64-Setup.exe" | Set-Content dist\installer\SHA256SUMS-windows.txt
+          "$hash  GREMLIN-Early-Access-Windows-x64-Setup-PREVIEW.exe" | Set-Content dist\installer\SHA256SUMS-windows-PREVIEW.txt
       - uses: actions/upload-artifact@v4
         with:
           name: gremlin-windows-preview-${{ env.GREMLIN_VERSION }}
           path: |
-            dist/installer/GREMLIN-Early-Access-Windows-x64-Setup.exe
-            dist/installer/SHA256SUMS-windows.txt
+            dist/installer/GREMLIN-Early-Access-Windows-x64-Setup-PREVIEW.exe
+            dist/installer/SHA256SUMS-windows-PREVIEW.txt
           if-no-files-found: error
