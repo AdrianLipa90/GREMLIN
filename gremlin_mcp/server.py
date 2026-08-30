@@ -15,6 +15,7 @@ from gremlin_mcp.core import (
     status,
 )
 from gremlin_mcp.guarded_research import execute_guarded_research
+from gremlin_mcp.hound_research import execute_research_with_hound_provenance
 from gremlin_mcp.pipeline import collect, enqueue_synthesis, fanout
 from gremlin_mcp.relational_cases import extract_relations, operator_signature
 from gremlin_mcp.relational_research import execute_relational_research
@@ -39,6 +40,8 @@ mcp = MCPServer(
         "a receipt-bearing HTTPS document fetch, gremlin_research for route + multi-provider "
         "evidence acquisition, gremlin_research_execute to run the resulting staged plan through "
         "the built-in reference Bestiary worker ABI and BELZEBUB candidate synthesis, "
+        "gremlin_research_hound_provenance to attach a committed HOUND same-work/source-family "
+        "audit to the exact execution citations without mutating worker result commitments, "
         "gremlin_research_guarded to bind explicit typed claim evidence to an exact evidence "
         "bundle and quarantine BELZEBUB synthesis when SUPPORT/CONTRADICT evidence conflicts "
         "without a valid exact-bundle HOUND receipt, and gremlin_research_relational to attach "
@@ -80,6 +83,7 @@ def gremlin_status() -> dict[str, Any]:
         "mode": "HTTPS_ONLY_FAIL_CLOSED",
         "providers": ["crossref", "arxiv", "duckduckgo"],
         "reference_executor": "BUILTIN_REFERENCE_BESTIARY_EXECUTOR",
+        "hound_provenance_executor": "GREMLIN_HOUND_RESEARCH_BINDING_V0_1",
         "guarded_executor": "GREMLIN_GUARDED_RESEARCH_V0_1",
         "production_runtime_write": False,
         "execution_admitted": False,
@@ -200,6 +204,24 @@ def gremlin_research_execute(
 ) -> dict[str, Any]:
     """Acquire internet evidence, execute staged Bestiary reference workers and synthesize a candidate."""
     return execute_research(
+        query,
+        providers=providers or ["crossref", "arxiv", "duckduckgo"],
+        limit_per_provider=limit_per_provider,
+        max_species=max_species,
+        max_sources=max_sources,
+    )
+
+
+@mcp.tool()
+def gremlin_research_hound_provenance(
+    query: str,
+    providers: list[str] | None = None,
+    limit_per_provider: int = 6,
+    max_species: int = 4,
+    max_sources: int = 12,
+) -> dict[str, Any]:
+    """Execute research and bind HOUND duplicate/version auditing to canonical source-family provenance."""
+    return execute_research_with_hound_provenance(
         query,
         providers=providers or ["crossref", "arxiv", "duckduckgo"],
         limit_per_provider=limit_per_provider,
