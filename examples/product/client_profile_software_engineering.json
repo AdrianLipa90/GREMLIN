@@ -1,0 +1,43 @@
+{
+  "schema": "GREMLIN_CLIENT_PROFILE_V0_1",
+  "client_id": "customer-software-engineering",
+  "label": "Software Engineering",
+  "tools": [
+    "gremlin_status",
+    "gremlin_bestiary",
+    "gremlin_species",
+    "gremlin_plan",
+    "gremlin_route",
+    "gremlin_research",
+    "gremlin_research_execute",
+    "gremlin_research_guarded",
+    "gremlin_auto_fanout",
+    "gremlin_fanout",
+    "gremlin_collect",
+    "gremlin_synthesize"
+  ],
+  "species": [
+    "SPIDER",
+    "HOUND",
+    "MOLE",
+    "OWL",
+    "BELZEBUB"
+  ],
+  "providers": [
+    "crossref",
+    "arxiv",
+    "duckduckgo"
+  ],
+  "languages": [
+    "en"
+  ],
+  "internet_access": true,
+  "custom_workers": false,
+  "limits": {
+    "max_workers": 4,
+    "max_sources": 24
+  },
+  "metadata": {
+    "profile_kind": "SOFTWARE_ENGINEERING_REFERENCE"
+  }
+}
