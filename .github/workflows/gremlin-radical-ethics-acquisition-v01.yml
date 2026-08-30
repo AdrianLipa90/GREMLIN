@@ -1,0 +1,36 @@
+name: GREMLIN Radical Ethics Acquisition v0.1
+
+on:
+  push:
+    branches:
+      - feat/gremlin-radical-ethics-acquisition-v0.1
+  pull_request:
+    paths:
+      - 'tools/gremlin_radical_ethics_acquisition_v01.py'
+      - 'tools/gremlin_kaku_scalar_acquisition_v01.py'
+      - 'tools/gremlin_kaku_radical_scalar_plane_v01.py'
+      - 'tools/gremlin_scalar_admitted_phasenav_v02.py'
+      - 'tests/test_gremlin_radical_ethics_acquisition_v01.py'
+      - 'tests/test_gremlin_kaku_scalar_acquisition_v01.py'
+      - 'tests/test_gremlin_kaku_radical_scalar_plane_v01.py'
+      - 'tests/test_gremlin_scalar_admitted_phasenav_v02.py'
+      - 'spec/GREMLIN_RADICAL_ETHICS_ACQUISITION_V0_1.md'
+      - '.github/workflows/gremlin-radical-ethics-acquisition-v01.yml'
+
+jobs:
+  radical-ethics-acquisition:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Python test runner
+        run: python -m pip install pytest
+      - name: Run ethics acquisition and downstream admission contracts
+        run: >-
+          python -m pytest -q
+          tests/test_gremlin_radical_ethics_acquisition_v01.py
+          tests/test_gremlin_kaku_scalar_acquisition_v01.py
+          tests/test_gremlin_kaku_radical_scalar_plane_v01.py
+          tests/test_gremlin_scalar_admitted_phasenav_v02.py

@@ -6,6 +6,7 @@ FILES = sorted(NATIVE.glob("*.pnv"))
 ALLOWED = {"SOURCE","IDENTITY","DIFFERENCE","CONDITION","ORDER","TRANSFORM","COMPOSITION","RETURN"}
 REQUIRED_NATIVE = {
     "BELZEBUB_TOOL_V0_4.pnv",
+    "GREMLIN_KAKU_RADICAL_WRITER_V0_1.pnv",
     "GREMLIN_NATURAL_QUEUE_TAU_V0_4.pnv",
     "GREMLIN_PERSISTENT_MEMORY_V0_4.pnv",
     "GREMLIN_PHASENAV_PROTOTYPE_PIPELINE_V0_1.pnv",
@@ -111,6 +112,25 @@ def test_phasenav_prototype_pipeline_contract():
     assert "# CANON_ALLOWED FALSE" in text
     assert "# BELZEBUB_SURVIVAL_REQUIRED TRUE" in text
     assert "# PYTHON_ROLE REFERENCE_AND_TEST_HARNESS_ONLY" in text
+
+
+def test_kaku_radical_writer_contract():
+    text=(NATIVE/"GREMLIN_KAKU_RADICAL_WRITER_V0_1.pnv").read_text()
+    assert "# KAKU_SCHEMA GREMLIN_KAKU_SCALAR_PACKET_V0_1" in text
+    assert "# KAKU_RECORD_SCHEMA GREMLIN_KAKU_PERSISTENCE_RECORD_V0_1" in text
+    assert "# RADICAL_SCHEMA GREMLIN_RADICAL_SCALAR_ADMISSION_V0_1" in text
+    assert "# RADICAL_RECORD_SCHEMA GREMLIN_RADICAL_PERSISTENCE_RECORD_V0_1" in text
+    assert "# EXACT_ORDERED_KAKU_LINEAGE TRUE" in text
+    assert "# KAKU_CONTENT_ADDRESSED TRUE" in text
+    assert "# RADICAL_CONTENT_ADDRESSED TRUE" in text
+    assert "# STORE_POLICY IMMUTABLE_IDEMPOTENT" in text
+    assert "# PATH_COLLISION DIFFERENT_BYTES_FAIL_CLOSED" in text
+    assert "# PRE_VECTOR_STATUS_PRESERVED TRUE" in text
+    assert "# HARD_GATE_STATUS_PRESERVED TRUE" in text
+    assert "# EXECUTION_AUTHORITY FALSE" in text
+    assert "# CANON_ALLOWED FALSE" in text
+    assert "# PRODUCTION_RUNTIME_WRITE FALSE" in text
+    assert "# PHASENAV_REALIZATION_REQUIRED_LATER TRUE" in text
 
 
 def test_no_python_authority_claim_in_spec():
