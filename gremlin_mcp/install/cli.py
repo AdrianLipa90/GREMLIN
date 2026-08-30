@@ -7,6 +7,7 @@ from typing import Any, Sequence
 
 from .config import load_effective_config
 from .doctor import run_doctor
+from .integrations import gremlin_stdio_entry, inspect_json_mcp, install_json_mcp, remove_json_mcp
 from .paths import resolve_paths
 
 
@@ -68,6 +69,47 @@ def _init(args: argparse.Namespace) -> int:
     return 0
 
 
+def _integration_inspect(args: argparse.Namespace) -> int:
+    payload = inspect_json_mcp(args.config, server_name=args.server_name)
+    _emit(payload, as_json=args.json)
+    return 0
+
+
+def _integration_install(args: argparse.Namespace) -> int:
+    paths = resolve_paths(platform=args.platform)
+    backup_root = Path(paths.data_dir) / "integration-backups"
+    receipt = install_json_mcp(
+        client_id=args.client_id,
+        config_path=args.config,
+        entry=gremlin_stdio_entry(paths),
+        backup_root=backup_root,
+        server_name=args.server_name,
+    )
+    _emit(receipt.as_dict(), as_json=args.json)
+    return 0
+
+
+def _integration_remove(args: argparse.Namespace) -> int:
+    paths = resolve_paths(platform=args.platform)
+    backup_root = Path(paths.data_dir) / "integration-backups"
+    receipt = remove_json_mcp(
+        client_id=args.client_id,
+        config_path=args.config,
+        backup_root=backup_root,
+        server_name=args.server_name,
+    )
+    _emit(receipt.as_dict(), as_json=args.json)
+    return 0
+
+
+def _integration_common(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--client-id", default="generic-json-mcp")
+    parser.add_argument("--config", required=True, help="path to a JSON MCP client configuration")
+    parser.add_argument("--server-name", default="gremlin")
+    parser.add_argument("--platform", choices=("windows", "linux"))
+    parser.add_argument("--json", action="store_true")
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="GREMLIN installation and diagnostics control utility")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -88,6 +130,20 @@ def build_parser() -> argparse.ArgumentParser:
     show.add_argument("--platform", choices=("windows", "linux"))
     show.add_argument("--json", action="store_true")
     show.set_defaults(func=_config_show)
+
+    integrations = sub.add_parser("integrations", help="inspect and safely modify MCP client configuration")
+    integrations_sub = integrations.add_subparsers(dest="integration_command", required=True)
+    inspect = integrations_sub.add_parser("inspect", help="inspect a generic JSON MCP configuration")
+    inspect.add_argument("--config", required=True)
+    inspect.add_argument("--server-name", default="gremlin")
+    inspect.add_argument("--json", action="store_true")
+    inspect.set_defaults(func=_integration_inspect)
+    install = integrations_sub.add_parser("install", help="backup, merge and verify the GREMLIN stdio entry")
+    _integration_common(install)
+    install.set_defaults(func=_integration_install)
+    remove = integrations_sub.add_parser("remove", help="backup, remove and verify the GREMLIN entry")
+    _integration_common(remove)
+    remove.set_defaults(func=_integration_remove)
 
     doctor = sub.add_parser("doctor", help="run sanitized installation/product diagnostics")
     doctor.add_argument("--platform", choices=("windows", "linux"))
