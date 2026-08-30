@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=GREMLIN Control Center
+Comment=Configure GREMLIN licensing, MCP integrations and diagnostics
+Exec=gremlin-control-center
+Terminal=false
+Categories=Development;Utility;
+StartupNotify=true
