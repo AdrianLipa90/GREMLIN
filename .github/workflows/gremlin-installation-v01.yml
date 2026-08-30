@@ -43,7 +43,7 @@ jobs:
         run: |
           gremlinctl --help >/dev/null
           gremlinctl paths --json >/dev/null
-          gremlinctl doctor --json >/dev/null || test $? -eq 0
+          gremlinctl doctor --json >/dev/null
           gremlin-product-mcp --help >/dev/null
           gremlin-license --help >/dev/null
           gremlin-bundle --help >/dev/null
@@ -55,4 +55,28 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - name: Check native Control Center
+        run: cargo check --manifest-path control_center/Cargo.toml
+
+  windows-install-contract:
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install GREMLIN and pytest
+        run: python -m pip install --disable-pip-version-check -e . pytest
+      - name: Run Windows installation tests including live DPAPI roundtrip
+        run: python -m pytest -q tests/test_gremlin_install_*.py
+      - name: Verify Windows CLI path and device surfaces
+        shell: pwsh
+        run: |
+          gremlinctl --help | Out-Null
+          gremlinctl paths --platform windows --json | Out-Null
+          gremlinctl doctor --platform windows --json | Out-Null
+          gremlinctl device status --platform windows --json | Out-Null
+          gremlinctl device init --platform windows --json | Out-Null
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Check native Control Center on Windows
         run: cargo check --manifest-path control_center/Cargo.toml
