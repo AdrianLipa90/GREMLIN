@@ -10,7 +10,7 @@ from .profile import ClientProfileError, load_client_profile
 
 
 class ProductAuthorizationError(PermissionError):
-    """Raised when a product operation is outside the configured entitlement."""
+    """Raised when a GREMLIN product operation is outside the configured entitlement."""
 
 
 @dataclass
@@ -91,7 +91,7 @@ class ProductRuntime:
     def authorize(
         self,
         *,
-        tool: str,
+        tool: str | None,
         feature: str | None = None,
         species: str | None = None,
         provider: str | None = None,
@@ -113,7 +113,7 @@ class ProductRuntime:
         profile = self.client_profile
         if profile is not None:
             allowed_tools = set(profile.get("tools") or [])
-            if allowed_tools and tool not in allowed_tools:
+            if tool is not None and allowed_tools and tool not in allowed_tools:
                 self._deny(f"TOOL_NOT_ALLOWED_BY_PROFILE:{tool}")
             if species is not None:
                 allowed_species = set(profile.get("species") or [])
@@ -140,7 +140,16 @@ class ProductRuntime:
         if requested_sources is not None and int(requested_sources) > max_sources:
             self._deny(f"SOURCE_LIMIT_EXCEEDED:{requested_sources}>{max_sources}")
 
+    def authorize_feature(self, feature: str) -> None:
+        """Authorize an internal runtime feature without applying the client MCP-tool allowlist."""
+        self.authorize(tool=None, feature=feature)
+
     def status(self) -> dict[str, Any]:
+        authority = {
+            "production_runtime_write": False,
+            "execution_admitted": False,
+            "canon_allowed": False,
+        }
         if self.configuration_error:
             return {
                 "schema": "GREMLIN_PRODUCT_STATUS_V0_1",
@@ -148,11 +157,7 @@ class ProductRuntime:
                 "require_license": self.require_license,
                 "enforcement_active": self.enforcement_active,
                 "reason": self.configuration_error,
-                "authority": {
-                    "production_runtime_write": False,
-                    "execution_admitted": False,
-                    "canon_allowed": False,
-                },
+                "authority": authority,
             }
         if self.license_payload is None:
             return {
@@ -160,11 +165,7 @@ class ProductRuntime:
                 "status": "UNLICENSED_RESEARCH" if not self.require_license else "BLOCKED",
                 "require_license": self.require_license,
                 "enforcement_active": self.enforcement_active,
-                "authority": {
-                    "production_runtime_write": False,
-                    "execution_admitted": False,
-                    "canon_allowed": False,
-                },
+                "authority": authority,
             }
         out = {
             "schema": "GREMLIN_PRODUCT_STATUS_V0_1",
@@ -173,11 +174,7 @@ class ProductRuntime:
             "enforcement_active": self.enforcement_active,
             "license": license_status(self.license_payload),
             "profile": None,
-            "authority": {
-                "production_runtime_write": False,
-                "execution_admitted": False,
-                "canon_allowed": False,
-            },
+            "authority": authority,
         }
         if self.client_profile is not None:
             out["profile"] = {
