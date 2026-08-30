@@ -48,10 +48,10 @@ def customer_home(platform: str) -> Path:
     return Path(value)
 
 
-def smoke(*, ctl: Path, platform: str, license_key_file: Path) -> dict[str, Any]:
+def smoke(*, ctl: Path, platform: str, license_key: str) -> dict[str, Any]:
     if not ctl.is_file():
         raise RuntimeError(f"installed gremlinctl is missing: {ctl}")
-    key = license_key_file.read_text(encoding="utf-8").strip()
+    key = license_key.strip()
     if not key.startswith("GRM1-"):
         raise RuntimeError("customer smoke license is not a GRM1 key")
 
@@ -167,9 +167,17 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Smoke the installed GREMLIN customer activation and MCP flow")
     parser.add_argument("--ctl", required=True, type=Path)
     parser.add_argument("--platform", required=True, choices=("windows", "linux"))
-    parser.add_argument("--license-key-file", required=True, type=Path)
+    source = parser.add_mutually_exclusive_group(required=True)
+    source.add_argument("--license-key-file", type=Path)
+    source.add_argument("--license-key-env", help="environment variable containing the GRM1 key; only the variable name appears in process arguments")
     args = parser.parse_args()
-    print(json.dumps(smoke(ctl=args.ctl, platform=args.platform, license_key_file=args.license_key_file), indent=2, sort_keys=True))
+    if args.license_key_file is not None:
+        key = args.license_key_file.read_text(encoding="utf-8")
+    else:
+        key = str(os.environ.get(args.license_key_env) or "")
+        if not key:
+            raise SystemExit(f"license key environment variable is empty: {args.license_key_env}")
+    print(json.dumps(smoke(ctl=args.ctl, platform=args.platform, license_key=key), indent=2, sort_keys=True))
     return 0
 
 
