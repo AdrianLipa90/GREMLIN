@@ -93,10 +93,10 @@ def test_customer_bundle_contains_validated_manifest_and_no_private_key(tmp_path
         assert manifest["client_id"] == "bundle-client"
 
 
-def test_customer_bundle_rejects_private_key_extra(tmp_path) -> None:
+def test_customer_bundle_rejects_private_key_extra_even_under_neutral_name(tmp_path) -> None:
     private, public_path, license_path, profile_path, distribution = _fixtures(tmp_path)
-    private_extra = tmp_path / "issuer-private.pem"
-    private_extra.write_bytes(
+    hidden_private_extra = tmp_path / "notes.pem"
+    hidden_private_extra.write_bytes(
         private.private_bytes(
             encoding=serialization.Encoding.PEM,
             format=serialization.PrivateFormat.PKCS8,
@@ -109,6 +109,6 @@ def test_customer_bundle_rejects_private_key_extra(tmp_path) -> None:
             public_key_path=public_path,
             profile_path=profile_path,
             license_path=license_path,
-            extra_paths=[private_extra],
+            extra_paths=[hidden_private_extra],
             output_path=tmp_path / "blocked.zip",
         )
