@@ -3,12 +3,13 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import unicodedata
 from typing import Any, Iterable, Mapping, Sequence
 
 from gremlin_mcp.semantic_evidence import verify_classification
 
 SCHEMA = "GREMLIN_CLAIM_PROPOSITION_V0_1"
-VERSION = "0.1.0"
+VERSION = "0.1.1"
 
 AFFIRM = "AFFIRM"
 NEGATE = "NEGATE"
@@ -21,8 +22,6 @@ CONDITIONAL = "CONDITIONAL"
 UNRESOLVED = "UNRESOLVED"
 _ALLOWED_MODALITIES = {ASSERTED, NECESSARY, POSSIBLE, CONDITIONAL, UNRESOLVED}
 _STRONG_ASSERTION_MODALITIES = {ASSERTED, NECESSARY}
-
-_TOKEN_NORMALIZE_RE = re.compile(r"[^a-z0-9_:-]+")
 
 
 def _canonical(value: Any) -> bytes:
@@ -55,8 +54,21 @@ def _authority() -> dict[str, bool]:
 
 
 def normalize_term(value: Any) -> str:
-    text = str(value or "").casefold().strip()
-    return " ".join(_TOKEN_NORMALIZE_RE.sub(" ", text).split())
+    """Normalize entity/relation arguments without discarding non-ASCII letters.
+
+    NFKC + casefold gives stable compatibility normalization while Unicode letters/digits and
+    combining marks remain evidence-bearing term content. Punctuation becomes token boundaries;
+    `_`, `:` and `-` are retained for explicit symbolic identifiers.
+    """
+    text = unicodedata.normalize("NFKC", str(value or "")).casefold().strip()
+    normalized = []
+    for char in text:
+        category = unicodedata.category(char)
+        if char.isalnum() or category.startswith("M") or char in "_:-":
+            normalized.append(char)
+        else:
+            normalized.append(" ")
+    return " ".join("".join(normalized).split())
 
 
 def normalize_predicate(value: Any) -> str:
@@ -155,6 +167,7 @@ def build_proposition(
         "proposition_commitment": _commit(b"GREMLIN-CLAIM-PROPOSITION/v0.1", core),
         "epistemic_status": "CANDIDATE_PROPOSITION_FRAME",
         "semantic_equivalence_policy": "EXACT_NORMALIZED_FRAME_ONLY_NO_SYNONYM_INFERENCE",
+        "term_normalization": "UNICODE_NFKC_CASEFOLD_ALNUM_MARK_SAFE",
         "source_content_authority": "UNTRUSTED_EVIDENCE_ONLY",
         "authority": _authority(),
     }
