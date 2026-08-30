@@ -37,4 +37,5 @@ jobs:
       - name: Verify product CLIs are packaged
         run: |
           gremlin-license --help >/dev/null
+          gremlin-bundle --help >/dev/null
           gremlin-product-mcp --help >/dev/null
