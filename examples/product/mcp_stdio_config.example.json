@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "gremlin": {
+      "command": "gremlin-product-mcp",
+      "args": [
+        "--transport",
+        "stdio"
+      ],
+      "env": {
+        "GREMLIN_LICENSE_KEY": "GRM1-REPLACE_WITH_CUSTOMER_KEY",
+        "GREMLIN_LICENSE_PUBLIC_KEY": "/absolute/path/to/gremlin-issuer-public.pem",
+        "GREMLIN_CLIENT_PROFILE": "/absolute/path/to/client-profile.json",
+        "GREMLIN_MCP_STATE_PATH": "/absolute/path/to/gremlin-worker.sqlite3"
+      }
+    }
+  }
+}
