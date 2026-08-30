@@ -110,6 +110,8 @@ def _dpapi_crypt(data: bytes, *, protect: bool) -> bytes:
         wintypes.DWORD,
         ctypes.POINTER(_DataBlob),
     ]
+    kernel32.LocalFree.argtypes = [ctypes.c_void_p]
+    kernel32.LocalFree.restype = ctypes.c_void_p
 
     if protect:
         ok = crypt32.CryptProtectData(
@@ -136,7 +138,7 @@ def _dpapi_crypt(data: bytes, *, protect: bool) -> bytes:
     try:
         return ctypes.string_at(out_blob.pbData, out_blob.cbData)
     finally:
-        kernel32.LocalFree(ctypes.cast(out_blob.pbData, wintypes.HLOCAL))
+        kernel32.LocalFree(ctypes.cast(out_blob.pbData, ctypes.c_void_p))
 
 
 class WindowsDpapiStore:
