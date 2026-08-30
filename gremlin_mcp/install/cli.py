@@ -1,0 +1,217 @@
+from __future__ import annotations
+
+import argparse
+import json
+from pathlib import Path
+from typing import Any, Sequence
+
+from .config import load_effective_config
+from .device import build_activation_request, device_identity_status, ensure_device_identity
+from .doctor import run_doctor
+from .integrations import gremlin_stdio_entry, inspect_json_mcp, install_json_mcp, remove_json_mcp
+from .paths import resolve_paths
+from .secrets import resolve_secret_store, secret_store_status
+
+
+DEFAULT_CONFIG_TEXT = """schema = \"GREMLIN_CONFIG_V0_1\"\n\n[runtime]\ntransport = \"stdio\"\nstate = \"auto\"\n\n[network]\ninternet = true\nlocal_http = false\n\n[research]\nmax_workers = 4\nmax_sources = 24\n\n[logging]\nlevel = \"info\"\n"""
+
+
+def _emit(payload: Any, *, as_json: bool) -> None:
+    if as_json:
+        print(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True))
+        return
+    if isinstance(payload, dict):
+        for key, value in payload.items():
+            if isinstance(value, (dict, list)):
+                print(f"{key}: {json.dumps(value, ensure_ascii=False, sort_keys=True)}")
+            else:
+                print(f"{key}: {value}")
+    else:
+        print(payload)
+
+
+def _paths(args: argparse.Namespace) -> int:
+    payload = resolve_paths(platform=args.platform).as_dict()
+    _emit(payload, as_json=args.json)
+    return 0
+
+
+def _config_show(args: argparse.Namespace) -> int:
+    paths = resolve_paths(platform=args.platform)
+    payload = load_effective_config(
+        user_config_path=paths.config_file,
+        machine_policy_path=paths.machine_policy_file,
+    )
+    _emit(payload, as_json=args.json)
+    return 0
+
+
+def _doctor(args: argparse.Namespace) -> int:
+    payload = run_doctor(platform=args.platform)
+    _emit(payload, as_json=args.json)
+    return 1 if payload["status"] == "FAIL" else 0
+
+
+def _init(args: argparse.Namespace) -> int:
+    paths = resolve_paths(platform=args.platform)
+    for directory in (paths.config_dir, paths.state_dir, paths.cache_dir, paths.data_dir, paths.logs_dir, paths.diagnostics_dir):
+        Path(directory).mkdir(parents=True, exist_ok=True)
+    config_path = Path(paths.config_file)
+    created = False
+    if not config_path.exists():
+        config_path.write_text(DEFAULT_CONFIG_TEXT, encoding="utf-8")
+        created = True
+    payload = {
+        "schema": "GREMLIN_INSTALL_INIT_V0_1",
+        "status": "READY",
+        "config_created": created,
+        "paths": paths.as_dict(),
+    }
+    _emit(payload, as_json=args.json)
+    return 0
+
+
+def _device_status(args: argparse.Namespace) -> int:
+    paths = resolve_paths(platform=args.platform)
+    store_state = secret_store_status(paths)
+    if not bool(store_state.get("available")):
+        payload = {
+            "schema": "GREMLIN_DEVICE_STATUS_V0_1",
+            "status": "SECRET_STORE_UNAVAILABLE",
+            "secret_store": store_state,
+            "identity": None,
+        }
+    else:
+        store = resolve_secret_store(paths)
+        payload = {
+            "schema": "GREMLIN_DEVICE_STATUS_V0_1",
+            "status": "READY",
+            "secret_store": store_state,
+            "identity": device_identity_status(store),
+        }
+    _emit(payload, as_json=args.json)
+    return 0
+
+
+def _device_init(args: argparse.Namespace) -> int:
+    paths = resolve_paths(platform=args.platform)
+    store = resolve_secret_store(paths)
+    payload = ensure_device_identity(store)
+    _emit(payload, as_json=args.json)
+    return 0
+
+
+def _device_activation_request(args: argparse.Namespace) -> int:
+    paths = resolve_paths(platform=args.platform)
+    store = resolve_secret_store(paths)
+    payload = build_activation_request(license_id=args.license_id, store=store)
+    _emit(payload, as_json=args.json)
+    return 0
+
+
+def _integration_inspect(args: argparse.Namespace) -> int:
+    payload = inspect_json_mcp(args.config, server_name=args.server_name)
+    _emit(payload, as_json=args.json)
+    return 0
+
+
+def _integration_install(args: argparse.Namespace) -> int:
+    paths = resolve_paths(platform=args.platform)
+    backup_root = Path(paths.data_dir) / "integration-backups"
+    receipt = install_json_mcp(
+        client_id=args.client_id,
+        config_path=args.config,
+        entry=gremlin_stdio_entry(paths),
+        backup_root=backup_root,
+        server_name=args.server_name,
+    )
+    _emit(receipt.as_dict(), as_json=args.json)
+    return 0
+
+
+def _integration_remove(args: argparse.Namespace) -> int:
+    paths = resolve_paths(platform=args.platform)
+    backup_root = Path(paths.data_dir) / "integration-backups"
+    receipt = remove_json_mcp(
+        client_id=args.client_id,
+        config_path=args.config,
+        backup_root=backup_root,
+        server_name=args.server_name,
+    )
+    _emit(receipt.as_dict(), as_json=args.json)
+    return 0
+
+
+def _integration_common(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--client-id", default="generic-json-mcp")
+    parser.add_argument("--config", required=True, help="path to a JSON MCP client configuration")
+    parser.add_argument("--server-name", default="gremlin")
+    parser.add_argument("--platform", choices=("windows", "linux"))
+    parser.add_argument("--json", action="store_true")
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description="GREMLIN installation and diagnostics control utility")
+    sub = parser.add_subparsers(dest="command", required=True)
+
+    paths = sub.add_parser("paths", help="show canonical GREMLIN installation/user-data paths")
+    paths.add_argument("--platform", choices=("windows", "linux"))
+    paths.add_argument("--json", action="store_true")
+    paths.set_defaults(func=_paths)
+
+    init = sub.add_parser("init", help="create GREMLIN user directories and a default config without overwriting")
+    init.add_argument("--platform", choices=("windows", "linux"))
+    init.add_argument("--json", action="store_true")
+    init.set_defaults(func=_init)
+
+    config = sub.add_parser("config", help="inspect effective operational configuration")
+    config_sub = config.add_subparsers(dest="config_command", required=True)
+    show = config_sub.add_parser("show", help="show effective config after env/policy precedence")
+    show.add_argument("--platform", choices=("windows", "linux"))
+    show.add_argument("--json", action="store_true")
+    show.set_defaults(func=_config_show)
+
+    device = sub.add_parser("device", help="manage the installation Ed25519 identity")
+    device_sub = device.add_subparsers(dest="device_command", required=True)
+    device_status = device_sub.add_parser("status", help="show secret-store and device identity status")
+    device_status.add_argument("--platform", choices=("windows", "linux"))
+    device_status.add_argument("--json", action="store_true")
+    device_status.set_defaults(func=_device_status)
+    device_init = device_sub.add_parser("init", help="create or recover the installation identity in OS secret storage")
+    device_init.add_argument("--platform", choices=("windows", "linux"))
+    device_init.add_argument("--json", action="store_true")
+    device_init.set_defaults(func=_device_init)
+    activation_request = device_sub.add_parser("activation-request", help="create a signed device activation proof")
+    activation_request.add_argument("--license-id", required=True)
+    activation_request.add_argument("--platform", choices=("windows", "linux"))
+    activation_request.add_argument("--json", action="store_true")
+    activation_request.set_defaults(func=_device_activation_request)
+
+    integrations = sub.add_parser("integrations", help="inspect and safely modify MCP client configuration")
+    integrations_sub = integrations.add_subparsers(dest="integration_command", required=True)
+    inspect = integrations_sub.add_parser("inspect", help="inspect a generic JSON MCP configuration")
+    inspect.add_argument("--config", required=True)
+    inspect.add_argument("--server-name", default="gremlin")
+    inspect.add_argument("--json", action="store_true")
+    inspect.set_defaults(func=_integration_inspect)
+    install = integrations_sub.add_parser("install", help="backup, merge and verify the GREMLIN stdio entry")
+    _integration_common(install)
+    install.set_defaults(func=_integration_install)
+    remove = integrations_sub.add_parser("remove", help="backup, remove and verify the GREMLIN entry")
+    _integration_common(remove)
+    remove.set_defaults(func=_integration_remove)
+
+    doctor = sub.add_parser("doctor", help="run sanitized installation/product diagnostics")
+    doctor.add_argument("--platform", choices=("windows", "linux"))
+    doctor.add_argument("--json", action="store_true")
+    doctor.set_defaults(func=_doctor)
+    return parser
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    args = build_parser().parse_args(argv)
+    return int(args.func(args))
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

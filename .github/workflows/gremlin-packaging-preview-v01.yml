@@ -1,0 +1,161 @@
+name: GREMLIN Packaging Preview v0.1
+
+on:
+  push:
+    branches:
+      - feat/gremlin-installation-control-center-v0.1
+    paths:
+      - 'gremlin_mcp/**'
+      - 'control_center/**'
+      - 'packaging/**'
+      - 'tools/build_gremlin_standalone_v01.py'
+      - 'tools/build_gremlin_deb_v01.py'
+      - 'tools/prepare_installer_resources_v01.py'
+      - 'pyproject.toml'
+      - '.github/workflows/gremlin-packaging-preview-v01.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  GREMLIN_VERSION: 0.5.0-preview.1
+  GREMLIN_DEB_VERSION: 0.5.0~preview1-1
+
+jobs:
+  linux-preview-package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install native build dependencies
+        run: >-
+          sudo apt-get update && sudo apt-get install -y
+          build-essential
+          libsecret-tools
+          libx11-dev
+          libxcursor-dev
+          libxi-dev
+          libxrandr-dev
+          libxkbcommon-dev
+          libwayland-dev
+          libgl1-mesa-dev
+      - name: Install GREMLIN and Nuitka build dependencies
+        run: python -m pip install --disable-pip-version-check -e . nuitka zstandard
+      - name: Build standalone GREMLIN runtime
+        run: python tools/build_gremlin_standalone_v01.py --clean
+      - name: Build native Control Center release
+        run: cargo build --release --manifest-path control_center/Cargo.toml
+      - name: Stage Control Center
+        run: |
+          mkdir -p dist/linux/control-center
+          cp control_center/target/release/gremlin-control-center dist/linux/control-center/gremlin-control-center
+      - name: Create ephemeral preview verifier
+        run: |
+          gremlin-license keygen --private "$RUNNER_TEMP/preview-private.pem" --public "$RUNNER_TEMP/preview-public.pem"
+          python tools/prepare_installer_resources_v01.py --public-key "$RUNNER_TEMP/preview-public.pem" --output dist/linux/resources --version "$GREMLIN_VERSION" --preview
+          rm -f "$RUNNER_TEMP/preview-private.pem"
+      - name: Smoke standalone runtime before packaging
+        run: |
+          dist/linux/runtime/gremlinctl paths --platform linux --json
+          dist/linux/runtime/gremlinctl doctor --platform linux --json
+          dist/linux/runtime/gremlin-product-mcp --help >/dev/null
+      - name: Build Debian package
+        run: >-
+          python tools/build_gremlin_deb_v01.py
+          --version "$GREMLIN_DEB_VERSION"
+          --output "dist/installer/gremlin_${GREMLIN_DEB_VERSION}_amd64.deb"
+      - name: Inspect and install Debian package
+        run: |
+          dpkg-deb --info "dist/installer/gremlin_${GREMLIN_DEB_VERSION}_amd64.deb"
+          sudo apt-get install -y "./dist/installer/gremlin_${GREMLIN_DEB_VERSION}_amd64.deb"
+      - name: Smoke installed Debian package
+        run: |
+          /usr/bin/gremlinctl paths --platform linux --json
+          /usr/bin/gremlinctl doctor --platform linux --json
+          test -x /usr/bin/gremlin-control-center
+          test -f /usr/share/gremlin/issuer-public.pem
+          test -f /usr/share/gremlin/PREVIEW_BUILD.txt
+      - name: Hash Debian artifact
+        run: sha256sum "dist/installer/gremlin_${GREMLIN_DEB_VERSION}_amd64.deb" | tee dist/installer/SHA256SUMS-linux.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gremlin-linux-preview-${{ env.GREMLIN_VERSION }}
+          path: |
+            dist/installer/*.deb
+            dist/installer/SHA256SUMS-linux.txt
+          if-no-files-found: error
+
+  windows-preview-package:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install GREMLIN and Nuitka build dependencies
+        run: python -m pip install --disable-pip-version-check -e . nuitka zstandard
+      - name: Build standalone GREMLIN runtime
+        run: python tools/build_gremlin_standalone_v01.py --clean
+      - name: Build native Control Center release
+        run: cargo build --release --manifest-path control_center/Cargo.toml
+      - name: Stage Control Center and preview verifier
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force dist/windows/control-center | Out-Null
+          Copy-Item control_center/target/release/gremlin-control-center.exe dist/windows/control-center/gremlin-control-center.exe
+          $private = Join-Path $env:RUNNER_TEMP 'preview-private.pem'
+          $public = Join-Path $env:RUNNER_TEMP 'preview-public.pem'
+          gremlin-license keygen --private $private --public $public
+          python tools/prepare_installer_resources_v01.py --public-key $public --output dist/windows/resources --version $env:GREMLIN_VERSION --preview
+          Remove-Item $private -Force
+      - name: Smoke standalone runtime before installer
+        shell: pwsh
+        run: |
+          & .\dist\windows\runtime\gremlinctl.exe paths --platform windows --json
+          & .\dist\windows\runtime\gremlinctl.exe doctor --platform windows --json
+          & .\dist\windows\runtime\gremlin-product-mcp.exe --help | Out-Null
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup --yes --no-progress
+      - name: Build Windows installer
+        shell: pwsh
+        run: |
+          $iscc = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
+          if (-not (Test-Path $iscc)) { $iscc = (Get-Command ISCC.exe).Source }
+          & $iscc "/DMyAppVersion=$env:GREMLIN_VERSION" "packaging\windows\GREMLIN.iss"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Install preview silently
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem dist\installer\GREMLIN-Setup-*-x64.exe | Select-Object -First 1
+          $process = Start-Process -FilePath $installer.FullName -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART' -Wait -PassThru
+          if ($process.ExitCode -ne 0) { exit $process.ExitCode }
+      - name: Smoke installed Windows package
+        shell: pwsh
+        run: |
+          $root = Join-Path $env:LOCALAPPDATA 'Programs\GREMLIN'
+          & (Join-Path $root 'gremlinctl.exe') paths --platform windows --json
+          & (Join-Path $root 'gremlinctl.exe') doctor --platform windows --json
+          if (-not (Test-Path (Join-Path $root 'gremlin-control-center.exe'))) { throw 'Control Center missing' }
+          if (-not (Test-Path (Join-Path $root 'resources\issuer-public.pem'))) { throw 'Verifier missing' }
+          if (-not (Test-Path (Join-Path $root 'resources\PREVIEW_BUILD.txt'))) { throw 'Preview marker missing' }
+      - name: Hash Windows installer
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem dist\installer\GREMLIN-Setup-*-x64.exe | Select-Object -First 1
+          $hash = (Get-FileHash -Algorithm SHA256 $installer.FullName).Hash.ToLowerInvariant()
+          "$hash  $($installer.Name)" | Set-Content dist\installer\SHA256SUMS-windows.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gremlin-windows-preview-${{ env.GREMLIN_VERSION }}
+          path: |
+            dist/installer/GREMLIN-Setup-*-x64.exe
+            dist/installer/SHA256SUMS-windows.txt
+          if-no-files-found: error

@@ -2,14 +2,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
 
+from .keycodec import verify_license_key
 from .license import LicenseError, license_status, load_license
 from .profile import ClientProfileError, load_client_profile
 
 
 class ProductAuthorizationError(PermissionError):
-    """Raised when a product operation is outside the configured entitlement."""
+    """Raised when a GREMLIN product operation is outside the configured entitlement."""
 
 
 @dataclass
@@ -26,6 +27,41 @@ class ProductRuntime:
         return cls(require_license=require_license)
 
     @classmethod
+    def from_configuration(
+        cls,
+        *,
+        license_path: str | Path | None = None,
+        license_key: str | None = None,
+        public_key_path: str | Path | None = None,
+        profile_path: str | Path | None = None,
+        require_license: bool = True,
+    ) -> "ProductRuntime":
+        runtime = cls(require_license=require_license)
+        if license_path and license_key:
+            runtime.configuration_error = "CONFIGURE_LICENSE_PATH_OR_LICENSE_KEY_NOT_BOTH"
+            return runtime
+        has_license = bool(license_path or license_key)
+        if not has_license and not public_key_path:
+            if require_license:
+                runtime.configuration_error = "LICENSE_REQUIRED"
+            return runtime
+        if has_license != bool(public_key_path):
+            runtime.configuration_error = "LICENSE_AND_PUBLIC_KEY_MUST_BE_CONFIGURED_TOGETHER"
+            return runtime
+        try:
+            if license_key:
+                payload = verify_license_key(license_key, public_key_path)  # type: ignore[arg-type]
+            else:
+                payload = load_license(license_path, public_key_path)  # type: ignore[arg-type]
+            profile = load_client_profile(profile_path, payload) if profile_path else None
+        except (LicenseError, ClientProfileError, OSError) as exc:
+            runtime.configuration_error = str(exc)
+            return runtime
+        runtime.license_payload = payload
+        runtime.client_profile = profile
+        return runtime
+
+    @classmethod
     def from_paths(
         cls,
         *,
@@ -34,23 +70,12 @@ class ProductRuntime:
         profile_path: str | Path | None = None,
         require_license: bool = True,
     ) -> "ProductRuntime":
-        runtime = cls(require_license=require_license)
-        if not license_path and not public_key_path:
-            if require_license:
-                runtime.configuration_error = "LICENSE_REQUIRED"
-            return runtime
-        if not license_path or not public_key_path:
-            runtime.configuration_error = "LICENSE_AND_PUBLIC_KEY_MUST_BE_CONFIGURED_TOGETHER"
-            return runtime
-        try:
-            payload = load_license(license_path, public_key_path)
-            profile = load_client_profile(profile_path, payload) if profile_path else None
-        except (LicenseError, ClientProfileError, OSError) as exc:
-            runtime.configuration_error = str(exc)
-            return runtime
-        runtime.license_payload = payload
-        runtime.client_profile = profile
-        return runtime
+        return cls.from_configuration(
+            license_path=license_path,
+            public_key_path=public_key_path,
+            profile_path=profile_path,
+            require_license=require_license,
+        )
 
     @property
     def configured(self) -> bool:
@@ -66,7 +91,7 @@ class ProductRuntime:
     def authorize(
         self,
         *,
-        tool: str,
+        tool: str | None,
         feature: str | None = None,
         species: str | None = None,
         provider: str | None = None,
@@ -88,16 +113,14 @@ class ProductRuntime:
         profile = self.client_profile
         if profile is not None:
             allowed_tools = set(profile.get("tools") or [])
-            if allowed_tools and tool not in allowed_tools:
+            allowed_species = set(profile.get("species") or [])
+            allowed_providers = set(profile.get("providers") or [])
+            if tool is not None and tool not in allowed_tools:
                 self._deny(f"TOOL_NOT_ALLOWED_BY_PROFILE:{tool}")
-            if species is not None:
-                allowed_species = set(profile.get("species") or [])
-                if allowed_species and species.upper() not in allowed_species:
-                    self._deny(f"SPECIES_NOT_ALLOWED_BY_PROFILE:{species.upper()}")
-            if provider is not None:
-                allowed_providers = set(profile.get("providers") or [])
-                if allowed_providers and provider.casefold() not in allowed_providers:
-                    self._deny(f"PROVIDER_NOT_ALLOWED_BY_PROFILE:{provider.casefold()}")
+            if species is not None and species.upper() not in allowed_species:
+                self._deny(f"SPECIES_NOT_ALLOWED_BY_PROFILE:{species.upper()}")
+            if provider is not None and provider.casefold() not in allowed_providers:
+                self._deny(f"PROVIDER_NOT_ALLOWED_BY_PROFILE:{provider.casefold()}")
             if feature == "INTERNET_RESEARCH" and not bool(profile.get("internet_access")):
                 self._deny("INTERNET_ACCESS_DISABLED_BY_PROFILE")
             if feature == "CUSTOM_WORKERS" and not bool(profile.get("custom_workers")):
@@ -115,7 +138,16 @@ class ProductRuntime:
         if requested_sources is not None and int(requested_sources) > max_sources:
             self._deny(f"SOURCE_LIMIT_EXCEEDED:{requested_sources}>{max_sources}")
 
+    def authorize_feature(self, feature: str) -> None:
+        """Authorize an internal runtime feature without applying the client MCP-tool allowlist."""
+        self.authorize(tool=None, feature=feature)
+
     def status(self) -> dict[str, Any]:
+        authority = {
+            "production_runtime_write": False,
+            "execution_admitted": False,
+            "canon_allowed": False,
+        }
         if self.configuration_error:
             return {
                 "schema": "GREMLIN_PRODUCT_STATUS_V0_1",
@@ -123,11 +155,7 @@ class ProductRuntime:
                 "require_license": self.require_license,
                 "enforcement_active": self.enforcement_active,
                 "reason": self.configuration_error,
-                "authority": {
-                    "production_runtime_write": False,
-                    "execution_admitted": False,
-                    "canon_allowed": False,
-                },
+                "authority": authority,
             }
         if self.license_payload is None:
             return {
@@ -135,11 +163,7 @@ class ProductRuntime:
                 "status": "UNLICENSED_RESEARCH" if not self.require_license else "BLOCKED",
                 "require_license": self.require_license,
                 "enforcement_active": self.enforcement_active,
-                "authority": {
-                    "production_runtime_write": False,
-                    "execution_admitted": False,
-                    "canon_allowed": False,
-                },
+                "authority": authority,
             }
         out = {
             "schema": "GREMLIN_PRODUCT_STATUS_V0_1",
@@ -148,11 +172,7 @@ class ProductRuntime:
             "enforcement_active": self.enforcement_active,
             "license": license_status(self.license_payload),
             "profile": None,
-            "authority": {
-                "production_runtime_write": False,
-                "execution_admitted": False,
-                "canon_allowed": False,
-            },
+            "authority": authority,
         }
         if self.client_profile is not None:
             out["profile"] = {
