@@ -1,0 +1,14 @@
+Source: gremlin
+Section: utils
+Priority: optional
+Maintainer: Adrian Lipa / Intention Lab
+Build-Depends: debhelper-compat (= 13)
+Standards-Version: 4.7.0
+Rules-Requires-Root: no
+
+Package: gremlin
+Architecture: amd64
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: GREMLIN AI Research Orchestrator
+ Licensed GREMLIN MCP runtime, native Control Center and cross-platform
+ installation/diagnostics tooling for local AI research orchestration.
