@@ -60,6 +60,14 @@ def _positive_int(value: Any, field: str, *, maximum: int) -> int:
     return out
 
 
+def _boolean(value: Any, field: str, *, default: bool = False) -> bool:
+    if value is None:
+        return default
+    if not isinstance(value, bool):
+        raise ClientProfileError(f"{field} must be boolean")
+    return value
+
+
 def normalize_client_profile(profile: Mapping[str, Any]) -> dict[str, Any]:
     if not isinstance(profile, Mapping):
         raise ClientProfileError("client profile must be an object")
@@ -90,8 +98,8 @@ def normalize_client_profile(profile: Mapping[str, Any]) -> dict[str, Any]:
         "species": species,
         "providers": providers,
         "languages": languages,
-        "internet_access": bool(body.get("internet_access", False)),
-        "custom_workers": bool(body.get("custom_workers", False)),
+        "internet_access": _boolean(body.get("internet_access"), "internet_access"),
+        "custom_workers": _boolean(body.get("custom_workers"), "custom_workers"),
         "limits": {
             "max_workers": _positive_int(limits.get("max_workers", 1), "limits.max_workers", maximum=100_000),
             "max_sources": _positive_int(limits.get("max_sources", 12), "limits.max_sources", maximum=10_000),
