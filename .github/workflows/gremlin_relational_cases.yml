@@ -1,0 +1,54 @@
+name: GREMLIN Relational Cases
+
+on:
+  push:
+    branches:
+      - feat/gremlin-research-engine-v0.1
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  relational-cases:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install test dependency
+        run: python -m pip install --disable-pip-version-check pytest
+      - name: Run relational case unit tests
+        run: python -m pytest -q tests/test_relational_cases.py
+      - name: Run relational case receipt probe
+        run: python -m tools.gremlin_relational_cases_probe_v01 --out artifacts/gremlin_relational_cases_probe.json
+      - name: Upload relational case receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gremlin-relational-cases
+          path: artifacts/gremlin_relational_cases_probe.json
+          if-no-files-found: warn
+
+  relational-research-live:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run case-typed live internet research probe
+        run: >-
+          python -m tools.gremlin_relational_research_live_probe_v01
+          --limit 5
+          --out artifacts/gremlin_relational_research_live.json
+      - name: Upload relational research receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gremlin-relational-research-live
+          path: artifacts/gremlin_relational_research_live.json
+          if-no-files-found: warn

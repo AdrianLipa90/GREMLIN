@@ -67,6 +67,9 @@ def test_mcp_in_process_handshake_and_status_tool() -> None:
                 "gremlin_bestiary",
                 "gremlin_species",
                 "gremlin_plan",
+                "gremlin_relation_parse",
+                "gremlin_relation_signature",
+                "gremlin_research_relational",
                 "gremlin_prototype",
             } <= names
             result = await client.call_tool("gremlin_status", {})
