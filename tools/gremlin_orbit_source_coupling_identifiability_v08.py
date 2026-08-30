@@ -5,6 +5,8 @@ import math
 from typing import Iterable
 
 SCHEMA = "GREMLIN_ORBIT_SOURCE_COUPLING_IDENTIFIABILITY_V0_8"
+PASS_EXACT_IDENTIFIABILITY = "PASS_EXACT_IDENTIFIABILITY"
+FAIL_UNSOURCED_FACTORIZATION = "FAIL_UNSOURCED_FACTORIZATION"
 
 
 class OrbitSourceIdentifiabilityError(ValueError):
@@ -32,7 +34,7 @@ def _nonnegative(value: float, name: str) -> float:
 
 
 def orbit_strength(omega: float, radius: float) -> float:
-    """Identifiable circular-orbit product K_orb = omega^2 r^3."""
+    """Identifiable circular-orbit invariant K_orb = omega^2 r^3."""
     w = _positive(omega, "omega")
     r = _positive(radius, "radius")
     return w * w * r**3
@@ -70,7 +72,7 @@ class FactorizationWitness:
 
 
 def rescale_factorization(mu_source: float, eta: float, scale_lambda: float) -> FactorizationWitness:
-    """Positive factorization gauge: mu -> lambda mu, eta -> eta/lambda."""
+    """Positive factorization gauge: mu -> lambda*mu, eta -> eta/lambda."""
     mu = _positive(mu_source, "mu_source")
     e = _positive(eta, "eta_g")
     lam = _positive(scale_lambda, "scale_lambda")
@@ -94,8 +96,105 @@ def infer_eta_given_mu(k_orb: float, mu_source: float) -> float:
     return k / mu
 
 
+@dataclass(frozen=True)
+class IdentifiabilityWitness:
+    schema: str
+    status: str
+    admitted: bool
+    orbit_strength: float
+    mu_source: float | None
+    eta_g: float | None
+    mu_source_profile_id: str | None
+    eta_g_profile_id: str | None
+    residual: float | None
+
+
+def resolve_factorization(
+    omega: float,
+    radius: float,
+    *,
+    mu_source: float | None = None,
+    eta: float | None = None,
+    mu_source_profile_id: str | None = None,
+    eta_g_profile_id: str | None = None,
+    rel_tol: float = 1e-12,
+    abs_tol: float = 1e-15,
+) -> IdentifiabilityWitness:
+    """Resolve only factorizations backed by explicit source identifiers."""
+    k = orbit_strength(omega, radius)
+    if mu_source is None and eta is None:
+        return IdentifiabilityWitness(
+            schema=SCHEMA,
+            status=FAIL_UNSOURCED_FACTORIZATION,
+            admitted=False,
+            orbit_strength=k,
+            mu_source=None,
+            eta_g=None,
+            mu_source_profile_id=None,
+            eta_g_profile_id=None,
+            residual=None,
+        )
+
+    if mu_source is not None and not str(mu_source_profile_id or "").strip():
+        raise OrbitSourceIdentifiabilityError("mu_source_profile_id is required when mu_source is supplied")
+    if eta is not None and not str(eta_g_profile_id or "").strip():
+        raise OrbitSourceIdentifiabilityError("eta_g_profile_id is required when eta_g is supplied")
+
+    if mu_source is None:
+        e = _positive(eta, "eta_g")
+        mu = infer_mu_given_eta(k, e)
+        residual = abs(mu * e - k)
+        return IdentifiabilityWitness(
+            schema=SCHEMA,
+            status=PASS_EXACT_IDENTIFIABILITY,
+            admitted=True,
+            orbit_strength=k,
+            mu_source=mu,
+            eta_g=e,
+            mu_source_profile_id="RECONSTRUCTED_FROM_ORBIT_AND_ETA",
+            eta_g_profile_id=str(eta_g_profile_id),
+            residual=residual,
+        )
+
+    if eta is None:
+        mu = _positive(mu_source, "mu_source")
+        e = infer_eta_given_mu(k, mu)
+        residual = abs(mu * e - k)
+        return IdentifiabilityWitness(
+            schema=SCHEMA,
+            status=PASS_EXACT_IDENTIFIABILITY,
+            admitted=True,
+            orbit_strength=k,
+            mu_source=mu,
+            eta_g=e,
+            mu_source_profile_id=str(mu_source_profile_id),
+            eta_g_profile_id="RECONSTRUCTED_FROM_ORBIT_AND_SOURCE",
+            residual=residual,
+        )
+
+    mu = _positive(mu_source, "mu_source")
+    e = _positive(eta, "eta_g")
+    product = mu * e
+    residual = abs(product - k)
+    if not math.isclose(product, k, rel_tol=rel_tol, abs_tol=abs_tol):
+        raise OrbitSourceIdentifiabilityError(
+            f"supplied factorization does not match K_orb: residual={residual}"
+        )
+    return IdentifiabilityWitness(
+        schema=SCHEMA,
+        status=PASS_EXACT_IDENTIFIABILITY,
+        admitted=True,
+        orbit_strength=k,
+        mu_source=mu,
+        eta_g=e,
+        mu_source_profile_id=str(mu_source_profile_id),
+        eta_g_profile_id=str(eta_g_profile_id),
+        residual=residual,
+    )
+
+
 def extensive_source_energy(cell_volumes: Iterable[float], rho_g: Iterable[float]) -> float:
-    """Finite-cell E_Sigma = sum V_a rho_G,a from an explicitly bound RFC cell measure."""
+    """Finite-cell E_Sigma = sum_a V_a rho_G,a from an explicitly bound RFC cell measure."""
     volumes = tuple(cell_volumes)
     densities = tuple(rho_g)
     if not volumes or len(volumes) != len(densities):
