@@ -8,7 +8,7 @@ Rules-Requires-Root: no
 
 Package: gremlin
 Architecture: amd64
-Depends: ${shlibs:Depends}, ${misc:Depends}
+Depends: ${shlibs:Depends}, ${misc:Depends}, libsecret-tools
 Description: GREMLIN AI Research Orchestrator
  Licensed GREMLIN MCP runtime, native Control Center and cross-platform
  installation/diagnostics tooling for local AI research orchestration.
