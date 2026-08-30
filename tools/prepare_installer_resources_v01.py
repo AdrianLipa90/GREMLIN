@@ -29,6 +29,11 @@ def prepare(*, public_key: Path, output: Path, version: str, preview: bool) -> P
         if source.is_file():
             shutil.copy2(source, profiles / source_name)
 
+    license_source = Path("LICENSE")
+    if not license_source.is_file():
+        raise ValueError("repository LICENSE is required for installer resources")
+    shutil.copy2(license_source, output / "LICENSE.txt")
+
     metadata = {
         "schema": "GREMLIN_INSTALLER_RESOURCES_V0_1",
         "version": str(version),
