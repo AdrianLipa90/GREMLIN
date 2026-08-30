@@ -83,15 +83,38 @@ class _DataBlob(ctypes.Structure):
 def _dpapi_crypt(data: bytes, *, protect: bool) -> bytes:
     if os.name != "nt":
         raise SecretStoreUnavailable("Windows DPAPI is available only on Windows")
+
     buffer = ctypes.create_string_buffer(data)
     in_blob = _DataBlob(len(data), ctypes.cast(buffer, ctypes.POINTER(ctypes.c_byte)))
     out_blob = _DataBlob()
-    crypt32 = ctypes.windll.crypt32  # type: ignore[attr-defined]
-    kernel32 = ctypes.windll.kernel32  # type: ignore[attr-defined]
+    crypt32 = ctypes.WinDLL("crypt32", use_last_error=True)  # type: ignore[attr-defined]
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)  # type: ignore[attr-defined]
+
+    crypt32.CryptProtectData.restype = wintypes.BOOL
+    crypt32.CryptProtectData.argtypes = [
+        ctypes.POINTER(_DataBlob),
+        wintypes.LPCWSTR,
+        ctypes.POINTER(_DataBlob),
+        wintypes.LPVOID,
+        wintypes.LPVOID,
+        wintypes.DWORD,
+        ctypes.POINTER(_DataBlob),
+    ]
+    crypt32.CryptUnprotectData.restype = wintypes.BOOL
+    crypt32.CryptUnprotectData.argtypes = [
+        ctypes.POINTER(_DataBlob),
+        ctypes.POINTER(wintypes.LPWSTR),
+        ctypes.POINTER(_DataBlob),
+        wintypes.LPVOID,
+        wintypes.LPVOID,
+        wintypes.DWORD,
+        ctypes.POINTER(_DataBlob),
+    ]
+
     if protect:
         ok = crypt32.CryptProtectData(
             ctypes.byref(in_blob),
-            "GREMLIN",
+            ctypes.c_wchar_p("GREMLIN"),
             None,
             None,
             None,
@@ -109,11 +132,11 @@ def _dpapi_crypt(data: bytes, *, protect: bool) -> bytes:
             ctypes.byref(out_blob),
         )
     if not ok:
-        raise SecretStoreError(f"Windows DPAPI operation failed with error {ctypes.GetLastError()}")
+        raise SecretStoreError(f"Windows DPAPI operation failed with error {ctypes.get_last_error()}")
     try:
         return ctypes.string_at(out_blob.pbData, out_blob.cbData)
     finally:
-        kernel32.LocalFree(out_blob.pbData)
+        kernel32.LocalFree(ctypes.cast(out_blob.pbData, wintypes.HLOCAL))
 
 
 class WindowsDpapiStore:
