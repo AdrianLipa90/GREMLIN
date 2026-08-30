@@ -1,0 +1,40 @@
+name: GREMLIN Product Licensing MCP v0.1
+
+on:
+  push:
+    branches:
+      - feat/gremlin-product-licensing-mcp-v0.1
+    paths:
+      - 'gremlin_mcp/product/**'
+      - 'gremlin_mcp/product_server.py'
+      - 'tests/test_gremlin_product_licensing_v01.py'
+      - 'pyproject.toml'
+      - '.github/workflows/gremlin-product-licensing-v01.yml'
+  pull_request:
+    paths:
+      - 'gremlin_mcp/product/**'
+      - 'gremlin_mcp/product_server.py'
+      - 'tests/test_gremlin_product_licensing_v01.py'
+      - 'pyproject.toml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  product-licensing-v01:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install GREMLIN and test dependency
+        run: python -m pip install --disable-pip-version-check -e . pytest
+      - name: Run product licensing tests
+        run: python -m pytest -q tests/test_gremlin_product_licensing_v01.py
+      - name: Verify license CLI is packaged
+        run: |
+          gremlin-license --help >/dev/null
+          gremlin-product-mcp --help >/dev/null
