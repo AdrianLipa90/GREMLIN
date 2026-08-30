@@ -19,8 +19,8 @@ permissions:
   contents: read
 
 env:
-  GREMLIN_VERSION: 0.5.0-preview.1
-  GREMLIN_DEB_VERSION: 0.5.0~preview1-1
+  GREMLIN_VERSION: 0.5.0-preview.2
+  GREMLIN_DEB_VERSION: 0.5.0~preview2-1
 
 jobs:
   linux-preview-package:
@@ -59,10 +59,19 @@ jobs:
           gremlin-license keygen --private "$RUNNER_TEMP/preview-private.pem" --public "$RUNNER_TEMP/preview-public.pem"
           python tools/prepare_installer_resources_v01.py --public-key "$RUNNER_TEMP/preview-public.pem" --output dist/linux/resources --version "$GREMLIN_VERSION" --preview
           rm -f "$RUNNER_TEMP/preview-private.pem"
-      - name: Smoke standalone runtime before packaging
+      - name: Smoke Linux standalone runtime and provider matrix
         run: |
           dist/linux/runtime/gremlinctl paths --platform linux --json
           dist/linux/runtime/gremlinctl doctor --platform linux --json
+          dist/linux/runtime/gremlinctl integrations providers --platform linux --json | tee "$RUNNER_TEMP/providers-linux.json"
+          python - <<'PY'
+          import json, os
+          p=json.load(open(os.environ['RUNNER_TEMP']+'/providers-linux.json'))
+          ids={x['provider_id'] for x in p['providers']}
+          assert p['platform']=='linux'
+          assert {'codex','opencode','claude-code','gemini','cursor','vscode','windsurf'} <= ids
+          assert 'claude-desktop' not in ids
+          PY
           dist/linux/runtime/gremlin-product-mcp --help >/dev/null
       - name: Build Debian package
         run: >-
@@ -77,6 +86,13 @@ jobs:
         run: |
           /usr/bin/gremlinctl paths --platform linux --json
           /usr/bin/gremlinctl doctor --platform linux --json
+          /usr/bin/gremlinctl integrations providers --platform linux --json | tee "$RUNNER_TEMP/providers-installed-linux.json"
+          python - <<'PY'
+          import json, os
+          p=json.load(open(os.environ['RUNNER_TEMP']+'/providers-installed-linux.json'))
+          ids={x['provider_id'] for x in p['providers']}
+          assert p['platform']=='linux' and 'claude-desktop' not in ids
+          PY
           test -x /usr/bin/gremlin-control-center
           test -f /usr/share/gremlin/issuer-public.pem
           test -f /usr/share/gremlin/PREVIEW_BUILD.txt
@@ -115,11 +131,17 @@ jobs:
           gremlin-license keygen --private $private --public $public
           python tools/prepare_installer_resources_v01.py --public-key $public --output dist/windows/resources --version $env:GREMLIN_VERSION --preview
           Remove-Item $private -Force
-      - name: Smoke standalone runtime before installer
+      - name: Smoke Windows standalone runtime and provider matrix
         shell: pwsh
         run: |
           & .\dist\windows\runtime\gremlinctl.exe paths --platform windows --json
           & .\dist\windows\runtime\gremlinctl.exe doctor --platform windows --json
+          $providers = & .\dist\windows\runtime\gremlinctl.exe integrations providers --platform windows --json | ConvertFrom-Json
+          if ($providers.platform -ne 'windows') { throw 'Provider matrix is not Windows-scoped' }
+          $ids = @($providers.providers | ForEach-Object { $_.provider_id })
+          foreach ($required in @('codex','opencode','claude-code','gemini','cursor','vscode','windsurf','claude-desktop')) {
+            if ($ids -notcontains $required) { throw "Missing Windows provider: $required" }
+          }
           & .\dist\windows\runtime\gremlin-product-mcp.exe --help | Out-Null
       - name: Install Inno Setup
         shell: pwsh
@@ -143,6 +165,9 @@ jobs:
           $root = Join-Path $env:LOCALAPPDATA 'Programs\GREMLIN'
           & (Join-Path $root 'gremlinctl.exe') paths --platform windows --json
           & (Join-Path $root 'gremlinctl.exe') doctor --platform windows --json
+          $providers = & (Join-Path $root 'gremlinctl.exe') integrations providers --platform windows --json | ConvertFrom-Json
+          $ids = @($providers.providers | ForEach-Object { $_.provider_id })
+          if ($providers.platform -ne 'windows' -or $ids -notcontains 'claude-desktop') { throw 'Installed Windows provider matrix invalid' }
           if (-not (Test-Path (Join-Path $root 'gremlin-control-center.exe'))) { throw 'Control Center missing' }
           if (-not (Test-Path (Join-Path $root 'resources\issuer-public.pem'))) { throw 'Verifier missing' }
           if (-not (Test-Path (Join-Path $root 'resources\PREVIEW_BUILD.txt'))) { throw 'Preview marker missing' }
