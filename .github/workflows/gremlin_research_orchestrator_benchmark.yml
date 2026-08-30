@@ -1,0 +1,55 @@
+name: GREMLIN Research Orchestrator Benchmark
+
+on:
+  push:
+    branches:
+      - feat/gremlin-dual-use-capability-v0.1
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  orchestrator-benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install test dependency
+        run: python -m pip install --disable-pip-version-check pytest
+      - name: Run benchmark contract tests
+        run: python -m pytest -q tests/test_research_orchestrator_benchmark.py
+      - name: Run benchmark
+        run: python -m benchmarks.gremlin_research_orchestrator_v01 --repetitions 8000 --out artifacts/gremlin_research_orchestrator_benchmark_v01.json
+      - name: Evaluate preregistered benchmark gates
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          p = Path('artifacts/gremlin_research_orchestrator_benchmark_v01.json')
+          data = json.loads(p.read_text(encoding='utf-8'))
+          g = data['gremlin']
+          b = data['broadcast_baseline']
+          c = data['comparison']
+          gates = {
+              'gremlin_recall_ge_0_95': g['recall'] >= 0.95,
+              'stage_exact_rate_eq_1': g['stage_exact_rate'] == 1.0,
+              'fanout_reduction_ge_0_35': c['fanout_reduction_fraction'] >= 0.35,
+              'useful_efficiency_gt_broadcast': g['useful_task_efficiency'] > b['useful_task_efficiency'],
+              'exact_route_rate_ge_0_70': g['exact_route_rate'] >= 0.70,
+          }
+          print(json.dumps({'gates': gates, 'gremlin': g, 'broadcast': b, 'comparison': c}, indent=2, sort_keys=True))
+          if not all(gates.values()):
+              raise SystemExit(1)
+          PY
+      - name: Upload benchmark receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gremlin-research-orchestrator-benchmark-v01
+          path: artifacts/gremlin_research_orchestrator_benchmark_v01.json
+          if-no-files-found: warn
