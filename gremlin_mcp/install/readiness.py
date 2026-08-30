@@ -18,12 +18,13 @@ def evaluate_readiness(paths: GremlinPaths) -> dict[str, Any]:
     license_state = installed_license_status(paths)
     public_key = resolve_public_key_path(paths)
     profile_path = Path(paths.client_profile_file)
-    profile_arg = str(profile_path) if profile_path.is_file() else None
 
     runtime = ProductRuntime.from_paths(
         license_path=paths.license_file if Path(paths.license_file).is_file() else None,
         public_key_path=str(public_key) if public_key.is_file() else None,
-        profile_path=profile_arg,
+        # Always pass the canonical path. ProductRuntime decides whether a missing
+        # profile is optional or mandatory from signed license metadata.
+        profile_path=str(profile_path),
         require_license=True,
     )
     product = runtime.status()
@@ -40,7 +41,11 @@ def evaluate_readiness(paths: GremlinPaths) -> dict[str, Any]:
     if license_state.get("status") != "ACTIVE":
         actions.append("Activate your GREMLIN license")
     if product.get("status") != "LICENSED":
-        actions.append("Resolve the product entitlement configuration")
+        reason = str(product.get("reason") or "").strip()
+        if reason == "required client profile is missing":
+            actions.append("Import the customer-specific GREMLIN profile supplied with this license")
+        else:
+            actions.append("Resolve the product entitlement configuration")
     if not runtime_available:
         actions.append("Repair the GREMLIN runtime installation")
     if not detected:
