@@ -8,6 +8,7 @@ import ntpath
 import os
 from pathlib import Path
 import posixpath
+import re
 import shutil
 import tempfile
 from typing import Any, Mapping
@@ -16,6 +17,7 @@ from .paths import GremlinPaths
 
 
 INTEGRATION_SCHEMA = "GREMLIN_MCP_INTEGRATION_RECEIPT_V0_1"
+_CLIENT_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,95}$")
 
 
 @dataclass(frozen=True)
@@ -31,6 +33,13 @@ class IntegrationReceipt:
 
     def as_dict(self) -> dict[str, Any]:
         return asdict(self)
+
+
+def _client_id(value: str) -> str:
+    candidate = str(value).strip()
+    if candidate in {".", ".."} or not _CLIENT_ID_RE.fullmatch(candidate):
+        raise ValueError("client_id must be a safe identifier matching [A-Za-z0-9][A-Za-z0-9._-]{0,95}")
+    return candidate
 
 
 def _sha256(data: bytes) -> str:
@@ -113,6 +122,7 @@ def install_json_mcp(
     backup_root: str | Path,
     server_name: str = "gremlin",
 ) -> IntegrationReceipt:
+    safe_client = _client_id(client_id)
     path = Path(config_path)
     config, before = _load(path)
     servers = config.get("mcpServers")
@@ -127,7 +137,7 @@ def install_json_mcp(
     original_mode = (path.stat().st_mode & 0o777) if path.exists() else None
     if before is not None:
         stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
-        backup_dir = Path(backup_root) / client_id
+        backup_dir = Path(backup_root) / safe_client
         backup_dir.mkdir(parents=True, exist_ok=True)
         backup_path = backup_dir / f"{path.name}.{stamp}.{before_sha[:12]}.bak"
         backup_path.write_bytes(before)
@@ -145,7 +155,7 @@ def install_json_mcp(
     return IntegrationReceipt(
         schema=INTEGRATION_SCHEMA,
         status="INSTALLED",
-        client_id=client_id,
+        client_id=safe_client,
         config_path=str(path),
         backup_path=str(backup_path) if backup_path else None,
         before_sha256=before_sha,
@@ -161,6 +171,7 @@ def remove_json_mcp(
     backup_root: str | Path,
     server_name: str = "gremlin",
 ) -> IntegrationReceipt:
+    safe_client = _client_id(client_id)
     path = Path(config_path)
     config, before = _load(path)
     if before is None:
@@ -171,7 +182,7 @@ def remove_json_mcp(
 
     before_sha = _sha256(before)
     mode = path.stat().st_mode & 0o777
-    backup_dir = Path(backup_root) / client_id
+    backup_dir = Path(backup_root) / safe_client
     backup_dir.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
     backup_path = backup_dir / f"{path.name}.{stamp}.{before_sha[:12]}.bak"
@@ -188,7 +199,7 @@ def remove_json_mcp(
     return IntegrationReceipt(
         schema=INTEGRATION_SCHEMA,
         status="REMOVED",
-        client_id=client_id,
+        client_id=safe_client,
         config_path=str(path),
         backup_path=str(backup_path),
         before_sha256=before_sha,
