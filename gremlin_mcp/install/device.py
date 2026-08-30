@@ -58,6 +58,25 @@ def load_device_private(data: bytes) -> Ed25519PrivateKey:
     return key
 
 
+def device_identity_status(store: SecretStore) -> dict[str, str | None]:
+    stored = store.get(DEVICE_PRIVATE_SECRET)
+    if stored is None:
+        return {
+            "schema": "GREMLIN_DEVICE_IDENTITY_V0_1",
+            "status": "UNINITIALIZED",
+            "device_id": None,
+            "public_key": None,
+        }
+    private = load_device_private(stored)
+    public = private.public_key()
+    return {
+        "schema": "GREMLIN_DEVICE_IDENTITY_V0_1",
+        "status": "READY",
+        "device_id": device_id(public),
+        "public_key": _b64(_public_raw(public)),
+    }
+
+
 def ensure_device_identity(store: SecretStore) -> dict[str, str]:
     stored = store.get(DEVICE_PRIVATE_SECRET)
     if stored is None:
