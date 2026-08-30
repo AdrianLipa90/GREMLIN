@@ -5,11 +5,11 @@ import json
 from dataclasses import dataclass
 from typing import Any, Iterable, Mapping, Protocol, Sequence
 
-from gremlin_mcp.claim_proposition import ASSERTED, build_proposition
+from gremlin_mcp.claim_proposition import ASSERTED, build_proposition, verify_proposition
 from gremlin_mcp.semantic_evidence import verify_classification
 
 SCHEMA = "GREMLIN_PROPOSITION_PRODUCER_V0_1"
-VERSION = "0.1.0"
+VERSION = "0.1.1"
 
 PROPOSITIONS = "PROPOSITIONS"
 UNRESOLVED = "UNRESOLVED"
@@ -21,7 +21,9 @@ class PropositionProducer(Protocol):
 
     A producer proposes source-level decisions and raw SPO/polarity/modality fields only. GREMLIN
     reconstructs every accepted proposition locally from the exact current semantic classification
-    and source receipt. Producer-supplied commitments or authority fields have no authority.
+    and source receipt. Each proposed frame must additionally point to a literal support span inside
+    the verified classification excerpt. Producer-supplied commitments or authority fields have no
+    authority.
     """
 
     producer_id: str
@@ -58,6 +60,28 @@ def _authority() -> dict[str, bool]:
         "production_runtime_write": False,
         "execution_admitted": False,
         "canon_allowed": False,
+    }
+
+
+def support_span_commitment(value: str) -> str:
+    text = str(value or "")
+    return _commit(b"GREMLIN-PROPOSITION-SUPPORT-SPAN/v0.1", {"support_span": text})
+
+
+def _grounding_core(
+    *,
+    proposition_commitment: str,
+    classification_commitment: str,
+    excerpt_commitment: str,
+    support_span: str,
+) -> dict[str, Any]:
+    return {
+        "proposition_commitment": str(proposition_commitment),
+        "classification_commitment": str(classification_commitment),
+        "excerpt_commitment": str(excerpt_commitment),
+        "support_span": str(support_span),
+        "support_span_commitment": support_span_commitment(support_span),
+        "grounding_policy": "LITERAL_SUBSTRING_OF_VERIFIED_CLASSIFICATION_EXCERPT",
     }
 
 
@@ -108,6 +132,84 @@ def _classification_index(
             continue
         by_source[source_id] = classification
     return by_source, invalid
+
+
+def verify_grounded_proposition(
+    frame: Mapping[str, Any],
+    *,
+    claim_id: str,
+    classifications: Sequence[Mapping[str, Any]],
+    source_receipts: Sequence[Mapping[str, Any]],
+) -> dict[str, Any]:
+    errors: list[str] = []
+    proposition_validation = verify_proposition(frame)
+    if not proposition_validation["valid"]:
+        errors.append("PROPOSITION_INTEGRITY_FAILED")
+
+    source_id = str(frame.get("source_id") or "").strip()
+    matching = [
+        row
+        for row in classifications
+        if str(row.get("source_id") or "").strip() == source_id
+    ]
+    if len(matching) != 1:
+        errors.append("EXACT_SEMANTIC_CLASSIFICATION_REQUIRED")
+        classification = None
+    else:
+        classification = matching[0]
+        classification_validation = verify_classification(
+            classification,
+            claim_id=claim_id,
+            source_receipts=source_receipts,
+        )
+        if not classification_validation["valid"]:
+            errors.append("SEMANTIC_CLASSIFICATION_INTEGRITY_FAILED")
+        if str(frame.get("classification_commitment") or "").strip() != str(
+            classification.get("classification_commitment") or ""
+        ).strip():
+            errors.append("CLASSIFICATION_COMMITMENT_MISMATCH")
+
+    grounding = frame.get("producer_grounding")
+    if not isinstance(grounding, Mapping):
+        errors.append("PRODUCER_GROUNDING_MISSING")
+        expected_grounding = None
+        expected_grounding_commitment = None
+    elif classification is None:
+        expected_grounding = None
+        expected_grounding_commitment = None
+    else:
+        support_span = str(grounding.get("support_span") or "")
+        excerpt = str(classification.get("excerpt") or "")
+        if not support_span.strip():
+            errors.append("SUPPORT_SPAN_MISSING")
+        elif support_span not in excerpt:
+            errors.append("SUPPORT_SPAN_NOT_IN_CLASSIFICATION_EXCERPT")
+        expected_grounding = _grounding_core(
+            proposition_commitment=str(frame.get("proposition_commitment") or ""),
+            classification_commitment=str(classification.get("classification_commitment") or ""),
+            excerpt_commitment=str(classification.get("excerpt_commitment") or ""),
+            support_span=support_span,
+        )
+        for key, value in expected_grounding.items():
+            if grounding.get(key) != value:
+                errors.append(f"GROUNDING_{key.upper()}_MISMATCH")
+        expected_grounding_commitment = _commit(
+            b"GREMLIN-PROPOSITION-GROUNDING/v0.1",
+            expected_grounding,
+        )
+        if str(grounding.get("grounding_commitment") or "").strip() != expected_grounding_commitment:
+            errors.append("GROUNDING_COMMITMENT_MISMATCH")
+
+    return {
+        "schema": SCHEMA,
+        "version": VERSION,
+        "valid": not errors,
+        "errors": errors,
+        "source_id": source_id,
+        "expected_grounding": expected_grounding,
+        "expected_grounding_commitment": expected_grounding_commitment,
+        "authority": _authority(),
+    }
 
 
 def normalize_proposition_producer_output(
@@ -186,9 +288,17 @@ def normalize_proposition_producer_output(
             if receipt is None:
                 errors.append("SOURCE_RECEIPT_MISSING")
             else:
+                excerpt = str(classification.get("excerpt") or "")
                 for frame_index, raw_frame in enumerate(raw_frames):
                     if not isinstance(raw_frame, Mapping):
                         errors.append(f"FRAME_{frame_index}_MUST_BE_MAPPING")
+                        continue
+                    support_span = str(raw_frame.get("support_span") or "")
+                    if not support_span.strip():
+                        errors.append(f"FRAME_{frame_index}_SUPPORT_SPAN_MISSING")
+                        continue
+                    if support_span not in excerpt:
+                        errors.append(f"FRAME_{frame_index}_SUPPORT_SPAN_NOT_IN_CLASSIFICATION_EXCERPT")
                         continue
                     try:
                         local_frame = build_proposition(
@@ -207,9 +317,25 @@ def normalize_proposition_producer_output(
                     except (TypeError, ValueError) as exc:
                         errors.append(f"FRAME_{frame_index}_REJECTED:{type(exc).__name__}:{exc}")
                         continue
+                    grounding_core = _grounding_core(
+                        proposition_commitment=local_frame["proposition_commitment"],
+                        classification_commitment=str(classification.get("classification_commitment") or ""),
+                        excerpt_commitment=str(classification.get("excerpt_commitment") or ""),
+                        support_span=support_span,
+                    )
+                    local_frame["producer_grounding"] = {
+                        **grounding_core,
+                        "grounding_commitment": _commit(
+                            b"GREMLIN-PROPOSITION-GROUNDING/v0.1",
+                            grounding_core,
+                        ),
+                    }
                     local_frame["producer_proposal_index"] = frame_index
                     local_frame["producer_supplied_proposition_commitment_ignored"] = raw_frame.get(
                         "proposition_commitment"
+                    )
+                    local_frame["producer_supplied_support_span_commitment_ignored"] = raw_frame.get(
+                        "support_span_commitment"
                     )
                     local_frame["producer_authority_ignored"] = raw_frame.get("authority")
                     local_frames.append(local_frame)
@@ -228,15 +354,13 @@ def normalize_proposition_producer_output(
                 "classification_commitment": str(classification.get("classification_commitment") or ""),
                 "decision": decision,
                 "proposition_commitments": [frame["proposition_commitment"] for frame in local_frames],
+                "grounding_commitments": [frame["producer_grounding"]["grounding_commitment"] for frame in local_frames],
                 "proposition_count": len(local_frames),
             }
         )
 
     expected_sources = set(classification_by_source)
-    covered_sources = {
-        row["source_id"]
-        for row in normalized_decisions
-    }
+    covered_sources = {row["source_id"] for row in normalized_decisions}
     missing_sources = sorted(expected_sources - covered_sources)
     unexpected_sources = sorted(
         source_id for source_id in seen_sources if source_id and source_id not in expected_sources
@@ -260,6 +384,21 @@ def normalize_proposition_producer_output(
     accepted_decisions = normalized_decisions if status == "VALID" else []
     accepted_unresolved = sorted(unresolved_sources) if status == "VALID" else []
 
+    grounding_validations = [
+        verify_grounded_proposition(
+            frame,
+            claim_id=claim,
+            classifications=classifications,
+            source_receipts=source_receipts,
+        )
+        for frame in accepted_propositions
+    ]
+    if any(not validation["valid"] for validation in grounding_validations):
+        status = "GROUNDING_REVALIDATION_FAILED_CLOSED"
+        accepted_propositions = []
+        accepted_decisions = []
+        accepted_unresolved = []
+
     core = {
         "claim_id": claim,
         "producer": descriptor,
@@ -279,11 +418,13 @@ def normalize_proposition_producer_output(
         },
         "classification_errors": classification_errors,
         "decision_errors": decision_errors,
+        "grounding_validations": grounding_validations,
         "decisions": accepted_decisions,
         "propositions": accepted_propositions,
         "unresolved_source_ids": accepted_unresolved,
         "producer_commitment_authority": "NONE_REBUILT_LOCALLY",
         "producer_authority_fields": "IGNORED",
+        "grounding_policy": "LITERAL_SUPPORT_SPAN_INSIDE_VERIFIED_CLASSIFICATION_EXCERPT",
         "source_content_authority": "UNTRUSTED_EVIDENCE_ONLY",
         "authority": _authority(),
     }
