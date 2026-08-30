@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import ipaddress
 import os
 from typing import Any
 
@@ -56,11 +57,24 @@ def configure_state(state_path: str | None) -> WorkerBroker:
     if state_path is None or not str(state_path).strip():
         broker = memory_broker
         return broker
-    product_runtime.authorize(tool="gremlin_product_state", feature="PERSISTENT_STATE")
+    product_runtime.authorize_feature("PERSISTENT_STATE")
     from gremlin_mcp.persistent_workers import PersistentWorkerBroker
 
     broker = PersistentWorkerBroker(str(state_path))
     return broker
+
+
+def _assert_local_http_bind(host: str) -> None:
+    """Keep v0.1 HTTP transport on loopback until authenticated remote MCP is implemented."""
+    value = str(host or "").strip().casefold()
+    if value == "localhost":
+        return
+    try:
+        address = ipaddress.ip_address(value)
+    except ValueError as exc:
+        raise RuntimeError("REMOTE_HTTP_AUTH_REQUIRED: v0.1 accepts only localhost/loopback bind addresses") from exc
+    if not address.is_loopback:
+        raise RuntimeError("REMOTE_HTTP_AUTH_REQUIRED: v0.1 accepts only localhost/loopback bind addresses")
 
 
 def _providers(tool: str, providers: list[str] | None, *, max_sources: int) -> list[str]:
@@ -369,9 +383,10 @@ def main() -> None:
         require_license=not args.allow_unlicensed_research,
     )
     if args.transport == "stdio":
-        product_runtime.authorize(tool="mcp_transport_stdio", feature="MCP_STDIO")
+        product_runtime.authorize_feature("MCP_STDIO")
     else:
-        product_runtime.authorize(tool="mcp_transport_http", feature="MCP_HTTP")
+        product_runtime.authorize_feature("MCP_HTTP")
+        _assert_local_http_bind(args.host)
     configure_state(args.state_path)
     if args.transport == "stdio":
         mcp.run("stdio")
