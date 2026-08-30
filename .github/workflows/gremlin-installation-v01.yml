@@ -10,6 +10,7 @@ on:
       - 'packaging/**'
       - 'spec/GREMLIN_INSTALLATION_ARCHITECTURE_V0_1.md'
       - 'tests/test_gremlin_install_*.py'
+      - 'tests/test_gremlin_provider_*.py'
       - 'tests/test_gremlin_product_*.py'
       - 'tools/build_gremlin_standalone_v01.py'
       - 'pyproject.toml'
@@ -20,6 +21,7 @@ on:
       - 'control_center/**'
       - 'packaging/**'
       - 'tests/test_gremlin_install_*.py'
+      - 'tests/test_gremlin_provider_*.py'
       - 'pyproject.toml'
   workflow_dispatch:
 
@@ -37,13 +39,14 @@ jobs:
           python-version: '3.12'
       - name: Install GREMLIN and pytest
         run: python -m pip install --disable-pip-version-check -e . pytest
-      - name: Run installation and product regression tests
-        run: python -m pytest -q tests/test_gremlin_install_*.py tests/test_gremlin_product_*.py
+      - name: Run installation, provider and product regression tests
+        run: python -m pytest -q tests/test_gremlin_install_*.py tests/test_gremlin_provider_*.py tests/test_gremlin_product_*.py
       - name: Verify installed CLIs
         run: |
           gremlinctl --help >/dev/null
           gremlinctl paths --json >/dev/null
           gremlinctl doctor --json >/dev/null
+          gremlinctl integrations providers --json >/dev/null
           gremlin-product-mcp --help >/dev/null
           gremlin-license --help >/dev/null
           gremlin-bundle --help >/dev/null
@@ -67,7 +70,7 @@ jobs:
           python-version: '3.12'
       - name: Install GREMLIN and pytest
         run: python -m pip install --disable-pip-version-check -e . pytest
-      - name: Run Windows installation tests including live DPAPI roundtrip
+      - name: Run Windows installation and provider tests including live DPAPI roundtrip
         run: >-
           python -m pytest -q
           tests/test_gremlin_install_paths_v01.py
@@ -76,12 +79,14 @@ jobs:
           tests/test_gremlin_install_integrations_v01.py
           tests/test_gremlin_install_device_v01.py
           tests/test_gremlin_install_secrets_v01.py
-      - name: Verify Windows CLI path and device surfaces
+          tests/test_gremlin_provider_integrations_v01.py
+      - name: Verify Windows CLI path, provider and device surfaces
         shell: pwsh
         run: |
           gremlinctl --help | Out-Null
           gremlinctl paths --platform windows --json | Out-Null
           gremlinctl doctor --platform windows --json | Out-Null
+          gremlinctl integrations providers --platform windows --json | Out-Null
           gremlinctl device status --platform windows --json | Out-Null
           gremlinctl device init --platform windows --json | Out-Null
       - uses: dtolnay/rust-toolchain@stable
