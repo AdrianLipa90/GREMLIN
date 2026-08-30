@@ -1,0 +1,58 @@
+name: GREMLIN Installation Architecture v0.1
+
+on:
+  push:
+    branches:
+      - feat/gremlin-installation-control-center-v0.1
+    paths:
+      - 'gremlin_mcp/install/**'
+      - 'control_center/**'
+      - 'packaging/**'
+      - 'spec/GREMLIN_INSTALLATION_ARCHITECTURE_V0_1.md'
+      - 'tests/test_gremlin_install_*.py'
+      - 'tests/test_gremlin_product_*.py'
+      - 'tools/build_gremlin_standalone_v01.py'
+      - 'pyproject.toml'
+      - '.github/workflows/gremlin-installation-v01.yml'
+  pull_request:
+    paths:
+      - 'gremlin_mcp/install/**'
+      - 'control_center/**'
+      - 'packaging/**'
+      - 'tests/test_gremlin_install_*.py'
+      - 'pyproject.toml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  python-install-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install GREMLIN and pytest
+        run: python -m pip install --disable-pip-version-check -e . pytest
+      - name: Run installation and product regression tests
+        run: python -m pytest -q tests/test_gremlin_install_*.py tests/test_gremlin_product_*.py
+      - name: Verify installed CLIs
+        run: |
+          gremlinctl --help >/dev/null
+          gremlinctl paths --json >/dev/null
+          gremlinctl doctor --json >/dev/null || test $? -eq 0
+          gremlin-product-mcp --help >/dev/null
+          gremlin-license --help >/dev/null
+          gremlin-bundle --help >/dev/null
+
+  native-control-center:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Check native Control Center
+        run: cargo check --manifest-path control_center/Cargo.toml
