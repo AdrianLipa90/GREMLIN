@@ -113,16 +113,14 @@ class ProductRuntime:
         profile = self.client_profile
         if profile is not None:
             allowed_tools = set(profile.get("tools") or [])
-            if tool is not None and allowed_tools and tool not in allowed_tools:
+            allowed_species = set(profile.get("species") or [])
+            allowed_providers = set(profile.get("providers") or [])
+            if tool is not None and tool not in allowed_tools:
                 self._deny(f"TOOL_NOT_ALLOWED_BY_PROFILE:{tool}")
-            if species is not None:
-                allowed_species = set(profile.get("species") or [])
-                if allowed_species and species.upper() not in allowed_species:
-                    self._deny(f"SPECIES_NOT_ALLOWED_BY_PROFILE:{species.upper()}")
-            if provider is not None:
-                allowed_providers = set(profile.get("providers") or [])
-                if allowed_providers and provider.casefold() not in allowed_providers:
-                    self._deny(f"PROVIDER_NOT_ALLOWED_BY_PROFILE:{provider.casefold()}")
+            if species is not None and species.upper() not in allowed_species:
+                self._deny(f"SPECIES_NOT_ALLOWED_BY_PROFILE:{species.upper()}")
+            if provider is not None and provider.casefold() not in allowed_providers:
+                self._deny(f"PROVIDER_NOT_ALLOWED_BY_PROFILE:{provider.casefold()}")
             if feature == "INTERNET_RESEARCH" and not bool(profile.get("internet_access")):
                 self._deny("INTERNET_ACCESS_DISABLED_BY_PROFILE")
             if feature == "CUSTOM_WORKERS" and not bool(profile.get("custom_workers")):
