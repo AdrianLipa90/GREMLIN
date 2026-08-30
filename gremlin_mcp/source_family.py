@@ -7,7 +7,7 @@ from typing import Any, Iterable, Mapping
 from urllib.parse import urlsplit, urlunsplit
 
 SCHEMA = "GREMLIN_SOURCE_FAMILY_V0_1"
-VERSION = "0.2.0"
+VERSION = "0.2.1"
 
 _ARXIV_RE = re.compile(r"(?:^|/)(?:abs|pdf)/(?P<id>\d{4}\.\d{4,5})(?:v\d+)?(?:\.pdf)?$", re.IGNORECASE)
 _NON_ALNUM = re.compile(r"[^a-z0-9]+")
@@ -89,8 +89,8 @@ def source_identity(citation: Mapping[str, Any]) -> dict[str, Any]:
     """Derive a conservative primary work identity for independence accounting.
 
     Stable work identifiers take precedence over titles. Exact informative titles remain a
-    cross-provider bridge only when they do not conflict with two distinct identifiers of the
-    same strong kind. This is a provenance-family heuristic, not proof of source independence.
+    cross-provider bridge only when the title group is not ambiguous in strong identifiers.
+    This is a provenance-family heuristic, not proof of source independence.
     """
     doi = normalize_doi(citation.get("doi")) or doi_from_url(citation.get("url"))
     if doi:
@@ -110,14 +110,6 @@ def source_identity(citation: Mapping[str, Any]) -> dict[str, Any]:
     raise ValueError("citation must contain DOI, arXiv URL, URL, informative title, or source_id")
 
 
-def _strong_identity_conflict(left: Mapping[str, Any], right: Mapping[str, Any]) -> bool:
-    return (
-        left.get("kind") in _STRONG_IDENTITY_KINDS
-        and left.get("kind") == right.get("kind")
-        and left.get("value") != right.get("value")
-    )
-
-
 def _title_bridge_compatible(left: Mapping[str, Any], right: Mapping[str, Any]) -> bool:
     left_title = _informative_title(left.get("title"))
     right_title = _informative_title(right.get("title"))
@@ -128,6 +120,32 @@ def _title_bridge_compatible(left: Mapping[str, Any], right: Mapping[str, Any]) 
     if left_year is not None and right_year is not None and abs(left_year - right_year) > 3:
         return False
     return True
+
+
+def _ambiguous_title_groups(records: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    groups: dict[str, dict[str, set[str]]] = {}
+    for record in records:
+        title = _informative_title(record.get("title"))
+        if not title:
+            continue
+        group = groups.setdefault(title, {"DOI": set(), "ARXIV_WORK": set()})
+        identity = record["identity"]
+        kind = str(identity.get("kind"))
+        if kind in _STRONG_IDENTITY_KINDS:
+            group[kind].add(str(identity.get("value")))
+
+    ambiguous: dict[str, dict[str, Any]] = {}
+    for title, identifiers in groups.items():
+        doi_ids = sorted(identifiers["DOI"])
+        arxiv_ids = sorted(identifiers["ARXIV_WORK"])
+        if len(doi_ids) > 1 or len(arxiv_ids) > 1:
+            ambiguous[title] = {
+                "normalized_title": title,
+                "doi_ids": doi_ids,
+                "arxiv_work_ids": arxiv_ids,
+                "policy": "TITLE_BRIDGE_DISABLED_DUE_TO_STRONG_IDENTITY_AMBIGUITY",
+            }
+    return ambiguous
 
 
 def _canonical_family_identity(members: list[dict[str, Any]]) -> dict[str, Any]:
@@ -161,6 +179,7 @@ def derive_source_families(citations: Iterable[Mapping[str, Any]]) -> dict[str, 
     if duplicate_source_ids:
         raise ValueError(f"duplicate citation source_id values: {sorted(set(duplicate_source_ids))}")
 
+    ambiguous_titles = _ambiguous_title_groups(records)
     parent = list(range(len(records)))
     rank = [0] * len(records)
     merge_receipts: list[dict[str, Any]] = []
@@ -197,7 +216,8 @@ def derive_source_families(citations: Iterable[Mapping[str, Any]]) -> dict[str, 
             if left_identity == right_identity:
                 union(left_index, right_index, "EXACT_PRIMARY_IDENTITY")
                 continue
-            if _strong_identity_conflict(left_identity, right_identity):
+            title = _informative_title(left.get("title"))
+            if title and title in ambiguous_titles:
                 continue
             if _title_bridge_compatible(left, right):
                 union(left_index, right_index, "EXACT_INFORMATIVE_TITLE_COMPATIBLE_YEAR_BRIDGE")
@@ -221,7 +241,7 @@ def derive_source_families(citations: Iterable[Mapping[str, Any]]) -> dict[str, 
                 "family_id": family_id,
                 "identity": row["identity"],
                 "family_identity": canonical_identity,
-                "derivation": "STRONG_IDENTIFIER_FIRST_WITH_CONSERVATIVE_TITLE_BRIDGE",
+                "derivation": "STRONG_IDENTIFIER_FIRST_WITH_AMBIGUITY_GATED_TITLE_BRIDGE",
             }
 
     core = {
@@ -232,12 +252,13 @@ def derive_source_families(citations: Iterable[Mapping[str, Any]]) -> dict[str, 
             merge_receipts,
             key=lambda row: (row["left_source_id"], row["right_source_id"], row["reason"]),
         ),
+        "ambiguous_title_bridges": [ambiguous_titles[key] for key in sorted(ambiguous_titles)],
         "source_count": len(by_source),
         "family_count": len(clusters),
         "collapsed_duplicate_or_version_count": len(by_source) - len(clusters),
         "independence_status": "PROVENANCE_FAMILY_HEURISTIC_NOT_INDEPENDENCE_PROOF",
-        "policy": "STRONG_IDENTIFIERS_FIRST_CONSERVATIVE_EXACT_TITLE_YEAR_CROSSWALK",
-        "strong_identity_conflict_policy": "DISTINCT_DOI_OR_DISTINCT_ARXIV_IDS_ARE_NOT_COLLAPSED_BY_TITLE_ALONE",
+        "policy": "STRONG_IDENTIFIERS_FIRST_AMBIGUITY_GATED_EXACT_TITLE_YEAR_CROSSWALK",
+        "strong_identity_conflict_policy": "AMBIGUOUS_TITLE_GROUPS_WITH_MULTIPLE_DOI_OR_ARXIV_IDS_DISABLE_TITLE_BRIDGING",
     }
     return {
         "schema": SCHEMA,
