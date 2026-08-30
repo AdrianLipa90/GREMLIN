@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from gremlin_mcp.claim_proposition import AFFIRM, NEGATE, verify_proposition
-from gremlin_mcp.evidence_robustness import SUPPORT, UNRESOLVED as _UNUSED
+from gremlin_mcp.claim_proposition import AFFIRM, verify_proposition
+from gremlin_mcp.evidence_robustness import SUPPORT
 from gremlin_mcp.proposition_evidence import (
     PROPOSITIONS,
     UNRESOLVED,
