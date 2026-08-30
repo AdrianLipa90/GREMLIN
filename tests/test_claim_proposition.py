@@ -9,6 +9,7 @@ from gremlin_mcp.claim_proposition import (
     POSSIBLE,
     build_proposition,
     compare_propositions,
+    normalize_term,
     scan_proposition_conflicts,
     verify_proposition,
 )
@@ -69,6 +70,31 @@ def test_relation_verb_remains_first_class_predicate_operator():
     assert frame["normalized_object"] == "geometry"
     assert frame["directionality"] == "EXPLICIT_TYPED_SUBJECT_PREDICATE_OBJECT"
     assert frame["epistemic_status"] == "CANDIDATE_PROPOSITION_FRAME"
+
+
+def test_unicode_term_normalization_preserves_polish_letters_and_combining_equivalence():
+    assert normalize_term("Sprzężenie źródła") == "sprzężenie źródła"
+    assert normalize_term("ZALEŻNOŚĆ: geometria") == "zależność: geometria"
+    assert normalize_term("zależność") == "zależność"
+
+
+def test_unicode_terms_survive_committed_proposition_frame():
+    excerpt = "Sprzężenie opisuje zależność geometryczną."
+    receipt = _receipt("src-pl", excerpt)
+    classification = _classification(receipt, excerpt)
+    frame = build_proposition(
+        classification=classification,
+        claim_id="claim-1",
+        source_receipts=[receipt],
+        subject="Sprzężenie źródła",
+        predicate="DESCRIBES",
+        object="zależność geometryczna",
+        polarity=AFFIRM,
+    )
+    assert frame["normalized_subject"] == "sprzężenie źródła"
+    assert frame["normalized_object"] == "zależność geometryczna"
+    assert frame["term_normalization"] == "UNICODE_NFKC_CASEFOLD_ALNUM_MARK_SAFE"
+    assert verify_proposition(frame)["valid"] is True
 
 
 def test_names_is_preserved_as_operator_not_merged_into_entity_nodes():
