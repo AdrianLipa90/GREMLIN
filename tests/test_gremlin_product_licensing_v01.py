@@ -97,7 +97,10 @@ def test_signed_license_verifies_and_tamper_fails() -> None:
 
 def test_expired_license_fails_closed() -> None:
     private = Ed25519PrivateKey.generate()
-    envelope = issue_license(_payload(expires_at="2026-08-29"), private)
+    envelope = issue_license(
+        _payload(issued_at="2026-08-01", not_before="2026-08-01", expires_at="2026-08-29"),
+        private,
+    )
     with pytest.raises(LicenseError, match="expired"):
         verify_license(envelope, private.public_key(), today=date(2026, 8, 30))
 
