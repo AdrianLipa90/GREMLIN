@@ -20,8 +20,8 @@ jobs:
           python-version: '3.12'
       - name: Install test dependency
         run: python -m pip install --disable-pip-version-check pytest
-      - name: Run evidence, semantic ABI, coverage, family, HOUND provenance, registry and guarded bridge tests
-        run: python -m pytest -q tests/test_evidence_robustness.py tests/test_guarded_research.py tests/test_semantic_evidence.py tests/test_semantic_bridge.py tests/test_source_family.py tests/test_hound_provenance.py tests/test_hound_research.py tests/test_semantic_provider_policy.py
+      - name: Run evidence, semantic ABI, proposition, coverage, family, HOUND provenance, registry and guarded bridge tests
+        run: python -m pytest -q tests/test_evidence_robustness.py tests/test_guarded_research.py tests/test_semantic_evidence.py tests/test_claim_proposition.py tests/test_semantic_bridge.py tests/test_source_family.py tests/test_hound_provenance.py tests/test_hound_research.py tests/test_semantic_provider_policy.py
       - name: Generate synthetic paired evidence receipt
         run: python -m tools.gremlin_paired_evidence_probe_v01 --out artifacts/gremlin_paired_evidence_probe_v01.json
       - name: Verify preregistered robustness gates
