@@ -4,8 +4,10 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 import hashlib
 import json
+import ntpath
 import os
 from pathlib import Path
+import posixpath
 import shutil
 import tempfile
 from typing import Any, Mapping
@@ -68,12 +70,12 @@ def _atomic_json_write(path: Path, value: Mapping[str, Any], *, original_mode: i
 
 
 def gremlin_stdio_entry(paths: GremlinPaths) -> dict[str, Any]:
-    executable = (
-        os.path.join(paths.install_root, "gremlin-product-mcp.exe")
-        if paths.platform == "windows"
-        else "/usr/bin/gremlin-product-mcp"
-    )
-    public_key = os.path.join(paths.shared_data_root, "issuer-public.pem")
+    if paths.platform == "windows":
+        executable = ntpath.join(paths.install_root, "gremlin-product-mcp.exe")
+        public_key = ntpath.join(paths.shared_data_root, "issuer-public.pem")
+    else:
+        executable = "/usr/bin/gremlin-product-mcp"
+        public_key = posixpath.join(paths.shared_data_root, "issuer-public.pem")
     return {
         "command": executable,
         "args": ["--transport", "stdio"],
@@ -134,7 +136,6 @@ def install_json_mcp(
 
     servers[server_name] = dict(entry)
     after = _atomic_json_write(path, config, original_mode=original_mode)
-    # Reread and validate the exact installed object after replacement.
     installed, reread = _load(path)
     installed_servers = installed.get("mcpServers")
     if not isinstance(installed_servers, dict) or installed_servers.get(server_name) != dict(entry):
