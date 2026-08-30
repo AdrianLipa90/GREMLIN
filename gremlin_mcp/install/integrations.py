@@ -85,22 +85,20 @@ def gremlin_stdio_entry(paths: GremlinPaths) -> dict[str, Any]:
     else:
         executable = "/usr/bin/gremlin-product-mcp"
         public_key = posixpath.join(paths.shared_data_root, "issuer-public.pem")
-
-    environment = {
-        "GREMLIN_LICENSE_PATH": paths.license_file,
-        "GREMLIN_LICENSE_PUBLIC_KEY": public_key,
-        "GREMLIN_MCP_STATE_PATH": paths.state_db,
-    }
-    # A customer-specific profile is an optional restrictive overlay.  Do not
-    # advertise a path that does not exist: ProductRuntime intentionally treats
-    # an explicitly configured but missing profile as a fail-closed error.
-    if Path(paths.client_profile_file).is_file():
-        environment["GREMLIN_CLIENT_PROFILE"] = paths.client_profile_file
-
     return {
         "command": executable,
         "args": ["--transport", "stdio"],
-        "env": environment,
+        "env": {
+            "GREMLIN_LICENSE_PATH": paths.license_file,
+            "GREMLIN_LICENSE_PUBLIC_KEY": public_key,
+            # Canonical path remains stable across the customer lifecycle.  The
+            # runtime treats a missing profile as optional unless the signed
+            # license metadata explicitly sets profile_required=true.  A profile
+            # delivered later therefore becomes active on the next MCP start
+            # without reconnecting every AI client.
+            "GREMLIN_CLIENT_PROFILE": paths.client_profile_file,
+            "GREMLIN_MCP_STATE_PATH": paths.state_db,
+        },
     }
 
 
