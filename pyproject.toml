@@ -14,7 +14,8 @@ authors = [
 ]
 dependencies = [
   "mcp>=2,<3",
-  "cryptography>=42,<47"
+  "cryptography>=42,<47",
+  "tomli>=2,<3; python_version < '3.11'"
 ]
 
 [project.scripts]
@@ -22,6 +23,7 @@ gremlin-mcp = "gremlin_mcp.server:main"
 gremlin-product-mcp = "gremlin_mcp.product_server:main"
 gremlin-license = "gremlin_mcp.product.cli:main"
 gremlin-bundle = "gremlin_mcp.product.bundle_cli:main"
+gremlinctl = "gremlin_mcp.install.cli:main"
 
 [tool.setuptools.packages.find]
 include = ["gremlin_mcp*", "tools*"]
