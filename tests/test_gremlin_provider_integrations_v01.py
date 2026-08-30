@@ -29,6 +29,10 @@ def cp(code: int = 0, stdout: str = "", stderr: str = "") -> subprocess.Complete
     return subprocess.CompletedProcess([], code, stdout=stdout, stderr=stderr)
 
 
+def norm_posix(value: str) -> str:
+    return value.replace("\\", "/")
+
+
 def linux_paths(home: str = "/home/alice"):
     return resolve_paths(platform="linux", env={"HOME": home})
 
@@ -70,12 +74,12 @@ def test_linux_provider_matrix_excludes_windows_only_claude_desktop() -> None:
     providers = {item["provider_id"]: item for item in payload["providers"]}
     assert payload["platform"] == "linux"
     assert set(providers) == {"codex", "opencode", "claude-code", "gemini", "cursor", "vscode", "windsurf"}
-    assert providers["codex"]["config_path"] == "/home/alice/.codex/config.toml"
-    assert providers["opencode"]["config_path"] == "/home/alice/.config/opencode/opencode.json"
-    assert providers["claude-code"]["config_path"] == "/home/alice/.claude.json"
-    assert providers["gemini"]["config_path"] == "/home/alice/.gemini/settings.json"
-    assert providers["cursor"]["config_path"] == "/home/alice/.cursor/mcp.json"
-    assert providers["windsurf"]["config_path"] == "/home/alice/.codeium/windsurf/mcp_config.json"
+    assert norm_posix(providers["codex"]["config_path"]) == "/home/alice/.codex/config.toml"
+    assert norm_posix(providers["opencode"]["config_path"]) == "/home/alice/.config/opencode/opencode.json"
+    assert norm_posix(providers["claude-code"]["config_path"]) == "/home/alice/.claude.json"
+    assert norm_posix(providers["gemini"]["config_path"]) == "/home/alice/.gemini/settings.json"
+    assert norm_posix(providers["cursor"]["config_path"]) == "/home/alice/.cursor/mcp.json"
+    assert norm_posix(providers["windsurf"]["config_path"]) == "/home/alice/.codeium/windsurf/mcp_config.json"
     assert "claude-desktop" not in providers
 
 
