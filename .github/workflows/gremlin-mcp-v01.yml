@@ -20,6 +20,7 @@ on:
       - 'tests/test_gremlin_mcp_octopus_router_v05.py'
       - 'tests/test_relational_cases.py'
       - 'tests/test_relational_research.py'
+      - 'tests/test_gremlin_supplied_evidence_research_v01.py'
       - 'spec/GREMLIN_MCP_SERVER_V0_1.md'
       - 'spec/GREMLIN_MCP_WORKER_ABI_V0_2.md'
       - 'spec/GREMLIN_MCP_PERSISTENCE_V0_3.md'
@@ -50,3 +51,48 @@ jobs:
           tests/test_gremlin_mcp_octopus_router_v05.py
           tests/test_relational_cases.py
           tests/test_relational_research.py
+          tests/test_gremlin_supplied_evidence_research_v01.py
+      - name: Checkout pinned public benchmark
+        uses: actions/checkout@v4
+        with:
+          repository: AdrianLipa90/Ciel-GREMLIN-Benchmark
+          ref: 6f4496c451d7ce4935678cc92df49f4e0920cc31
+          path: benchmark
+      - name: Install benchmark harness
+        run: python -m pip install -e benchmark
+      - name: Build native GREMLIN benchmark receipt bundle
+        run: >-
+          python -m ciel_gremlin_benchmark.cli build-gremlin-receipts
+          --dataset benchmark/dataset/golden_v0_1.jsonl
+          --output benchmark/artifacts/gremlin_receipts.jsonl
+      - name: Verify receipt coverage and write provenance
+        env:
+          GREMLIN_HEAD: ${{ github.event.pull_request.head.sha }}
+          BENCHMARK_COMMIT: 6f4496c451d7ce4935678cc92df49f4e0920cc31
+        run: |
+          python - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          path = Path('benchmark/artifacts/gremlin_receipts.jsonl')
+          rows = [json.loads(line) for line in path.read_text(encoding='utf-8').splitlines() if line.strip()]
+          assert len(rows) == 60
+          assert len({row['task_id'] for row in rows}) == 60
+          provenance = {
+              'schema': 'CIEL_GREMLIN_GREMLIN_RECEIPT_PROVENANCE_V0_1',
+              'gremlin_head': os.environ['GREMLIN_HEAD'],
+              'benchmark_commit': os.environ['BENCHMARK_COMMIT'],
+              'task_count': len(rows),
+              'bundle_sha256': hashlib.sha256(path.read_bytes()).hexdigest(),
+          }
+          Path('benchmark/artifacts/gremlin_receipt_provenance.json').write_text(
+              json.dumps(provenance, indent=2, sort_keys=True) + '\n', encoding='utf-8'
+          )
+          print(json.dumps(provenance, sort_keys=True))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gremlin-benchmark-receipts-${{ github.event.pull_request.head.sha }}
+          path: |
+            benchmark/artifacts/gremlin_receipts.jsonl
+            benchmark/artifacts/gremlin_receipt_provenance.json
+          if-no-files-found: error
