@@ -4,18 +4,20 @@ from gremlin_mcp.source_family import (
     arxiv_work_id,
     bind_guard_evidence_to_families,
     derive_source_families,
+    doi_from_url,
     normalize_doi,
+    source_identity,
 )
 
 
-def _citation(source_id, *, title, url, doi=None):
+def _citation(source_id, *, title, url, doi=None, published="2026-08-30"):
     return {
         "source_id": source_id,
         "provider": "fixture",
         "title": title,
         "url": url,
         "doi": doi,
-        "published": "2026-08-30",
+        "published": published,
     }
 
 
@@ -37,9 +39,20 @@ def test_arxiv_version_suffix_is_removed_from_work_identity():
 def test_doi_normalization_removes_common_prefixes():
     assert normalize_doi("https://doi.org/10.1000/ABC") == "10.1000/abc"
     assert normalize_doi("doi:10.1000/ABC") == "10.1000/abc"
+    assert doi_from_url("https://doi.org/10.1000/ABC") == "10.1000/abc"
 
 
-def test_same_work_title_across_providers_collapses_to_one_family():
+def test_primary_identity_prefers_doi_over_informative_title():
+    citation = _citation(
+        "crossref",
+        title="A Very Informative Shared Title That Must Not Override A DOI",
+        url="https://doi.org/10.1000/example",
+        doi="10.1000/example",
+    )
+    assert source_identity(citation) == {"kind": "DOI", "value": "10.1000/example"}
+
+
+def test_same_work_title_across_doi_and_arxiv_collapses_to_one_family():
     title = "A Modular Information Dynamical Bridge Between Quantum Systems and Geometry"
     citations = [
         _citation("crossref", title=title, url="https://doi.org/10.1000/example", doi="10.1000/example"),
@@ -52,6 +65,41 @@ def test_same_work_title_across_providers_collapses_to_one_family():
     assert receipt["collapsed_duplicate_or_version_count"] == 2
     families = {row["family_id"] for row in receipt["families_by_source_id"].values()}
     assert len(families) == 1
+    identities = {row["identity"]["kind"] for row in receipt["families_by_source_id"].values()}
+    assert identities == {"DOI", "ARXIV_WORK"}
+
+
+def test_distinct_dois_with_same_title_are_not_collapsed_by_title_alone():
+    title = "A Shared Scientific Title That Could Belong To Distinct Works"
+    citations = [
+        _citation("doi-a", title=title, url="https://doi.org/10.1000/a", doi="10.1000/a"),
+        _citation("doi-b", title=title, url="https://doi.org/10.1000/b", doi="10.1000/b"),
+    ]
+    receipt = derive_source_families(citations)
+    assert receipt["family_count"] == 2
+    assert receipt["collapsed_duplicate_or_version_count"] == 0
+    assert receipt["strong_identity_conflict_policy"].startswith("DISTINCT_DOI")
+
+
+def test_distinct_arxiv_ids_with_same_title_are_not_collapsed_by_title_alone():
+    title = "A Shared Scientific Title That Could Belong To Distinct Preprints"
+    citations = [
+        _citation("arxiv-a", title=title, url="https://arxiv.org/abs/2608.11111v1"),
+        _citation("arxiv-b", title=title, url="https://arxiv.org/abs/2608.22222v1"),
+    ]
+    receipt = derive_source_families(citations)
+    assert receipt["family_count"] == 2
+    assert receipt["collapsed_duplicate_or_version_count"] == 0
+
+
+def test_title_bridge_rejects_implausibly_distant_publication_years():
+    title = "Exact Shared Title Used Only As A Conservative Cross Provider Bridge"
+    citations = [
+        _citation("doi", title=title, url="https://doi.org/10.1000/example", doi="10.1000/example", published="2018-01-01"),
+        _citation("arxiv", title=title, url="https://arxiv.org/abs/2608.33333v1", published="2026-08-30"),
+    ]
+    receipt = derive_source_families(citations)
+    assert receipt["family_count"] == 2
 
 
 def test_distinct_informative_titles_remain_distinct_families():
@@ -82,7 +130,7 @@ def test_producer_declared_families_cannot_fake_independence_for_same_work():
     assert bound["producer_family_authority"] == "NONE"
 
 
-def test_short_weak_title_falls_back_to_arxiv_work_id_and_still_collapses_versions():
+def test_short_weak_title_uses_arxiv_work_id_and_still_collapses_versions():
     citations = [
         _citation("v1", title="Short title", url="https://arxiv.org/abs/2608.99999v1"),
         _citation("v2", title="Short title", url="https://arxiv.org/abs/2608.99999v2"),
