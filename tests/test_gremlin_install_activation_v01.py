@@ -8,6 +8,7 @@ from gremlin_mcp.install.integrations import gremlin_stdio_entry
 from gremlin_mcp.install.license_activation import activate_license_key, installed_license_status
 from gremlin_mcp.install.paths import GremlinPaths
 from gremlin_mcp.install.readiness import evaluate_readiness
+from gremlin_mcp.product import ProductRuntime
 from gremlin_mcp.product.keycodec import encode_license_key
 from gremlin_mcp.product.license import LicenseError, generate_keypair, issue_license, load_private_key
 
@@ -37,7 +38,7 @@ def make_paths(tmp_path: Path) -> GremlinPaths:
     )
 
 
-def issue_test_key(tmp_path: Path, paths: GremlinPaths) -> str:
+def issue_test_key(tmp_path: Path, paths: GremlinPaths, *, profile_required: bool = False) -> str:
     private_pem, public_pem, _ = generate_keypair()
     private_path = tmp_path / "issuer-private.pem"
     public_path = Path(paths.shared_data_root) / "issuer-public.pem"
@@ -59,7 +60,7 @@ def issue_test_key(tmp_path: Path, paths: GremlinPaths) -> str:
         "features": ["MCP_STDIO", "PERSISTENT_STATE"],
         "limits": {"max_workers": 4, "max_sources": 24},
         "usage": {"commercial_use": True, "production_use": False, "hosted_service": False},
-        "metadata": {"issuer": "Intention Lab"},
+        "metadata": {"issuer": "Intention Lab", "profile_required": profile_required},
     }
     envelope = issue_license(payload, load_private_key(private_path))
     return encode_license_key(envelope)
@@ -88,15 +89,33 @@ def test_tampered_customer_key_never_replaces_installed_license(tmp_path: Path) 
     assert Path(paths.license_file).read_bytes() == before
 
 
-def test_missing_profile_is_not_advertised_to_mcp_client(tmp_path: Path) -> None:
+def test_profile_path_is_stable_and_optional_by_default(tmp_path: Path) -> None:
     paths = make_paths(tmp_path)
+    key = issue_test_key(tmp_path, paths)
+    activate_license_key(key, paths)
     entry = gremlin_stdio_entry(paths)
-    assert "GREMLIN_CLIENT_PROFILE" not in entry["env"]
-    profile = Path(paths.client_profile_file)
-    profile.parent.mkdir(parents=True, exist_ok=True)
-    profile.write_text("{}", encoding="utf-8")
-    entry_with_profile = gremlin_stdio_entry(paths)
-    assert entry_with_profile["env"]["GREMLIN_CLIENT_PROFILE"] == paths.client_profile_file
+    assert entry["env"]["GREMLIN_CLIENT_PROFILE"] == paths.client_profile_file
+    runtime = ProductRuntime.from_paths(
+        license_path=paths.license_file,
+        public_key_path=Path(paths.shared_data_root) / "issuer-public.pem",
+        profile_path=paths.client_profile_file,
+    )
+    assert runtime.status()["status"] == "LICENSED"
+    assert runtime.status()["profile"] is None
+
+
+def test_signed_profile_required_flag_blocks_missing_profile(tmp_path: Path) -> None:
+    paths = make_paths(tmp_path)
+    key = issue_test_key(tmp_path, paths, profile_required=True)
+    activate_license_key(key, paths)
+    runtime = ProductRuntime.from_paths(
+        license_path=paths.license_file,
+        public_key_path=Path(paths.shared_data_root) / "issuer-public.pem",
+        profile_path=paths.client_profile_file,
+    )
+    status = runtime.status()
+    assert status["status"] == "BLOCKED"
+    assert status["reason"] == "required client profile is missing"
 
 
 def test_readiness_reaches_ready_with_license_runtime_and_connected_provider(tmp_path: Path, monkeypatch) -> None:
