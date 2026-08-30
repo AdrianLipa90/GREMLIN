@@ -11,6 +11,7 @@ from gremlin_mcp.product import ProductRuntime
 
 from .config import load_effective_config
 from .paths import GremlinPaths, resolve_paths
+from .secrets import secret_store_status
 
 
 @dataclass(frozen=True)
@@ -72,7 +73,7 @@ def run_doctor(
         checks.append(DoctorCheck("paths", "PASS", f"resolved {paths.platform} installation layout"))
     except Exception as exc:
         checks.append(DoctorCheck("paths", "FAIL", f"{type(exc).__name__}: {exc}"))
-        return _result(checks, paths=None, config=None, product=None)
+        return _result(checks, paths=None, config=None, product=None, secret_store=None)
 
     for name, target in (
         ("config_parent_writable", paths.config_dir),
@@ -137,14 +138,16 @@ def run_doctor(
             )
         )
 
+    secret_state = secret_store_status(paths)
+    secret_available = bool(secret_state.get("available"))
     checks.append(
         DoctorCheck(
             "secret_store",
-            "WARN",
-            "OS credential-store adapter is the next installation milestone; no secret is emitted by doctor",
+            "PASS" if secret_available else "WARN",
+            f"backend={secret_state.get('backend')} available={secret_available}",
         )
     )
-    return _result(checks, paths=paths, config=config, product=product)
+    return _result(checks, paths=paths, config=config, product=product, secret_store=secret_state)
 
 
 def _result(
@@ -153,6 +156,7 @@ def _result(
     paths: GremlinPaths | None,
     config: dict[str, Any] | None,
     product: dict[str, Any] | None,
+    secret_store: dict[str, object] | None,
 ) -> dict[str, Any]:
     counts = {"PASS": 0, "WARN": 0, "FAIL": 0}
     for check in checks:
@@ -166,6 +170,7 @@ def _result(
         "paths": paths.as_dict() if paths else None,
         "config": config,
         "product": product,
+        "secret_store": secret_store,
     }
 
 
