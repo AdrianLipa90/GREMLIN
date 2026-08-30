@@ -12,6 +12,7 @@ from .doctor import run_doctor
 from .integrations import gremlin_stdio_entry, inspect_json_mcp, install_json_mcp, remove_json_mcp
 from .license_activation import activate_license_key, import_license_file, installed_license_status
 from .paths import resolve_paths
+from .profile_activation import import_client_profile, installed_profile_status
 from .provider_integrations import connect_provider, disconnect_provider, list_providers, test_provider
 from .readiness import evaluate_readiness
 from .secrets import resolve_secret_store, secret_store_status
@@ -95,6 +96,18 @@ def _license_activate(args: argparse.Namespace) -> int:
 def _license_import(args: argparse.Namespace) -> int:
     result = import_license_file(args.file, resolve_paths(platform=args.platform))
     _emit(result.as_dict(), as_json=args.json)
+    return 0
+
+
+def _profile_status(args: argparse.Namespace) -> int:
+    payload = installed_profile_status(resolve_paths(platform=args.platform))
+    _emit(payload, as_json=args.json)
+    return 0 if payload.get("status") in {"ACTIVE", "NOT_CONFIGURED"} else 1
+
+
+def _profile_import(args: argparse.Namespace) -> int:
+    payload = import_client_profile(args.file, resolve_paths(platform=args.platform))
+    _emit(payload, as_json=args.json)
     return 0
 
 
@@ -206,6 +219,18 @@ def build_parser() -> argparse.ArgumentParser:
     license_import.add_argument("--platform", choices=("windows", "linux"))
     license_import.add_argument("--json", action="store_true")
     license_import.set_defaults(func=_license_import)
+
+    profile_cmd = sub.add_parser("profile", help="inspect or import a customer-specific restrictive profile")
+    profile_sub = profile_cmd.add_subparsers(dest="profile_command", required=True)
+    profile_status = profile_sub.add_parser("status", help="verify the installed customer profile against the active license")
+    profile_status.add_argument("--platform", choices=("windows", "linux"))
+    profile_status.add_argument("--json", action="store_true")
+    profile_status.set_defaults(func=_profile_status)
+    profile_import = profile_sub.add_parser("import", help="validate and install a customer profile JSON")
+    profile_import.add_argument("file")
+    profile_import.add_argument("--platform", choices=("windows", "linux"))
+    profile_import.add_argument("--json", action="store_true")
+    profile_import.set_defaults(func=_profile_import)
 
     config = sub.add_parser("config", help="inspect effective operational configuration")
     config_sub = config.add_subparsers(dest="config_command", required=True)
