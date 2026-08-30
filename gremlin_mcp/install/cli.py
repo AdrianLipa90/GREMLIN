@@ -10,6 +10,7 @@ from .device import build_activation_request, device_identity_status, ensure_dev
 from .doctor import run_doctor
 from .integrations import gremlin_stdio_entry, inspect_json_mcp, install_json_mcp, remove_json_mcp
 from .paths import resolve_paths
+from .provider_integrations import connect_provider, disconnect_provider, list_providers, test_provider
 from .secrets import resolve_secret_store, secret_store_status
 
 
@@ -31,17 +32,13 @@ def _emit(payload: Any, *, as_json: bool) -> None:
 
 
 def _paths(args: argparse.Namespace) -> int:
-    payload = resolve_paths(platform=args.platform).as_dict()
-    _emit(payload, as_json=args.json)
+    _emit(resolve_paths(platform=args.platform).as_dict(), as_json=args.json)
     return 0
 
 
 def _config_show(args: argparse.Namespace) -> int:
     paths = resolve_paths(platform=args.platform)
-    payload = load_effective_config(
-        user_config_path=paths.config_file,
-        machine_policy_path=paths.machine_policy_file,
-    )
+    payload = load_effective_config(user_config_path=paths.config_file, machine_policy_path=paths.machine_policy_file)
     _emit(payload, as_json=args.json)
     return 0
 
@@ -61,13 +58,7 @@ def _init(args: argparse.Namespace) -> int:
     if not config_path.exists():
         config_path.write_text(DEFAULT_CONFIG_TEXT, encoding="utf-8")
         created = True
-    payload = {
-        "schema": "GREMLIN_INSTALL_INIT_V0_1",
-        "status": "READY",
-        "config_created": created,
-        "paths": paths.as_dict(),
-    }
-    _emit(payload, as_json=args.json)
+    _emit({"schema": "GREMLIN_INSTALL_INIT_V0_1", "status": "READY", "config_created": created, "paths": paths.as_dict()}, as_json=args.json)
     return 0
 
 
@@ -75,71 +66,62 @@ def _device_status(args: argparse.Namespace) -> int:
     paths = resolve_paths(platform=args.platform)
     store_state = secret_store_status(paths)
     if not bool(store_state.get("available")):
-        payload = {
-            "schema": "GREMLIN_DEVICE_STATUS_V0_1",
-            "status": "SECRET_STORE_UNAVAILABLE",
-            "secret_store": store_state,
-            "identity": None,
-        }
+        payload = {"schema": "GREMLIN_DEVICE_STATUS_V0_1", "status": "SECRET_STORE_UNAVAILABLE", "secret_store": store_state, "identity": None}
     else:
         store = resolve_secret_store(paths)
-        payload = {
-            "schema": "GREMLIN_DEVICE_STATUS_V0_1",
-            "status": "READY",
-            "secret_store": store_state,
-            "identity": device_identity_status(store),
-        }
+        payload = {"schema": "GREMLIN_DEVICE_STATUS_V0_1", "status": "READY", "secret_store": store_state, "identity": device_identity_status(store)}
     _emit(payload, as_json=args.json)
     return 0
 
 
 def _device_init(args: argparse.Namespace) -> int:
     paths = resolve_paths(platform=args.platform)
-    store = resolve_secret_store(paths)
-    payload = ensure_device_identity(store)
-    _emit(payload, as_json=args.json)
+    _emit(ensure_device_identity(resolve_secret_store(paths)), as_json=args.json)
     return 0
 
 
 def _device_activation_request(args: argparse.Namespace) -> int:
     paths = resolve_paths(platform=args.platform)
-    store = resolve_secret_store(paths)
-    payload = build_activation_request(license_id=args.license_id, store=store)
+    payload = build_activation_request(license_id=args.license_id, store=resolve_secret_store(paths))
     _emit(payload, as_json=args.json)
     return 0
 
 
 def _integration_inspect(args: argparse.Namespace) -> int:
-    payload = inspect_json_mcp(args.config, server_name=args.server_name)
-    _emit(payload, as_json=args.json)
+    _emit(inspect_json_mcp(args.config, server_name=args.server_name), as_json=args.json)
     return 0
 
 
 def _integration_install(args: argparse.Namespace) -> int:
     paths = resolve_paths(platform=args.platform)
-    backup_root = Path(paths.data_dir) / "integration-backups"
-    receipt = install_json_mcp(
-        client_id=args.client_id,
-        config_path=args.config,
-        entry=gremlin_stdio_entry(paths),
-        backup_root=backup_root,
-        server_name=args.server_name,
-    )
+    receipt = install_json_mcp(client_id=args.client_id, config_path=args.config, entry=gremlin_stdio_entry(paths), backup_root=Path(paths.data_dir) / "integration-backups", server_name=args.server_name)
     _emit(receipt.as_dict(), as_json=args.json)
     return 0
 
 
 def _integration_remove(args: argparse.Namespace) -> int:
     paths = resolve_paths(platform=args.platform)
-    backup_root = Path(paths.data_dir) / "integration-backups"
-    receipt = remove_json_mcp(
-        client_id=args.client_id,
-        config_path=args.config,
-        backup_root=backup_root,
-        server_name=args.server_name,
-    )
+    receipt = remove_json_mcp(client_id=args.client_id, config_path=args.config, backup_root=Path(paths.data_dir) / "integration-backups", server_name=args.server_name)
     _emit(receipt.as_dict(), as_json=args.json)
     return 0
+
+
+def _providers_list(args: argparse.Namespace) -> int:
+    paths = resolve_paths(platform=args.platform)
+    _emit(list_providers(paths), as_json=args.json)
+    return 0
+
+
+def _provider_action(args: argparse.Namespace) -> int:
+    paths = resolve_paths(platform=args.platform)
+    if args.provider_action == "connect":
+        result = connect_provider(args.provider, paths)
+    elif args.provider_action == "disconnect":
+        result = disconnect_provider(args.provider, paths)
+    else:
+        result = test_provider(args.provider, paths)
+    _emit(result.as_dict(), as_json=args.json)
+    return 0 if result.status not in {"NOT_CONNECTED"} else 1
 
 
 def _integration_common(parser: argparse.ArgumentParser) -> None:
@@ -148,6 +130,13 @@ def _integration_common(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--server-name", default="gremlin")
     parser.add_argument("--platform", choices=("windows", "linux"))
     parser.add_argument("--json", action="store_true")
+
+
+def _provider_common(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("provider", choices=("codex", "opencode"))
+    parser.add_argument("--platform", choices=("windows", "linux"))
+    parser.add_argument("--json", action="store_true")
+    parser.set_defaults(func=_provider_action)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -187,17 +176,28 @@ def build_parser() -> argparse.ArgumentParser:
     activation_request.add_argument("--json", action="store_true")
     activation_request.set_defaults(func=_device_activation_request)
 
-    integrations = sub.add_parser("integrations", help="inspect and safely modify MCP client configuration")
+    integrations = sub.add_parser("integrations", help="connect GREMLIN to supported AI clients or custom MCP configs")
     integrations_sub = integrations.add_subparsers(dest="integration_command", required=True)
+
+    providers = integrations_sub.add_parser("providers", help="discover Codex/OpenCode and show MCP connection status")
+    providers.add_argument("--platform", choices=("windows", "linux"))
+    providers.add_argument("--json", action="store_true")
+    providers.set_defaults(func=_providers_list)
+
+    for action in ("connect", "disconnect", "test"):
+        provider = integrations_sub.add_parser(action, help=f"{action} a supported AI client")
+        _provider_common(provider)
+        provider.set_defaults(provider_action=action)
+
     inspect = integrations_sub.add_parser("inspect", help="inspect a generic JSON MCP configuration")
     inspect.add_argument("--config", required=True)
     inspect.add_argument("--server-name", default="gremlin")
     inspect.add_argument("--json", action="store_true")
     inspect.set_defaults(func=_integration_inspect)
-    install = integrations_sub.add_parser("install", help="backup, merge and verify the GREMLIN stdio entry")
+    install = integrations_sub.add_parser("install", help="advanced: backup, merge and verify a generic JSON MCP config")
     _integration_common(install)
     install.set_defaults(func=_integration_install)
-    remove = integrations_sub.add_parser("remove", help="backup, remove and verify the GREMLIN entry")
+    remove = integrations_sub.add_parser("remove", help="advanced: remove GREMLIN from a generic JSON MCP config")
     _integration_common(remove)
     remove.set_defaults(func=_integration_remove)
 
