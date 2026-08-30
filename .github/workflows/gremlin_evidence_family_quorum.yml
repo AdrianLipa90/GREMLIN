@@ -31,3 +31,14 @@ jobs:
         run: python -m pytest -q tests/test_semantic_bridge.py tests/test_source_family.py tests/test_semantic_evidence.py
       - name: Import strict quorum MCP entrypoint
         run: python -c "import gremlin_mcp.quorum_server as q; assert callable(q.gremlin_evidence_family_quorum); assert callable(q.gremlin_semantic_quorum_apply)"
+      - name: Generate deterministic family quorum receipt
+        run: python -m tools.gremlin_evidence_family_quorum_probe_v01 --out artifacts/gremlin_evidence_family_quorum_probe.json
+      - name: Verify preregistered family quorum gates
+        run: python -c "import json; r=json.load(open('artifacts/gremlin_evidence_family_quorum_probe.json')); assert r['status']=='PASS'; assert all(r['checks'].values()); assert r['leaderboard_or_external_benchmark_claimed'] is False"
+      - name: Upload family quorum receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gremlin-evidence-family-quorum
+          path: artifacts/gremlin_evidence_family_quorum_probe.json
+          if-no-files-found: warn
