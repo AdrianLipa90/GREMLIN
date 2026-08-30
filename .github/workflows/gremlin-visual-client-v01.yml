@@ -29,6 +29,7 @@ on:
       - 'tools/gremlin_kaku_radical_scalar_plane_v01.py'
       - 'tools/gremlin_scalar_admitted_phasenav_v02.py'
       - 'tools/gremlin_scalar_acquisition_v02.py'
+      - 'tools/gremlin_acquisition_bound_phasenav_v03.py'
       - 'tools/gremlin_scalar_source_registry_v03.py'
       - 'tools/gremlin_scalar_source_firewall_v03.py'
       - 'tools/gremlin_kaku_scalar_facets_v04.py'
@@ -51,6 +52,7 @@ on:
       - 'tests/test_gremlin_kaku_radical_scalar_plane_v01.py'
       - 'tests/test_gremlin_scalar_admitted_phasenav_v02.py'
       - 'tests/test_gremlin_scalar_acquisition_v02.py'
+      - 'tests/test_gremlin_acquisition_bound_phasenav_v03.py'
       - 'tests/test_gremlin_scalar_source_registry_v03.py'
       - 'tests/test_gremlin_kaku_scalar_facets_v04.py'
       - 'tests/test_gremlin_intention_anchor_provenance_v04.py'
@@ -75,6 +77,7 @@ on:
       - 'provenance/RELATIONAL_LAMBDA_SOURCE_WITNESS_V0_8.json'
       - 'spec/GREMLIN_KAKU_RADICAL_SCALAR_PLANE_V0_1.md'
       - 'spec/GREMLIN_SCALAR_ACQUISITION_V0_2.md'
+      - 'spec/GREMLIN_ACQUISITION_BOUND_PHASENAV_V0_3.md'
       - 'spec/GREMLIN_SCALAR_SOURCE_REGISTRY_V0_3.md'
       - 'spec/GREMLIN_KAKU_SCALAR_FACETS_V0_4.md'
       - 'spec/GREMLIN_RIFC_AFFECT_FIELD_V0_5.md'
@@ -107,5 +110,5 @@ jobs:
         run: python -m pip install pytest
       - name: Check browser JavaScript syntax
         run: node --check client/web/app.js
-      - name: Run cross-repo RSI-PMNS, Hermitian-exchange, oriented-coupling, dual-channel, coupling-energy, joint-state, MaxSym spin-geometry, Hamiltonian, connection-path, Lambda-holonomy, valuation, epistemic, affect, scalar, admission, client and native tests
-        run: python -m pytest -q tests/test_gremlin_crossrepo_rsi_pmns_audit_v17.py tests/test_gremlin_hermitian_oriented_exchange_v14.py tests/test_gremlin_oriented_relational_coupling_v13.py tests/test_gremlin_dual_channel_entanglement_probe_v12.py tests/test_gremlin_relational_coupling_energy_v11.py tests/test_gremlin_joint_quantum_witness_v10.py tests/test_gremlin_maxsym_spin_geometry_v010.py tests/test_gremlin_relational_hamiltonian_entanglement_v09.py tests/test_gremlin_connection_path_holonomy_v09.py tests/test_gremlin_relational_lambda_holonomy_v08.py tests/test_gremlin_valuation_integrity_bundles_v07.py tests/test_gremlin_epistemic_bundle_v06.py tests/test_gremlin_affect_field_v05.py tests/test_gremlin_kaku_scalar_facets_v04.py tests/test_gremlin_intention_anchor_provenance_v04.py tests/test_gremlin_scalar_source_registry_v03.py tests/test_gremlin_scalar_acquisition_v02.py tests/test_gremlin_kaku_radical_scalar_plane_v01.py tests/test_gremlin_scalar_admitted_phasenav_v02.py tests/test_gremlin_visual_client_v01.py tests/test_gremlin_phasenav_prototype_pipeline_v01.py tests/test_native_pnv_contracts.py
+      - name: Run cross-repo RSI-PMNS, Hermitian-exchange, oriented-coupling, dual-channel, coupling-energy, joint-state, MaxSym spin-geometry, Hamiltonian, connection-path, Lambda-holonomy, valuation, epistemic, affect, acquisition-bound PhaseNav, scalar, admission, client and native tests
+        run: python -m pytest -q tests/test_gremlin_crossrepo_rsi_pmns_audit_v17.py tests/test_gremlin_hermitian_oriented_exchange_v14.py tests/test_gremlin_oriented_relational_coupling_v13.py tests/test_gremlin_dual_channel_entanglement_probe_v12.py tests/test_gremlin_relational_coupling_energy_v11.py tests/test_gremlin_joint_quantum_witness_v10.py tests/test_gremlin_maxsym_spin_geometry_v010.py tests/test_gremlin_relational_hamiltonian_entanglement_v09.py tests/test_gremlin_connection_path_holonomy_v09.py tests/test_gremlin_relational_lambda_holonomy_v08.py tests/test_gremlin_valuation_integrity_bundles_v07.py tests/test_gremlin_epistemic_bundle_v06.py tests/test_gremlin_affect_field_v05.py tests/test_gremlin_kaku_scalar_facets_v04.py tests/test_gremlin_intention_anchor_provenance_v04.py tests/test_gremlin_scalar_source_registry_v03.py tests/test_gremlin_acquisition_bound_phasenav_v03.py tests/test_gremlin_scalar_acquisition_v02.py tests/test_gremlin_kaku_radical_scalar_plane_v01.py tests/test_gremlin_scalar_admitted_phasenav_v02.py tests/test_gremlin_visual_client_v01.py tests/test_gremlin_phasenav_prototype_pipeline_v01.py tests/test_native_pnv_contracts.py
