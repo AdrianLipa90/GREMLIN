@@ -67,6 +67,7 @@ def test_same_work_title_across_doi_and_arxiv_collapses_to_one_family():
     assert len(families) == 1
     identities = {row["identity"]["kind"] for row in receipt["families_by_source_id"].values()}
     assert identities == {"DOI", "ARXIV_WORK"}
+    assert receipt["ambiguous_title_bridges"] == []
 
 
 def test_distinct_dois_with_same_title_are_not_collapsed_by_title_alone():
@@ -78,7 +79,8 @@ def test_distinct_dois_with_same_title_are_not_collapsed_by_title_alone():
     receipt = derive_source_families(citations)
     assert receipt["family_count"] == 2
     assert receipt["collapsed_duplicate_or_version_count"] == 0
-    assert receipt["strong_identity_conflict_policy"].startswith("DISTINCT_DOI")
+    assert len(receipt["ambiguous_title_bridges"]) == 1
+    assert receipt["ambiguous_title_bridges"][0]["doi_ids"] == ["10.1000/a", "10.1000/b"]
 
 
 def test_distinct_arxiv_ids_with_same_title_are_not_collapsed_by_title_alone():
@@ -90,6 +92,22 @@ def test_distinct_arxiv_ids_with_same_title_are_not_collapsed_by_title_alone():
     receipt = derive_source_families(citations)
     assert receipt["family_count"] == 2
     assert receipt["collapsed_duplicate_or_version_count"] == 0
+    assert len(receipt["ambiguous_title_bridges"]) == 1
+
+
+def test_ambiguous_title_cannot_transitively_bridge_two_distinct_dois_through_arxiv():
+    title = "One Shared Title That Must Not Create A Transitive Identity Collision"
+    citations = [
+        _citation("doi-a", title=title, url="https://doi.org/10.1000/a", doi="10.1000/a"),
+        _citation("arxiv", title=title, url="https://arxiv.org/abs/2608.44444v1"),
+        _citation("doi-b", title=title, url="https://doi.org/10.1000/b", doi="10.1000/b"),
+    ]
+    receipt = derive_source_families(citations)
+    assert receipt["family_count"] == 3
+    assert receipt["collapsed_duplicate_or_version_count"] == 0
+    assert receipt["merge_receipts"] == []
+    assert len(receipt["ambiguous_title_bridges"]) == 1
+    assert receipt["ambiguous_title_bridges"][0]["policy"] == "TITLE_BRIDGE_DISABLED_DUE_TO_STRONG_IDENTITY_AMBIGUITY"
 
 
 def test_title_bridge_rejects_implausibly_distant_publication_years():
