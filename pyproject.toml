@@ -13,11 +13,14 @@ authors = [
   { name = "Adrian Lipa / Intention Lab" }
 ]
 dependencies = [
-  "mcp>=2,<3"
+  "mcp>=2,<3",
+  "cryptography>=42,<47"
 ]
 
 [project.scripts]
 gremlin-mcp = "gremlin_mcp.server:main"
+gremlin-product-mcp = "gremlin_mcp.product_server:main"
+gremlin-license = "gremlin_mcp.product.cli:main"
 
 [tool.setuptools.packages.find]
 include = ["gremlin_mcp*", "tools*"]
