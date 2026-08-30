@@ -9,6 +9,9 @@ Rules-Requires-Root: no
 Package: gremlin
 Architecture: amd64
 Depends: ${shlibs:Depends}, ${misc:Depends}, libsecret-tools
-Description: GREMLIN AI Research Orchestrator
- Licensed GREMLIN MCP runtime, native Control Center and cross-platform
- installation/diagnostics tooling for local AI research orchestration.
+Description: GREMLIN AI MCP orchestrator for Linux
+ Licensed local GREMLIN MCP runtime, native Linux Control Center and XDG-aware
+ installation/diagnostics tooling. The Control Center discovers and connects
+ supported Linux AI clients including Codex, OpenCode, Claude Code, Gemini CLI,
+ Cursor, Visual Studio Code/Copilot and Windsurf while preserving client configs
+ through native CLI registration or backed-up atomic configuration merges.
