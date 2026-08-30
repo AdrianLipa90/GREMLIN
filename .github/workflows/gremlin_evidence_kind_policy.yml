@@ -1,0 +1,42 @@
+name: GREMLIN Evidence Kind Policy
+
+on:
+  push:
+    branches:
+      - feat/gremlin-evidence-kind-policy-v0.1
+  pull_request:
+    branches:
+      - feat/gremlin-evidence-family-quorum-v0.1
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  evidence-kind-policy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install GREMLIN and test dependency
+        run: python -m pip install --disable-pip-version-check -e . pytest
+      - name: Run evidence kind unit tests
+        run: python -m pytest -q tests/test_evidence_kind.py
+      - name: Run semantic evidence kind integration tests
+        run: python -m pytest -q tests/test_semantic_kind_bridge.py
+      - name: Run upstream strict semantic regressions
+        run: python -m pytest -q tests/test_evidence_quorum.py tests/test_semantic_quorum_bridge.py tests/test_semantic_bridge.py tests/test_semantic_evidence.py tests/test_source_family.py
+      - name: Generate deterministic evidence kind receipt
+        run: python -m tools.gremlin_evidence_kind_policy_probe_v01 --out artifacts/gremlin_evidence_kind_policy_probe.json
+      - name: Verify preregistered evidence kind gates
+        run: python -c "import json; r=json.load(open('artifacts/gremlin_evidence_kind_policy_probe.json')); assert r['status']=='PASS'; assert all(r['checks'].values()); assert r['external_benchmark_claimed'] is False; assert r['automatic_kind_inference_executed'] is False"
+      - name: Upload evidence kind receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gremlin-evidence-kind-policy
+          path: artifacts/gremlin_evidence_kind_policy_probe.json
+          if-no-files-found: warn
