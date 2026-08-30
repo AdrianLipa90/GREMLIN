@@ -21,6 +21,7 @@ dependencies = [
 gremlin-mcp = "gremlin_mcp.server:main"
 gremlin-product-mcp = "gremlin_mcp.product_server:main"
 gremlin-license = "gremlin_mcp.product.cli:main"
+gremlin-bundle = "gremlin_mcp.product.bundle_cli:main"
 
 [tool.setuptools.packages.find]
 include = ["gremlin_mcp*", "tools*"]
