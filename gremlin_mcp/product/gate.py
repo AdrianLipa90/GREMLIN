@@ -53,7 +53,16 @@ class ProductRuntime:
                 payload = verify_license_key(license_key, public_key_path)  # type: ignore[arg-type]
             else:
                 payload = load_license(license_path, public_key_path)  # type: ignore[arg-type]
-            profile = load_client_profile(profile_path, payload) if profile_path else None
+
+            profile = None
+            if profile_path:
+                target = Path(profile_path)
+                metadata = payload.get("metadata") or {}
+                profile_required = bool(metadata.get("profile_required")) if isinstance(metadata, dict) else False
+                if target.is_file():
+                    profile = load_client_profile(target, payload)
+                elif profile_required:
+                    raise ClientProfileError("required client profile is missing")
         except (LicenseError, ClientProfileError, OSError) as exc:
             runtime.configuration_error = str(exc)
             return runtime
