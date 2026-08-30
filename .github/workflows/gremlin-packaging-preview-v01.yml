@@ -3,6 +3,7 @@ name: GREMLIN Packaging Preview v0.1
 on:
   push:
     branches:
+      - main
       - feat/gremlin-installation-control-center-v0.1
     paths:
       - 'gremlin_mcp/**'
@@ -14,6 +15,10 @@ on:
       - 'pyproject.toml'
       - '.github/workflows/gremlin-packaging-preview-v01.yml'
   workflow_dispatch:
+
+concurrency:
+  group: gremlin-packaging-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -76,6 +81,7 @@ jobs:
         run: |
           dist/linux/runtime/gremlinctl paths --platform linux --json
           dist/linux/runtime/gremlinctl doctor --platform linux --json
+          dist/linux/runtime/gremlinctl profile --help >/dev/null
           dist/linux/runtime/gremlinctl integrations providers --platform linux --json | tee "$RUNNER_TEMP/providers-linux.json"
           python - <<'PY'
           import json, os
@@ -101,16 +107,19 @@ jobs:
           /usr/bin/gremlinctl doctor --platform linux --json
           cat "$RUNNER_TEMP/preview-license.key" | /usr/bin/gremlinctl license activate --stdin --platform linux --json
           /usr/bin/gremlinctl license status --platform linux --json | tee "$RUNNER_TEMP/license-installed-linux.json"
+          /usr/bin/gremlinctl profile status --platform linux --json | tee "$RUNNER_TEMP/profile-installed-linux.json"
           /usr/bin/gremlinctl integrations providers --platform linux --json | tee "$RUNNER_TEMP/providers-installed-linux.json"
           /usr/bin/gremlinctl ready --platform linux --json > "$RUNNER_TEMP/ready-installed-linux.json" || test $? -eq 1
           python - <<'PY'
           import json, os
           root=os.environ['RUNNER_TEMP']
           lic=json.load(open(root+'/license-installed-linux.json'))
+          profile=json.load(open(root+'/profile-installed-linux.json'))
           providers=json.load(open(root+'/providers-installed-linux.json'))
           ready=json.load(open(root+'/ready-installed-linux.json'))
           ids={x['provider_id'] for x in providers['providers']}
           assert lic['status']=='ACTIVE'
+          assert profile['status']=='NOT_CONFIGURED'
           assert providers['platform']=='linux' and 'claude-desktop' not in ids
           assert ready['product']['status']=='LICENSED'
           assert ready['runtime']['available'] is True
@@ -163,6 +172,7 @@ jobs:
         run: |
           & .\dist\windows\runtime\gremlinctl.exe paths --platform windows --json
           & .\dist\windows\runtime\gremlinctl.exe doctor --platform windows --json
+          & .\dist\windows\runtime\gremlinctl.exe profile --help | Out-Null
           $providers = & .\dist\windows\runtime\gremlinctl.exe integrations providers --platform windows --json | ConvertFrom-Json
           if ($providers.platform -ne 'windows') { throw 'Provider matrix is not Windows-scoped' }
           $ids = @($providers.providers | ForEach-Object { $_.provider_id })
@@ -199,6 +209,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Installed Windows license activation failed' }
           $license = & $ctl license status --platform windows --json | ConvertFrom-Json
           if ($license.status -ne 'ACTIVE') { throw 'Installed Windows license is not ACTIVE' }
+          $profile = & $ctl profile status --platform windows --json | ConvertFrom-Json
+          if ($profile.status -ne 'NOT_CONFIGURED') { throw 'Optional customer profile unexpectedly blocks Windows preview' }
           $providers = & $ctl integrations providers --platform windows --json | ConvertFrom-Json
           $ids = @($providers.providers | ForEach-Object { $_.provider_id })
           if ($providers.platform -ne 'windows' -or $ids -notcontains 'claude-desktop') { throw 'Installed Windows provider matrix invalid' }
