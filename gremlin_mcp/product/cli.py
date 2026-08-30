@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 from typing import Sequence
 
+from .keycodec import encode_license_key
 from .license import generate_keypair, issue_license, load_private_key
 
 
@@ -60,12 +61,30 @@ def _issue(args: argparse.Namespace) -> int:
         },
     }
     envelope = issue_license(payload, load_private_key(args.private))
+    compact_key = encode_license_key(envelope)
     out = Path(args.out)
     if out.exists() and not args.force:
         raise SystemExit("output license already exists; pass --force to replace it")
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(envelope, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    print(json.dumps({"status": "ISSUED", "license_id": payload["license_id"], "out": str(out), "key_id": envelope["signature"]["key_id"]}, sort_keys=True))
+    key_out = None
+    if args.key_out:
+        key_path = Path(args.key_out)
+        if key_path.exists() and not args.force:
+            raise SystemExit("output license key already exists; pass --force to replace it")
+        key_path.parent.mkdir(parents=True, exist_ok=True)
+        key_path.write_text(compact_key + "\n", encoding="utf-8")
+        key_out = str(key_path)
+    result = {
+        "status": "ISSUED",
+        "license_id": payload["license_id"],
+        "out": str(out),
+        "key_out": key_out,
+        "key_id": envelope["signature"]["key_id"],
+    }
+    if args.print_key:
+        result["license_key"] = compact_key
+    print(json.dumps(result, sort_keys=True))
     return 0
 
 
@@ -81,6 +100,8 @@ def build_parser() -> argparse.ArgumentParser:
     issue = sub.add_parser("issue", help="issue one signed GREMLIN license")
     issue.add_argument("--private", required=True, help="issuer private key PEM path")
     issue.add_argument("--out", required=True, help="license JSON output path")
+    issue.add_argument("--key-out", help="optional compact GRM1 license-key output path")
+    issue.add_argument("--print-key", action="store_true", help="include compact GRM1 key in stdout JSON")
     issue.add_argument("--license-id", required=True)
     issue.add_argument("--customer", required=True, help="customer label or pseudonymous customer hash")
     issue.add_argument("--edition", required=True, choices=("RESEARCH", "PERSONAL_PRO", "COMMERCIAL", "ENTERPRISE"))
@@ -92,7 +113,7 @@ def build_parser() -> argparse.ArgumentParser:
     issue.add_argument("--seats", type=int, default=1)
     issue.add_argument("--devices", type=int, default=1)
     issue.add_argument("--max-workers", type=int, default=4)
-    issue.add_argument("--max-sources", type=int, default=12)
+    issue.add_argument("--max-sources", type=int, default=24)
     issue.add_argument("--commercial-use", action="store_true")
     issue.add_argument("--production-use", action="store_true")
     issue.add_argument("--hosted-service", action="store_true")
