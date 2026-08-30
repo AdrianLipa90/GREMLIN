@@ -11,6 +11,13 @@ from .license import load_license, load_public_key
 from .profile import load_client_profile
 
 BUNDLE_SCHEMA = "GREMLIN_CUSTOMER_BUNDLE_V0_1"
+_PRIVATE_KEY_MARKERS = (
+    b"-----BEGIN PRIVATE KEY-----",
+    b"-----BEGIN ENCRYPTED PRIVATE KEY-----",
+    b"-----BEGIN RSA PRIVATE KEY-----",
+    b"-----BEGIN EC PRIVATE KEY-----",
+    b"-----BEGIN OPENSSH PRIVATE KEY-----",
+)
 
 
 def _sha256(data: bytes) -> str:
@@ -29,6 +36,12 @@ def _safe_leaf(name: str) -> str:
     if not leaf or leaf in {".", ".."}:
         raise ValueError("bundle filename must be a safe leaf name")
     return leaf
+
+
+def _looks_like_private_key(name: str, data: bytes) -> bool:
+    lowered = name.casefold()
+    suspicious_name = "private" in lowered and (lowered.endswith(".pem") or lowered.endswith(".key"))
+    return suspicious_name or any(marker in data for marker in _PRIVATE_KEY_MARKERS)
 
 
 def _config_template(*, use_compact_key: bool) -> dict[str, Any]:
@@ -99,8 +112,7 @@ def build_customer_bundle(
     for raw in extra_paths:
         extra, data = _read(raw, field="extra_path")
         leaf = _safe_leaf(extra.name)
-        lowered = leaf.casefold()
-        if "private" in lowered and (lowered.endswith(".pem") or lowered.endswith(".key")):
+        if _looks_like_private_key(leaf, data):
             raise ValueError("refusing to include a file that appears to be private key material")
         arcname = f"extras/{leaf}"
         if arcname in entries:
