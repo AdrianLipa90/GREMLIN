@@ -4,9 +4,10 @@ GREMLIN EARLY ACCESS — START HERE
 1. Install GREMLIN for your operating system.
 2. Open GREMLIN Control Center.
 3. In Setup, paste your customer key beginning with GRM1- and choose Activate GREMLIN.
-4. GREMLIN detects supported AI clients installed on your computer.
-5. Choose your client and press Connect & Test.
-6. When Control Center shows READY, setup is complete.
+4. If your signed license requires a customer-specific GREMLIN profile, Control Center will ask for it. Drop the supplied JSON file onto the window and choose Import & verify customer profile. If the profile is optional, you can add it later without reconnecting your AI client.
+5. GREMLIN detects supported AI clients installed on your computer.
+6. Choose your client and press Connect & Test.
+7. When Control Center shows READY, setup is complete.
 
 You do not need Python, pip, a virtual environment, or manual MCP JSON editing for supported clients.
 
