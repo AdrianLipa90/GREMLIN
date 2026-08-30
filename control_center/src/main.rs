@@ -24,6 +24,8 @@ struct GremlinControlCenter {
     device_error: Option<String>,
     license: Option<Value>,
     license_error: Option<String>,
+    profile: Option<Value>,
+    profile_error: Option<String>,
     readiness: Option<Value>,
     readiness_error: Option<String>,
     providers: Option<Value>,
@@ -31,6 +33,7 @@ struct GremlinControlCenter {
     provider_result: Option<Value>,
     license_key_input: String,
     license_file_input: String,
+    profile_file_input: String,
     integration_path: String,
     integration_result: Option<Value>,
     integration_error: Option<String>,
@@ -46,6 +49,8 @@ impl Default for GremlinControlCenter {
             device_error: None,
             license: None,
             license_error: None,
+            profile: None,
+            profile_error: None,
             readiness: None,
             readiness_error: None,
             providers: None,
@@ -53,6 +58,7 @@ impl Default for GremlinControlCenter {
             provider_result: None,
             license_key_input: String::new(),
             license_file_input: String::new(),
+            profile_file_input: String::new(),
             integration_path: String::new(),
             integration_result: None,
             integration_error: None,
@@ -119,6 +125,7 @@ fn run_ctl_json_input(args: &[String], input: &str) -> Result<Value, String> {
 impl GremlinControlCenter {
     fn refresh_all(&mut self) {
         self.refresh_license();
+        self.refresh_profile();
         self.refresh_doctor();
         self.refresh_device();
         self.refresh_providers();
@@ -149,6 +156,15 @@ impl GremlinControlCenter {
         match run_ctl_json(&["license".into(), "status".into(), "--json".into()]) {
             Ok(value) => self.license = Some(value),
             Err(err) => self.license_error = Some(err),
+        }
+    }
+
+    fn refresh_profile(&mut self) {
+        self.profile = None;
+        self.profile_error = None;
+        match run_ctl_json(&["profile".into(), "status".into(), "--json".into()]) {
+            Ok(value) => self.profile = Some(value),
+            Err(err) => self.profile_error = Some(err),
         }
     }
 
@@ -202,7 +218,7 @@ impl GremlinControlCenter {
         self.license_error = None;
         let path = self.license_file_input.trim();
         if path.is_empty() {
-            self.license_error = Some("Enter the path to the signed GREMLIN license.json file.".to_owned());
+            self.license_error = Some("Drop or enter the signed GREMLIN license.json file.".to_owned());
             return;
         }
         let args = vec![
@@ -217,6 +233,25 @@ impl GremlinControlCenter {
                 self.refresh_all();
             }
             Err(err) => self.license_error = Some(err),
+        }
+    }
+
+    fn import_profile(&mut self) {
+        self.profile_error = None;
+        let path = self.profile_file_input.trim();
+        if path.is_empty() {
+            self.profile_error = Some("Drop or enter the customer profile JSON file.".to_owned());
+            return;
+        }
+        let args = vec![
+            "profile".to_owned(),
+            "import".to_owned(),
+            path.to_owned(),
+            "--json".to_owned(),
+        ];
+        match run_ctl_json(&args) {
+            Ok(_) => self.refresh_all(),
+            Err(err) => self.profile_error = Some(err),
         }
     }
 
@@ -271,6 +306,19 @@ impl GremlinControlCenter {
         }
     }
 
+    fn handle_dropped_files(&mut self, ctx: &egui::Context) {
+        let paths: Vec<PathBuf> = ctx.input(|input| {
+            input.raw.dropped_files.iter().filter_map(|file| file.path.clone()).collect()
+        });
+        if let Some(path) = paths.last() {
+            let text = path.to_string_lossy().to_string();
+            if path.extension().and_then(|v| v.to_str()).map(|v| v.eq_ignore_ascii_case("json")).unwrap_or(false) {
+                self.license_file_input = text.clone();
+                self.profile_file_input = text;
+            }
+        }
+    }
+
     fn overall_status(&self) -> &str {
         self.doctor.as_ref().and_then(|v| v.get("status")).and_then(Value::as_str).unwrap_or("UNAVAILABLE")
     }
@@ -281,6 +329,18 @@ impl GremlinControlCenter {
 
     fn license_active(&self) -> bool {
         self.license_status() == "ACTIVE"
+    }
+
+    fn profile_status(&self) -> &str {
+        self.profile.as_ref().and_then(|v| v.get("status")).and_then(Value::as_str).unwrap_or("NOT_CONFIGURED")
+    }
+
+    fn profile_required(&self) -> bool {
+        self.readiness.as_ref()
+            .and_then(|v| v.get("product"))
+            .and_then(|v| v.get("reason"))
+            .and_then(Value::as_str)
+            == Some("required client profile is missing")
     }
 
     fn product_status(&self) -> &str {
@@ -319,6 +379,45 @@ impl GremlinControlCenter {
         });
     }
 
+    fn profile_import_controls(&mut self, ui: &mut egui::Ui) {
+        ui.label("Drop the customer profile JSON onto this window, or enter its file path:");
+        ui.text_edit_singleline(&mut self.profile_file_input);
+        if ui.button("Import & verify customer profile").clicked() {
+            self.import_profile();
+        }
+        if let Some(err) = &self.profile_error {
+            ui.label(err);
+        }
+    }
+
+    fn customer_profile_panel(&mut self, ui: &mut egui::Ui) {
+        ui.add_space(10.0);
+        ui.separator();
+        ui.strong("Customer profile");
+        match self.profile_status() {
+            "ACTIVE" => {
+                ui.label("✓ Customer profile active");
+                if let Some(profile) = &self.profile {
+                    if let Some(label) = profile.get("label").and_then(Value::as_str) {
+                        if !label.is_empty() { ui.label(format!("Profile: {label}")); }
+                    }
+                    if let Some(commitment) = profile.get("profile_commitment").and_then(Value::as_str) {
+                        ui.small(format!("Commitment: {commitment}"));
+                    }
+                }
+            }
+            _ if self.profile_required() => {
+                ui.strong("Required by this signed license");
+                self.profile_import_controls(ui);
+            }
+            _ => {
+                egui::CollapsingHeader::new("Customer-specific profile (optional for this license)")
+                    .default_open(false)
+                    .show(ui, |ui| self.profile_import_controls(ui));
+            }
+        }
+    }
+
     fn license_activation_panel(&mut self, ui: &mut egui::Ui) {
         if self.license_active() {
             ui.strong("✓ License active");
@@ -330,6 +429,7 @@ impl GremlinControlCenter {
                     ui.label(format!("License ID: {id}"));
                 }
             }
+            self.customer_profile_panel(ui);
             return;
         }
 
@@ -354,6 +454,7 @@ impl GremlinControlCenter {
         egui::CollapsingHeader::new("I received a signed license.json instead")
             .default_open(false)
             .show(ui, |ui| {
+                ui.label("Drop the file onto this window or enter the path:");
                 ui.text_edit_singleline(&mut self.license_file_input);
                 if ui.button("Import signed license file").clicked() {
                     self.import_license();
@@ -380,6 +481,10 @@ impl GremlinControlCenter {
             ui.heading("2. Connect your AI client");
             if !self.license_active() {
                 ui.label("Activate GREMLIN first. Provider controls will unlock automatically.");
+                return;
+            }
+            if self.product_status() != "LICENSED" {
+                ui.label("Complete the required entitlement/profile step above first.");
                 return;
             }
             let providers_owned: Vec<Value> = self.providers.as_ref()
@@ -441,6 +546,7 @@ impl GremlinControlCenter {
             ui.label("System"); ui.strong(self.overall_status()); ui.end_row();
             ui.label("Platform"); ui.strong(self.platform_name()); ui.end_row();
             ui.label("License"); ui.strong(self.license_status()); ui.end_row();
+            ui.label("Profile"); ui.strong(self.profile_status()); ui.end_row();
             ui.label("Product"); ui.strong(self.product_status()); ui.end_row();
             ui.label("MCP transport"); ui.strong(self.runtime_transport()); ui.end_row();
         });
@@ -459,7 +565,7 @@ impl GremlinControlCenter {
     }
 
     fn license(&mut self, ui: &mut egui::Ui) {
-        ui.heading("License");
+        ui.heading("License & customer profile");
         self.license_activation_panel(ui);
         ui.add_space(16.0);
         egui::CollapsingHeader::new("Device identity")
@@ -499,11 +605,12 @@ impl GremlinControlCenter {
             if detected { ui.label(format!("Executable: {executable}")); }
             ui.label(format!("Config: {config}"));
             ui.add_space(8.0);
+            let product_ready = self.product_status() == "LICENSED";
             ui.horizontal(|ui| {
-                if ui.add_enabled(self.license_active() && detected && !connected, egui::Button::new("Connect & Test")).clicked() {
+                if ui.add_enabled(product_ready && detected && !connected, egui::Button::new("Connect & Test")).clicked() {
                     self.provider_action("connect", id);
                 }
-                if ui.add_enabled(self.license_active() && detected, egui::Button::new("Test MCP")).clicked() {
+                if ui.add_enabled(product_ready && detected, egui::Button::new("Test MCP")).clicked() {
                     self.provider_action("test", id);
                 }
                 if ui.add_enabled(detected && connected, egui::Button::new("Disconnect")).clicked() {
@@ -556,7 +663,7 @@ impl GremlinControlCenter {
                 ui.horizontal(|ui| { ui.label("Config file"); ui.text_edit_singleline(&mut self.integration_path); });
                 ui.horizontal(|ui| {
                     if ui.button("Inspect").clicked() { self.integration_action("inspect"); }
-                    if ui.add_enabled(self.license_active(), egui::Button::new("Connect")).clicked() { self.integration_action("install"); }
+                    if ui.add_enabled(self.product_status() == "LICENSED", egui::Button::new("Connect")).clicked() { self.integration_action("install"); }
                     if ui.button("Remove").clicked() { self.integration_action("remove"); }
                 });
                 if let Some(err) = &self.integration_error { ui.label(err); }
@@ -571,7 +678,7 @@ impl GremlinControlCenter {
         ui.heading("Settings");
         ui.label(format!("Platform package: {}", self.platform_name()));
         ui.label(format!("Effective transport: {}", self.runtime_transport()));
-        ui.label("Default local integration uses stdio. Provider connections, licensing and optional device binding remain separate security layers.");
+        ui.label("Default local integration uses stdio. Provider connections, licensing, customer profile policy and optional device binding remain separate security layers.");
     }
 
     fn diagnostics(&mut self, ui: &mut egui::Ui) {
@@ -596,6 +703,7 @@ impl GremlinControlCenter {
 
 impl eframe::App for GremlinControlCenter {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        self.handle_dropped_files(ctx);
         egui::TopBottomPanel::top("top_bar").show(ctx, |ui| {
             ui.horizontal(|ui| {
                 ui.strong("GREMLIN Control Center");
