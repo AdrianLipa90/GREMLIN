@@ -11,6 +11,25 @@ def _platform_name() -> str:
     return "windows" if sys.platform.startswith("win") else "linux"
 
 
+def _write_entry_wrapper(work: Path) -> Path:
+    """Create a neutral build entrypoint outside package directories.
+
+    Compiling gremlin_mcp/install/launcher.py directly makes that directory a
+    script search root. Because it contains secrets.py, Python/Nuitka can resolve
+    an unrelated `import secrets` to gremlin_mcp/install/secrets.py as a top-level
+    module, shadowing the standard-library secrets module.  A wrapper in the build
+    directory preserves normal package import semantics while keeping the runtime
+    dispatch implementation in gremlin_mcp.install.launcher.
+    """
+    entry = work / "_gremlin_runtime_entry.py"
+    entry.write_text(
+        "from gremlin_mcp.install.launcher import main\n"
+        "raise SystemExit(main())\n",
+        encoding="utf-8",
+    )
+    return entry
+
+
 def build(*, output_root: Path, clean: bool) -> Path:
     platform = _platform_name()
     work = output_root / "_nuitka" / platform
@@ -22,6 +41,7 @@ def build(*, output_root: Path, clean: bool) -> Path:
     final.parent.mkdir(parents=True, exist_ok=True)
 
     exe_name = "gremlin-runtime.exe" if platform == "windows" else "gremlin-runtime"
+    entry = _write_entry_wrapper(work)
     command = [
         sys.executable,
         "-m",
@@ -31,7 +51,7 @@ def build(*, output_root: Path, clean: bool) -> Path:
         "--include-package=gremlin_mcp",
         f"--output-dir={work}",
         f"--output-filename={exe_name}",
-        "gremlin_mcp/install/launcher.py",
+        str(entry),
     ]
     subprocess.run(command, check=True)
 
