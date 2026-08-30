@@ -1,0 +1,5 @@
+dist/linux/runtime/gremlin-product-mcp usr/bin/
+dist/linux/runtime/gremlinctl usr/bin/
+dist/linux/control-center/gremlin-control-center usr/bin/
+dist/linux/resources/* usr/share/gremlin/
+packaging/linux/gremlin.desktop usr/share/applications/
