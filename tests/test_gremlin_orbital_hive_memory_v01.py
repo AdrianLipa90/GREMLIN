@@ -53,7 +53,7 @@ def test_latch_fails_closed_until_all_gates_pass() -> None:
     assert locked.seal_receipt.startswith("latch:")
 
 
-def test_dispute_preserves_lineage_and_blocks_latch() -> None:
+def test_dispute_preserves_lineage_and_blocks_latch_and_gate_bypass() -> None:
     hive = OrbitalHiveMemory()
     first = hive.place(
         subject_id="claim-B",
@@ -71,6 +71,8 @@ def test_dispute_preserves_lineage_and_blocks_latch() -> None:
     assert disputed.contradictions == ("hound:counterexample:1",)
     with pytest.raises(RuntimeError, match="cannot latch"):
         hive.latch("claim-B")
+    with pytest.raises(RuntimeError, match="cannot be gate-mutated"):
+        hive.update_gates("claim-B", contradiction_audited=True)
 
 
 def test_flat_ring_table_sorts_inner_to_outer() -> None:
@@ -104,11 +106,11 @@ def test_locked_record_rejects_in_place_gate_mutation() -> None:
         gates=ClosureGates(True, True, True, True, True),
     )
     hive.latch("sealed")
-    with pytest.raises(RuntimeError, match="immutable"):
+    with pytest.raises(RuntimeError, match="cannot be gate-mutated"):
         hive.update_gates("sealed", evidence_ready=False)
 
 
-def test_sqlite_store_is_wal_and_append_only(tmp_path) -> None:
+def test_sqlite_store_is_wal_append_only_and_rehydratable(tmp_path) -> None:
     hive = OrbitalHiveMemory()
     first = hive.place(
         subject_id="persisted",
@@ -130,5 +132,57 @@ def test_sqlite_store_is_wal_and_append_only(tmp_path) -> None:
         assert rows[1]["parent_record_id"] == first.record_id
         with pytest.raises(Exception):
             store.append(first)
+
+        recovered = OrbitalHiveMemory()
+        for row in store.rows():
+            recovered.import_record(row)
+        assert recovered.head("persisted").record_id == second.record_id
+        assert [r.record_id for r in recovered.history("persisted")] == [
+            first.record_id,
+            second.record_id,
+        ]
     finally:
         store.close()
+
+
+def test_hydration_fails_closed_on_orphan_lineage() -> None:
+    hive = OrbitalHiveMemory()
+    child = hive.place(
+        subject_id="orphan",
+        payload={"v": 1},
+        priority=0.4,
+        semantic_key="orphan",
+        relation_phase=0.0,
+    )
+    row = {
+        "record_id": "hive:fake-child",
+        "subject_id": child.subject_id,
+        "version": 2,
+        "payload_hash": child.payload_hash,
+        "payload": dict(child.payload),
+        "priority": child.priority,
+        "coordinate": {
+            "orbit_index": child.coordinate.orbit_index,
+            "radius": child.coordinate.radius,
+            "semantic_angle": child.coordinate.semantic_angle,
+            "relation_phase": child.coordinate.relation_phase,
+        },
+        "semantic_key": child.semantic_key,
+        "state": "ALIGNING",
+        "gates": {
+            "evidence_ready": True,
+            "dependencies_closed": False,
+            "contradiction_audited": False,
+            "provenance_complete": False,
+            "phase_coherent": False,
+        },
+        "provenance": [],
+        "dependencies": [],
+        "contradictions": [],
+        "parent_record_id": "hive:missing-parent",
+        "seal_receipt": None,
+        "authority": "SHARED_COGNITION_ONLY",
+    }
+    recovered = OrbitalHiveMemory()
+    with pytest.raises(RuntimeError, match="orphan"):
+        recovered.import_record(row)
