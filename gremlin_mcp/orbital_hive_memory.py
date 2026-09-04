@@ -190,6 +190,44 @@ class OrbitalHiveMemory:
         self._append(rec)
         return rec
 
+    def import_record(self, data: Mapping[str, Any]) -> HiveRecord:
+        """Hydrate one previously persisted record, preserving exact ids/lineage."""
+        coordinate_raw = dict(data["coordinate"])
+        gates_raw = dict(data["gates"])
+        record = HiveRecord(
+            record_id=str(data["record_id"]),
+            subject_id=str(data["subject_id"]),
+            version=int(data["version"]),
+            payload_hash=str(data["payload_hash"]),
+            payload=dict(data["payload"]),
+            priority=float(data["priority"]),
+            coordinate=HiveCoordinate(
+                orbit_index=int(coordinate_raw["orbit_index"]),
+                radius=float(coordinate_raw["radius"]),
+                semantic_angle=float(coordinate_raw["semantic_angle"]),
+                relation_phase=float(coordinate_raw["relation_phase"]),
+            ),
+            semantic_key=str(data["semantic_key"]),
+            state=str(data["state"]),
+            gates=ClosureGates(**{name: bool(gates_raw[name]) for name in LOCK_GATES}),
+            provenance=tuple(data.get("provenance", ())),
+            dependencies=tuple(data.get("dependencies", ())),
+            contradictions=tuple(data.get("contradictions", ())),
+            parent_record_id=data.get("parent_record_id"),
+            seal_receipt=data.get("seal_receipt"),
+            authority=str(data.get("authority", "SHARED_COGNITION_ONLY")),
+        )
+        if record.record_id in self._records:
+            raise RuntimeError("duplicate persisted hive record")
+        if record.parent_record_id is not None and record.parent_record_id not in self._records:
+            raise RuntimeError("orphan persisted hive record")
+        if record.parent_record_id is not None:
+            parent = self._records[record.parent_record_id]
+            if parent.subject_id != record.subject_id or parent.version + 1 != record.version:
+                raise RuntimeError("corrupt persisted hive lineage")
+        self._append(record)
+        return record
+
     def _append(self, record: HiveRecord) -> None:
         if record.record_id in self._records:
             raise RuntimeError("duplicate hive record")
@@ -205,8 +243,8 @@ class OrbitalHiveMemory:
         if unknown:
             raise KeyError(f"unknown closure gates: {sorted(unknown)}")
         current = self.head(subject_id)
-        if current.state == "LOCKED":
-            raise RuntimeError("locked records are immutable; fork the subject instead")
+        if current.state in {"LOCKED", "DISPUTED", "QUARANTINED"}:
+            raise RuntimeError("locked/disputed/quarantined records cannot be gate-mutated; place an explicit reconciled child")
         g = replace(current.gates, **{k: bool(v) for k, v in changes.items()})
         return self.place(
             subject_id=current.subject_id,
