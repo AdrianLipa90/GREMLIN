@@ -8,12 +8,7 @@ from typing import Any
 from mcp.server import MCPServer
 
 from gremlin_mcp import __version__
-from gremlin_mcp.orbital_hive_memory import (
-    ClosureGates,
-    HIVE_SCHEMA,
-    OrbitalHiveMemory,
-    SQLiteHiveStore,
-)
+from gremlin_mcp.orbital_hive_memory import HIVE_SCHEMA, OrbitalHiveMemory, SQLiteHiveStore
 
 hive = OrbitalHiveMemory(orbit_count=36)
 store: SQLiteHiveStore | None = None
@@ -31,7 +26,7 @@ mcp = MCPServer(
         "production execution or canon authority. Place information with an explicit priority, "
         "semantic key, relation phase and provenance. Use gate updates only for independently "
         "verified closure conditions. Disputes preserve lineage and block latching until a new "
-        "audited branch is placed. Locked records are immutable."
+        "audited child is explicitly placed. Locked records are immutable."
     ),
     version=__version__,
 )
@@ -47,12 +42,23 @@ def _persist(record: Any) -> None:
 
 
 def configure_state(state_path: str | None) -> None:
-    global store
+    """Reset process state and fail-closed hydrate an optional durable WAL lineage."""
+    global hive, store
     if store is not None:
         store.close()
-        store = None
-    if state_path is not None and str(state_path).strip():
-        store = SQLiteHiveStore(str(state_path))
+    hive = OrbitalHiveMemory(orbit_count=36)
+    store = None
+    if state_path is None or not str(state_path).strip():
+        return
+    candidate = SQLiteHiveStore(str(state_path))
+    try:
+        for row in candidate.rows():
+            hive.import_record(row)
+    except Exception:
+        candidate.close()
+        hive = OrbitalHiveMemory(orbit_count=36)
+        raise
+    store = candidate
 
 
 @mcp.tool()
@@ -64,7 +70,7 @@ def gremlin_hive_status() -> dict[str, Any]:
         "status": "AVAILABLE",
         "orbit_count": hive.orbit_count,
         "head_count": len(table),
-        "persistence": "SQLITE_WAL_APPEND_ONLY" if store is not None else "PROCESS_RESIDENT",
+        "persistence": "SQLITE_WAL_HYDRATED_APPEND_ONLY" if store is not None else "PROCESS_RESIDENT",
         "authority": "SHARED_COGNITION_ONLY",
         "production_runtime_write": False,
         "execution_admitted": False,
@@ -160,7 +166,7 @@ def gremlin_hive_table() -> dict[str, Any]:
 
 @mcp.tool()
 def gremlin_hive_history(subject_id: str) -> dict[str, Any]:
-    """Return the full in-process append-only lineage for one subject."""
+    """Return the full append-only lineage for one subject."""
     return {
         "schema": HIVE_SCHEMA,
         "subject_id": subject_id,
@@ -179,7 +185,7 @@ def gremlin_hive_persisted(subject_id: str | None = None) -> dict[str, Any]:
         }
     return {
         "schema": HIVE_SCHEMA,
-        "status": "SQLITE_WAL_APPEND_ONLY",
+        "status": "SQLITE_WAL_HYDRATED_APPEND_ONLY",
         "records": list(store.rows(subject_id)),
     }
 
