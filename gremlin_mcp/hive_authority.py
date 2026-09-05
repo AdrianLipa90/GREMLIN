@@ -7,7 +7,7 @@ import sqlite3
 from threading import RLock
 from typing import Any, Iterable, Mapping
 
-from .orbital_hive_memory import ClosureGates, HIVE_SCHEMA, HiveRecord, OrbitalHiveMemory
+from .orbital_hive_memory import ClosureGates, HIVE_SCHEMA, HiveRecord, OrbitalHiveMemory, normalize_phase
 
 AUTHORITY_SCHEMA = "GREMLIN_HIVE_AUTHORITY_RUNTIME_V0_2"
 
@@ -187,6 +187,83 @@ class HiveAuthorityRuntime:
             dependencies=dependencies,
             gates=gates,
         )
+
+    def place_idempotent(
+        self,
+        *,
+        subject_id: str,
+        payload: Mapping[str, Any],
+        priority: float,
+        semantic_key: str,
+        relation_phase: float,
+        provenance: Iterable[str] = (),
+        dependencies: Iterable[str] = (),
+    ) -> tuple[HiveRecord, bool]:
+        """Atomically place one immutable observation or return its existing head.
+
+        This operation is intended for deterministic component ingestion. The read
+        and conditional append share the same process lock and, for durable state,
+        the same BEGIN IMMEDIATE transaction. A reused subject with different
+        content/address/provenance/dependencies fails closed rather than creating an
+        implicit new semantic version.
+        """
+        subject = str(subject_id).strip()
+        if not subject:
+            raise ValueError("subject_id must be non-empty")
+        payload_dict = dict(payload)
+        priority_value = float(priority)
+        semantic_value = str(semantic_key)
+        phase_value = normalize_phase(relation_phase)
+        provenance_value = tuple(sorted({str(x) for x in provenance if str(x)}))
+        dependencies_value = tuple(sorted({str(x) for x in dependencies if str(x)}))
+
+        def matches(current: HiveRecord) -> bool:
+            return (
+                dict(current.payload) == payload_dict
+                and abs(float(current.priority) - priority_value) <= 1e-12
+                and current.semantic_key == semantic_value
+                and abs(float(current.coordinate.relation_phase) - phase_value) <= 1e-12
+                and current.provenance == provenance_value
+                and current.dependencies == dependencies_value
+            )
+
+        def resolve(hive: OrbitalHiveMemory) -> tuple[HiveRecord, bool]:
+            try:
+                current = hive.head(subject)
+            except KeyError:
+                current = None
+            if current is not None:
+                if matches(current):
+                    return current, False
+                raise RuntimeError(
+                    "same Hive subject already exists with different content or lineage metadata; "
+                    "refuse implicit overwrite"
+                )
+            record = hive.place(
+                subject_id=subject,
+                payload=payload_dict,
+                priority=priority_value,
+                semantic_key=semantic_value,
+                relation_phase=phase_value,
+                provenance=provenance_value,
+                dependencies=dependencies_value,
+            )
+            return record, True
+
+        with self._lock:
+            if self._db is None:
+                return resolve(self._memory)
+            self._db.execute("BEGIN IMMEDIATE")
+            try:
+                hive = self._hydrate_locked()
+                record, created = resolve(hive)
+                if created:
+                    self._persist_locked(record)
+                self._db.execute("COMMIT")
+                return record, created
+            except Exception:
+                self._db.execute("ROLLBACK")
+                raise
 
     def update_gates(self, subject_id: str, **changes: bool) -> HiveRecord:
         return self._mutate("update_gates", subject_id, **changes)
