@@ -5,6 +5,8 @@ import os
 from typing import Any
 
 from .hive_authority import HiveAuthorityRuntime
+from .hive_ingest import ingest_research_execution
+from .research_executor import execute_research
 from .server import build_parser as build_base_parser
 from .server import configure_state, mcp
 
@@ -22,7 +24,14 @@ def configure_hive_state(state_path: str | None) -> HiveAuthorityRuntime:
 @mcp.tool()
 def gremlin_hive_status() -> dict[str, Any]:
     """Return the authoritative shared-cognition Hive surface status."""
-    return hive_runtime.status()
+    result = hive_runtime.status()
+    result["integrated_research_ingest"] = {
+        "status": "AVAILABLE",
+        "tool": "gremlin_hive_research_execute",
+        "automatic_latch": False,
+        "phase_basis": "COMMITMENT_REFERENCE_PHASE_NOT_PHYSICAL",
+    }
+    return result
 
 
 @mcp.tool()
@@ -121,6 +130,34 @@ def gremlin_hive_persisted(subject_id: str | None = None) -> dict[str, Any]:
         "authority": "SHARED_COGNITION_ONLY",
         "persistence": hive_runtime.status()["persistence"],
         "records": list(hive_runtime.persisted(subject_id)),
+    }
+
+
+@mcp.tool()
+def gremlin_hive_research_execute(
+    query: str,
+    providers: list[str] | None = None,
+    limit_per_provider: int = 6,
+    max_species: int = 4,
+    max_sources: int = 12,
+) -> dict[str, Any]:
+    """Execute GREMLIN research and atomically project candidate outputs into Hive.
+
+    This path never sets closure gates and never latches automatically. Commitment-derived
+    phases are deterministic reference addresses only and carry no physical interpretation.
+    """
+    result = execute_research(
+        query,
+        providers=providers or ["crossref", "arxiv", "duckduckgo"],
+        limit_per_provider=limit_per_provider,
+        max_species=max_species,
+        max_sources=max_sources,
+    )
+    ingest = ingest_research_execution(hive_runtime, result)
+    return {
+        "research": result,
+        "hive_ingest": ingest,
+        "authority": "SHARED_COGNITION_ONLY",
     }
 
 
