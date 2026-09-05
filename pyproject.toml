@@ -20,7 +20,7 @@ dependencies = [
 
 [project.scripts]
 gremlin-mcp = "gremlin_mcp.server_with_hive:main"
-gremlin-hive-mcp = "gremlin_mcp.hive_server:main"
+gremlin-hive-mcp = "gremlin_mcp.hive_authority_server:main"
 gremlin-product-mcp = "gremlin_mcp.product_server:main"
 gremlin-license = "gremlin_mcp.product.cli:main"
 gremlin-bundle = "gremlin_mcp.product.bundle_cli:main"
