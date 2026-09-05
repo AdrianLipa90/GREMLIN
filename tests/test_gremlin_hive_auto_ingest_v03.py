@@ -142,3 +142,58 @@ def test_root_dependencies_preserve_source_content_commitments() -> None:
     ingest_research_execution(runtime, _result())
     root = runtime.head("research:exec-commit-001:execution")
     assert root.dependencies == ("content-A", "content-B")
+
+
+def test_idempotent_authority_placement_is_shared_across_persistent_runtimes(tmp_path) -> None:
+    path = tmp_path / "hive.sqlite3"
+    first_runtime = HiveAuthorityRuntime(path)
+    second_runtime = HiveAuthorityRuntime(path)
+    try:
+        first, first_created = first_runtime.place_idempotent(
+            subject_id="shared-observation",
+            payload={"value": 1},
+            priority=0.8,
+            semantic_key="shared/observation",
+            relation_phase=0.25,
+            provenance=("source:A",),
+            dependencies=("dep:A",),
+        )
+        second, second_created = second_runtime.place_idempotent(
+            subject_id="shared-observation",
+            payload={"value": 1},
+            priority=0.8,
+            semantic_key="shared/observation",
+            relation_phase=0.25,
+            provenance=("source:A",),
+            dependencies=("dep:A",),
+        )
+        assert first_created is True
+        assert second_created is False
+        assert first.record_id == second.record_id
+        assert len(second_runtime.history("shared-observation")) == 1
+    finally:
+        first_runtime.close()
+        second_runtime.close()
+
+
+def test_idempotent_authority_rejects_provenance_change_under_same_subject() -> None:
+    runtime = HiveAuthorityRuntime()
+    runtime.place_idempotent(
+        subject_id="provenance-bound",
+        payload={"value": 1},
+        priority=0.8,
+        semantic_key="shared/provenance",
+        relation_phase=0.5,
+        provenance=("source:A",),
+        dependencies=("dep:A",),
+    )
+    with pytest.raises(RuntimeError, match="different content or lineage metadata"):
+        runtime.place_idempotent(
+            subject_id="provenance-bound",
+            payload={"value": 1},
+            priority=0.8,
+            semantic_key="shared/provenance",
+            relation_phase=0.5,
+            provenance=("source:B",),
+            dependencies=("dep:A",),
+        )
