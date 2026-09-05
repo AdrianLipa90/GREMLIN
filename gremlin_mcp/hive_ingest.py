@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import asdict
 import hashlib
 import math
 from typing import Any, Mapping, TYPE_CHECKING
@@ -49,10 +48,6 @@ def observation_priority(species: str, candidate: Mapping[str, Any] | None = Non
     return min(1.0, base)
 
 
-def _phase_equal(left: float, right: float, *, tol: float = 1e-12) -> bool:
-    return abs(float(left) - float(right)) <= tol
-
-
 def _place_once(
     runtime: "HiveAuthorityRuntime",
     *,
@@ -64,32 +59,15 @@ def _place_once(
     provenance: tuple[str, ...],
     dependencies: tuple[str, ...],
 ) -> tuple["HiveRecord", bool]:
-    try:
-        current = runtime.head(subject_id)
-    except (KeyError, RuntimeError):
-        current = None
-    if current is not None:
-        if (
-            dict(current.payload) == dict(payload)
-            and current.semantic_key == semantic_key
-            and abs(float(current.priority) - float(priority)) <= 1e-12
-            and _phase_equal(current.coordinate.relation_phase, relation_phase)
-        ):
-            return current, False
-        raise RuntimeError(
-            "same Hive research subject already exists with different content; "
-            "refuse implicit overwrite"
-        )
-    record = runtime.place(
+    return runtime.place_idempotent(
         subject_id=subject_id,
-        payload=dict(payload),
+        payload=payload,
         priority=priority,
         semantic_key=semantic_key,
         relation_phase=relation_phase,
         provenance=provenance,
         dependencies=dependencies,
     )
-    return record, True
 
 
 def ingest_research_execution(
