@@ -18,6 +18,8 @@ on:
       - 'tests/test_gremlin_mcp_persistence_v03.py'
       - 'tests/test_gremlin_mcp_pipeline_v04.py'
       - 'tests/test_gremlin_mcp_octopus_router_v05.py'
+      - 'tests/test_gremlin_orbital_hive_memory_v01.py'
+      - 'tests/test_gremlin_hive_authority_v02.py'
       - 'tests/test_relational_cases.py'
       - 'tests/test_relational_research.py'
       - 'tests/test_gremlin_supplied_evidence_research_v01.py'
@@ -26,6 +28,7 @@ on:
       - 'spec/GREMLIN_MCP_PERSISTENCE_V0_3.md'
       - 'spec/GREMLIN_MCP_PIPELINE_V0_4.md'
       - 'spec/GREMLIN_MCP_OCTOPUS_ROUTER_V0_5.md'
+      - 'spec/GREMLIN_ORBITAL_HIVE_MEMORY_V0_1.md'
       - 'pyproject.toml'
       - 'README.md'
       - '.github/workflows/gremlin-mcp-v01.yml'
@@ -49,6 +52,8 @@ jobs:
           tests/test_gremlin_mcp_persistence_v03.py
           tests/test_gremlin_mcp_pipeline_v04.py
           tests/test_gremlin_mcp_octopus_router_v05.py
+          tests/test_gremlin_orbital_hive_memory_v01.py
+          tests/test_gremlin_hive_authority_v02.py
           tests/test_relational_cases.py
           tests/test_relational_research.py
           tests/test_gremlin_supplied_evidence_research_v01.py
