@@ -20,5 +20,5 @@ jobs:
           python-version: '3.12'
       - name: Install test dependency
         run: python -m pip install --disable-pip-version-check pytest
-      - name: Run full-text audit tests
-        run: python -m pytest -q tests/test_full_text_audit.py
+      - name: Run paper audit tests
+        run: python -m pytest -q tests/test_full_text_audit.py tests/test_paper_audit_eval.py
