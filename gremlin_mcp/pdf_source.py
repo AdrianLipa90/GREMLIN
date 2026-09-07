@@ -5,14 +5,15 @@ import json
 import math
 from pathlib import Path
 import re
-import statistics
 from typing import Any, Iterable, Mapping
 
 from gremlin_mcp.pdf_math_layout import classify_equation_region
 
 SCHEMA = "GREMLIN_PDF_SPAN_SOURCE_V0_1"
-VERSION = "0.1.0"
+VERSION = "0.1.1"
 _EQ_LABEL_RE = re.compile(r"^\(\d+\.\d+(?:\.\d+)?\)$")
+_MATH_SIGNAL_CHARS = frozenset("=+-*/·×≈<>∑∫√^_[]{}")
+_NUMERIC_TOKEN_RE = re.compile(r"^[0-9.,Ee+\-−]+$")
 
 
 def _authority() -> dict[str, bool]:
@@ -57,10 +58,13 @@ def _normalize_page(page: Mapping[str, Any]) -> dict[str, Any]:
         bbox = [float(value) for value in list(raw.get("bbox") or [])]
         if len(bbox) != 4 or any(not math.isfinite(value) for value in bbox):
             raise ValueError("span bbox must contain four finite values")
+        size = float(raw.get("size") or max(bbox[3] - bbox[1], 1.0))
+        if not math.isfinite(size) or size <= 0:
+            raise ValueError("span size must be positive and finite")
         spans.append({
             "text": text,
             "bbox": bbox,
-            "size": float(raw.get("size") or max(bbox[3] - bbox[1], 1.0)),
+            "size": size,
             "font": raw.get("font"),
             "flags": raw.get("flags"),
             "block_index": int(raw.get("block_index", -1)),
@@ -70,6 +74,23 @@ def _normalize_page(page: Mapping[str, Any]) -> dict[str, Any]:
     return {"page_number": number, "width": width, "height": height, "spans": spans}
 
 
+def _math_span_candidate(span: Mapping[str, Any]) -> bool:
+    text = str(span.get("text") or "").strip()
+    if not text:
+        return False
+    if _EQ_LABEL_RE.fullmatch(text):
+        return True
+    if any(char in text for char in _MATH_SIGNAL_CHARS):
+        return True
+    if _NUMERIC_TOKEN_RE.fullmatch(text):
+        return True
+    if " " in text:
+        return False
+    # PDF math renderers commonly split compact symbols such as Ghf, pi, gamma, or a denominator
+    # into short independent spans. Keep these candidates; later AST parsing remains the semantic gate.
+    return len(text) <= 6
+
+
 def _region_for_label(
     page_spans: list[dict[str, Any]],
     label_span: Mapping[str, Any],
@@ -77,29 +98,20 @@ def _region_for_label(
     vertical_margin_factor: float,
 ) -> list[dict[str, Any]]:
     label_y = _span_center_y(label_span)
-    heights = [_span_height(span) for span in page_spans]
-    median_height = statistics.median(heights) if heights else 10.0
-    margin = max(4.0, median_height * float(vertical_margin_factor))
-    block_index = int(label_span.get("block_index", -1))
-
-    candidates = [
+    # Use the equation label's own rendered height rather than a page-wide median. PDF generators often
+    # split one displayed equation across several adjacent text blocks, so block identity is not a safe boundary.
+    margin = max(4.0, _span_height(label_span) * float(vertical_margin_factor))
+    return [
         span for span in page_spans
-        if abs(_span_center_y(span) - label_y) <= margin
-        and (block_index < 0 or int(span.get("block_index", -1)) == block_index)
+        if abs(_span_center_y(span) - label_y) <= margin and _math_span_candidate(span)
     ]
-    if len(candidates) <= 1 and block_index >= 0:
-        candidates = [
-            span for span in page_spans
-            if abs(_span_center_y(span) - label_y) <= margin
-        ]
-    return candidates
 
 
 def build_equation_regions_from_pages(
     pages: Iterable[Mapping[str, Any]],
     *,
     source_id: str,
-    vertical_margin_factor: float = 2.0,
+    vertical_margin_factor: float = 1.7,
 ) -> dict[str, Any]:
     source = str(source_id).strip()
     if not source:
@@ -126,6 +138,7 @@ def build_equation_regions_from_pages(
                 equation_label=label,
             )
             classified["pdf_block_index"] = int(label_span.get("block_index", -1))
+            classified["region_selection"] = "GEOMETRIC_BAND_MATHLIKE_CROSS_BLOCK"
             regions.append(classified)
             if classified["status"] == "LINEARIZATION_SAFE" and classified["linear_text"]:
                 transcript.append(f"Eq. {label}: {classified['linear_text']}")
@@ -146,7 +159,8 @@ def build_equation_regions_from_pages(
         "scope_boundary": [
             "PDF_TEXT_SPANS_WITH_LAYOUT_PROVENANCE",
             "EQUATION_LABELS_REQUIRE_NUMBERED_PARENTHESES",
-            "REGION_SELECTION_IS_LOCAL_AND_BLOCK_PREFERRED",
+            "REGION_SELECTION_CROSSES_PDF_TEXT_BLOCKS_WITHIN_LOCAL_GEOMETRIC_BAND",
+            "PROSE_LIKE_SPANS_ARE_EXCLUDED_BEFORE_LAYOUT_CLASSIFICATION",
             "TWO_DIMENSIONAL_MATH_REMAINS_UNRESOLVED",
             "NO_OCR_OR_SEMANTIC_GUESSING",
             "NO_AUTOMATIC_CANON_PROMOTION",
@@ -221,7 +235,7 @@ def build_equation_regions_from_pdf(
     path: str | Path,
     *,
     source_id: str | None = None,
-    vertical_margin_factor: float = 2.0,
+    vertical_margin_factor: float = 1.7,
 ) -> dict[str, Any]:
     extracted = extract_pdf_span_pages(path)
     resolved_source = str(source_id).strip() if source_id is not None else f"{extracted['source_name']}:{extracted['file_sha256'][:16]}"
