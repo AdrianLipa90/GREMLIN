@@ -1,0 +1,45 @@
+{
+  "authority": {
+    "canon_allowed": false,
+    "execution_admitted": false,
+    "production_runtime_write": false
+  },
+  "benchmark_id": "GREMLIN_EXTERNAL_PAPER_AUDIT_BENCHMARK_001",
+  "blindness": {
+    "ground_truth_injected_into_engine": false,
+    "manual_peer_review_findings_visible_to_engine": false,
+    "note": "Baseline uses current pre-existing GREMLIN specialist logic unchanged; no Valov-specific rules were added.",
+    "paper_text_injected_as_single_local_source_summary": true
+  },
+  "created_utc": "2026-09-06T23:43:00Z",
+  "gremlin": {
+    "base_sha": "ebab3dadcfe6674df877576d444648639e42f2e3",
+    "executor_schema": "GREMLIN_RESEARCH_EXECUTOR_V0_1",
+    "executor_version": "0.1.2",
+    "mode": "CURRENT_ENGINE_BASELINE",
+    "repository": "AdrianLipa90/GREMLIN"
+  },
+  "paper": {
+    "author": "Danail Valov",
+    "bytes": 553181,
+    "date": "2026-05",
+    "input_distribution": "NOT_COMMITTED; user-supplied PDF",
+    "pages": 40,
+    "sha256": "ad9c0c6a7c0ba661c9a0ea9b71efd6d7e708af9d38032545bdcc7dd4a3ec659a",
+    "title": "The Fractal Dimension of Spacetime: A Unified Geometric Framework from Photons to the Observable Universe"
+  },
+  "raw_specialists_sha256": "16d94f678367127e4010af435abb85e02722e35dee0b692626340712ecf8061e",
+  "raw_specialists_storage": "SESSION_LOCAL_BASELINE_ONLY",
+  "result": {
+    "detected_substantive_faults": 0,
+    "ground_truth_fault_count_after_manual_review": 8,
+    "hound_contradiction_count": 0,
+    "hound_text_level_contradiction_test_completed": false,
+    "mole_derivation_gate": "REQUIRES_FULL_TEXT_OR_EXPLICIT_PREMISES_FOR_EQUATION_LEVEL_PROMOTION",
+    "mole_equation_status": "UNRESOLVED_FROM_METADATA",
+    "recall_against_manual_ground_truth": 0.0,
+    "spider_directionality_gate": "SENTENCE_OR_FULL_TEXT_PARSE_REQUIRED_FOR_SUBJECT_PREDICATE_OBJECT",
+    "verdict": "FAIL_CAPABILITY_GAP_FULL_TEXT_EQUATION_AUDIT"
+  },
+  "schema": "GREMLIN_EXTERNAL_PAPER_AUDIT_BENCHMARK_V0_1_BASELINE"
+}
