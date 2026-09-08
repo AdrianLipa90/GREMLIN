@@ -3,6 +3,7 @@ name: GREMLIN full-text paper audit v0.1
 on:
   push:
     branches:
+      - main
       - bench/external-paper-audit-001
   workflow_dispatch:
 
