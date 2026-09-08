@@ -9,7 +9,7 @@ import re
 from typing import Any
 
 SCHEMA = "GREMLIN_EQUATION_WITNESS_PROPOSAL_V0_1"
-VERSION = "0.1.0"
+VERSION = "0.2.0"
 
 _EQ_PREFIX_RE = re.compile(r"^\s*(?P<label>Eq\.\s*\([^)]{1,32}\))\s*:\s*(?P<body>.+?)\s*$", re.I)
 _ASSIGN_RE = re.compile(r"^\s*(?P<lhs>[A-Za-z][A-Za-z0-9_]*)\s*=\s*(?P<rhs>.+?)\s*$")
@@ -31,7 +31,13 @@ def _authority() -> dict[str, bool]:
 
 
 def _canonical(value: Any) -> bytes:
-    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False).encode("utf-8")
+    return json.dumps(
+        value,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+        allow_nan=False,
+    ).encode("utf-8")
 
 
 def _commit(domain: bytes, value: Any) -> str:
@@ -119,6 +125,7 @@ def propose_equation_witnesses(text: str, *, source_id: str) -> dict[str, Any]:
             "status": "NO_TEXT_FAIL_CLOSED",
             "declared_constants": {},
             "formula_spans": [],
+            "relation_chain_spans": [],
             "witness_proposals": [],
             "unresolved_proposals": [],
             "rejected_spans": [],
@@ -129,6 +136,7 @@ def propose_equation_witnesses(text: str, *, source_id: str) -> dict[str, Any]:
 
     constants: dict[str, float] = {}
     formula_spans: list[dict[str, Any]] = []
+    relation_chain_spans: list[dict[str, Any]] = []
     rejected: list[dict[str, Any]] = []
 
     # Pass 1: collect explicit scalar declarations. These are data bindings only, not equations to prove.
@@ -154,13 +162,43 @@ def propose_equation_witnesses(text: str, *, source_id: str) -> dict[str, Any]:
         if not prefixed:
             continue
         label = prefixed.group("label")
-        assignment = _ASSIGN_RE.match(prefixed.group("body"))
+        equation_body = prefixed.group("body")
+        assignment = _ASSIGN_RE.match(equation_body)
         if not assignment:
+            # General relation chains are accepted only when they end in an explicit numeric approximation.
+            # Example: expr_A = numeric_substitution ~= reported_value.  We audit only the final expression
+            # immediately before the approximation; earlier symbolic relations remain outside this witness.
+            chain_approx = _APPROX_RE.match(equation_body)
+            if chain_approx:
+                pre_approx = chain_approx.group("expr").strip()
+                final_expression = pre_approx.rsplit("=", 1)[-1].strip()
+                try:
+                    reported = _parse_number(chain_approx.group("value"))
+                    symbols = sorted(_safe_expression_symbols(final_expression))
+                except ValueError as exc:
+                    rejected.append({
+                        "line": line_no,
+                        "label": label,
+                        "text": raw.strip(),
+                        "reason": "UNSAFE_OR_UNSUPPORTED_RELATION_CHAIN",
+                        "detail": str(exc),
+                    })
+                    continue
+                relation_chain_spans.append({
+                    "line": line_no,
+                    "label": label,
+                    "expression": final_expression.replace(" ", ""),
+                    "symbols": symbols,
+                    "reported_value": reported,
+                    "source_excerpt": raw.strip(),
+                    "extraction_basis": "FINAL_NUMERIC_SUBSTITUTION_BEFORE_APPROXIMATION",
+                })
+                continue
             rejected.append({
                 "line": line_no,
                 "label": label,
                 "text": raw.strip(),
-                "reason": "EQUATION_LABEL_WITHOUT_SIMPLE_ASSIGNMENT",
+                "reason": "EQUATION_LABEL_WITHOUT_SIMPLE_ASSIGNMENT_OR_NUMERIC_RELATION_CHAIN",
             })
             continue
         lhs = assignment.group("lhs")
@@ -222,6 +260,29 @@ def propose_equation_witnesses(text: str, *, source_id: str) -> dict[str, Any]:
         else:
             proposals.append({**common, "symbols": {symbol: constants[symbol] for symbol in row["symbols"]}})
 
+    for row in relation_chain_spans:
+        missing = sorted(symbol for symbol in row["symbols"] if symbol not in constants)
+        basis = {
+            "label": row["label"],
+            "expression": row["expression"],
+            "reported": row["reported_value"],
+            "extraction_basis": row["extraction_basis"],
+        }
+        common = {
+            "id": _proposal_id(source, "numeric_relation_chain", basis),
+            "kind": "numeric",
+            "expression": row["expression"],
+            "reported_value": row["reported_value"],
+            "source_locator": f"{source}:{row['label']}",
+            "source_excerpt": row["source_excerpt"],
+            "extraction_basis": row["extraction_basis"],
+            "epistemic_status": "CANDIDATE_WITNESS",
+        }
+        if missing:
+            unresolved.append({**common, "missing_symbols": missing, "symbols": {symbol: constants[symbol] for symbol in row["symbols"] if symbol in constants}})
+        else:
+            proposals.append({**common, "symbols": {symbol: constants[symbol] for symbol in row["symbols"]}})
+
     by_lhs: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for row in formula_spans:
         by_lhs[row["lhs"]].append(row)
@@ -250,6 +311,7 @@ def propose_equation_witnesses(text: str, *, source_id: str) -> dict[str, Any]:
         "status": "CANDIDATE_PROPOSALS_READY",
         "declared_constants": dict(sorted(constants.items())),
         "formula_spans": formula_spans,
+        "relation_chain_spans": relation_chain_spans,
         "witness_proposals": proposals,
         "unresolved_proposals": unresolved,
         "rejected_spans": rejected,
@@ -257,6 +319,8 @@ def propose_equation_witnesses(text: str, *, source_id: str) -> dict[str, Any]:
             "EQUATION_LABELLED_LINES_ONLY",
             "NO_PROSE_TO_EQUATION_HALLUCINATION",
             "NO_UNSAFE_EVAL_OR_ARBITRARY_FUNCTION_CALLS",
+            "NUMERIC_RELATION_CHAIN_AUDITS_ONLY_FINAL_EXPRESSION_BEFORE_EXPLICIT_APPROXIMATION",
+            "EARLIER_RELATIONS_IN_CHAIN_ARE_NOT_PROMOTED_BY_THE_NUMERIC_WITNESS",
             "MISSING_SYMBOLS_REMAIN_UNRESOLVED",
             "CANDIDATE_WITNESSES_REQUIRE_EQUATION_AUDIT",
             "NO_AUTOMATIC_CANON_PROMOTION",
