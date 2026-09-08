@@ -107,8 +107,7 @@ def _join_tokens(tokens: list[str]) -> str:
         else:
             out += " " + token
         previous = token
-    normalized = " ".join(out.split())
-    return normalized.replace(" * ", "*")
+    return " ".join(out.split())
 
 
 def _group_scripts(rows: list[dict[str, Any]], reference_size: float) -> tuple[list[dict[str, Any]], list[str]]:
