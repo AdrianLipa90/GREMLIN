@@ -9,14 +9,10 @@ def _span(text, x0, y0, x1, y1, *, size=12.0):
 
 def test_renders_subscript_and_fraction_on_rhs() -> None:
     spans = [
-        _span("r", 10, 50, 18, 62),
-        _span("s", 18, 55, 23, 63, size=8.0),
+        _span("r", 10, 50, 18, 62), _span("s", 18, 55, 23, 63, size=8.0),
         _span("=", 30, 50, 38, 62),
-        _span("2", 50, 42, 56, 54),
-        _span("G", 57, 42, 65, 54),
-        _span("M", 66, 42, 75, 54),
-        _span("c", 58, 62, 66, 74),
-        _span("2", 66, 59, 71, 67, size=8.0),
+        _span("2", 50, 42, 56, 54), _span("G", 57, 42, 65, 54), _span("M", 66, 42, 75, 54),
+        _span("c", 58, 62, 66, 74), _span("2", 66, 59, 71, 67, size=8.0),
         _span("(1.1)", 180, 50, 215, 62),
     ]
     result = solve_composite_2d_equation(spans, page_number=1, equation_label="(1.1)")
@@ -28,24 +24,13 @@ def test_renders_subscript_and_fraction_on_rhs() -> None:
 
 def test_renders_fraction_equals_fraction_approximately_numeric_chain() -> None:
     spans = [
-        # left fraction: k*a*b / x^5
-        _span("k", 10, 42, 16, 54),
-        _span("a", 17, 42, 23, 54),
-        _span("b", 24, 42, 30, 54),
-        _span("x", 18, 62, 25, 74),
-        _span("5", 25, 59, 30, 67, size=8.0),
+        _span("k", 10, 42, 16, 54), _span("a", 17, 42, 23, 54), _span("b", 24, 42, 30, 54),
+        _span("x", 18, 62, 25, 74), _span("5", 25, 59, 30, 67, size=8.0),
         _span("=", 40, 50, 48, 62),
-        # middle fraction: 4*(6e-2)*(2e-3) / (3e1)^5
-        _span("4", 58, 42, 64, 54),
-        _span("*", 66, 42, 72, 54),
-        _span("(6e-2)", 74, 42, 106, 54),
-        _span("*", 108, 42, 114, 54),
-        _span("(2e-3)", 116, 42, 148, 54),
-        _span("(3e1)", 92, 62, 120, 74),
-        _span("5", 120, 59, 125, 67, size=8.0),
-        _span("≈", 158, 50, 166, 62),
-        _span("1e-9", 174, 50, 198, 62),
-        _span("(2.4)", 220, 50, 255, 62),
+        _span("4", 58, 42, 64, 54), _span("*", 66, 42, 72, 54), _span("(6e-2)", 74, 42, 106, 54),
+        _span("*", 108, 42, 114, 54), _span("(2e-3)", 116, 42, 148, 54),
+        _span("(3e1)", 92, 62, 120, 74), _span("5", 120, 59, 125, 67, size=8.0),
+        _span("≈", 158, 50, 166, 62), _span("1e-9", 174, 50, 198, 62), _span("(2.4)", 220, 50, 255, 62),
     ]
     result = solve_composite_2d_equation(spans, page_number=2, equation_label="(2.4)")
     assert result["status"] == "SOLVED_COMPOSITE_2D"
@@ -55,13 +40,40 @@ def test_renders_fraction_equals_fraction_approximately_numeric_chain() -> None:
     assert "SUPERSCRIPT" in result["constructs"]
 
 
+def test_fragmented_decimal_pi_and_adjacent_scientific_exponents_are_normalized_after_geometry() -> None:
+    spans = [
+        _span("A", 10, 42, 18, 54), _span("=", 28, 50, 36, 62),
+        _span("4", 46, 42, 52, 54), _span("π", 54, 42, 62, 54), _span("×", 64, 42, 70, 54),
+        _span("(6", 72, 42, 83, 54), _span(".", 84, 42, 87, 54), _span("674", 88, 42, 106, 54),
+        _span("×", 108, 42, 114, 54), _span("10", 116, 42, 128, 54),
+        _span("−", 128, 38, 133, 46, size=8.0), _span("11", 134, 38, 144, 46, size=8.0), _span(")", 145, 42, 149, 54),
+        _span("(2", 76, 62, 87, 74), _span(".", 88, 62, 91, 74), _span("998", 92, 62, 110, 74),
+        _span("×", 112, 62, 118, 74), _span("10", 120, 62, 132, 74),
+        _span("8", 132, 58, 137, 66, size=8.0), _span(")", 138, 62, 142, 74), _span("5", 142, 58, 147, 66, size=8.0),
+        _span("≈", 158, 50, 166, 62),
+        _span("2", 174, 50, 180, 62), _span(".", 181, 50, 184, 62), _span("052", 185, 50, 203, 62),
+        _span("×", 205, 50, 211, 62), _span("10", 213, 50, 225, 62),
+        _span("−", 225, 46, 230, 54, size=8.0), _span("95", 231, 46, 241, 54, size=8.0),
+        _span("s", 244, 50, 250, 62), _span("2", 250, 46, 255, 54, size=8.0),
+        _span("(3.6)", 270, 50, 305, 62),
+    ]
+    result = solve_composite_2d_equation(spans, page_number=3, equation_label="(3.6)")
+    assert result["status"] == "SOLVED_COMPOSITE_2D"
+    assert "6.674" in result["linear_text"]
+    assert "2.998" in result["linear_text"]
+    assert "2.052" in result["linear_text"]
+    assert "pi" in result["linear_text"]
+    assert "10**-11" in result["linear_text"]
+    assert "10**8)**5" in result["linear_text"]
+    assert "10**-95" in result["linear_text"]
+    assert "s**2" in result["linear_text"]
+    assert "10**85" not in result["linear_text"]
+
+
 def test_ambiguous_three_level_fraction_fails_closed() -> None:
     spans = [
-        _span("q", 10, 50, 18, 62),
-        _span("=", 30, 50, 38, 62),
-        _span("a", 50, 35, 58, 47),
-        _span("b", 50, 52, 58, 64),
-        _span("c", 50, 69, 58, 81),
+        _span("q", 10, 50, 18, 62), _span("=", 30, 50, 38, 62),
+        _span("a", 50, 35, 58, 47), _span("b", 50, 52, 58, 64), _span("c", 50, 69, 58, 81),
         _span("(3.1)", 180, 50, 215, 62),
     ]
     result = solve_composite_2d_equation(spans, page_number=3, equation_label="(3.1)")

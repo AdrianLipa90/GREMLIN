@@ -7,11 +7,12 @@ from pathlib import Path
 import re
 from typing import Any, Iterable, Mapping
 
+from gremlin_mcp.composite_math_layout import solve_composite_2d_equation
 from gremlin_mcp.math_layout_solver import solve_simple_2d_equation
 from gremlin_mcp.pdf_math_layout import classify_equation_region
 
 SCHEMA = "GREMLIN_PDF_SPAN_SOURCE_V0_1"
-VERSION = "0.2.0"
+VERSION = "0.3.0"
 _EQ_LABEL_RE = re.compile(r"^\(\d+\.\d+(?:\.\d+)?\)$")
 _MATH_SIGNAL_CHARS = frozenset("=+-*/·×≈<>∑∫√^_[]{}")
 _NUMERIC_TOKEN_RE = re.compile(r"^[0-9.,Ee+\-−]+$")
@@ -123,7 +124,8 @@ def build_equation_regions_from_pages(
     normalized_pages = [_normalize_page(page) for page in pages]
     regions: list[dict[str, Any]] = []
     safe_transcript_rows: list[str] = []
-    recovered_2d_rows: list[str] = []
+    simple_recovered_rows: list[str] = []
+    composite_recovered_rows: list[str] = []
     auditable_rows: list[str] = []
 
     for page in normalized_pages:
@@ -142,35 +144,54 @@ def build_equation_regions_from_pages(
             )
             classified["pdf_block_index"] = int(label_span.get("block_index", -1))
             classified["region_selection"] = "GEOMETRIC_BAND_MATHLIKE_CROSS_BLOCK"
+            classified["simple_2d_solver"] = None
+            classified["composite_2d_solver"] = None
 
             if classified["status"] == "LINEARIZATION_SAFE" and classified["linear_text"]:
                 rendered = f"Eq. {label}: {classified['linear_text']}"
                 safe_transcript_rows.append(rendered)
                 auditable_rows.append(rendered)
-                classified["simple_2d_solver"] = None
             elif classified["status"] == "TWO_DIMENSIONAL_MATH_UNRESOLVED":
-                solved = solve_simple_2d_equation(
+                simple = solve_simple_2d_equation(
                     region_spans,
                     page_number=page["page_number"],
                     equation_label=label,
                 )
-                classified["simple_2d_solver"] = solved
-                if solved["status"] == "SOLVED_SIMPLE_2D" and solved["linear_text"]:
-                    rendered = f"Eq. {label}: {solved['linear_text']}"
-                    recovered_2d_rows.append(rendered)
+                classified["simple_2d_solver"] = simple
+                if simple["status"] == "SOLVED_SIMPLE_2D" and simple["linear_text"]:
+                    rendered = f"Eq. {label}: {simple['linear_text']}"
+                    simple_recovered_rows.append(rendered)
                     auditable_rows.append(rendered)
-            else:
-                classified["simple_2d_solver"] = None
+                else:
+                    composite = solve_composite_2d_equation(
+                        region_spans,
+                        page_number=page["page_number"],
+                        equation_label=label,
+                    )
+                    classified["composite_2d_solver"] = composite
+                    if composite["status"] == "SOLVED_COMPOSITE_2D" and composite["linear_text"]:
+                        rendered = f"Eq. {label}: {composite['linear_text']}"
+                        composite_recovered_rows.append(rendered)
+                        auditable_rows.append(rendered)
 
             regions.append(classified)
 
     safe_count = sum(region["status"] == "LINEARIZATION_SAFE" for region in regions)
-    recovered_2d_count = sum(
+    simple_count = sum(
         bool(region.get("simple_2d_solver"))
         and region["simple_2d_solver"]["status"] == "SOLVED_SIMPLE_2D"
         for region in regions
     )
+    composite_count = sum(
+        bool(region.get("composite_2d_solver"))
+        and region["composite_2d_solver"]["status"] == "SOLVED_COMPOSITE_2D"
+        for region in regions
+    )
+    recovered_2d_count = simple_count + composite_count
     unresolved_count = len(regions) - safe_count - recovered_2d_count
+    simple_transcript = "\n".join(simple_recovered_rows)
+    composite_transcript = "\n".join(composite_recovered_rows)
+    recovered_transcript = "\n".join(simple_recovered_rows + composite_recovered_rows)
     core = {
         "schema": SCHEMA,
         "version": VERSION,
@@ -179,10 +200,14 @@ def build_equation_regions_from_pages(
         "page_count": len(normalized_pages),
         "equation_label_count": len(regions),
         "safe_region_count": safe_count,
+        "simple_recovered_2d_count": simple_count,
+        "composite_recovered_2d_count": composite_count,
         "recovered_2d_count": recovered_2d_count,
         "unresolved_region_count": unresolved_count,
         "safe_transcript": "\n".join(safe_transcript_rows),
-        "recovered_2d_transcript": "\n".join(recovered_2d_rows),
+        "simple_recovered_2d_transcript": simple_transcript,
+        "composite_recovered_2d_transcript": composite_transcript,
+        "recovered_2d_transcript": recovered_transcript,
         "auditable_transcript": "\n".join(auditable_rows),
         "regions": regions,
         "scope_boundary": [
@@ -191,7 +216,8 @@ def build_equation_regions_from_pages(
             "REGION_SELECTION_CROSSES_PDF_TEXT_BLOCKS_WITHIN_LOCAL_GEOMETRIC_BAND",
             "PROSE_LIKE_SPANS_ARE_EXCLUDED_BEFORE_LAYOUT_CLASSIFICATION",
             "SINGLE_BASELINE_MATH_MAY_BE_LINEARIZED",
-            "ONLY_CONSERVATIVE_SINGLE_FRACTION_OR_SIMPLE_SUPERSCRIPT_2D_RECOVERY",
+            "RECOVERY_ORDER_IS_SIMPLE_2D_THEN_COMPOSITE_2D",
+            "SIMPLE_AND_COMPOSITE_RECOVERY_COUNTS_REMAIN_SEPARATE",
             "AMBIGUOUS_TWO_DIMENSIONAL_MATH_REMAINS_UNRESOLVED",
             "NO_OCR_OR_SEMANTIC_GUESSING",
             "NO_AUTOMATIC_CANON_PROMOTION",

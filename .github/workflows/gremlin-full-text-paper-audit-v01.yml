@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - bench/external-paper-audit-001
   workflow_dispatch:
 
 permissions:
@@ -22,7 +21,7 @@ jobs:
       - name: Install test dependency
         run: python -m pip install --disable-pip-version-check pytest sympy pymupdf
       - name: Run paper audit tests
-        run: python -m pytest -q tests/test_full_text_audit.py tests/test_paper_audit_eval.py tests/test_equation_audit.py tests/test_equation_bundle.py tests/test_equation_extract.py tests/test_equation_pipeline.py tests/test_pdf_math_layout.py tests/test_pdf_source.py tests/test_math_layout_solver.py tests/test_pdf_2d_recovery.py tests/test_pdf_equation_pipeline.py tests/test_composite_math_layout.py
+        run: python -m pytest -q tests/test_full_text_audit.py tests/test_paper_audit_eval.py tests/test_equation_audit.py tests/test_equation_bundle.py tests/test_equation_extract.py tests/test_equation_pipeline.py tests/test_pdf_math_layout.py tests/test_pdf_source.py tests/test_math_layout_solver.py tests/test_pdf_2d_recovery.py tests/test_pdf_equation_pipeline.py tests/test_composite_math_layout.py tests/test_math_token_normalize.py
       - name: Run Valov nonblind equation regression
         run: >-
           python -m tools.gremlin_equation_bundle_probe_v01

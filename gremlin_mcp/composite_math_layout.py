@@ -5,10 +5,13 @@ import json
 import math
 import re
 import statistics
+from collections import defaultdict
 from typing import Any, Iterable, Mapping
 
+from gremlin_mcp.math_token_normalize import normalize_math_tokens
+
 SCHEMA = "GREMLIN_COMPOSITE_2D_MATH_LAYOUT_V0_1"
-VERSION = "0.1.0"
+VERSION = "0.3.0"
 _LABEL_RE = re.compile(r"^\(\d+\.\d+(?:\.\d+)?\)$")
 _RELATIONS = {"=", "≈"}
 _OPERATORS = {"+", "-", "*", "/", "≈", "=", "<", ">", "<=", ">="}
@@ -91,14 +94,19 @@ def _operand_like(token: str) -> bool:
     return True
 
 
+def _closing_with_script(token: str) -> bool:
+    value = str(token).strip()
+    return any(value.startswith(prefix) for prefix in (")**", "]**", "}**", ")_", "]_", "}_"))
+
+
 def _join_tokens(tokens: list[str]) -> str:
-    clean = [_norm(token) for token in tokens if _norm(token)]
+    clean = list(normalize_math_tokens(tokens)["tokens"])
     if not clean:
         return ""
     out = clean[0]
     previous = clean[0]
     for token in clean[1:]:
-        if token in {')', ']', '}'}:
+        if token in {')', ']', '}'} or _closing_with_script(token):
             out += token
         elif previous in {'(', '[', '{'}:
             out += token
@@ -110,54 +118,71 @@ def _join_tokens(tokens: list[str]) -> str:
     return " ".join(out.split())
 
 
+def _nearest_left_base(
+    script: Mapping[str, Any],
+    main: list[dict[str, Any]],
+    *,
+    reference_size: float,
+) -> dict[str, Any] | None:
+    sx0 = float(script["bbox"][0])
+    limit = max(6.0, reference_size * 0.85)
+    candidates = [
+        row for row in main
+        if float(row["bbox"][2]) <= sx0 + 1.0
+        and sx0 - float(row["bbox"][2]) <= limit
+    ]
+    if not candidates:
+        return None
+    return max(candidates, key=lambda row: float(row["bbox"][2]))
+
+
 def _group_scripts(rows: list[dict[str, Any]], reference_size: float) -> tuple[list[dict[str, Any]], list[str]]:
     script_threshold = reference_size * 0.84
     small = sorted(
-        [row for row in rows if float(row["size"]) <= script_threshold],
+        [dict(row) for row in rows if float(row["size"]) <= script_threshold],
         key=lambda row: (float(row["bbox"][0]), _cy(row)),
     )
     main = [dict(row) for row in rows if float(row["size"]) > script_threshold]
     constructs: list[str] = []
     if not small or not main:
-        return main + [dict(row) for row in small], constructs
+        return main + small, constructs
 
-    # Consecutive small glyphs at the same vertical level form one script, e.g. -11.
-    groups: list[list[dict[str, Any]]] = []
-    for row in small:
-        if not groups:
-            groups.append([row])
-            continue
-        previous = groups[-1][-1]
-        same_level = abs(_cy(previous) - _cy(row)) <= max(2.0, reference_size * 0.30)
-        gap = float(row["bbox"][0]) - float(previous["bbox"][2])
-        if same_level and gap <= max(3.0, reference_size * 0.45):
-            groups[-1].append(row)
-        else:
-            groups.append([row])
-
+    # First bind each small glyph to its nearest geometric base. Only glyphs sharing a base may then
+    # combine into one script. This prevents adjacent expressions such as 10^8 and (...)^5 from becoming 10^85.
+    assigned: dict[int, list[dict[str, Any]]] = defaultdict(list)
     unattached: list[dict[str, Any]] = []
-    for group in groups:
-        gx0 = min(float(row["bbox"][0]) for row in group)
-        gy = statistics.mean(_cy(row) for row in group)
-        candidates = [
-            row for row in main
-            if float(row["bbox"][2]) <= gx0 + 1.0
-            and gx0 - float(row["bbox"][2]) <= max(6.0, reference_size * 0.75)
-        ]
-        if not candidates:
-            unattached.extend(dict(row) for row in group)
+    for script in small:
+        base = _nearest_left_base(script, main, reference_size=reference_size)
+        if base is None:
+            unattached.append(script)
             continue
-        base = max(candidates, key=lambda row: float(row["bbox"][2]))
-        script_text = "".join(_norm(row["text"]) for row in sorted(group, key=lambda row: float(row["bbox"][0])))
-        if not script_text:
-            unattached.extend(dict(row) for row in group)
+        assigned[id(base)].append(script)
+
+    for base in main:
+        glyphs = sorted(assigned.get(id(base), []), key=lambda row: (float(row["bbox"][0]), _cy(row)))
+        if not glyphs:
             continue
-        if gy < _cy(base):
-            base["text"] = f"{_norm(base['text'])}**{script_text}"
-            constructs.append("SUPERSCRIPT")
-        else:
-            base["text"] = f"{_norm(base['text'])}_{script_text}"
-            constructs.append("SUBSCRIPT")
+        # A single base can have at most one superscript group and one subscript group. Glyphs on the
+        # same side must share a tight vertical level; otherwise we fail closed by leaving them unattached.
+        sides: dict[str, list[dict[str, Any]]] = defaultdict(list)
+        for glyph in glyphs:
+            sides["SUPERSCRIPT" if _cy(glyph) < _cy(base) else "SUBSCRIPT"].append(glyph)
+        for side, group in sides.items():
+            centers = [_cy(row) for row in group]
+            if max(centers) - min(centers) > max(2.0, reference_size * 0.35):
+                unattached.extend(group)
+                continue
+            ordered = sorted(group, key=lambda row: float(row["bbox"][0]))
+            script_text = "".join(_norm(row["text"]) for row in ordered)
+            if not script_text:
+                unattached.extend(group)
+                continue
+            if side == "SUPERSCRIPT":
+                base["text"] = f"{_norm(base['text'])}**{script_text}"
+                constructs.append("SUPERSCRIPT")
+            else:
+                base["text"] = f"{_norm(base['text'])}_{script_text}"
+                constructs.append("SUBSCRIPT")
 
     return main + unattached, constructs
 
@@ -208,39 +233,22 @@ def _render_segment(rows: list[dict[str, Any]], reference_size: float) -> tuple[
 
 
 def _status(
-    *,
-    status: str,
-    linear_text: str | None,
-    relation_count: int,
-    constructs: list[str],
-    flags: list[str],
-    rows: list[dict[str, Any]],
-    page_number: int,
-    equation_label: str,
+    *, status: str, linear_text: str | None, relation_count: int, constructs: list[str], flags: list[str],
+    rows: list[dict[str, Any]], page_number: int, equation_label: str,
 ) -> dict[str, Any]:
     core = {
-        "schema": SCHEMA,
-        "version": VERSION,
-        "status": status,
-        "linear_text": linear_text,
-        "relation_count": int(relation_count),
-        "constructs": sorted(set(constructs)),
-        "flags": flags,
+        "schema": SCHEMA, "version": VERSION, "status": status, "linear_text": linear_text,
+        "relation_count": int(relation_count), "constructs": sorted(set(constructs)), "flags": flags,
         "source_locator": f"page:{page_number}:eq:{equation_label}",
-        "provenance": {
-            "page_number": int(page_number),
-            "equation_label": str(equation_label),
-            "spans": rows,
-        },
+        "provenance": {"page_number": int(page_number), "equation_label": str(equation_label), "spans": rows},
         "scope_boundary": [
             "TOP_LEVEL_RELATIONS_MUST_BE_EXPLICIT_SPANS",
             "COMPOSITE_SOLVER_SUPPORTS_ONE_OR_TWO_PRIMARY_VERTICAL_LEVELS_PER_RELATION_SEGMENT",
-            "SMALL_ADJACENT_GLYPHS_MAY_FORM_GEOMETRIC_SUBSCRIPT_OR_SUPERSCRIPT",
+            "SMALL_GLYPHS_BIND_TO_NEAREST_LEFT_GEOMETRIC_BASE_BEFORE_SCRIPT_GROUPING",
             "TWO_ALIGNED_PRIMARY_LEVELS_MAY_FORM_ONE_STACKED_FRACTION",
+            "LEXICAL_NORMALIZATION_RUNS_ONLY_AFTER_GEOMETRIC_RECOVERY",
             "THREE_OR_MORE_PRIMARY_VERTICAL_LEVELS_REMAIN_UNRESOLVED",
-            "NO_SEMANTIC_OR_PHYSICAL_GUESSING",
-            "NO_OCR_REPAIR",
-            "NO_AUTOMATIC_CANON_PROMOTION",
+            "NO_SEMANTIC_OR_PHYSICAL_GUESSING", "NO_OCR_REPAIR", "NO_AUTOMATIC_CANON_PROMOTION",
         ],
         "authority": _authority(),
     }
@@ -249,10 +257,7 @@ def _status(
 
 
 def solve_composite_2d_equation(
-    spans: Iterable[Mapping[str, Any]],
-    *,
-    page_number: int,
-    equation_label: str,
+    spans: Iterable[Mapping[str, Any]], *, page_number: int, equation_label: str,
 ) -> dict[str, Any]:
     page = int(page_number)
     if page < 1:
@@ -263,50 +268,23 @@ def solve_composite_2d_equation(
 
     rows = _validate(spans)
     if not any(row["text"] == label for row in rows):
-        return _status(
-            status="AMBIGUOUS_COMPOSITE_2D_UNRESOLVED",
-            linear_text=None,
-            relation_count=0,
-            constructs=[],
-            flags=["EQUATION_LABEL_NOT_FOUND"],
-            rows=rows,
-            page_number=page,
-            equation_label=label,
-        )
+        return _status(status="AMBIGUOUS_COMPOSITE_2D_UNRESOLVED", linear_text=None, relation_count=0,
+                       constructs=[], flags=["EQUATION_LABEL_NOT_FOUND"], rows=rows, page_number=page, equation_label=label)
 
     content = [row for row in rows if row["text"] != label]
-    relation_rows = sorted(
-        [row for row in content if _norm(row["text"]) in _RELATIONS],
-        key=lambda row: float(row["bbox"][0]),
-    )
+    relation_rows = sorted([row for row in content if _norm(row["text"]) in _RELATIONS], key=lambda row: float(row["bbox"][0]))
     if not relation_rows:
-        return _status(
-            status="AMBIGUOUS_COMPOSITE_2D_UNRESOLVED",
-            linear_text=None,
-            relation_count=0,
-            constructs=[],
-            flags=["NO_EXPLICIT_TOP_LEVEL_RELATION"],
-            rows=rows,
-            page_number=page,
-            equation_label=label,
-        )
+        return _status(status="AMBIGUOUS_COMPOSITE_2D_UNRESOLVED", linear_text=None, relation_count=0,
+                       constructs=[], flags=["NO_EXPLICIT_TOP_LEVEL_RELATION"], rows=rows, page_number=page, equation_label=label)
 
     reference_size = statistics.median(float(row["size"]) for row in relation_rows)
     segments: list[list[dict[str, Any]]] = []
     left_bound = -math.inf
     for relation in relation_rows:
         right_bound = float(relation["bbox"][0])
-        segments.append([
-            row for row in content
-            if row not in relation_rows
-            and _cx(row) > left_bound
-            and _cx(row) < right_bound
-        ])
+        segments.append([row for row in content if row not in relation_rows and _cx(row) > left_bound and _cx(row) < right_bound])
         left_bound = float(relation["bbox"][2])
-    segments.append([
-        row for row in content
-        if row not in relation_rows and _cx(row) > left_bound
-    ])
+    segments.append([row for row in content if row not in relation_rows and _cx(row) > left_bound])
 
     rendered: list[str] = []
     constructs: list[str] = []
@@ -316,29 +294,15 @@ def solve_composite_2d_equation(
         constructs.extend(found_constructs)
         if error or not text:
             flags.append(f"SEGMENT_{index}_{error or 'UNRENDERABLE'}")
-            return _status(
-                status="AMBIGUOUS_COMPOSITE_2D_UNRESOLVED",
-                linear_text=None,
-                relation_count=len(relation_rows),
-                constructs=constructs,
-                flags=flags,
-                rows=rows,
-                page_number=page,
-                equation_label=label,
-            )
+            return _status(status="AMBIGUOUS_COMPOSITE_2D_UNRESOLVED", linear_text=None,
+                           relation_count=len(relation_rows), constructs=constructs, flags=flags,
+                           rows=rows, page_number=page, equation_label=label)
         rendered.append(text)
 
     output = rendered[0]
     for relation, segment_text in zip(relation_rows, rendered[1:]):
         output += f" {_norm(relation['text'])} {segment_text}"
 
-    return _status(
-        status="SOLVED_COMPOSITE_2D",
-        linear_text=output,
-        relation_count=len(relation_rows),
-        constructs=constructs,
-        flags=["GEOMETRIC_COMPOSITE_RECONSTRUCTION"],
-        rows=rows,
-        page_number=page,
-        equation_label=label,
-    )
+    return _status(status="SOLVED_COMPOSITE_2D", linear_text=output, relation_count=len(relation_rows),
+                   constructs=constructs, flags=["GEOMETRIC_COMPOSITE_RECONSTRUCTION"],
+                   rows=rows, page_number=page, equation_label=label)
