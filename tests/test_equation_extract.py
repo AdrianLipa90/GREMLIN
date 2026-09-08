@@ -15,6 +15,7 @@ def test_extracts_numeric_formula_when_all_symbols_are_declared() -> None:
     assert len(numeric) == 1
     assert numeric[0]["expression"] == "a*b/c"
     assert numeric[0]["reported_value"] == 1.2
+    assert numeric[0]["reported_unit"] is None
     assert numeric[0]["symbols"] == {"a": 2.0, "b": 3.0, "c": 5.0}
     assert numeric[0]["epistemic_status"] == "CANDIDATE_WITNESS"
     assert result["authority"]["canon_allowed"] is False
@@ -65,6 +66,7 @@ def test_unicode_scientific_notation_and_math_symbols_are_normalized_conservativ
     assert len(numeric) == 1
     assert numeric[0]["expression"] == "4*pi*G*h/c**5"
     assert numeric[0]["reported_value"] == 2.052e-95
+    assert numeric[0]["reported_unit"] is None
     assert numeric[0]["symbols"]["G"] == 6.674e-11
 
 
@@ -75,8 +77,21 @@ def test_extracts_numeric_substitution_from_relation_chain_without_external_cons
     assert len(numeric) == 1
     assert numeric[0]["expression"] == "(4*(6e-2)*(2e-3))/((3e1)**5)"
     assert numeric[0]["reported_value"] == 1e-9
+    assert numeric[0]["reported_unit"] is None
     assert numeric[0]["symbols"] == {}
     assert numeric[0]["source_locator"] == "synthetic:chain:Eq. (9)"
+    assert numeric[0]["extraction_basis"] == "FINAL_NUMERIC_SUBSTITUTION_BEFORE_APPROXIMATION"
+
+
+def test_relation_chain_preserves_reported_unit_while_numeric_audit_uses_scalar() -> None:
+    text = "Eq. (11): lhs = (4*pi*(6.674e-11)*(6.626e-34))/((2.998e8)**5) ≈ 2.052 * 10**-95*s**2"
+    result = propose_equation_witnesses(text, source_id="synthetic:quantity")
+    numeric = [row for row in result["witness_proposals"] if row["kind"] == "numeric"]
+    assert len(numeric) == 1
+    assert numeric[0]["expression"] == "(4*pi*(6.674e-11)*(6.626e-34))/((2.998e8)**5)"
+    assert numeric[0]["reported_value"] == 2.052e-95
+    assert numeric[0]["reported_unit"] == "s**2"
+    assert numeric[0]["symbols"] == {}
     assert numeric[0]["extraction_basis"] == "FINAL_NUMERIC_SUBSTITUTION_BEFORE_APPROXIMATION"
 
 
