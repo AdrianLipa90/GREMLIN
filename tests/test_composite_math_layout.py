@@ -49,7 +49,7 @@ def test_renders_fraction_equals_fraction_approximately_numeric_chain() -> None:
     ]
     result = solve_composite_2d_equation(spans, page_number=2, equation_label="(2.4)")
     assert result["status"] == "SOLVED_COMPOSITE_2D"
-    assert result["linear_text"] == "(k*a*b)/(x**5) = (4*(6e-2)*(2e-3))/((3e1)**5) ≈ 1e-9"
+    assert result["linear_text"] == "(k*a*b)/(x**5) = (4 * (6e-2) * (2e-3))/((3e1)**5) ≈ 1e-9"
     assert result["relation_count"] == 2
     assert "STACKED_FRACTION" in result["constructs"]
     assert "SUPERSCRIPT" in result["constructs"]
