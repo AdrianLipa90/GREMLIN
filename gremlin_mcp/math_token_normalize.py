@@ -6,17 +6,14 @@ import re
 from typing import Any, Iterable
 
 SCHEMA = "GREMLIN_MATH_TOKEN_NORMALIZE_V0_1"
-VERSION = "0.2.0"
+VERSION = "0.2.1"
 _INTEGER_RE = re.compile(r"^[0-9]+$")
 _PREFIXED_INTEGER_RE = re.compile(r"^(?P<prefix>[([{])(?P<int>[0-9]+)$")
+_OPERATORS = {"+", "-", "*", "/", "=", "≈", "<", ">", "<=", ">="}
 
 
 def _authority() -> dict[str, bool]:
-    return {
-        "production_runtime_write": False,
-        "execution_admitted": False,
-        "canon_allowed": False,
-    }
+    return {"production_runtime_write": False, "execution_admitted": False, "canon_allowed": False}
 
 
 def _canonical(value: Any) -> bytes:
@@ -30,14 +27,7 @@ def _commit(domain: bytes, value: Any) -> str:
 def _basic(token: str) -> tuple[str, list[str]]:
     text = str(token).strip()
     transforms: list[str] = []
-    replacements = (
-        ("×", "*", "UNICODE_MULTIPLICATION_NORMALIZED"),
-        ("·", "*", "UNICODE_MULTIPLICATION_NORMALIZED"),
-        ("⋅", "*", "UNICODE_MULTIPLICATION_NORMALIZED"),
-        ("−", "-", "UNICODE_MINUS_NORMALIZED"),
-        ("–", "-", "UNICODE_MINUS_NORMALIZED"),
-    )
-    for old, new, flag in replacements:
+    for old, new, flag in (("×", "*", "UNICODE_MULTIPLICATION_NORMALIZED"), ("·", "*", "UNICODE_MULTIPLICATION_NORMALIZED"), ("⋅", "*", "UNICODE_MULTIPLICATION_NORMALIZED"), ("−", "-", "UNICODE_MINUS_NORMALIZED"), ("–", "-", "UNICODE_MINUS_NORMALIZED")):
         if old in text:
             text = text.replace(old, new)
             transforms.append(flag)
@@ -72,29 +62,28 @@ def normalize_math_tokens(tokens: Iterable[str]) -> dict[str, Any]:
                 transforms.append("DECIMAL_FRAGMENT_STITCHED")
                 index += 3
                 continue
+        # A leading-dot decimal is safe only at the beginning of a stream or after an opening
+        # delimiter. After an operator, '. 674' is ambiguous and must remain untouched.
         if index + 1 < len(basic) and basic[index] == "." and _INTEGER_RE.fullmatch(basic[index + 1]):
-            stitched.append(f"0.{basic[index + 1]}")
-            transforms.append("DECIMAL_FRAGMENT_STITCHED")
-            index += 2
-            continue
+            previous = basic[index - 1] if index > 0 else None
+            if previous is None or previous in {"(", "[", "{"}:
+                stitched.append(f"0.{basic[index + 1]}")
+                transforms.append("DECIMAL_FRAGMENT_STITCHED")
+                index += 2
+                continue
         stitched.append(basic[index])
         index += 1
 
     core = {
-        "schema": SCHEMA,
-        "version": VERSION,
-        "input_tokens": raw,
-        "tokens": stitched,
+        "schema": SCHEMA, "version": VERSION, "input_tokens": raw, "tokens": stitched,
         "transforms": sorted(set(transforms)),
         "scope_boundary": [
             "ONLY_EXPLICIT_UNICODE_OPERATOR_NORMALIZATION",
             "PI_GLYPH_NORMALIZED_ONLY_WHEN_STANDALONE_TOKEN",
             "DECIMAL_STITCH_REQUIRES_ADJACENT_DIGIT_DOT_DIGIT_TOKENS",
+            "LEADING_DOT_DECIMAL_STITCH_REQUIRES_STREAM_START_OR_OPENING_DELIMITER",
             "ONE_OPENING_BRACKET_MAY_SHARE_THE_FIRST_INTEGER_FRAGMENT",
-            "NO_COMPACT_SYMBOL_STRING_SPLITTING",
-            "UNITS_ARE_PRESERVED",
-            "NO_SEMANTIC_GUESSING",
-            "NO_AUTOMATIC_CANON_PROMOTION",
+            "NO_COMPACT_SYMBOL_STRING_SPLITTING", "UNITS_ARE_PRESERVED", "NO_SEMANTIC_GUESSING", "NO_AUTOMATIC_CANON_PROMOTION",
         ],
         "authority": _authority(),
     }
