@@ -6,8 +6,9 @@ import re
 from typing import Any, Iterable
 
 SCHEMA = "GREMLIN_MATH_TOKEN_NORMALIZE_V0_1"
-VERSION = "0.1.0"
+VERSION = "0.2.0"
 _INTEGER_RE = re.compile(r"^[0-9]+$")
+_PREFIXED_INTEGER_RE = re.compile(r"^(?P<prefix>[([{])(?P<int>[0-9]+)$")
 
 
 def _authority() -> dict[str, bool]:
@@ -58,19 +59,19 @@ def normalize_math_tokens(tokens: Iterable[str]) -> dict[str, Any]:
     stitched: list[str] = []
     index = 0
     while index < len(basic):
-        # integer '.' integer -> one decimal token. This is deliberately adjacency-sensitive;
-        # an explicit operator between fragments prevents stitching.
-        if (
-            index + 2 < len(basic)
-            and _INTEGER_RE.fullmatch(basic[index])
-            and basic[index + 1] == "."
-            and _INTEGER_RE.fullmatch(basic[index + 2])
-        ):
-            stitched.append(f"{basic[index]}.{basic[index + 2]}")
-            transforms.append("DECIMAL_FRAGMENT_STITCHED")
-            index += 3
-            continue
-        # leading decimal '.125' when the dot and digits are adjacent tokens.
+        if index + 2 < len(basic) and basic[index + 1] == "." and _INTEGER_RE.fullmatch(basic[index + 2]):
+            plain = _INTEGER_RE.fullmatch(basic[index])
+            prefixed = _PREFIXED_INTEGER_RE.fullmatch(basic[index])
+            if plain:
+                stitched.append(f"{basic[index]}.{basic[index + 2]}")
+                transforms.append("DECIMAL_FRAGMENT_STITCHED")
+                index += 3
+                continue
+            if prefixed:
+                stitched.append(f"{prefixed.group('prefix')}{prefixed.group('int')}.{basic[index + 2]}")
+                transforms.append("DECIMAL_FRAGMENT_STITCHED")
+                index += 3
+                continue
         if index + 1 < len(basic) and basic[index] == "." and _INTEGER_RE.fullmatch(basic[index + 1]):
             stitched.append(f"0.{basic[index + 1]}")
             transforms.append("DECIMAL_FRAGMENT_STITCHED")
@@ -89,6 +90,7 @@ def normalize_math_tokens(tokens: Iterable[str]) -> dict[str, Any]:
             "ONLY_EXPLICIT_UNICODE_OPERATOR_NORMALIZATION",
             "PI_GLYPH_NORMALIZED_ONLY_WHEN_STANDALONE_TOKEN",
             "DECIMAL_STITCH_REQUIRES_ADJACENT_DIGIT_DOT_DIGIT_TOKENS",
+            "ONE_OPENING_BRACKET_MAY_SHARE_THE_FIRST_INTEGER_FRAGMENT",
             "NO_COMPACT_SYMBOL_STRING_SPLITTING",
             "UNITS_ARE_PRESERVED",
             "NO_SEMANTIC_GUESSING",
