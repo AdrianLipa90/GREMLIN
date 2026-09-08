@@ -31,12 +31,14 @@ def test_builds_safe_transcript_from_single_baseline_region() -> None:
     result = build_equation_regions_from_pages(pages, source_id="synthetic.pdf")
     assert result["equation_label_count"] == 1
     assert result["safe_region_count"] == 1
+    assert result["recovered_2d_count"] == 0
     assert result["unresolved_region_count"] == 0
     assert result["safe_transcript"] == "Eq. (2.1): q = a*b/c ≈ 1.2"
+    assert result["auditable_transcript"] == result["safe_transcript"]
     assert result["regions"][0]["source_locator"] == "page:2:eq:(2.1)"
 
 
-def test_stacked_equation_is_preserved_as_unresolved_region() -> None:
+def test_simple_stacked_fraction_is_recovered_but_not_counted_as_safe_linearization() -> None:
     pages = [{
         "page_number": 5,
         "width": 600.0,
@@ -51,9 +53,13 @@ def test_stacked_equation_is_preserved_as_unresolved_region() -> None:
     }]
     result = build_equation_regions_from_pages(pages, source_id="synthetic.pdf")
     assert result["safe_region_count"] == 0
-    assert result["unresolved_region_count"] == 1
+    assert result["recovered_2d_count"] == 1
+    assert result["unresolved_region_count"] == 0
     assert result["safe_transcript"] == ""
+    assert result["recovered_2d_transcript"] == "Eq. (5.4): q = (a*b)/(c)"
+    assert result["auditable_transcript"] == result["recovered_2d_transcript"]
     assert result["regions"][0]["status"] == "TWO_DIMENSIONAL_MATH_UNRESOLVED"
+    assert result["regions"][0]["simple_2d_solver"]["status"] == "SOLVED_SIMPLE_2D"
 
 
 def test_cross_block_fraction_is_not_mistaken_for_label_block_only() -> None:
