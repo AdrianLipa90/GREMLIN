@@ -7,10 +7,11 @@ from pathlib import Path
 import re
 from typing import Any, Iterable, Mapping
 
+from gremlin_mcp.math_layout_solver import solve_simple_2d_equation
 from gremlin_mcp.pdf_math_layout import classify_equation_region
 
 SCHEMA = "GREMLIN_PDF_SPAN_SOURCE_V0_1"
-VERSION = "0.1.1"
+VERSION = "0.2.0"
 _EQ_LABEL_RE = re.compile(r"^\(\d+\.\d+(?:\.\d+)?\)$")
 _MATH_SIGNAL_CHARS = frozenset("=+-*/·×≈<>∑∫√^_[]{}")
 _NUMERIC_TOKEN_RE = re.compile(r"^[0-9.,Ee+\-−]+$")
@@ -121,7 +122,9 @@ def build_equation_regions_from_pages(
 
     normalized_pages = [_normalize_page(page) for page in pages]
     regions: list[dict[str, Any]] = []
-    transcript: list[str] = []
+    safe_transcript_rows: list[str] = []
+    recovered_2d_rows: list[str] = []
+    auditable_rows: list[str] = []
 
     for page in normalized_pages:
         labels = [span for span in page["spans"] if _EQ_LABEL_RE.fullmatch(span["text"])]
@@ -139,12 +142,35 @@ def build_equation_regions_from_pages(
             )
             classified["pdf_block_index"] = int(label_span.get("block_index", -1))
             classified["region_selection"] = "GEOMETRIC_BAND_MATHLIKE_CROSS_BLOCK"
-            regions.append(classified)
+
             if classified["status"] == "LINEARIZATION_SAFE" and classified["linear_text"]:
-                transcript.append(f"Eq. {label}: {classified['linear_text']}")
+                rendered = f"Eq. {label}: {classified['linear_text']}"
+                safe_transcript_rows.append(rendered)
+                auditable_rows.append(rendered)
+                classified["simple_2d_solver"] = None
+            elif classified["status"] == "TWO_DIMENSIONAL_MATH_UNRESOLVED":
+                solved = solve_simple_2d_equation(
+                    region_spans,
+                    page_number=page["page_number"],
+                    equation_label=label,
+                )
+                classified["simple_2d_solver"] = solved
+                if solved["status"] == "SOLVED_SIMPLE_2D" and solved["linear_text"]:
+                    rendered = f"Eq. {label}: {solved['linear_text']}"
+                    recovered_2d_rows.append(rendered)
+                    auditable_rows.append(rendered)
+            else:
+                classified["simple_2d_solver"] = None
+
+            regions.append(classified)
 
     safe_count = sum(region["status"] == "LINEARIZATION_SAFE" for region in regions)
-    unresolved_count = sum(region["status"] != "LINEARIZATION_SAFE" for region in regions)
+    recovered_2d_count = sum(
+        bool(region.get("simple_2d_solver"))
+        and region["simple_2d_solver"]["status"] == "SOLVED_SIMPLE_2D"
+        for region in regions
+    )
+    unresolved_count = len(regions) - safe_count - recovered_2d_count
     core = {
         "schema": SCHEMA,
         "version": VERSION,
@@ -153,15 +179,20 @@ def build_equation_regions_from_pages(
         "page_count": len(normalized_pages),
         "equation_label_count": len(regions),
         "safe_region_count": safe_count,
+        "recovered_2d_count": recovered_2d_count,
         "unresolved_region_count": unresolved_count,
-        "safe_transcript": "\n".join(transcript),
+        "safe_transcript": "\n".join(safe_transcript_rows),
+        "recovered_2d_transcript": "\n".join(recovered_2d_rows),
+        "auditable_transcript": "\n".join(auditable_rows),
         "regions": regions,
         "scope_boundary": [
             "PDF_TEXT_SPANS_WITH_LAYOUT_PROVENANCE",
             "EQUATION_LABELS_REQUIRE_NUMBERED_PARENTHESES",
             "REGION_SELECTION_CROSSES_PDF_TEXT_BLOCKS_WITHIN_LOCAL_GEOMETRIC_BAND",
             "PROSE_LIKE_SPANS_ARE_EXCLUDED_BEFORE_LAYOUT_CLASSIFICATION",
-            "TWO_DIMENSIONAL_MATH_REMAINS_UNRESOLVED",
+            "SINGLE_BASELINE_MATH_MAY_BE_LINEARIZED",
+            "ONLY_CONSERVATIVE_SINGLE_FRACTION_OR_SIMPLE_SUPERSCRIPT_2D_RECOVERY",
+            "AMBIGUOUS_TWO_DIMENSIONAL_MATH_REMAINS_UNRESOLVED",
             "NO_OCR_OR_SEMANTIC_GUESSING",
             "NO_AUTOMATIC_CANON_PROMOTION",
         ],
