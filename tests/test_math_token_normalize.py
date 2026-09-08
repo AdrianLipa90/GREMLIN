@@ -9,6 +9,12 @@ def test_stitches_fragmented_decimal_atoms_without_crossing_operators() -> None:
     assert "DECIMAL_FRAGMENT_STITCHED" in result["transforms"]
 
 
+def test_stitches_decimal_when_open_parenthesis_shares_first_digit_span() -> None:
+    result = normalize_math_tokens(["(6", ".", "674", "*", "10**-11", ")"])
+    assert result["tokens"] == ["(6.674", "*", "10**-11", ")"]
+    assert "DECIMAL_FRAGMENT_STITCHED" in result["transforms"]
+
+
 def test_normalizes_pi_and_unicode_minus_conservatively() -> None:
     result = normalize_math_tokens(["4", "π", "G", "h", "/", "c", "**", "−5"])
     assert result["tokens"] == ["4", "pi", "G", "h", "/", "c", "**", "-5"]
