@@ -68,6 +68,26 @@ def test_unicode_scientific_notation_and_math_symbols_are_normalized_conservativ
     assert numeric[0]["symbols"]["G"] == 6.674e-11
 
 
+def test_extracts_numeric_substitution_from_relation_chain_without_external_constants() -> None:
+    text = "Eq. (9): (k*a*b)/(x**5) = (4*(6e-2)*(2e-3))/((3e1)**5) ≈ 1e-9"
+    result = propose_equation_witnesses(text, source_id="synthetic:chain")
+    numeric = [row for row in result["witness_proposals"] if row["kind"] == "numeric"]
+    assert len(numeric) == 1
+    assert numeric[0]["expression"] == "(4*(6e-2)*(2e-3))/((3e1)**5)"
+    assert numeric[0]["reported_value"] == 1e-9
+    assert numeric[0]["symbols"] == {}
+    assert numeric[0]["source_locator"] == "synthetic:chain:Eq. (9)"
+    assert numeric[0]["extraction_basis"] == "FINAL_NUMERIC_SUBSTITUTION_BEFORE_APPROXIMATION"
+
+
+def test_relation_chain_with_unbound_symbols_remains_unresolved() -> None:
+    text = "Eq. (10): lhs = alpha*3 ≈ 6"
+    result = propose_equation_witnesses(text, source_id="synthetic:chain-unresolved")
+    unresolved = [row for row in result["unresolved_proposals"] if row["kind"] == "numeric"]
+    assert len(unresolved) == 1
+    assert unresolved[0]["missing_symbols"] == ["alpha"]
+
+
 def test_ignores_prose_equality_and_does_not_execute_function_calls() -> None:
     text = """
     The conclusion is that x = important for the interpretation.
