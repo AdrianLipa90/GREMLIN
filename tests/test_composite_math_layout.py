@@ -40,18 +40,22 @@ def test_renders_fraction_equals_fraction_approximately_numeric_chain() -> None:
     assert "SUPERSCRIPT" in result["constructs"]
 
 
-def test_fragmented_decimal_pi_and_scientific_exponents_are_normalized_after_geometry() -> None:
+def test_fragmented_decimal_pi_and_adjacent_scientific_exponents_are_normalized_after_geometry() -> None:
     spans = [
         _span("A", 10, 42, 18, 54), _span("=", 28, 50, 36, 62),
         _span("4", 46, 42, 52, 54), _span("π", 54, 42, 62, 54), _span("×", 64, 42, 70, 54),
-        _span("(", 72, 42, 76, 54), _span("6", 77, 42, 83, 54), _span(".", 84, 42, 87, 54), _span("674", 88, 42, 106, 54),
-        _span("×", 108, 42, 114, 54), _span("10", 116, 42, 128, 54), _span("−", 128, 38, 133, 46, size=8.0), _span("11", 134, 38, 144, 46, size=8.0), _span(")", 145, 42, 149, 54),
-        _span("2", 80, 62, 86, 74), _span(".", 87, 62, 90, 74), _span("998", 91, 62, 109, 74),
-        _span("×", 111, 62, 117, 74), _span("10", 119, 62, 131, 74), _span("8", 131, 58, 136, 66, size=8.0),
+        _span("(6", 72, 42, 83, 54), _span(".", 84, 42, 87, 54), _span("674", 88, 42, 106, 54),
+        _span("×", 108, 42, 114, 54), _span("10", 116, 42, 128, 54),
+        _span("−", 128, 38, 133, 46, size=8.0), _span("11", 134, 38, 144, 46, size=8.0), _span(")", 145, 42, 149, 54),
+        _span("(2", 76, 62, 87, 74), _span(".", 88, 62, 91, 74), _span("998", 92, 62, 110, 74),
+        _span("×", 112, 62, 118, 74), _span("10", 120, 62, 132, 74),
+        _span("8", 132, 58, 137, 66, size=8.0), _span(")", 138, 62, 142, 74), _span("5", 142, 58, 147, 66, size=8.0),
         _span("≈", 158, 50, 166, 62),
         _span("2", 174, 50, 180, 62), _span(".", 181, 50, 184, 62), _span("052", 185, 50, 203, 62),
-        _span("×", 205, 50, 211, 62), _span("10", 213, 50, 225, 62), _span("−", 225, 46, 230, 54, size=8.0), _span("95", 231, 46, 241, 54, size=8.0),
-        _span("(3.6)", 260, 50, 295, 62),
+        _span("×", 205, 50, 211, 62), _span("10", 213, 50, 225, 62),
+        _span("−", 225, 46, 230, 54, size=8.0), _span("95", 231, 46, 241, 54, size=8.0),
+        _span("s", 244, 50, 250, 62), _span("2", 250, 46, 255, 54, size=8.0),
+        _span("(3.6)", 270, 50, 305, 62),
     ]
     result = solve_composite_2d_equation(spans, page_number=3, equation_label="(3.6)")
     assert result["status"] == "SOLVED_COMPOSITE_2D"
@@ -60,7 +64,10 @@ def test_fragmented_decimal_pi_and_scientific_exponents_are_normalized_after_geo
     assert "2.052" in result["linear_text"]
     assert "pi" in result["linear_text"]
     assert "10**-11" in result["linear_text"]
+    assert "10**8)**5" in result["linear_text"]
     assert "10**-95" in result["linear_text"]
+    assert "s**2" in result["linear_text"]
+    assert "10**85" not in result["linear_text"]
 
 
 def test_ambiguous_three_level_fraction_fails_closed() -> None:
