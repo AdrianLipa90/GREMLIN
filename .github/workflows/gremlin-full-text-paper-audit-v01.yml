@@ -1,0 +1,54 @@
+name: GREMLIN full-text paper audit v0.1
+
+on:
+  push:
+    branches:
+      - bench/external-paper-audit-001
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  full-text-audit-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install test dependency
+        run: python -m pip install --disable-pip-version-check pytest sympy pymupdf
+      - name: Run paper audit tests
+        run: python -m pytest -q tests/test_full_text_audit.py tests/test_paper_audit_eval.py tests/test_equation_audit.py tests/test_equation_bundle.py tests/test_equation_extract.py tests/test_equation_pipeline.py tests/test_pdf_math_layout.py tests/test_pdf_source.py tests/test_math_layout_solver.py tests/test_pdf_2d_recovery.py tests/test_pdf_equation_pipeline.py tests/test_composite_math_layout.py
+      - name: Run Valov nonblind equation regression
+        run: >-
+          python -m tools.gremlin_equation_bundle_probe_v01
+          benchmarks/nonblind/valov_2026_equation_witnesses_v01.json
+          --out artifacts/valov_2026_nonblind_equation_regression_v01.json
+      - name: Verify regression classification and deterministic resolution
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path('artifacts/valov_2026_nonblind_equation_regression_v01.json')
+          data=json.loads(p.read_text(encoding='utf-8'))
+          gates={
+              'explicitly_nonblind': data['classification'] == 'NONBLIND_REGRESSION',
+              'all_witnesses_resolved': data['unresolved_count'] == 0,
+              'fixture_count_stable': data['witness_count'] == 6,
+              'known_witness_failures_recovered': data['fail_count'] == 6,
+              'no_canon_promotion': data['authority']['canon_allowed'] is False,
+          }
+          print(json.dumps({'gates': gates}, indent=2, sort_keys=True))
+          if not all(gates.values()):
+              raise SystemExit(1)
+          PY
+      - name: Upload nonblind regression receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gremlin-valov-nonblind-equation-regression-v01
+          path: artifacts/valov_2026_nonblind_equation_regression_v01.json
+          if-no-files-found: warn

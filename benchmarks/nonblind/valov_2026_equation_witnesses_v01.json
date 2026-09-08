@@ -1,0 +1,92 @@
+{
+  "bundle_id": "VALOV-2026-NONBLIND-EQUATION-REGRESSION-V0.1",
+  "classification": "NONBLIND_REGRESSION",
+  "source": {
+    "title": "The Fractal Dimension of Spacetime: A Unified Geometric Framework from Photons to the Observable Universe",
+    "author": "Danail Valov",
+    "date": "May 2026"
+  },
+  "witnesses": [
+    {
+      "id": "VALOV-EQ3.6-COEFFICIENT",
+      "kind": "numeric",
+      "expression": "4*pi*G*h/c**5",
+      "symbols": {
+        "G": 6.674e-11,
+        "h": 6.626e-34,
+        "c": 2.998e8
+      },
+      "reported_value": 2.052e-95,
+      "rel_tol": 0.001,
+      "source_locator": "p14:eq3.6",
+      "source_excerpt": "4*pi*G*h/c^5 approx 2.052e-95 s^2"
+    },
+    {
+      "id": "VALOV-TABLE3.1-VISIBLE-RS",
+      "kind": "numeric",
+      "expression": "2*G*h*f/c**4",
+      "symbols": {
+        "G": 6.674e-11,
+        "h": 6.626e-34,
+        "f": 5.5e14,
+        "c": 2.998e8
+      },
+      "reported_value": 8.1e-50,
+      "rel_tol": 0.01,
+      "source_locator": "p15:table3.1:visible",
+      "source_excerpt": "Visible photon r_s^gamma = 8.1e-50 m"
+    },
+    {
+      "id": "VALOV-TABLE5.2-VISIBLE-D",
+      "kind": "numeric",
+      "expression": "4*pi*G*h*f**2/c**5",
+      "symbols": {
+        "G": 6.674e-11,
+        "h": 6.626e-34,
+        "f": 5.5e14,
+        "c": 2.998e8
+      },
+      "reported_value": 9.33e-43,
+      "rel_tol": 0.01,
+      "source_locator": "p22:table5.2:visible",
+      "source_excerpt": "Visible photon D_gamma - 3 = 9.33e-43"
+    },
+    {
+      "id": "VALOV-EQ3.10-KUGELBLITZ",
+      "kind": "numeric",
+      "expression": "sqrt(c**5/(2*G*h))",
+      "symbols": {
+        "G": 6.674e-11,
+        "h": 6.626e-34,
+        "c": 2.998e8
+      },
+      "reported_value": 1.75e47,
+      "rel_tol": 0.01,
+      "source_locator": "p16:eq3.10",
+      "source_excerpt": "sqrt(c^5/(2Gh)) approx 1.75e47 Hz"
+    },
+    {
+      "id": "VALOV-EQ3.5-VS-EQ3.7",
+      "kind": "symbolic_identity",
+      "lhs": "4*pi*G*h*f**2/c**5",
+      "rhs": "2*G*h*f**2/c**5",
+      "symbols": ["G", "h", "f", "c"],
+      "source_locator": "p14:eq3.5 -> p15:eq3.7",
+      "source_excerpt": "The coefficient changes from 4*pi to 2 between the stated formulas."
+    },
+    {
+      "id": "VALOV-SCHWARZSCHILD-NULL-VS-EQ4.2",
+      "kind": "derivation",
+      "equation": "-A*c**2 + v**2/A = 0",
+      "target": "v",
+      "claimed_expression": "c*sqrt(A)",
+      "assumptions": {
+        "A": "positive",
+        "c": "positive",
+        "v": "real"
+      },
+      "source_locator": "p9:eq2.2 + p17:eq4.2",
+      "source_excerpt": "For radial ds^2=0 with A=1-rs/r, the manuscript claims v=c*sqrt(A)."
+    }
+  ]
+}
