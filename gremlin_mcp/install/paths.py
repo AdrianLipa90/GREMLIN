@@ -30,7 +30,12 @@ class GremlinPaths:
 
 
 def _env(env: Mapping[str, str], name: str) -> str:
-    return str(env.get(name) or "").strip()
+    if name not in env:
+        return ""
+    value = env[name]
+    if not isinstance(value, str):
+        raise RuntimeError(f"{name} environment value must be a string")
+    return value.strip()
 
 
 def _windows_paths(env: Mapping[str, str]) -> GremlinPaths:
@@ -113,7 +118,14 @@ def resolve_paths(
     can test both operating-system layouts without running on both hosts.
     """
     environ = os.environ if env is None else env
-    requested = (platform or ("windows" if os.name == "nt" else "linux")).strip().casefold()
+    if platform is None:
+        requested = "windows" if os.name == "nt" else "linux"
+    else:
+        if not isinstance(platform, str):
+            raise RuntimeError("GREMLIN installation platform must be a string")
+        requested = platform.strip().casefold()
+        if not requested:
+            raise RuntimeError("GREMLIN installation platform must be non-empty when explicitly supplied")
     if requested in {"windows", "win32", "nt"}:
         return _windows_paths(environ)
     if requested in {"linux", "posix"}:
