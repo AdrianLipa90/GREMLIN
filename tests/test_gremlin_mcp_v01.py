@@ -30,10 +30,14 @@ def test_bestiary_manifest_contains_full_topology() -> None:
         "ANT",
         "MANTIS",
         "BELZEBUB",
+        "FERRET",
         "GREMLIN",
     } <= names
     assert species_profile("belzebub")["scheduler_profile"]["mass"] == 2.60
     assert species_profile("octopus")["scheduler_profile"] is None
+    ferret = species_profile("ferret")
+    assert ferret["stage"] == "actuation"
+    assert ferret["scheduler_profile"] is None
 
 
 def test_vector_lane_plan_is_deterministic_and_compressed() -> None:
