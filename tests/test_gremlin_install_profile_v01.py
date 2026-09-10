@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
+import stat
 
 import pytest
 
+import gremlin_mcp.install.profile_activation as profile_activation_module
 from gremlin_mcp.install.license_activation import activate_license_key
 from gremlin_mcp.install.paths import GremlinPaths
 from gremlin_mcp.install.profile_activation import import_client_profile, installed_profile_status
@@ -94,6 +97,9 @@ def test_required_profile_hot_plugs_without_provider_reconfiguration(tmp_path: P
     source.write_text(json.dumps(valid_profile()), encoding="utf-8")
     result = import_client_profile(source, paths)
     assert result["status"] == "ACTIVE"
+    target = Path(paths.client_profile_file)
+    if os.name != "nt":
+        assert stat.S_IMODE(target.stat().st_mode) & 0o077 == 0
 
     after = ProductRuntime.from_paths(
         license_path=paths.license_file,
@@ -104,6 +110,24 @@ def test_required_profile_hot_plugs_without_provider_reconfiguration(tmp_path: P
     assert status["status"] == "LICENSED"
     assert status["profile"]["client_id"] == "customer-profile-001"
     assert installed_profile_status(paths)["status"] == "ACTIVE"
+
+
+def test_profile_import_fails_loudly_if_temp_permissions_cannot_be_set(tmp_path: Path, monkeypatch) -> None:
+    if os.name == "nt":
+        pytest.skip("POSIX permission hardening is not used on Windows")
+    paths = make_paths(tmp_path)
+    activate_required_profile_license(tmp_path, paths)
+    source = tmp_path / "customer-profile.json"
+    source.write_text(json.dumps(valid_profile()), encoding="utf-8")
+
+    def fail_fchmod(_fd: int, _mode: int) -> None:
+        raise OSError("simulated fchmod failure")
+
+    monkeypatch.setattr(profile_activation_module.os, "fchmod", fail_fchmod)
+    with pytest.raises(OSError, match="simulated fchmod failure"):
+        import_client_profile(source, paths)
+    assert not Path(paths.client_profile_file).exists()
+    assert not list(Path(paths.config_dir).glob(".client-profile.json.*.tmp"))
 
 
 def test_profile_cannot_elevate_signed_license_limits(tmp_path: Path) -> None:
