@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+import os
 from pathlib import Path
 from typing import Any
 
@@ -25,9 +26,18 @@ def _provider_rows(payload: Any) -> list[Mapping[str, Any]]:
     if not isinstance(rows, list):
         raise RuntimeError("provider discovery payload must contain a providers list")
     normalized: list[Mapping[str, Any]] = []
+    seen_ids: set[str] = set()
     for index, row in enumerate(rows):
         if not isinstance(row, Mapping):
             raise RuntimeError(f"provider discovery row {index} is not an object")
+        provider_id = row.get("provider_id")
+        if not isinstance(provider_id, str) or not provider_id.strip():
+            raise RuntimeError(f"provider discovery row {index} has invalid provider_id")
+        provider_id = provider_id.strip()
+        if provider_id in seen_ids:
+            raise RuntimeError(f"provider discovery contains duplicate provider_id: {provider_id}")
+        seen_ids.add(provider_id)
+
         detected = row.get("detected")
         connected = row.get("connected")
         if not isinstance(detected, bool):
@@ -37,8 +47,24 @@ def _provider_rows(payload: Any) -> list[Mapping[str, Any]]:
         status = row.get("connection_status")
         if not isinstance(status, str) or not status.strip():
             raise RuntimeError(f"provider discovery row {index} has invalid connection_status")
+        status = status.strip()
+        if connected and not detected:
+            raise RuntimeError(f"provider discovery row {index} is connected but not detected")
+        if connected != (status == "CONNECTED"):
+            raise RuntimeError(
+                f"provider discovery row {index} has inconsistent connected/connection_status state"
+            )
         normalized.append(row)
     return normalized
+
+
+def _runtime_command_available(command: str, platform: str) -> bool:
+    executable = Path(command)
+    if not executable.is_file():
+        return False
+    if platform == "windows":
+        return True
+    return os.access(executable, os.X_OK)
 
 
 def evaluate_readiness(paths: GremlinPaths) -> dict[str, Any]:
@@ -65,21 +91,21 @@ def evaluate_readiness(paths: GremlinPaths) -> dict[str, Any]:
     unverified = [
         row
         for row in detected
-        if str(row.get("connection_status")) in _UNVERIFIED_PROVIDER_STATES
+        if row.get("connection_status") in _UNVERIFIED_PROVIDER_STATES
     ]
 
     entry = gremlin_stdio_entry(paths)
     command = entry.get("command") if isinstance(entry, Mapping) else None
     if not isinstance(command, str) or not command.strip():
         raise RuntimeError("GREMLIN stdio entry does not contain a valid command")
-    executable = Path(command)
-    runtime_available = executable.is_file()
+    command = command.strip()
+    runtime_available = _runtime_command_available(command, paths.platform)
 
     actions: list[str] = []
     if license_state.get("status") != "ACTIVE":
         actions.append("Activate your GREMLIN license")
     if product.get("status") != "LICENSED":
-        reason = str(product.get("reason") or "").strip()
+        reason = product.get("reason")
         if reason == "required client profile is missing":
             actions.append("Import the customer-specific GREMLIN profile supplied with this license")
         else:
@@ -109,9 +135,9 @@ def evaluate_readiness(paths: GremlinPaths) -> dict[str, Any]:
         "providers": {
             "detected": len(detected),
             "connected": len(connected),
-            "connected_ids": [str(row.get("provider_id")) for row in connected],
+            "connected_ids": [row["provider_id"] for row in connected],
             "unverified": len(unverified),
-            "unverified_ids": [str(row.get("provider_id")) for row in unverified],
+            "unverified_ids": [row["provider_id"] for row in unverified],
         },
         "profile": {
             "configured": profile_path.is_file(),
