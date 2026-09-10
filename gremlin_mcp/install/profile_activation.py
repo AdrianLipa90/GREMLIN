@@ -6,7 +6,7 @@ from pathlib import Path
 import tempfile
 from typing import Any, Mapping
 
-from gremlin_mcp.product.profile import ClientProfileError, load_client_profile, validate_profile_against_license
+from gremlin_mcp.product.profile import ClientProfileError, load_client_profile
 from gremlin_mcp.product.license import LicenseError, load_license
 
 from .license_activation import resolve_public_key_path
@@ -17,9 +17,25 @@ PROFILE_IMPORT_SCHEMA = "GREMLIN_CUSTOMER_PROFILE_IMPORT_V0_1"
 PROFILE_STATUS_SCHEMA = "GREMLIN_CUSTOMER_PROFILE_STATUS_V0_1"
 
 
-def _atomic_json_write(path: Path, value: Mapping[str, Any]) -> None:
+def _atomic_verified_profile_write(
+    path: Path,
+    value: Mapping[str, Any],
+    *,
+    license_payload: Mapping[str, Any],
+    expected_commitment: str,
+) -> dict[str, Any]:
+    """Persist a validated profile without risking replacement before re-verification."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    payload = (json.dumps(dict(value), ensure_ascii=False, indent=2, sort_keys=True) + "\n").encode("utf-8")
+    payload = (
+        json.dumps(
+            dict(value),
+            ensure_ascii=False,
+            indent=2,
+            sort_keys=True,
+            allow_nan=False,
+        )
+        + "\n"
+    ).encode("utf-8")
     fd, temp_name = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=str(path.parent))
     temp = Path(temp_name)
     fd_open = True
@@ -32,7 +48,17 @@ def _atomic_json_write(path: Path, value: Mapping[str, Any]) -> None:
             handle.write(payload)
             handle.flush()
             os.fsync(handle.fileno())
+
+        # Verify the exact staged bytes through the production loader before the
+        # destination is touched. A verifier failure therefore preserves any
+        # previously active profile.
+        verified = load_client_profile(temp, license_payload)
+        actual_commitment = verified.get("profile_commitment")
+        if not isinstance(actual_commitment, str) or actual_commitment != expected_commitment:
+            raise ClientProfileError("staged customer profile verification mismatch")
+
         os.replace(temp, path)
+        return verified
     finally:
         if fd_open:
             os.close(fd)
@@ -54,23 +80,23 @@ def _license_payload(paths: GremlinPaths) -> dict[str, Any]:
 
 
 def import_client_profile(source: str | Path, paths: GremlinPaths) -> dict[str, Any]:
-    try:
-        raw = json.loads(Path(source).read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
-        raise ClientProfileError("unable to read customer profile JSON") from exc
-    if not isinstance(raw, dict):
-        raise ClientProfileError("customer profile must be a JSON object")
-
     payload = _license_payload(paths)
-    validated = validate_profile_against_license(raw, payload)
-    commitment = str(validated["profile_commitment"])
+
+    # Use the production parser for the source as well: duplicate JSON keys,
+    # unknown fields, malformed types and entitlement elevation all fail closed.
+    validated = load_client_profile(source, payload)
+    commitment = validated.get("profile_commitment")
+    if not isinstance(commitment, str) or not commitment:
+        raise ClientProfileError("validated customer profile commitment is unavailable")
+
     persisted = {key: value for key, value in validated.items() if key != "profile_commitment"}
     target = Path(paths.client_profile_file)
-    _atomic_json_write(target, persisted)
-
-    reread = load_client_profile(target, payload)
-    if reread.get("profile_commitment") != commitment:
-        raise ClientProfileError("persisted customer profile verification mismatch")
+    reread = _atomic_verified_profile_write(
+        target,
+        persisted,
+        license_payload=payload,
+        expected_commitment=commitment,
+    )
 
     return {
         "schema": PROFILE_IMPORT_SCHEMA,
