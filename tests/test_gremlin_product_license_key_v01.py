@@ -64,7 +64,6 @@ def test_compact_key_tamper_fails_closed(tmp_path) -> None:
             format=serialization.PublicFormat.SubjectPublicKeyInfo,
         )
     )
-    # Change one transport character while keeping the GRM1 envelope shape.
     replacement = "A" if compact[-1] != "A" else "B"
     tampered = compact[:-1] + replacement
     runtime = ProductRuntime.from_configuration(
@@ -80,3 +79,17 @@ def test_compact_key_tamper_fails_closed(tmp_path) -> None:
 def test_compact_key_rejects_wrong_prefix() -> None:
     with pytest.raises(LicenseError, match="GRM1"):
         decode_license_key("BAD1-abc")
+
+
+def test_compact_key_rejects_type_whitespace_padding_and_nonalphabet_characters() -> None:
+    private = Ed25519PrivateKey.generate()
+    compact = encode_license_key(issue_license(_payload(), private))
+
+    with pytest.raises(LicenseError, match="must be a string"):
+        decode_license_key(123)  # type: ignore[arg-type]
+    with pytest.raises(LicenseError, match="surrounding whitespace"):
+        decode_license_key(f" {compact}")
+    with pytest.raises(LicenseError, match="canonical unpadded base64url"):
+        decode_license_key(compact + "=")
+    with pytest.raises(LicenseError, match="canonical unpadded base64url"):
+        decode_license_key(compact + "!")
