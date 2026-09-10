@@ -9,6 +9,7 @@ from pathlib import Path
 import re
 import shutil
 import subprocess
+import tempfile
 from typing import Callable, Protocol
 
 from .paths import GremlinPaths
@@ -32,7 +33,9 @@ _NAME_RE = re.compile(r"^[A-Za-z0-9._-]{1,96}$")
 
 
 def _name(value: str) -> str:
-    name = str(value).strip()
+    if not isinstance(value, str):
+        raise ValueError("secret name must be a string")
+    name = value.strip()
     if not _NAME_RE.fullmatch(name):
         raise ValueError("secret name must match [A-Za-z0-9._-]{1,96}")
     return name
@@ -64,7 +67,14 @@ class LinuxSecretServiceStore:
     def get(self, name: str) -> bytes | None:
         key = _name(name)
         result = self._run(["lookup", "service", "gremlin", "account", key], check=False)
-        if result.returncode != 0 or not result.stdout.strip():
+        if result.returncode != 0:
+            detail = result.stderr.decode("utf-8", errors="replace").strip()
+            if detail:
+                raise SecretStoreUnavailable(f"Linux Secret Service lookup failed: {detail}")
+            if result.returncode == 1:
+                return None
+            raise SecretStoreUnavailable(f"Linux Secret Service lookup failed with exit code {result.returncode}")
+        if not result.stdout.strip():
             return None
         try:
             return base64.b64decode(result.stdout.strip(), validate=True)
@@ -73,7 +83,11 @@ class LinuxSecretServiceStore:
 
     def delete(self, name: str) -> None:
         key = _name(name)
-        self._run(["clear", "service", "gremlin", "account", key], check=False)
+        result = self._run(["clear", "service", "gremlin", "account", key], check=False)
+        if result.returncode != 0:
+            detail = result.stderr.decode("utf-8", errors="replace").strip()
+            suffix = f": {detail}" if detail else f" with exit code {result.returncode}"
+            raise SecretStoreUnavailable(f"Linux Secret Service clear failed{suffix}")
 
 
 class _DataBlob(ctypes.Structure):
@@ -156,9 +170,22 @@ class WindowsDpapiStore:
         self.root.mkdir(parents=True, exist_ok=True)
         path = self._path(name)
         encrypted = _dpapi_crypt(value, protect=True)
-        temp = path.with_suffix(".tmp")
-        temp.write_bytes(encrypted)
-        os.replace(temp, path)
+        fd, temp_name = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=str(self.root))
+        temp = Path(temp_name)
+        fd_open = True
+        try:
+            handle = os.fdopen(fd, "wb")
+            fd_open = False
+            with handle:
+                handle.write(encrypted)
+                handle.flush()
+                os.fsync(handle.fileno())
+            os.replace(temp, path)
+        finally:
+            if fd_open:
+                os.close(fd)
+            if temp.exists():
+                temp.unlink()
 
     def get(self, name: str) -> bytes | None:
         path = self._path(name)
