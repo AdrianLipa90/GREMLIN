@@ -1,3 +1,7 @@
+import math
+
+import pytest
+
 from gremlin_mcp.dual_use_policy import (
     Action,
     RiskClass,
@@ -157,3 +161,78 @@ def test_policy_api_inherit_and_firewall_are_fail_closed():
         },
     )
     assert decision["admitted"] is False
+
+
+def test_boolean_risk_is_not_silently_interpreted_as_low_risk():
+    with pytest.raises(ValueError, match="must not be boolean"):
+        inherit_risk(True, [])  # type: ignore[arg-type]
+
+
+def test_execution_gate_strings_are_rejected_instead_of_becoming_truthy():
+    with pytest.raises(ValueError, match="human_gate must be boolean"):
+        capability_firewall(
+            risk="DUAL_USE_LOW",
+            requested_action="EXECUTE",
+            human_gate="false",  # type: ignore[arg-type]
+            tool_gate=True,
+            sandboxed=True,
+        )
+    with pytest.raises(ValueError, match="sandboxed must be boolean"):
+        capability_firewall(
+            risk="DUAL_USE_LOW",
+            requested_action="EXECUTE",
+            human_gate=True,
+            tool_gate=True,
+            sandboxed="false",  # type: ignore[arg-type]
+        )
+
+
+def test_context_complete_string_is_rejected_instead_of_marking_context_complete():
+    with pytest.raises(ValueError, match="context_complete must be boolean"):
+        inherit_risk("BENIGN", [], context_complete="false")  # type: ignore[arg-type]
+
+
+def test_confidence_requires_finite_numeric_value():
+    with pytest.raises(ValueError, match="finite number"):
+        make_policy_envelope(
+            object_kind="KAKU",
+            object_commitment="abc",
+            declared_risk="BENIGN",
+            confidence="0.9",  # type: ignore[arg-type]
+        )
+    with pytest.raises(ValueError, match="finite number"):
+        make_policy_envelope(
+            object_kind="KAKU",
+            object_commitment="abc",
+            declared_risk="BENIGN",
+            confidence=math.nan,
+        )
+
+
+def test_provenance_collections_reject_scalar_strings():
+    with pytest.raises(ValueError, match="source_refs must be a list"):
+        make_policy_envelope(
+            object_kind="KAKU",
+            object_commitment="abc",
+            declared_risk="BENIGN",
+            source_refs="source-a",  # type: ignore[arg-type]
+        )
+
+
+def test_policy_api_rejects_truthy_string_gates_and_unknown_fields():
+    with pytest.raises(ValueError, match="human_gate must be boolean"):
+        policy_api(
+            "firewall",
+            {
+                "risk": "DUAL_USE_LOW",
+                "requested_action": "EXECUTE",
+                "human_gate": "false",
+                "tool_gate": True,
+                "sandboxed": True,
+            },
+        )
+    with pytest.raises(ValueError, match="unsupported keys"):
+        policy_api(
+            "inherit",
+            {"declared_risk": "BENIGN", "parent_risks": [], "execution_admitted": True},
+        )
