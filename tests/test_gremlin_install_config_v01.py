@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+
 import pytest
 
 from gremlin_mcp.install.config import load_effective_config, validate_runtime_config
@@ -100,3 +102,26 @@ def test_decimal_environment_limits_reject_signs_and_fractional_values() -> None
         load_effective_config(env={"GREMLIN_MAX_WORKERS": "4.0"})
     with pytest.raises(ValueError, match="positive decimal integer"):
         load_effective_config(env={"GREMLIN_MAX_WORKERS": "+4"})
+
+
+def test_existing_config_directory_is_not_silently_treated_as_missing(tmp_path) -> None:
+    user = tmp_path / "config.toml"
+    user.mkdir()
+    with pytest.raises(ValueError, match="must be a regular file"):
+        load_effective_config(user_config_path=user, env={})
+
+
+def test_existing_policy_directory_is_not_silently_treated_as_missing(tmp_path) -> None:
+    policy = tmp_path / "policy.toml"
+    policy.mkdir()
+    with pytest.raises(ValueError, match="must be a regular file"):
+        load_effective_config(machine_policy_path=policy, env={})
+
+
+@pytest.mark.skipif(os.name == "nt", reason="symlink semantics differ on Windows CI")
+def test_broken_config_symlink_is_not_silently_treated_as_missing(tmp_path) -> None:
+    target = tmp_path / "missing.toml"
+    link = tmp_path / "config.toml"
+    link.symlink_to(target)
+    with pytest.raises(ValueError, match="broken symlink"):
+        load_effective_config(user_config_path=link, env={})
