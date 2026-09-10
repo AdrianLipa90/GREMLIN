@@ -165,7 +165,12 @@ def _provider_action(args: argparse.Namespace) -> int:
     paths = resolve_paths(platform=args.platform)
     if args.provider_action == "connect":
         result = connect_provider(args.provider, paths)
-        success = result.status in {"CONNECTED_CONFIGURED", "REGISTERED_RESTART_REQUIRED"}
+        success = result.status in {
+            "CONNECTED_CONFIGURED",
+            "CONFIGURED_UNVERIFIED",
+            "REGISTERED_UNVERIFIED",
+            "REGISTERED_RESTART_REQUIRED",
+        }
     elif args.provider_action == "disconnect":
         result = disconnect_provider(args.provider, paths)
         success = result.status == "DISCONNECTED"
