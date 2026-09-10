@@ -1,3 +1,7 @@
+import math
+
+import pytest
+
 from gremlin_mcp.evidence_robustness import (
     CONTRADICT,
     CONTRADICTION_DETECTED_UNRESOLVED,
@@ -105,3 +109,73 @@ def test_paired_probe_preregistered_gates_pass_on_reference_cases():
     assert receipt["metrics"]["invalid_receipt_rejection_rate"] == 1.0
     assert receipt["official_drnoise_dataset_executed"] is False
     assert receipt["official_drnoise_score_claimed"] is False
+
+
+def test_stale_bundle_commitment_cannot_cover_mutated_evidence():
+    bundle = build_evidence_bundle(claim_id="claim-stale", evidence=clean_pair("s"))
+    stale_commitment = bundle["evidence_bundle_commitment"]
+    bundle["evidence"][0]["stance"] = CONTRADICT
+    assert bundle["evidence_bundle_commitment"] == stale_commitment
+    with pytest.raises(ValueError, match="bundle commitment mismatch"):
+        assess_evidence_bundle(bundle)
+
+
+def test_stale_bundle_commitment_cannot_be_reconciled_by_hound():
+    bundle = build_evidence_bundle(claim_id="claim-stale-hound", evidence=noisy_pair("h"))
+    receipt = build_hound_receipt(
+        evidence_bundle_commitment=bundle["evidence_bundle_commitment"],
+        verdict=SUPPORT,
+        rationale_codes=["AUDITED_ORIGINAL"],
+    )
+    bundle["evidence"][0]["source_family"] = "mutated-family"
+    with pytest.raises(ValueError, match="bundle commitment mismatch"):
+        assess_evidence_bundle(bundle, hound_receipt=receipt)
+
+
+def test_evidence_identifiers_and_credibility_are_not_coerced():
+    with pytest.raises(ValueError, match="evidence_id must be a string"):
+        build_evidence_bundle(
+            claim_id="claim-types",
+            evidence=[evidence(123, "family", SUPPORT)],  # type: ignore[arg-type]
+        )
+    with pytest.raises(ValueError, match="credibility must be a finite number"):
+        build_evidence_bundle(
+            claim_id="claim-types",
+            evidence=[evidence("e1", "family", SUPPORT, credibility="0.8")],  # type: ignore[arg-type]
+        )
+    with pytest.raises(ValueError, match="credibility must be a finite number"):
+        build_evidence_bundle(
+            claim_id="claim-types",
+            evidence=[evidence("e1", "family", SUPPORT, credibility=math.nan)],
+        )
+
+
+def test_evidence_unknown_fields_are_rejected_before_commitment():
+    row = evidence("e1", "family", SUPPORT)
+    row["execution_admitted"] = True
+    with pytest.raises(ValueError, match="unsupported keys"):
+        build_evidence_bundle(claim_id="claim-extra", evidence=[row])
+
+
+def test_hound_receipt_rejects_scalar_rationale_codes_and_unknown_fields():
+    with pytest.raises(ValueError, match="iterable of strings"):
+        build_hound_receipt(
+            evidence_bundle_commitment="bundle",
+            verdict=SUPPORT,
+            rationale_codes="ONE_CODE",  # type: ignore[arg-type]
+        )
+
+    receipt = build_hound_receipt(
+        evidence_bundle_commitment="bundle",
+        verdict=SUPPORT,
+        rationale_codes=["ONE_CODE"],
+    )
+    receipt["execution_admitted"] = True
+    validation = verify_hound_receipt(receipt, evidence_bundle_commitment="bundle")
+    assert validation["valid"] is False
+    assert "UNSUPPORTED_RECEIPT_FIELD" in validation["errors"]
+
+
+def test_paired_probe_rejects_scalar_case_collection():
+    with pytest.raises(ValueError, match="iterable of objects"):
+        score_paired_probe("not-a-case-list")  # type: ignore[arg-type]
