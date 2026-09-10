@@ -5,6 +5,7 @@ import json
 import ntpath
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 from typing import Callable, Mapping, Sequence
@@ -21,6 +22,7 @@ from .paths import GremlinPaths
 PROVIDER_SCHEMA = "GREMLIN_MCP_PROVIDER_STATUS_V0_3"
 PROVIDER_ACTION_SCHEMA = "GREMLIN_MCP_PROVIDER_ACTION_V0_3"
 SERVER_NAME = "gremlin"
+_NEGATED_LIVE_RE = re.compile(r"\b(?:not|never|no|failed|failure|error|offline|disconnected)\b")
 
 
 @dataclass(frozen=True)
@@ -129,6 +131,26 @@ def _run(command: Sequence[str], *, runner: Callable[..., subprocess.CompletedPr
         raise RuntimeError(f"provider command failed to launch: {exc}") from exc
 
 
+def _live_word_reported(text: str, word: str) -> bool:
+    """Require an explicit positive live-state line, not a substring such as 'not connected'."""
+    if not isinstance(text, str) or not isinstance(word, str):
+        raise RuntimeError("provider live-state evidence must be textual")
+    token = word.strip().casefold()
+    if not token:
+        raise RuntimeError("provider live-state token must be non-empty")
+    positive = re.compile(rf"\b{re.escape(token)}\b")
+    for raw_line in text.splitlines():
+        line = raw_line.casefold()
+        if SERVER_NAME.casefold() not in line:
+            continue
+        if not positive.search(line):
+            continue
+        if _NEGATED_LIVE_RE.search(line):
+            continue
+        return True
+    return False
+
+
 def _env_pairs(paths: GremlinPaths) -> list[str]:
     entry = gremlin_stdio_entry(paths)
     return [f"{key}={value}" for key, value in sorted(dict(entry.get("env") or {}).items())]
@@ -182,7 +204,7 @@ def _cli_status(
             registered = isinstance(transport, dict) and transport.get("type") == "stdio"
         except json.JSONDecodeError:
             registered = False
-    live = registered and live_word is not None and live_word.casefold() in text.casefold()
+    live = registered and live_word is not None and _live_word_reported(text, live_word)
     if live:
         status = "CONNECTED"
         detail = None
@@ -455,7 +477,7 @@ def test_provider(
         raise ValueError(f"unsupported provider action: {provider}")
     text = f"{result.stdout}\n{result.stderr}".strip()
     registered = result.returncode == 0 and SERVER_NAME.casefold() in text.casefold()
-    live = registered and provider == "opencode" and "connected" in text.casefold()
+    live = registered and provider == "opencode" and _live_word_reported(text, "connected")
     if live:
         status = "PASS"
         detail = None
