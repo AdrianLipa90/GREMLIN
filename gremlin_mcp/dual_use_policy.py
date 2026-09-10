@@ -247,10 +247,10 @@ def make_policy_envelope(
     complete = _strict_bool(context_complete, "context_complete")
     object_kind_value = _strict_text(object_kind, "object_kind").upper()
     object_commitment_value = _strict_text(object_commitment, "object_commitment")
-    parent_commitment_rows = _strict_string_list(list(parent_commitments), "parent_commitments")
-    source_rows = _strict_string_list(list(source_refs), "source_refs")
-    transformation_rows = _strict_string_list(list(transformations), "transformations")
-    evidence_rows = _strict_string_list(list(evidence_refs), "evidence_refs")
+    parent_commitment_rows = _strict_string_list(parent_commitments, "parent_commitments")
+    source_rows = _strict_string_list(source_refs, "source_refs")
+    transformation_rows = _strict_string_list(transformations, "transformations")
+    evidence_rows = _strict_string_list(evidence_refs, "evidence_refs")
     risk = inherit_risk(
         declared_risk,
         parent_risks,
