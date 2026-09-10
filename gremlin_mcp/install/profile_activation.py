@@ -22,17 +22,20 @@ def _atomic_json_write(path: Path, value: Mapping[str, Any]) -> None:
     payload = (json.dumps(dict(value), ensure_ascii=False, indent=2, sort_keys=True) + "\n").encode("utf-8")
     fd, temp_name = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=str(path.parent))
     temp = Path(temp_name)
+    fd_open = True
     try:
-        with os.fdopen(fd, "wb") as handle:
+        if os.name != "nt":
+            os.fchmod(fd, 0o600)
+        handle = os.fdopen(fd, "wb")
+        fd_open = False
+        with handle:
             handle.write(payload)
             handle.flush()
             os.fsync(handle.fileno())
-        try:
-            os.chmod(temp, 0o600)
-        except OSError:
-            pass
         os.replace(temp, path)
     finally:
+        if fd_open:
+            os.close(fd)
         if temp.exists():
             temp.unlink()
 
