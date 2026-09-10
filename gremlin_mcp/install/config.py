@@ -60,8 +60,12 @@ def _read_toml(path: str | Path | None) -> dict[str, Any]:
     if path is None:
         return {}
     p = Path(path)
-    if not p.is_file():
+    if not p.exists():
+        if p.is_symlink():
+            raise ValueError(f"configuration path is a broken symlink: {p}")
         return {}
+    if not p.is_file():
+        raise ValueError(f"configuration path must be a regular file: {p}")
     with p.open("rb") as handle:
         data = tomllib.load(handle)
     if not isinstance(data, dict):
