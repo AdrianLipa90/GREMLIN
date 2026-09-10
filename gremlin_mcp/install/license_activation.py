@@ -12,8 +12,6 @@ from gremlin_mcp.product.license import (
     LicenseError,
     license_status as product_license_status,
     load_license,
-    load_public_key,
-    verify_license,
 )
 
 from .paths import GremlinPaths
@@ -45,13 +43,54 @@ class LicenseActivationResult:
 
 def resolve_public_key_path(paths: GremlinPaths, *, env: Mapping[str, str] | None = None) -> Path:
     environ = os.environ if env is None else env
-    override = str(environ.get("GREMLIN_LICENSE_PUBLIC_KEY") or "").strip()
-    return Path(override) if override else Path(paths.shared_data_root) / "issuer-public.pem"
+    override = environ.get("GREMLIN_LICENSE_PUBLIC_KEY")
+    if override is None or override == "":
+        return Path(paths.shared_data_root) / "issuer-public.pem"
+    if not isinstance(override, str):
+        raise LicenseError("GREMLIN_LICENSE_PUBLIC_KEY must be a string path")
+    normalized = override.strip()
+    if not normalized:
+        return Path(paths.shared_data_root) / "issuer-public.pem"
+    return Path(normalized)
 
 
-def _atomic_json_write(path: Path, value: Mapping[str, Any]) -> None:
+def _selected_public_key_path(
+    paths: GremlinPaths,
+    public_key_path: str | Path | None,
+    env: Mapping[str, str] | None,
+) -> Path:
+    if public_key_path is None:
+        return resolve_public_key_path(paths, env=env)
+    if isinstance(public_key_path, str) and not public_key_path.strip():
+        raise LicenseError("explicit issuer public key path must be non-empty")
+    if not isinstance(public_key_path, (str, Path)):
+        raise LicenseError("issuer public key path must be a string or Path")
+    return Path(public_key_path)
+
+
+def _license_bytes(value: Mapping[str, Any]) -> bytes:
+    if not isinstance(value, Mapping):
+        raise LicenseError("signed GREMLIN license must be a JSON object")
+    try:
+        return (json.dumps(dict(value), ensure_ascii=False, indent=2, sort_keys=True, allow_nan=False) + "\n").encode("utf-8")
+    except (TypeError, ValueError) as exc:
+        raise LicenseError("signed GREMLIN license must be finite JSON") from exc
+
+
+def _atomic_verified_license_write(
+    path: Path,
+    payload: bytes,
+    *,
+    public_key_path: Path,
+) -> dict[str, Any]:
+    """Verify the exact temporary bytes before replacing an installed license.
+
+    A malformed write therefore cannot destroy a previously valid installed
+    license and then fail only during the post-write verification step.
+    """
+    if not isinstance(payload, bytes):
+        raise LicenseError("license persistence payload must be bytes")
     path.parent.mkdir(parents=True, exist_ok=True)
-    payload = (json.dumps(dict(value), ensure_ascii=False, indent=2, sort_keys=True) + "\n").encode("utf-8")
     fd, temp_name = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=str(path.parent))
     temp = Path(temp_name)
     fd_open = True
@@ -64,7 +103,12 @@ def _atomic_json_write(path: Path, value: Mapping[str, Any]) -> None:
             handle.write(payload)
             handle.flush()
             os.fsync(handle.fileno())
+
+        # Production verification is performed against the exact bytes/inode
+        # that will become the installed file. The old target still exists here.
+        persisted = load_license(temp, public_key_path)
         os.replace(temp, path)
+        return persisted
     finally:
         if fd_open:
             os.close(fd)
@@ -73,13 +117,25 @@ def _atomic_json_write(path: Path, value: Mapping[str, Any]) -> None:
 
 
 def _result(payload: Mapping[str, Any], envelope: Mapping[str, Any], license_path: Path) -> LicenseActivationResult:
+    if not isinstance(payload, Mapping):
+        raise LicenseError("verified license payload must be an object")
+    license_id = payload.get("license_id")
+    edition = payload.get("edition")
+    if not isinstance(license_id, str) or not license_id:
+        raise LicenseError("verified license_id is malformed")
+    if not isinstance(edition, str) or not edition:
+        raise LicenseError("verified license edition is malformed")
     signature = envelope.get("signature") if isinstance(envelope, Mapping) else None
-    key_id = str(signature.get("key_id")) if isinstance(signature, Mapping) and signature.get("key_id") else None
+    if not isinstance(signature, Mapping):
+        raise LicenseError("verified license signature block is missing")
+    key_id = signature.get("key_id")
+    if not isinstance(key_id, str) or not key_id:
+        raise LicenseError("verified license key_id is malformed")
     return LicenseActivationResult(
         schema=LICENSE_ACTIVATION_SCHEMA,
         status="ACTIVE",
-        license_id=str(payload.get("license_id") or ""),
-        edition=str(payload.get("edition") or ""),
+        license_id=license_id,
+        edition=edition,
         license_path=str(license_path),
         key_id=key_id,
     )
@@ -92,17 +148,18 @@ def activate_license_key(
     public_key_path: str | Path | None = None,
     env: Mapping[str, str] | None = None,
 ) -> LicenseActivationResult:
-    public_path = Path(public_key_path) if public_key_path else resolve_public_key_path(paths, env=env)
+    public_path = _selected_public_key_path(paths, public_key_path, env)
     if not public_path.is_file():
         raise LicenseError(f"issuer public key is unavailable: {public_path}")
-    payload = verify_license_key(key, public_path)
+    expected = verify_license_key(key, public_path)
     envelope = decode_license_key(key)
     target = Path(paths.license_file)
-    _atomic_json_write(target, envelope)
-    # Re-read from disk through the production verifier so activation cannot report
-    # success for bytes that were not actually persisted correctly.
-    persisted = load_license(target, public_path)
-    if persisted.get("license_id") != payload.get("license_id"):
+    persisted = _atomic_verified_license_write(
+        target,
+        _license_bytes(envelope),
+        public_key_path=public_path,
+    )
+    if persisted != expected:
         raise LicenseError("persisted license verification mismatch")
     return _result(persisted, envelope, target)
 
@@ -114,21 +171,31 @@ def import_license_file(
     public_key_path: str | Path | None = None,
     env: Mapping[str, str] | None = None,
 ) -> LicenseActivationResult:
-    public_path = Path(public_key_path) if public_key_path else resolve_public_key_path(paths, env=env)
+    public_path = _selected_public_key_path(paths, public_key_path, env)
     if not public_path.is_file():
         raise LicenseError(f"issuer public key is unavailable: {public_path}")
     try:
-        envelope = json.loads(Path(source).read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
+        source_bytes = Path(source).read_bytes()
+    except OSError as exc:
+        raise LicenseError("unable to read signed GREMLIN license file") from exc
+
+    # Parse only after the exact source bytes have been captured. Duplicate JSON
+    # keys, unknown fields and signature malleability are rejected by load_license
+    # when the temporary target bytes are verified below.
+    target = Path(paths.license_file)
+    persisted = _atomic_verified_license_write(
+        target,
+        source_bytes,
+        public_key_path=public_path,
+    )
+    try:
+        envelope = json.loads(source_bytes.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        # This path is defensive: exact-byte verification above should already
+        # have rejected such input without replacing the previous target.
         raise LicenseError("unable to read signed GREMLIN license file") from exc
     if not isinstance(envelope, dict):
         raise LicenseError("signed GREMLIN license must be a JSON object")
-    payload = verify_license(envelope, load_public_key(public_path))
-    target = Path(paths.license_file)
-    _atomic_json_write(target, envelope)
-    persisted = load_license(target, public_path)
-    if persisted.get("license_id") != payload.get("license_id"):
-        raise LicenseError("persisted license verification mismatch")
     return _result(persisted, envelope, target)
 
 
@@ -139,7 +206,7 @@ def installed_license_status(
     env: Mapping[str, str] | None = None,
 ) -> dict[str, Any]:
     target = Path(paths.license_file)
-    public_path = Path(public_key_path) if public_key_path else resolve_public_key_path(paths, env=env)
+    public_path = _selected_public_key_path(paths, public_key_path, env)
     if not target.is_file():
         return {
             "schema": LICENSE_STATUS_SCHEMA,
@@ -157,7 +224,7 @@ def installed_license_status(
         }
     try:
         payload = load_license(target, public_path)
-    except (LicenseError, OSError) as exc:
+    except (LicenseError, OSError, UnicodeError) as exc:
         return {
             "schema": LICENSE_STATUS_SCHEMA,
             "status": "BLOCKED",
