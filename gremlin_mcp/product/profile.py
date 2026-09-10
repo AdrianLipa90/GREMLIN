@@ -8,6 +8,13 @@ from typing import Any, Mapping
 CLIENT_PROFILE_SCHEMA = "GREMLIN_CLIENT_PROFILE_V0_1"
 PROFILE_DOMAIN = b"GREMLIN-CLIENT-PROFILE/v0.1\0"
 KNOWN_SPECIES = frozenset({"SPIDER", "RAVEN", "HOUND", "MOLE", "OWL", "ANT", "MANTIS", "BELZEBUB"})
+_PROFILE_KEYS = frozenset(
+    {
+        "schema", "client_id", "label", "tools", "species", "providers", "languages",
+        "internet_access", "custom_workers", "limits", "metadata",
+    }
+)
+_LIMIT_KEYS = frozenset({"max_workers", "max_sources"})
 
 
 class ClientProfileError(ValueError):
@@ -25,6 +32,29 @@ def _canonical(value: Any) -> bytes:
         ).encode("utf-8")
     except (TypeError, ValueError) as exc:
         raise ClientProfileError("client profile must be finite JSON") from exc
+
+
+def _reject_unknown_keys(value: Mapping[str, Any], allowed: frozenset[str], field: str) -> None:
+    unknown = sorted(repr(key) for key in value if not isinstance(key, str) or key not in allowed)
+    if unknown:
+        raise ClientProfileError(f"{field} contains unsupported keys: {unknown}")
+
+
+def _json_no_duplicates(text: str) -> Any:
+    def hook(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+        out: dict[str, Any] = {}
+        for key, value in pairs:
+            if key in out:
+                raise ClientProfileError(f"duplicate JSON key in client profile: {key}")
+            out[key] = value
+        return out
+
+    try:
+        return json.loads(text, object_pairs_hook=hook)
+    except ClientProfileError:
+        raise
+    except json.JSONDecodeError as exc:
+        raise ClientProfileError("client profile JSON is malformed") from exc
 
 
 def _text(value: Any, field: str, *, max_len: int = 256) -> str:
@@ -91,6 +121,7 @@ def normalize_client_profile(profile: Mapping[str, Any]) -> dict[str, Any]:
     if not isinstance(profile, Mapping):
         raise ClientProfileError("client profile must be an object")
     body = dict(profile)
+    _reject_unknown_keys(body, _PROFILE_KEYS, "client profile")
     if body.get("schema") != CLIENT_PROFILE_SCHEMA:
         raise ClientProfileError(f"client profile schema must be {CLIENT_PROFILE_SCHEMA}")
 
@@ -105,9 +136,14 @@ def normalize_client_profile(profile: Mapping[str, Any]) -> dict[str, Any]:
     if not languages:
         raise ClientProfileError("languages must not be empty")
 
-    limits = body.get("limits") or {}
-    if not isinstance(limits, Mapping):
+    raw_limits = body.get("limits")
+    if raw_limits is None:
+        limits: Mapping[str, Any] = {}
+    elif isinstance(raw_limits, Mapping):
+        limits = raw_limits
+    else:
         raise ClientProfileError("limits must be an object")
+    _reject_unknown_keys(limits, _LIMIT_KEYS, "limits")
 
     normalized = {
         "schema": CLIENT_PROFILE_SCHEMA,
@@ -135,25 +171,30 @@ def profile_commitment(profile: Mapping[str, Any]) -> str:
 
 def validate_profile_against_license(profile: Mapping[str, Any], license_payload: Mapping[str, Any]) -> dict[str, Any]:
     normalized = normalize_client_profile(profile)
+    if not isinstance(license_payload, Mapping):
+        raise ClientProfileError("license payload must be an object")
     limits = license_payload.get("limits")
-    features = set(license_payload.get("features") or [])
+    features = license_payload.get("features")
     if not isinstance(limits, Mapping):
         raise ClientProfileError("license limits are unavailable")
+    if not isinstance(features, list) or any(not isinstance(value, str) for value in features):
+        raise ClientProfileError("license features entitlement is malformed")
+    feature_set = set(features)
 
     license_max_workers = limits.get("max_workers")
     license_max_sources = limits.get("max_sources")
-    if isinstance(license_max_workers, bool) or not isinstance(license_max_workers, int):
+    if isinstance(license_max_workers, bool) or not isinstance(license_max_workers, int) or license_max_workers < 1:
         raise ClientProfileError("license max_workers entitlement is malformed")
-    if isinstance(license_max_sources, bool) or not isinstance(license_max_sources, int):
+    if isinstance(license_max_sources, bool) or not isinstance(license_max_sources, int) or license_max_sources < 1:
         raise ClientProfileError("license max_sources entitlement is malformed")
 
     if normalized["limits"]["max_workers"] > license_max_workers:
         raise ClientProfileError("client profile max_workers exceeds license entitlement")
     if normalized["limits"]["max_sources"] > license_max_sources:
         raise ClientProfileError("client profile max_sources exceeds license entitlement")
-    if normalized["internet_access"] and "INTERNET_RESEARCH" not in features:
+    if normalized["internet_access"] and "INTERNET_RESEARCH" not in feature_set:
         raise ClientProfileError("client profile requests internet access not granted by license")
-    if normalized["custom_workers"] and "CUSTOM_WORKERS" not in features:
+    if normalized["custom_workers"] and "CUSTOM_WORKERS" not in feature_set:
         raise ClientProfileError("client profile requests custom workers not granted by license")
 
     return {
@@ -164,7 +205,8 @@ def validate_profile_against_license(profile: Mapping[str, Any], license_payload
 
 def load_client_profile(path: str | Path, license_payload: Mapping[str, Any]) -> dict[str, Any]:
     try:
-        profile = json.loads(Path(path).read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
+        text = Path(path).read_text(encoding="utf-8")
+    except OSError as exc:
         raise ClientProfileError("unable to load client profile") from exc
+    profile = _json_no_duplicates(text)
     return validate_profile_against_license(profile, license_payload)
