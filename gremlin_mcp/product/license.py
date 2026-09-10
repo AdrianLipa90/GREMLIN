@@ -54,8 +54,10 @@ def _b64u(data: bytes) -> str:
     return base64.urlsafe_b64encode(data).rstrip(b"=").decode("ascii")
 
 
-def _b64u_decode(value: str) -> bytes:
-    text = str(value).strip()
+def _b64u_decode(value: Any) -> bytes:
+    if not isinstance(value, str):
+        raise LicenseError("signature must be a string")
+    text = value.strip()
     if not text:
         raise LicenseError("signature must be non-empty")
     padding = "=" * ((4 - len(text) % 4) % 4)
@@ -111,22 +113,20 @@ def generate_keypair() -> tuple[bytes, bytes, str]:
 
 
 def _nonempty_string(value: Any, field: str, *, max_len: int = 256) -> str:
-    text = str(value or "").strip()
+    if not isinstance(value, str):
+        raise LicenseError(f"{field} must be a string")
+    text = value.strip()
     if not text or len(text) > max_len:
         raise LicenseError(f"{field} must contain 1..{max_len} characters")
     return text
 
 
 def _positive_int(value: Any, field: str, *, minimum: int = 1, maximum: int = 1_000_000) -> int:
-    if isinstance(value, bool):
+    if isinstance(value, bool) or not isinstance(value, int):
         raise LicenseError(f"{field} must be an integer")
-    try:
-        out = int(value)
-    except (TypeError, ValueError) as exc:
-        raise LicenseError(f"{field} must be an integer") from exc
-    if out < minimum or out > maximum:
+    if value < minimum or value > maximum:
         raise LicenseError(f"{field} must be in {minimum}..{maximum}")
-    return out
+    return value
 
 
 def _iso_date(value: Any, field: str, *, optional: bool = False) -> str | None:
@@ -138,6 +138,16 @@ def _iso_date(value: Any, field: str, *, optional: bool = False) -> str | None:
     except ValueError as exc:
         raise LicenseError(f"{field} must be YYYY-MM-DD") from exc
     return parsed.isoformat()
+
+
+def _metadata(value: Any) -> dict[str, Any]:
+    if value is None:
+        return {}
+    if not isinstance(value, Mapping):
+        raise LicenseError("metadata must be an object")
+    normalized = dict(value)
+    _canonical(normalized)
+    return normalized
 
 
 def normalize_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
@@ -193,9 +203,8 @@ def normalize_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
         "features": features,
         "usage": normalized_usage,
         "updates_until": _iso_date(body.get("updates_until"), "updates_until", optional=True),
-        "metadata": dict(body.get("metadata") or {}),
+        "metadata": _metadata(body.get("metadata")),
     }
-    _canonical(normalized["metadata"])
     if normalized["expires_at"] is not None and normalized["not_before"] > normalized["expires_at"]:
         raise LicenseError("not_before must not be after expires_at")
     return normalized
@@ -232,7 +241,7 @@ def verify_license(
     expected_key_id = public_key_id(public_key)
     if signature.get("key_id") != expected_key_id:
         raise LicenseError("license key_id does not match configured public key")
-    raw_signature = _b64u_decode(str(signature.get("value") or ""))
+    raw_signature = _b64u_decode(signature.get("value"))
     try:
         public_key.verify(raw_signature, LICENSE_DOMAIN + _canonical(payload))
     except InvalidSignature as exc:
