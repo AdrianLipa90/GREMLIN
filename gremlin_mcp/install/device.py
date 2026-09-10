@@ -18,6 +18,10 @@ from .secrets import SecretStore
 
 DEVICE_PRIVATE_SECRET = "device-ed25519-private-v01"
 _B64URL_RE = re.compile(r"^[A-Za-z0-9_-]+$")
+_REQUEST_KEYS = frozenset(
+    {"schema", "license_id", "device_id", "device_public_key", "created_at", "nonce", "proof"}
+)
+_PROOF_KEYS = frozenset({"alg", "signature"})
 
 
 def _b64(data: bytes) -> str:
@@ -49,6 +53,12 @@ def _canonical(value: Mapping[str, Any]) -> bytes:
         ).encode("utf-8")
     except (TypeError, ValueError) as exc:
         raise ValueError("device activation payload must be finite JSON") from exc
+
+
+def _reject_unknown_keys(value: Mapping[Any, Any], allowed: frozenset[str], field: str) -> None:
+    unknown = [key for key in value if not isinstance(key, str) or key not in allowed]
+    if unknown:
+        raise ValueError(f"{field} contains unsupported fields: {unknown}")
 
 
 def _strict_text(value: Any, field: str, *, max_len: int) -> str:
@@ -176,11 +186,12 @@ def build_activation_request(
 def verify_activation_request(request: Mapping[str, Any]) -> dict[str, Any]:
     if not isinstance(request, Mapping):
         raise ValueError("device activation request must be an object")
-    required = ("schema", "license_id", "device_id", "device_public_key", "created_at", "nonce")
+    _reject_unknown_keys(request, _REQUEST_KEYS, "device activation request")
+    required = ("schema", "license_id", "device_id", "device_public_key", "created_at", "nonce", "proof")
     missing = [key for key in required if key not in request]
     if missing:
         raise ValueError(f"device activation request is missing fields: {missing}")
-    core = {key: request[key] for key in required}
+    core = {key: request[key] for key in required if key != "proof"}
     if core["schema"] != "GREMLIN_DEVICE_ACTIVATION_REQUEST_V0_1":
         raise ValueError("unsupported device activation request schema")
     core["license_id"] = _strict_text(core["license_id"], "license_id", max_len=128)
@@ -195,9 +206,13 @@ def verify_activation_request(request: Mapping[str, Any]) -> dict[str, Any]:
     public = Ed25519PublicKey.from_public_bytes(raw)
     if device_id(public) != core["device_id"]:
         raise ValueError("device_id does not match device public key")
-    proof = request.get("proof")
+    proof = request["proof"]
     if not isinstance(proof, Mapping):
         raise ValueError("activation proof must be an object")
+    _reject_unknown_keys(proof, _PROOF_KEYS, "activation proof")
+    if set(proof) != _PROOF_KEYS:
+        missing_proof = sorted(_PROOF_KEYS - set(proof))
+        raise ValueError(f"activation proof is missing fields: {missing_proof}")
     if proof.get("alg") != "Ed25519":
         raise ValueError("unsupported activation proof algorithm")
     try:
