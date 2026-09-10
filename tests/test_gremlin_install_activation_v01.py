@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
+import stat
 
 import pytest
 
+import gremlin_mcp.install.license_activation as license_activation_module
 from gremlin_mcp.install.integrations import gremlin_stdio_entry
 from gremlin_mcp.install.license_activation import activate_license_key, installed_license_status
 from gremlin_mcp.install.paths import GremlinPaths
@@ -72,10 +75,29 @@ def test_grm1_activation_verifies_and_persists_license(tmp_path: Path) -> None:
     result = activate_license_key(key, paths)
     assert result.status == "ACTIVE"
     assert result.license_id == "LIC-EARLY-ACCESS-001"
-    assert Path(paths.license_file).is_file()
+    target = Path(paths.license_file)
+    assert target.is_file()
+    if os.name != "nt":
+        assert stat.S_IMODE(target.stat().st_mode) & 0o077 == 0
     status = installed_license_status(paths)
     assert status["status"] == "ACTIVE"
     assert status["license"]["license_id"] == "LIC-EARLY-ACCESS-001"
+
+
+def test_license_activation_fails_loudly_if_temp_permissions_cannot_be_set(tmp_path: Path, monkeypatch) -> None:
+    if os.name == "nt":
+        pytest.skip("POSIX permission hardening is not used on Windows")
+    paths = make_paths(tmp_path)
+    key = issue_test_key(tmp_path, paths)
+
+    def fail_fchmod(_fd: int, _mode: int) -> None:
+        raise OSError("simulated fchmod failure")
+
+    monkeypatch.setattr(license_activation_module.os, "fchmod", fail_fchmod)
+    with pytest.raises(OSError, match="simulated fchmod failure"):
+        activate_license_key(key, paths)
+    assert not Path(paths.license_file).exists()
+    assert not list(Path(paths.config_dir).glob(".license.json.*.tmp"))
 
 
 def test_tampered_customer_key_never_replaces_installed_license(tmp_path: Path) -> None:
