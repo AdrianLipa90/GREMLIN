@@ -100,7 +100,7 @@ def test_windows_provider_matrix_includes_claude_desktop() -> None:
     )
 
 
-def test_codex_connect_uses_official_mcp_cli_and_gremlin_stdio() -> None:
+def test_codex_connect_registers_but_does_not_claim_live_connectivity() -> None:
     runner = FakeRunner([cp(0, stdout="Added global MCP server 'gremlin'.")])
     result = connect_provider(
         "codex", linux_paths(), env={"HOME": "/home/alice"}, which=which_core, runner=runner,
@@ -110,10 +110,10 @@ def test_codex_connect_uses_official_mcp_cli_and_gremlin_stdio() -> None:
     assert "--env" in command
     assert "GREMLIN_LICENSE_PATH=/home/alice/.config/gremlin/license.json" in command
     assert command[-3:] == ["/usr/bin/gremlin-product-mcp", "--transport", "stdio"]
-    assert result.status == "CONNECTED_CONFIGURED"
+    assert result.status == "REGISTERED_UNVERIFIED"
 
 
-def test_claude_code_connect_is_user_scoped_stdio() -> None:
+def test_claude_code_connect_is_user_scoped_stdio_and_unverified() -> None:
     runner = FakeRunner([cp(0, stdout="Added MCP server gremlin")])
     result = connect_provider(
         "claude-code", linux_paths(), env={"HOME": "/home/alice"}, which=which_core, runner=runner,
@@ -122,10 +122,10 @@ def test_claude_code_connect_is_user_scoped_stdio() -> None:
     assert command[:7] == ["/usr/bin/claude", "mcp", "add", "--transport", "stdio", "--scope", "user"]
     assert "gremlin" in command
     assert command[-3:] == ["/usr/bin/gremlin-product-mcp", "--transport", "stdio"]
-    assert result.status == "CONNECTED_CONFIGURED"
+    assert result.status == "REGISTERED_UNVERIFIED"
 
 
-def test_gemini_connect_is_user_scoped_stdio() -> None:
+def test_gemini_connect_is_user_scoped_stdio_and_unverified() -> None:
     runner = FakeRunner([cp(0, stdout='MCP server "gremlin" added to user settings')])
     result = connect_provider(
         "gemini", linux_paths(), env={"HOME": "/home/alice"}, which=which_core, runner=runner,
@@ -133,7 +133,7 @@ def test_gemini_connect_is_user_scoped_stdio() -> None:
     command = runner.commands[0]
     assert command[:7] == ["/usr/bin/gemini", "mcp", "add", "--scope", "user", "--transport", "stdio"]
     assert "gremlin" in command
-    assert result.status == "CONNECTED_CONFIGURED"
+    assert result.status == "REGISTERED_UNVERIFIED"
 
 
 def test_vscode_connect_uses_add_mcp_cli() -> None:
@@ -168,15 +168,53 @@ def test_cursor_json_connect_test_disconnect_roundtrip(tmp_path: Path) -> None:
     config.write_text('{"mcpServers":{"existing":{"command":"example"}}}', encoding="utf-8")
 
     result = connect_provider("cursor", paths, env={"HOME": str(home)}, which=lambda _name: None, runner=FakeRunner([]))
-    assert result.status == "CONNECTED_CONFIGURED"
+    assert result.status == "CONFIGURED_UNVERIFIED"
     payload = json.loads(config.read_text(encoding="utf-8"))
     assert "existing" in payload["mcpServers"]
     assert payload["mcpServers"]["gremlin"]["command"] == "/usr/bin/gremlin-product-mcp"
-    assert run_provider_test("cursor", paths, env={"HOME": str(home)}, which=lambda _name: None, runner=FakeRunner([])).status == "PASS"
+    tested = run_provider_test("cursor", paths, env={"HOME": str(home)}, which=lambda _name: None, runner=FakeRunner([]))
+    assert tested.status == "REGISTERED_UNVERIFIED"
     assert disconnect_provider("cursor", paths, env={"HOME": str(home)}, which=lambda _name: None, runner=FakeRunner([])).status == "DISCONNECTED"
     payload = json.loads(config.read_text(encoding="utf-8"))
     assert "existing" in payload["mcpServers"]
     assert "gremlin" not in payload["mcpServers"]
+
+
+def test_json_provider_list_never_calls_configuration_presence_live_connectivity(tmp_path: Path) -> None:
+    home = tmp_path / "home"
+    config = home / ".cursor" / "mcp.json"
+    config.parent.mkdir(parents=True)
+    config.write_text('{"mcpServers":{"gremlin":{"command":"/usr/bin/gremlin-product-mcp"}}}', encoding="utf-8")
+    paths = resolve_paths(platform="linux", env={"HOME": str(home)})
+    runner = FakeRunner([])
+    payload = list_providers(paths, env={"HOME": str(home)}, which=lambda _name: None, runner=runner)
+    cursor = next(row for row in payload["providers"] if row["provider_id"] == "cursor")
+    assert cursor["connected"] is False
+    assert cursor["connection_status"] == "REGISTERED_UNVERIFIED"
+
+
+def test_opencode_list_marks_connected_only_with_explicit_live_word() -> None:
+    runner = FakeRunner([cp(0, stdout="gremlin registered but failed")])
+    payload = list_providers(
+        linux_paths(),
+        env={"HOME": "/home/alice"},
+        which=lambda name: "/usr/bin/opencode" if name == "opencode" else None,
+        runner=runner,
+    )
+    opencode = next(row for row in payload["providers"] if row["provider_id"] == "opencode")
+    assert opencode["connected"] is False
+    assert opencode["connection_status"] == "REGISTERED_UNVERIFIED"
+
+    runner = FakeRunner([cp(0, stdout="gremlin connected /usr/bin/gremlin-product-mcp")])
+    payload = list_providers(
+        linux_paths(),
+        env={"HOME": "/home/alice"},
+        which=lambda name: "/usr/bin/opencode" if name == "opencode" else None,
+        runner=runner,
+    )
+    opencode = next(row for row in payload["providers"] if row["provider_id"] == "opencode")
+    assert opencode["connected"] is True
+    assert opencode["connection_status"] == "CONNECTED"
 
 
 def test_opencode_disconnect_fails_closed_instead_of_rewriting_jsonc() -> None:
@@ -188,13 +226,13 @@ def test_opencode_disconnect_fails_closed_instead_of_rewriting_jsonc() -> None:
     assert runner.commands == []
 
 
-def test_codex_test_verifies_stdio_transport() -> None:
+def test_codex_test_verifies_registration_without_claiming_live_runtime() -> None:
     payload = {"name": "gremlin", "enabled": True, "transport": {"type": "stdio", "command": "/usr/bin/gremlin-product-mcp"}}
     runner = FakeRunner([cp(0, stdout=json.dumps(payload))])
     result = run_provider_test(
         "codex", linux_paths(), env={"HOME": "/home/alice"}, which=which_core, runner=runner,
     )
-    assert result.status == "PASS"
+    assert result.status == "REGISTERED_UNVERIFIED"
 
 
 def test_opencode_test_distinguishes_registered_from_live() -> None:
