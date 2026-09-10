@@ -120,7 +120,7 @@ def _device_status(args: argparse.Namespace) -> int:
         store = resolve_secret_store(paths)
         payload = {"schema": "GREMLIN_DEVICE_STATUS_V0_1", "status": "READY", "secret_store": store_state, "identity": device_identity_status(store)}
     _emit(payload, as_json=args.json)
-    return 0
+    return 0 if payload["status"] == "READY" else 1
 
 
 def _device_init(args: argparse.Namespace) -> int:
@@ -165,12 +165,15 @@ def _provider_action(args: argparse.Namespace) -> int:
     paths = resolve_paths(platform=args.platform)
     if args.provider_action == "connect":
         result = connect_provider(args.provider, paths)
+        success = result.status in {"CONNECTED_CONFIGURED", "REGISTERED_RESTART_REQUIRED"}
     elif args.provider_action == "disconnect":
         result = disconnect_provider(args.provider, paths)
+        success = result.status == "DISCONNECTED"
     else:
         result = test_provider(args.provider, paths)
+        success = result.status == "PASS"
     _emit(result.as_dict(), as_json=args.json)
-    return 0 if result.status not in {"NOT_CONNECTED"} else 1
+    return 0 if success else 1
 
 
 def _integration_common(parser: argparse.ArgumentParser) -> None:
