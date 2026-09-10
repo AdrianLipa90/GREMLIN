@@ -18,6 +18,18 @@ def _avoid_real_paths(monkeypatch) -> None:
     monkeypatch.setattr(install_cli, "resolve_paths", lambda platform=None: object())
 
 
+def test_connect_registered_unverified_is_completed_registration(monkeypatch) -> None:
+    _avoid_real_paths(monkeypatch)
+    monkeypatch.setattr(install_cli, "connect_provider", lambda provider, _paths: _provider_result(provider, "REGISTERED_UNVERIFIED"))
+    assert install_cli._provider_action(_args("connect", "codex")) == 0
+
+
+def test_connect_configured_unverified_is_completed_configuration(monkeypatch) -> None:
+    _avoid_real_paths(monkeypatch)
+    monkeypatch.setattr(install_cli, "connect_provider", lambda provider, _paths: _provider_result(provider, "CONFIGURED_UNVERIFIED"))
+    assert install_cli._provider_action(_args("connect", "cursor")) == 0
+
+
 def test_disconnect_manual_remove_required_returns_nonzero(monkeypatch) -> None:
     _avoid_real_paths(monkeypatch)
     monkeypatch.setattr(install_cli, "disconnect_provider", lambda provider, _paths: _provider_result(provider, "MANUAL_REMOVE_REQUIRED"))
@@ -39,7 +51,7 @@ def test_registered_unverified_test_returns_nonzero(monkeypatch) -> None:
 def test_provider_pass_returns_zero(monkeypatch) -> None:
     _avoid_real_paths(monkeypatch)
     monkeypatch.setattr(install_cli, "test_provider", lambda provider, _paths: _provider_result(provider, "PASS"))
-    assert install_cli._provider_action(_args("test", "codex")) == 0
+    assert install_cli._provider_action(_args("test", "opencode")) == 0
 
 
 def test_device_status_secret_store_unavailable_returns_nonzero(monkeypatch) -> None:
