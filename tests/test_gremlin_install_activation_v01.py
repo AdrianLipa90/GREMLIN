@@ -140,20 +140,60 @@ def test_signed_profile_required_flag_blocks_missing_profile(tmp_path: Path) -> 
     assert status["reason"] == "required client profile is missing"
 
 
-def test_readiness_reaches_ready_with_license_runtime_and_connected_provider(tmp_path: Path, monkeypatch) -> None:
+def _runtime_ready_setup(tmp_path: Path, monkeypatch) -> GremlinPaths:
     paths = make_paths(tmp_path)
     key = issue_test_key(tmp_path, paths)
     activate_license_key(key, paths)
     runtime = tmp_path / "gremlin-product-mcp"
     runtime.write_text("runtime", encoding="utf-8")
-
     monkeypatch.setattr("gremlin_mcp.install.readiness.gremlin_stdio_entry", lambda _paths: {
         "command": str(runtime), "args": ["--transport", "stdio"], "env": {}
     })
+    return paths
+
+
+def test_readiness_reaches_ready_with_license_runtime_and_verified_provider(tmp_path: Path, monkeypatch) -> None:
+    paths = _runtime_ready_setup(tmp_path, monkeypatch)
     monkeypatch.setattr("gremlin_mcp.install.readiness.list_providers", lambda _paths: {
-        "providers": [{"provider_id": "codex", "detected": True, "connected": True}]
+        "providers": [{
+            "provider_id": "opencode",
+            "detected": True,
+            "connected": True,
+            "connection_status": "CONNECTED",
+        }]
     })
     ready = evaluate_readiness(paths)
     assert ready["status"] == "READY"
-    assert ready["providers"]["connected_ids"] == ["codex"]
+    assert ready["providers"]["connected_ids"] == ["opencode"]
     assert ready["actions"] == []
+
+
+def test_readiness_rejects_registered_but_unverified_provider(tmp_path: Path, monkeypatch) -> None:
+    paths = _runtime_ready_setup(tmp_path, monkeypatch)
+    monkeypatch.setattr("gremlin_mcp.install.readiness.list_providers", lambda _paths: {
+        "providers": [{
+            "provider_id": "codex",
+            "detected": True,
+            "connected": False,
+            "connection_status": "REGISTERED_UNVERIFIED",
+        }]
+    })
+    ready = evaluate_readiness(paths)
+    assert ready["status"] == "ACTION_REQUIRED"
+    assert ready["providers"]["connected"] == 0
+    assert ready["providers"]["unverified_ids"] == ["codex"]
+    assert "Verify a live GREMLIN MCP connection in one detected AI client" in ready["actions"]
+
+
+def test_readiness_fails_loudly_on_non_boolean_provider_flags(tmp_path: Path, monkeypatch) -> None:
+    paths = _runtime_ready_setup(tmp_path, monkeypatch)
+    monkeypatch.setattr("gremlin_mcp.install.readiness.list_providers", lambda _paths: {
+        "providers": [{
+            "provider_id": "bad",
+            "detected": "false",
+            "connected": False,
+            "connection_status": "NOT_DETECTED",
+        }]
+    })
+    with pytest.raises(RuntimeError, match="non-boolean detected"):
+        evaluate_readiness(paths)
