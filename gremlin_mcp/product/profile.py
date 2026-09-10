@@ -28,9 +28,22 @@ def _canonical(value: Any) -> bytes:
 
 
 def _text(value: Any, field: str, *, max_len: int = 256) -> str:
-    out = str(value or "").strip()
+    if not isinstance(value, str):
+        raise ClientProfileError(f"{field} must be a string")
+    out = value.strip()
     if not out or len(out) > max_len:
         raise ClientProfileError(f"{field} must contain 1..{max_len} characters")
+    return out
+
+
+def _optional_text(value: Any, field: str, *, max_len: int = 256) -> str:
+    if value is None:
+        return ""
+    if not isinstance(value, str):
+        raise ClientProfileError(f"{field} must be a string")
+    out = value.strip()
+    if len(out) > max_len:
+        raise ClientProfileError(f"{field} must contain at most {max_len} characters")
     return out
 
 
@@ -49,15 +62,11 @@ def _string_list(value: Any, field: str, *, upper: bool = False) -> list[str]:
 
 
 def _positive_int(value: Any, field: str, *, maximum: int) -> int:
-    if isinstance(value, bool):
+    if isinstance(value, bool) or not isinstance(value, int):
         raise ClientProfileError(f"{field} must be an integer")
-    try:
-        out = int(value)
-    except (TypeError, ValueError) as exc:
-        raise ClientProfileError(f"{field} must be an integer") from exc
-    if out < 1 or out > maximum:
+    if value < 1 or value > maximum:
         raise ClientProfileError(f"{field} must be in 1..{maximum}")
-    return out
+    return value
 
 
 def _boolean(value: Any, field: str, *, default: bool = False) -> bool:
@@ -66,6 +75,16 @@ def _boolean(value: Any, field: str, *, default: bool = False) -> bool:
     if not isinstance(value, bool):
         raise ClientProfileError(f"{field} must be boolean")
     return value
+
+
+def _metadata(value: Any) -> dict[str, Any]:
+    if value is None:
+        return {}
+    if not isinstance(value, Mapping):
+        raise ClientProfileError("metadata must be an object")
+    normalized = dict(value)
+    _canonical(normalized)
+    return normalized
 
 
 def normalize_client_profile(profile: Mapping[str, Any]) -> dict[str, Any]:
@@ -93,7 +112,7 @@ def normalize_client_profile(profile: Mapping[str, Any]) -> dict[str, Any]:
     normalized = {
         "schema": CLIENT_PROFILE_SCHEMA,
         "client_id": _text(body.get("client_id"), "client_id", max_len=128),
-        "label": str(body.get("label") or "").strip()[:256],
+        "label": _optional_text(body.get("label"), "label", max_len=256),
         "tools": tools,
         "species": species,
         "providers": providers,
@@ -104,9 +123,8 @@ def normalize_client_profile(profile: Mapping[str, Any]) -> dict[str, Any]:
             "max_workers": _positive_int(limits.get("max_workers", 1), "limits.max_workers", maximum=100_000),
             "max_sources": _positive_int(limits.get("max_sources", 12), "limits.max_sources", maximum=10_000),
         },
-        "metadata": dict(body.get("metadata") or {}),
+        "metadata": _metadata(body.get("metadata")),
     }
-    _canonical(normalized["metadata"])
     return normalized
 
 
@@ -122,9 +140,16 @@ def validate_profile_against_license(profile: Mapping[str, Any], license_payload
     if not isinstance(limits, Mapping):
         raise ClientProfileError("license limits are unavailable")
 
-    if normalized["limits"]["max_workers"] > int(limits.get("max_workers", 0)):
+    license_max_workers = limits.get("max_workers")
+    license_max_sources = limits.get("max_sources")
+    if isinstance(license_max_workers, bool) or not isinstance(license_max_workers, int):
+        raise ClientProfileError("license max_workers entitlement is malformed")
+    if isinstance(license_max_sources, bool) or not isinstance(license_max_sources, int):
+        raise ClientProfileError("license max_sources entitlement is malformed")
+
+    if normalized["limits"]["max_workers"] > license_max_workers:
         raise ClientProfileError("client profile max_workers exceeds license entitlement")
-    if normalized["limits"]["max_sources"] > int(limits.get("max_sources", 0)):
+    if normalized["limits"]["max_sources"] > license_max_sources:
         raise ClientProfileError("client profile max_sources exceeds license entitlement")
     if normalized["internet_access"] and "INTERNET_RESEARCH" not in features:
         raise ClientProfileError("client profile requests internet access not granted by license")
