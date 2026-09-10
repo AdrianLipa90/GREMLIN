@@ -74,20 +74,23 @@ class ProductRuntime:
             else:
                 payload = load_license(license_path, public_key_path)  # type: ignore[arg-type]
 
+            metadata = payload.get("metadata")
+            if not isinstance(metadata, Mapping):
+                raise LicenseError("license metadata must be an object")
+            raw_profile_required = metadata.get("profile_required", False)
+            if not isinstance(raw_profile_required, bool):
+                raise LicenseError("metadata.profile_required must be boolean when present")
+            profile_required = raw_profile_required
+
             profile = None
             if profile_path:
                 target = Path(profile_path)
-                metadata = payload.get("metadata")
-                if not isinstance(metadata, Mapping):
-                    raise LicenseError("license metadata must be an object")
-                raw_profile_required = metadata.get("profile_required", False)
-                if not isinstance(raw_profile_required, bool):
-                    raise LicenseError("metadata.profile_required must be boolean when present")
-                profile_required = raw_profile_required
                 if target.is_file():
                     profile = load_client_profile(target, payload)
                 elif profile_required:
                     raise ClientProfileError("required client profile is missing")
+            elif profile_required:
+                raise ClientProfileError("required client profile is missing")
         except (LicenseError, ClientProfileError, OSError) as exc:
             runtime.configuration_error = str(exc)
             return runtime
