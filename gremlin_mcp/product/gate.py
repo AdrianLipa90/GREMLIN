@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
 from .keycodec import verify_license_key
 from .license import LicenseError, license_status, load_license
@@ -11,6 +11,26 @@ from .profile import ClientProfileError, load_client_profile
 
 class ProductAuthorizationError(PermissionError):
     """Raised when a GREMLIN product operation is outside the configured entitlement."""
+
+
+def _strict_request_int(value: Any, field: str) -> int:
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ProductAuthorizationError(f"INVALID_{field.upper()}:INTEGER_REQUIRED")
+    if value < 0:
+        raise ProductAuthorizationError(f"INVALID_{field.upper()}:NONNEGATIVE_REQUIRED")
+    return value
+
+
+def _strict_limit(value: Any, field: str) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+        raise ProductAuthorizationError(f"PRODUCT_ENTITLEMENT_MALFORMED:{field}")
+    return value
+
+
+def _strict_string_set(value: Any, field: str) -> set[str]:
+    if not isinstance(value, list) or any(not isinstance(item, str) or not item for item in value):
+        raise ProductAuthorizationError(f"PRODUCT_ENTITLEMENT_MALFORMED:{field}")
+    return set(value)
 
 
 @dataclass
@@ -57,8 +77,13 @@ class ProductRuntime:
             profile = None
             if profile_path:
                 target = Path(profile_path)
-                metadata = payload.get("metadata") or {}
-                profile_required = bool(metadata.get("profile_required")) if isinstance(metadata, dict) else False
+                metadata = payload.get("metadata")
+                if not isinstance(metadata, Mapping):
+                    raise LicenseError("license metadata must be an object")
+                raw_profile_required = metadata.get("profile_required", False)
+                if not isinstance(raw_profile_required, bool):
+                    raise LicenseError("metadata.profile_required must be boolean when present")
+                profile_required = raw_profile_required
                 if target.is_file():
                     profile = load_client_profile(target, payload)
                 elif profile_required:
@@ -114,38 +139,61 @@ class ProductRuntime:
         if self.license_payload is None:
             self._deny("LICENSE_REQUIRED")
 
+        if tool is not None and not isinstance(tool, str):
+            self._deny("INVALID_TOOL:STRING_REQUIRED")
+        if feature is not None and not isinstance(feature, str):
+            self._deny("INVALID_FEATURE:STRING_REQUIRED")
+        if species is not None and not isinstance(species, str):
+            self._deny("INVALID_SPECIES:STRING_REQUIRED")
+        if provider is not None and not isinstance(provider, str):
+            self._deny("INVALID_PROVIDER:STRING_REQUIRED")
+
         payload = self.license_payload
-        features = set(payload.get("features") or [])
+        features = _strict_string_set(payload.get("features"), "features")
         if feature and feature not in features:
             self._deny(f"FEATURE_NOT_ENTITLED:{feature}")
 
         profile = self.client_profile
         if profile is not None:
-            allowed_tools = set(profile.get("tools") or [])
-            allowed_species = set(profile.get("species") or [])
-            allowed_providers = set(profile.get("providers") or [])
+            allowed_tools = _strict_string_set(profile.get("tools"), "profile.tools")
+            allowed_species = _strict_string_set(profile.get("species"), "profile.species")
+            allowed_providers = _strict_string_set(profile.get("providers"), "profile.providers")
             if tool is not None and tool not in allowed_tools:
                 self._deny(f"TOOL_NOT_ALLOWED_BY_PROFILE:{tool}")
             if species is not None and species.upper() not in allowed_species:
                 self._deny(f"SPECIES_NOT_ALLOWED_BY_PROFILE:{species.upper()}")
             if provider is not None and provider.casefold() not in allowed_providers:
                 self._deny(f"PROVIDER_NOT_ALLOWED_BY_PROFILE:{provider.casefold()}")
-            if feature == "INTERNET_RESEARCH" and not bool(profile.get("internet_access")):
+            internet_access = profile.get("internet_access")
+            custom_workers = profile.get("custom_workers")
+            if not isinstance(internet_access, bool):
+                self._deny("PRODUCT_ENTITLEMENT_MALFORMED:profile.internet_access")
+            if not isinstance(custom_workers, bool):
+                self._deny("PRODUCT_ENTITLEMENT_MALFORMED:profile.custom_workers")
+            if feature == "INTERNET_RESEARCH" and internet_access is not True:
                 self._deny("INTERNET_ACCESS_DISABLED_BY_PROFILE")
-            if feature == "CUSTOM_WORKERS" and not bool(profile.get("custom_workers")):
+            if feature == "CUSTOM_WORKERS" and custom_workers is not True:
                 self._deny("CUSTOM_WORKERS_DISABLED_BY_PROFILE")
 
-        license_limits = payload.get("limits") or {}
-        max_workers = int(license_limits.get("max_workers", 0))
-        max_sources = int(license_limits.get("max_sources", 0))
+        license_limits = payload.get("limits")
+        if not isinstance(license_limits, Mapping):
+            self._deny("PRODUCT_ENTITLEMENT_MALFORMED:limits")
+        max_workers = _strict_limit(license_limits.get("max_workers"), "limits.max_workers")
+        max_sources = _strict_limit(license_limits.get("max_sources"), "limits.max_sources")
         if profile is not None:
-            profile_limits = profile.get("limits") or {}
-            max_workers = min(max_workers, int(profile_limits.get("max_workers", max_workers)))
-            max_sources = min(max_sources, int(profile_limits.get("max_sources", max_sources)))
-        if requested_workers is not None and int(requested_workers) > max_workers:
-            self._deny(f"WORKER_LIMIT_EXCEEDED:{requested_workers}>{max_workers}")
-        if requested_sources is not None and int(requested_sources) > max_sources:
-            self._deny(f"SOURCE_LIMIT_EXCEEDED:{requested_sources}>{max_sources}")
+            profile_limits = profile.get("limits")
+            if not isinstance(profile_limits, Mapping):
+                self._deny("PRODUCT_ENTITLEMENT_MALFORMED:profile.limits")
+            max_workers = min(max_workers, _strict_limit(profile_limits.get("max_workers"), "profile.limits.max_workers"))
+            max_sources = min(max_sources, _strict_limit(profile_limits.get("max_sources"), "profile.limits.max_sources"))
+        if requested_workers is not None:
+            workers = _strict_request_int(requested_workers, "requested_workers")
+            if workers > max_workers:
+                self._deny(f"WORKER_LIMIT_EXCEEDED:{workers}>{max_workers}")
+        if requested_sources is not None:
+            sources = _strict_request_int(requested_sources, "requested_sources")
+            if sources > max_sources:
+                self._deny(f"SOURCE_LIMIT_EXCEEDED:{sources}>{max_sources}")
 
     def authorize_feature(self, feature: str) -> None:
         """Authorize an internal runtime feature without applying the client MCP-tool allowlist."""
