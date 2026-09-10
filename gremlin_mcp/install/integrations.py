@@ -9,7 +9,6 @@ import os
 from pathlib import Path
 import posixpath
 import re
-import shutil
 import tempfile
 from typing import Any, Mapping
 
@@ -58,6 +57,33 @@ def _sha256(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
+def _json_object_no_duplicates(raw: bytes, path: Path) -> dict[str, Any]:
+    try:
+        text = raw.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise ValueError(f"MCP client config is not valid UTF-8 JSON: {path}: {exc}") from exc
+
+    def hook(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+        out: dict[str, Any] = {}
+        for key, value in pairs:
+            if key in out:
+                raise ValueError(f"MCP client config contains duplicate JSON key: {key}")
+            out[key] = value
+        return out
+
+    try:
+        value = json.loads(text, object_pairs_hook=hook)
+    except ValueError as exc:
+        if str(exc).startswith("MCP client config contains duplicate JSON key"):
+            raise
+        if isinstance(exc, json.JSONDecodeError):
+            raise ValueError(f"MCP client config is not valid UTF-8 JSON: {path}: {exc}") from exc
+        raise
+    if not isinstance(value, dict):
+        raise ValueError("MCP client config root must be a JSON object")
+    return value
+
+
 def _load(path: Path) -> tuple[dict[str, Any], bytes | None]:
     if not path.exists():
         return {}, None
@@ -65,18 +91,39 @@ def _load(path: Path) -> tuple[dict[str, Any], bytes | None]:
         raw = path.read_bytes()
     except OSError as exc:
         raise ValueError(f"unable to read MCP client config: {path}: {exc}") from exc
+    return _json_object_no_duplicates(raw, path), raw
+
+
+def _current_bytes(path: Path) -> bytes | None:
     try:
-        value = json.loads(raw.decode("utf-8"))
-    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-        raise ValueError(f"MCP client config is not valid UTF-8 JSON: {path}: {exc}") from exc
-    if not isinstance(value, dict):
-        raise ValueError("MCP client config root must be a JSON object")
-    return value, raw
+        return path.read_bytes()
+    except FileNotFoundError:
+        return None
+    except OSError as exc:
+        raise RuntimeError(f"unable to re-read MCP client config before replacement: {path}: {exc}") from exc
 
 
-def _atomic_json_write(path: Path, value: Mapping[str, Any], *, original_mode: int | None) -> bytes:
+def _assert_unchanged(path: Path, expected_before: bytes | None) -> None:
+    current = _current_bytes(path)
+    if current != expected_before:
+        raise RuntimeError("MCP client config changed during integration update; refusing to overwrite newer bytes")
+
+
+def _atomic_json_write(
+    path: Path,
+    value: Mapping[str, Any],
+    *,
+    original_mode: int | None,
+    expected_before: bytes | None,
+) -> bytes:
     path.parent.mkdir(parents=True, exist_ok=True)
-    payload = (json.dumps(value, ensure_ascii=False, indent=2, sort_keys=True, allow_nan=False) + "\n").encode("utf-8")
+    try:
+        payload = (
+            json.dumps(value, ensure_ascii=False, indent=2, sort_keys=True, allow_nan=False) + "\n"
+        ).encode("utf-8")
+    except (TypeError, ValueError) as exc:
+        raise ValueError("MCP client configuration update must be finite JSON") from exc
+
     fd, temp_name = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=str(path.parent))
     temp = Path(temp_name)
     fd_open = True
@@ -91,6 +138,16 @@ def _atomic_json_write(path: Path, value: Mapping[str, Any], *, original_mode: i
             os.fsync(handle.fileno())
         if original_mode is not None and os.name == "nt":
             os.chmod(temp, original_mode)
+
+        # Parse the exact staged bytes with the same strict loader used for live
+        # configs before touching the destination.
+        staged, staged_raw = _load(temp)
+        if staged_raw != payload or staged != dict(value):
+            raise RuntimeError("staged MCP client configuration verification mismatch")
+
+        # Prevent a lost update when the AI client rewrites its own config while
+        # GREMLIN is preparing the mutation.
+        _assert_unchanged(path, expected_before)
         os.replace(temp, path)
     finally:
         if fd_open:
@@ -114,26 +171,17 @@ def _write_backup(path: Path, data: bytes, *, mode: int) -> None:
             os.fsync(handle.fileno())
         if os.name == "nt":
             os.chmod(path, mode)
-    except BaseException:
-        path.unlink(missing_ok=True)
+    except BaseException as exc:
+        try:
+            path.unlink(missing_ok=True)
+        except OSError as cleanup_exc:
+            raise RuntimeError(
+                f"MCP config backup write failed and partial backup cleanup also failed: {cleanup_exc}"
+            ) from exc
         raise
     finally:
         if fd_open:
             os.close(fd)
-
-
-def _rollback(path: Path, *, backup_path: Path | None, before: bytes | None) -> None:
-    if before is None:
-        path.unlink(missing_ok=True)
-        if path.exists():
-            raise RuntimeError(f"failed to remove newly created invalid MCP config: {path}")
-        return
-    if backup_path is None:
-        raise RuntimeError("rollback invariant violated: original bytes exist but backup path is missing")
-    shutil.copy2(backup_path, path)
-    restored = path.read_bytes()
-    if restored != before:
-        raise RuntimeError("MCP integration rollback hash mismatch")
 
 
 def gremlin_stdio_entry(paths: GremlinPaths) -> dict[str, Any]:
@@ -168,7 +216,7 @@ def inspect_json_mcp(path: str | Path, *, server_name: str = "gremlin") -> dict[
         "exists": target.exists(),
         "sha256": _sha256(raw) if raw is not None else None,
         "server_name": safe_server,
-        "gremlin_present": bool(isinstance(servers, dict) and safe_server in servers),
+        "gremlin_present": isinstance(servers, dict) and safe_server in servers,
         "server_count": len(servers or {}),
     }
 
@@ -205,15 +253,22 @@ def install_json_mcp(
         _write_backup(backup_path, before, mode=original_mode if original_mode is not None else 0o600)
 
     servers[safe_server] = normalized_entry
-    after = _atomic_json_write(path, config, original_mode=original_mode)
+    after = _atomic_json_write(
+        path,
+        config,
+        original_mode=original_mode,
+        expected_before=before,
+    )
     installed, reread = _load(path)
     installed_servers = installed.get("mcpServers")
     if not isinstance(installed_servers, dict) or installed_servers.get(safe_server) != normalized_entry:
-        try:
-            _rollback(path, backup_path=backup_path, before=before)
-        except Exception as rollback_exc:
-            raise RuntimeError(f"MCP integration verification failed and rollback failed: {rollback_exc}") from rollback_exc
-        raise RuntimeError("MCP integration verification failed; original configuration restored")
+        raise RuntimeError(
+            "MCP integration verification failed after atomic replacement; backup retained for explicit recovery"
+        )
+    if reread != after:
+        raise RuntimeError(
+            "MCP client config changed immediately after atomic replacement; refusing to report INSTALLED"
+        )
     return IntegrationReceipt(
         schema=INTEGRATION_SCHEMA,
         status="INSTALLED",
@@ -221,7 +276,7 @@ def install_json_mcp(
         config_path=str(path),
         backup_path=str(backup_path) if backup_path else None,
         before_sha256=before_sha,
-        after_sha256=_sha256(reread if reread is not None else after),
+        after_sha256=_sha256(after),
         server_name=safe_server,
     )
 
@@ -253,15 +308,22 @@ def remove_json_mcp(
     _write_backup(backup_path, before, mode=mode)
 
     del servers[safe_server]
-    after = _atomic_json_write(path, config, original_mode=mode)
+    after = _atomic_json_write(
+        path,
+        config,
+        original_mode=mode,
+        expected_before=before,
+    )
     reread, reread_raw = _load(path)
     reread_servers = reread.get("mcpServers")
     if not isinstance(reread_servers, dict) or safe_server in reread_servers:
-        try:
-            _rollback(path, backup_path=backup_path, before=before)
-        except Exception as rollback_exc:
-            raise RuntimeError(f"MCP integration removal verification failed and rollback failed: {rollback_exc}") from rollback_exc
-        raise RuntimeError("MCP integration removal verification failed; original configuration restored")
+        raise RuntimeError(
+            "MCP integration removal verification failed after atomic replacement; backup retained for explicit recovery"
+        )
+    if reread_raw != after:
+        raise RuntimeError(
+            "MCP client config changed immediately after atomic replacement; refusing to report REMOVED"
+        )
     return IntegrationReceipt(
         schema=INTEGRATION_SCHEMA,
         status="REMOVED",
@@ -269,6 +331,6 @@ def remove_json_mcp(
         config_path=str(path),
         backup_path=str(backup_path),
         before_sha256=before_sha,
-        after_sha256=_sha256(reread_raw if reread_raw is not None else after),
+        after_sha256=_sha256(after),
         server_name=safe_server,
     )
