@@ -109,3 +109,36 @@ def test_activation_verifier_rejects_wrong_field_types_before_signature_check() 
     malformed["nonce"] = 123
     with pytest.raises(ValueError, match="nonce must be a string"):
         verify_activation_request(malformed)
+
+
+def test_activation_verifier_rejects_unknown_top_level_fields() -> None:
+    store = MemorySecretStore()
+    request = build_activation_request(
+        license_id="GRM-2026-000001",
+        store=store,
+        nonce="fixed-test-nonce",
+        created_at="2026-08-30T10:00:00+00:00",
+    )
+    request["authority"] = "production"
+    with pytest.raises(ValueError, match="unsupported fields"):
+        verify_activation_request(request)
+
+
+def test_activation_verifier_rejects_unknown_or_missing_proof_fields() -> None:
+    store = MemorySecretStore()
+    request = build_activation_request(
+        license_id="GRM-2026-000001",
+        store=store,
+        nonce="fixed-test-nonce",
+        created_at="2026-08-30T10:00:00+00:00",
+    )
+
+    extra = dict(request)
+    extra["proof"] = {**request["proof"], "authority": "production"}
+    with pytest.raises(ValueError, match="unsupported fields"):
+        verify_activation_request(extra)
+
+    missing = dict(request)
+    missing["proof"] = {"alg": "Ed25519"}
+    with pytest.raises(ValueError, match="missing fields"):
+        verify_activation_request(missing)
