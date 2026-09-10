@@ -41,6 +41,12 @@ def _name(value: str) -> str:
     return name
 
 
+def _secret_bytes(value: bytes) -> bytes:
+    if not isinstance(value, bytes):
+        raise TypeError("secret value must be bytes")
+    return value
+
+
 class LinuxSecretServiceStore:
     def __init__(self, executable: str = "secret-tool") -> None:
         self.executable = executable
@@ -59,9 +65,10 @@ class LinuxSecretServiceStore:
 
     def set(self, name: str, value: bytes) -> None:
         key = _name(name)
+        raw = _secret_bytes(value)
         self._run(
             ["store", "--label=GREMLIN", "service", "gremlin", "account", key],
-            stdin=base64.b64encode(value),
+            stdin=base64.b64encode(raw),
         )
 
     def get(self, name: str) -> bytes | None:
@@ -166,10 +173,24 @@ class WindowsDpapiStore:
         digest = hashlib.sha256(safe.encode("utf-8")).hexdigest()
         return self.root / f"{digest}.dpapi"
 
+    @staticmethod
+    def _read_blob(path: Path) -> bytes | None:
+        try:
+            return path.read_bytes()
+        except FileNotFoundError:
+            return None
+        except OSError as exc:
+            raise SecretStoreError(f"unable to read GREMLIN DPAPI secret blob: {path}: {exc}") from exc
+
     def set(self, name: str, value: bytes) -> None:
+        raw = _secret_bytes(value)
         self.root.mkdir(parents=True, exist_ok=True)
         path = self._path(name)
-        encrypted = _dpapi_crypt(value, protect=True)
+        before = self._read_blob(path)
+        encrypted = _dpapi_crypt(raw, protect=True)
+        if not isinstance(encrypted, bytes) or not encrypted:
+            raise SecretStoreError("Windows DPAPI returned an invalid encrypted secret blob")
+
         fd, temp_name = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=str(self.root))
         temp = Path(temp_name)
         fd_open = True
@@ -180,6 +201,17 @@ class WindowsDpapiStore:
                 handle.write(encrypted)
                 handle.flush()
                 os.fsync(handle.fileno())
+
+            staged = self._read_blob(temp)
+            if staged != encrypted:
+                raise SecretStoreError("staged DPAPI secret blob verification mismatch")
+            recovered = _dpapi_crypt(staged, protect=False)
+            if recovered != raw:
+                raise SecretStoreError("staged DPAPI secret failed plaintext round-trip verification")
+
+            current = self._read_blob(path)
+            if current != before:
+                raise SecretStoreError("GREMLIN DPAPI secret changed concurrently; refusing to overwrite newer bytes")
             os.replace(temp, path)
         finally:
             if fd_open:
@@ -189,14 +221,21 @@ class WindowsDpapiStore:
 
     def get(self, name: str) -> bytes | None:
         path = self._path(name)
-        if not path.is_file():
+        encrypted = self._read_blob(path)
+        if encrypted is None:
             return None
-        return _dpapi_crypt(path.read_bytes(), protect=False)
+        if not encrypted:
+            raise SecretStoreError("GREMLIN DPAPI secret blob is empty")
+        return _dpapi_crypt(encrypted, protect=False)
 
     def delete(self, name: str) -> None:
         path = self._path(name)
-        if path.exists():
+        try:
             path.unlink()
+        except FileNotFoundError:
+            return
+        except OSError as exc:
+            raise SecretStoreError(f"unable to delete GREMLIN DPAPI secret blob: {path}: {exc}") from exc
 
 
 def secret_store_status(
