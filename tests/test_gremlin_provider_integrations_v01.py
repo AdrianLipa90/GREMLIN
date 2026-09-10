@@ -217,6 +217,24 @@ def test_opencode_list_marks_connected_only_with_explicit_live_word() -> None:
     assert opencode["connection_status"] == "CONNECTED"
 
 
+def test_opencode_list_rejects_negated_connected_text() -> None:
+    for text in (
+        "gremlin not connected /usr/bin/gremlin-product-mcp",
+        "gremlin disconnected /usr/bin/gremlin-product-mcp",
+        "gremlin connection error: connected state unavailable",
+    ):
+        runner = FakeRunner([cp(0, stdout=text)])
+        payload = list_providers(
+            linux_paths(),
+            env={"HOME": "/home/alice"},
+            which=lambda name: "/usr/bin/opencode" if name == "opencode" else None,
+            runner=runner,
+        )
+        opencode = next(row for row in payload["providers"] if row["provider_id"] == "opencode")
+        assert opencode["connected"] is False
+        assert opencode["connection_status"] == "REGISTERED_UNVERIFIED"
+
+
 def test_opencode_disconnect_fails_closed_instead_of_rewriting_jsonc() -> None:
     runner = FakeRunner([])
     result = disconnect_provider(
@@ -237,6 +255,14 @@ def test_codex_test_verifies_registration_without_claiming_live_runtime() -> Non
 
 def test_opencode_test_distinguishes_registered_from_live() -> None:
     runner = FakeRunner([cp(0, stdout="gremlin failed /usr/bin/gremlin-product-mcp")])
+    result = run_provider_test(
+        "opencode", linux_paths(), env={"HOME": "/home/alice"}, which=which_core, runner=runner,
+    )
+    assert result.status == "REGISTERED_RUNTIME_NOT_READY"
+
+
+def test_opencode_test_rejects_negated_connected_text() -> None:
+    runner = FakeRunner([cp(0, stdout="gremlin not connected /usr/bin/gremlin-product-mcp")])
     result = run_provider_test(
         "opencode", linux_paths(), env={"HOME": "/home/alice"}, which=which_core, runner=runner,
     )
