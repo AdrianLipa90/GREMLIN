@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 from datetime import date
 import json
+import os
 from pathlib import Path
 from typing import Sequence
 
@@ -14,20 +15,44 @@ def _split_csv(value: str) -> list[str]:
     return [item.strip() for item in str(value).split(",") if item.strip()]
 
 
+def _write_new_file(path: Path, data: bytes, *, private: bool) -> None:
+    """Create one key file exclusively and durably without permissive defaults."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+    mode = 0o600 if private else 0o644
+    fd = os.open(path, flags, mode)
+    try:
+        with os.fdopen(fd, "wb") as handle:
+            handle.write(data)
+            handle.flush()
+            os.fsync(handle.fileno())
+    except BaseException:
+        path.unlink(missing_ok=True)
+        raise
+
+
 def _keygen(args: argparse.Namespace) -> int:
     private_pem, public_pem, key_id = generate_keypair()
     private_path = Path(args.private)
     public_path = Path(args.public)
     if private_path.exists() or public_path.exists():
         raise SystemExit("refusing to overwrite an existing key file")
-    private_path.parent.mkdir(parents=True, exist_ok=True)
-    public_path.parent.mkdir(parents=True, exist_ok=True)
-    private_path.write_bytes(private_pem)
+
+    created_private = False
     try:
-        private_path.chmod(0o600)
-    except OSError:
-        pass
-    public_path.write_bytes(public_pem)
+        _write_new_file(private_path, private_pem, private=True)
+        created_private = True
+        _write_new_file(public_path, public_pem, private=False)
+    except BaseException as exc:
+        if created_private:
+            try:
+                private_path.unlink(missing_ok=True)
+            except OSError as cleanup_exc:
+                raise RuntimeError(
+                    f"issuer key generation failed and private-key cleanup also failed: {cleanup_exc}"
+                ) from exc
+        raise
+
     print(json.dumps({"status": "CREATED", "key_id": key_id, "private": str(private_path), "public": str(public_path)}, sort_keys=True))
     return 0
 
