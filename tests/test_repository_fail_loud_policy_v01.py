@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import ast
 from pathlib import Path
+import re
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -12,7 +13,11 @@ PYTHON_AUDIT_ROOTS = (
     ROOT / "examples",
     ROOT / "benchmarks",
 )
+RUST_AUDIT_ROOTS = (ROOT / "control_center" / "src",)
 _BROAD_EXCEPTION_NAMES = {"BaseException", "Exception", "OSError"}
+_DISCARDED_CTL_RESULT_RE = re.compile(
+    r"if\s+let\s+Ok\s*\([^)]*\)\s*=\s*run_ctl_json(?:_input)?\s*\("
+)
 
 
 def _python_files():
@@ -20,6 +25,13 @@ def _python_files():
         if not root.exists():
             continue
         yield from sorted(path for path in root.rglob("*.py") if path.is_file())
+
+
+def _rust_files():
+    for root in RUST_AUDIT_ROOTS:
+        if not root.exists():
+            continue
+        yield from sorted(path for path in root.rglob("*.rs") if path.is_file())
 
 
 def _exception_names(node: ast.expr | None) -> set[str]:
@@ -168,6 +180,21 @@ def test_python_surfaces_do_not_import_mock_patch_frameworks() -> None:
                     findings.append(f"{relative}:{node.lineno}: mock import from {module}")
     assert scanned > 0
     assert not findings, "mock/patch framework imports detected:\n" + "\n".join(findings)
+
+
+def test_control_center_does_not_discard_gremlinctl_results() -> None:
+    """A native UI action must surface a failed gremlinctl call instead of matching only Ok(...)."""
+    findings: list[str] = []
+    scanned = 0
+    for path in _rust_files():
+        scanned += 1
+        source = path.read_text(encoding="utf-8")
+        relative = path.relative_to(ROOT)
+        for match in _DISCARDED_CTL_RESULT_RE.finditer(source):
+            lineno = source.count("\n", 0, match.start()) + 1
+            findings.append(f"{relative}:{lineno}: gremlinctl Result discarded through if let Ok(...)")
+    assert scanned > 0
+    assert not findings, "silent gremlinctl result discard detected:\n" + "\n".join(findings)
 
 
 def test_python_surfaces_compile_under_ast_parser() -> None:
