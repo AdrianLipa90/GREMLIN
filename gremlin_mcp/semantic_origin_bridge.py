@@ -29,7 +29,16 @@ SEMANTIC_EVIDENCE_ORIGIN_CLAIM_MODE_UNKNOWN = "SEMANTIC_EVIDENCE_ORIGIN_CLAIM_MO
 
 
 def _canonical(value: Any) -> bytes:
-    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False).encode("utf-8")
+    try:
+        return json.dumps(
+            value,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+            allow_nan=False,
+        ).encode("utf-8")
+    except (TypeError, ValueError) as exc:
+        raise ValueError("semantic origin bridge data must be finite JSON") from exc
 
 
 def _commit(domain: bytes, value: Any) -> str:
@@ -40,7 +49,28 @@ def _authority() -> dict[str, bool]:
     return {"production_runtime_write": False, "execution_admitted": False, "canon_allowed": False}
 
 
+def _mapping_rows(values: Iterable[Mapping[str, Any]], field: str) -> list[dict[str, Any]]:
+    if isinstance(values, (str, bytes, Mapping)):
+        raise ValueError(f"{field} must be an iterable of objects")
+    try:
+        raw = list(values)
+    except TypeError as exc:
+        raise ValueError(f"{field} must be an iterable of objects") from exc
+    if any(not isinstance(row, Mapping) for row in raw):
+        raise ValueError(f"{field} must contain only objects")
+    return [dict(row) for row in raw]
+
+
+def _semantic_object(result: Mapping[str, Any]) -> dict[str, Any]:
+    semantic = result.get("semantic_evidence")
+    if not isinstance(semantic, Mapping):
+        raise ValueError("semantic_evidence must be an object")
+    return dict(semantic)
+
+
 def _finalize(result: Mapping[str, Any]) -> dict[str, Any]:
+    if not isinstance(result, Mapping):
+        raise ValueError("result must be an object")
     out = dict(result)
     out["authority"] = _authority()
     out["semantic_origin_execution_commitment"] = _commit(
@@ -57,7 +87,7 @@ def _attach(
     policy: Mapping[str, Any] | None,
 ) -> dict[str, Any]:
     out = dict(result)
-    semantic = dict(out.get("semantic_evidence") or {})
+    semantic = _semantic_object(out)
     semantic["evidence_origin_assignments"] = dict(assignment_validation)
     semantic["evidence_origin_policy"] = None if policy is None else dict(policy)
     out["semantic_evidence"] = semantic
@@ -73,10 +103,11 @@ def _quarantine(
     reason: str,
 ) -> dict[str, Any]:
     out = dict(result)
-    out["quarantined_synthesis"] = out.get("synthesis")
+    if out.get("quarantined_synthesis") is None and out.get("synthesis") is not None:
+        out["quarantined_synthesis"] = out.get("synthesis")
     out["synthesis"] = None
     out["status"] = status
-    semantic = dict(out.get("semantic_evidence") or {})
+    semantic = _semantic_object(out)
     semantic["evidence_origin_assignments"] = dict(assignment_validation)
     semantic["evidence_origin_policy"] = None if policy is None else dict(policy)
     semantic["synthesis_authorized"] = False
@@ -99,7 +130,13 @@ def apply_semantic_producer_output_with_origin_lineage(
     min_origin_groups: int | None = None,
 ) -> dict[str, Any]:
     """Apply semantic, family, kind and explicit underlying-origin lineage gates."""
-    kind_assignments = list(evidence_kind_assignments)
+    if not isinstance(execution, Mapping):
+        raise ValueError("execution must be an object")
+    if not isinstance(producer_output, Mapping):
+        raise ValueError("producer_output must be an object")
+    kind_assignments = _mapping_rows(evidence_kind_assignments, "evidence_kind_assignments")
+    origin_assignments = _mapping_rows(evidence_origin_assignments, "evidence_origin_assignments")
+
     base = apply_semantic_producer_output_with_kind_policy(
         execution,
         producer_output=producer_output,
@@ -111,17 +148,20 @@ def apply_semantic_producer_output_with_origin_lineage(
         min_direct_families=min_direct_families,
     )
 
-    origin_assignments = list(evidence_origin_assignments)
-    validation = normalize_evidence_origin_assignments(
-        origin_assignments,
-        source_receipts=execution.get("source_receipts") or [],
-    )
+    source_receipts = execution.get("source_receipts")
+    if not isinstance(source_receipts, list) or any(not isinstance(row, Mapping) for row in source_receipts):
+        validation = normalize_evidence_origin_assignments(origin_assignments, source_receipts="invalid")  # type: ignore[arg-type]
+    else:
+        validation = normalize_evidence_origin_assignments(
+            origin_assignments,
+            source_receipts=source_receipts,
+        )
 
     # Earlier contradiction/source/content/family/kind quarantines remain authoritative.
     if base.get("synthesis") is None:
         return _attach(base, assignment_validation=validation, policy=None)
 
-    if validation["status"] != "VALID":
+    if validation.get("status") != "VALID":
         return _quarantine(
             base,
             status=SEMANTIC_EVIDENCE_ORIGIN_ASSIGNMENT_INVALID,
@@ -130,7 +170,7 @@ def apply_semantic_producer_output_with_origin_lineage(
             reason="EVIDENCE_ORIGIN_ASSIGNMENTS_MUST_VERIFY_AGAINST_EXACT_EXECUTION_SOURCE_RECEIPTS",
         )
 
-    semantic = dict(base.get("semantic_evidence") or {})
+    semantic = _semantic_object(base)
     family_binding = semantic.get("provenance_families")
     kind_binding = semantic.get("evidence_kind_assignments")
     if not isinstance(family_binding, Mapping) or not isinstance(kind_binding, Mapping):
@@ -143,7 +183,12 @@ def apply_semantic_producer_output_with_origin_lineage(
         )
     guard_evidence = family_binding.get("guard_evidence")
     validated_kind_assignments = kind_binding.get("assignments")
-    if not isinstance(guard_evidence, list) or not isinstance(validated_kind_assignments, list):
+    if (
+        not isinstance(guard_evidence, list)
+        or any(not isinstance(row, Mapping) for row in guard_evidence)
+        or not isinstance(validated_kind_assignments, list)
+        or any(not isinstance(row, Mapping) for row in validated_kind_assignments)
+    ):
         return _quarantine(
             base,
             status=SEMANTIC_EVIDENCE_ORIGIN_ASSIGNMENT_INCOMPLETE,
@@ -160,7 +205,6 @@ def apply_semantic_producer_output_with_origin_lineage(
         min_origin_groups=min_origin_groups,
     )
 
-    # Mixed stance evidence remains HOUND-owned. Origin lineage cannot vote it away.
     if policy["state"] == CONFLICT_DEFER_TO_HOUND:
         return _attach(base, assignment_validation=validation, policy=policy)
 
