@@ -180,7 +180,7 @@ def audit_numeric_formula_claim(
     relative_tolerance = _finite_number(rel_tol, "rel_tol", nonnegative=True)
     absolute_tolerance = _finite_number(abs_tol, "abs_tol", nonnegative=True)
 
-    symbolic = _symbol_table(values)
+    symbolic = _symbol_table(values.keys())
     parsed = _parse_symbolic(expression_text, symbolic)
     substitutions = {symbolic[name]: value for name, value in values.items()}
     computed = float(sp.N(parsed.subs(substitutions), 30))
