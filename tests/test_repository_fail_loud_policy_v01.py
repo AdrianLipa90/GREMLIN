@@ -59,6 +59,44 @@ def _is_pass_or_ellipsis(statement: ast.stmt) -> bool:
     )
 
 
+def _base_name(node: ast.expr) -> str:
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Attribute):
+        return node.attr
+    return ""
+
+
+def _decorator_name(node: ast.expr) -> str:
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Attribute):
+        return node.attr
+    if isinstance(node, ast.Call):
+        return _decorator_name(node.func)
+    return ""
+
+
+def _intentional_interface_methods(tree: ast.AST) -> set[int]:
+    """Return node ids for explicit Protocol/abstract method declarations.
+
+    Ellipsis in a typing.Protocol method is an interface declaration, not an executable fallback.
+    Likewise an @abstractmethod declaration is intentionally non-concrete. Neither is a runtime stub.
+    """
+    allowed: set[int] = set()
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.ClassDef):
+            continue
+        is_protocol = any(_base_name(base) == "Protocol" for base in node.bases)
+        for member in node.body:
+            if not isinstance(member, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            is_abstract = any(_decorator_name(item) == "abstractmethod" for item in member.decorator_list)
+            if is_protocol or is_abstract:
+                allowed.add(id(member))
+    return allowed
+
+
 def test_python_surfaces_have_no_bare_or_broad_except_pass_blackholes() -> None:
     """Narrow expected-control-flow catches may be empty; broad error swallowing may not.
 
@@ -96,9 +134,12 @@ def test_python_surfaces_have_no_executable_pass_or_ellipsis_function_stubs() ->
         scanned += 1
         source = path.read_text(encoding="utf-8")
         tree = ast.parse(source, filename=str(path))
+        intentional_interfaces = _intentional_interface_methods(tree)
         relative = path.relative_to(ROOT)
         for node in ast.walk(tree):
             if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            if id(node) in intentional_interfaces:
                 continue
             body = _function_body_without_docstring(node)
             if body and all(_is_pass_or_ellipsis(statement) for statement in body):
