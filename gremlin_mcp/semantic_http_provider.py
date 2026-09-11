@@ -7,6 +7,7 @@ import os
 import time
 import urllib.error
 import urllib.request
+from urllib.parse import urlsplit
 from typing import Any, Mapping, Sequence
 
 from gremlin_mcp.research_provenance import verify_source_receipt
@@ -70,6 +71,30 @@ def _reject_unknown_keys(value: Mapping[Any, Any], allowed: frozenset[str], fiel
     unknown = [key for key in value if not isinstance(key, str) or key not in allowed]
     if unknown:
         raise SemanticProviderError(f"{field} contains unsupported keys: {unknown}")
+
+
+def _validate_endpoint_syntax(endpoint: Any) -> str:
+    """Validate deterministic endpoint syntax without DNS or any network side effect.
+
+    Public-address/DNS policy remains enforced by validate_url immediately before transport and on
+    every redirect. This split preserves the invariant that local credential/receipt validation can
+    fail before any network lookup while retaining fail-closed SSRF checks at the actual I/O edge.
+    """
+    text = _nonempty_text(endpoint, "endpoint")
+    try:
+        parts = urlsplit(text)
+        port = parts.port
+    except ValueError as exc:
+        raise WebAccessError("semantic provider endpoint is malformed") from exc
+    if parts.scheme.lower() != "https":
+        raise WebAccessError("only HTTPS semantic provider endpoints are allowed")
+    if not parts.hostname:
+        raise WebAccessError("semantic provider endpoint hostname is required")
+    if parts.username is not None or parts.password is not None:
+        raise WebAccessError("semantic provider endpoint userinfo is not allowed")
+    if port not in (None, 443):
+        raise WebAccessError("semantic provider endpoint must use HTTPS port 443")
+    return text
 
 
 class _SafeRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -208,7 +233,7 @@ class HTTPSemanticEvidenceProducer:
         max_response_bytes: int = 1_000_000,
         retries: int = 2,
     ) -> None:
-        self.endpoint = validate_url(_nonempty_text(endpoint, "endpoint"))
+        self.endpoint = _validate_endpoint_syntax(endpoint)
         self.secret_env = _nonempty_text(secret_env, "secret_env")
         self.producer_id = _nonempty_text(producer_id, "producer_id")
         self.producer_version = _nonempty_text(producer_version, "producer_version")
@@ -366,7 +391,7 @@ class HTTPSemanticEvidenceProducer:
             "timeout_s": self.timeout_s,
             "max_response_bytes": self.max_response_bytes,
             "retries": self.retries,
-            "network_policy": "PUBLIC_HTTPS_PORT_443_FAIL_CLOSED",
+            "network_policy": "PUBLIC_HTTPS_PORT_443_FAIL_CLOSED_AT_TRANSPORT",
             "remote_output_authority": "CANDIDATE_SEMANTIC_PROPOSAL_ONLY",
         }
         return {
