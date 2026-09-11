@@ -23,6 +23,7 @@ _EVIDENCE_KEYS = frozenset(
     {
         "evidence_id", "source_family", "stance", "payload_commitment",
         "content_commitment", "excerpt", "excerpt_commitment", "credibility",
+        "source_family_origin", "producer_declared_source_family",
     }
 )
 _BUNDLE_KEYS = frozenset({"schema", "version", "claim_id", "evidence", "evidence_bundle_commitment"})
@@ -112,7 +113,10 @@ def normalize_evidence_item(item: Mapping[str, Any]) -> dict[str, Any]:
         "stance": stance,
         "payload_commitment": _nonempty(item.get("payload_commitment"), "payload_commitment"),
     }
-    for field in ("content_commitment", "excerpt", "excerpt_commitment"):
+    for field in (
+        "content_commitment", "excerpt", "excerpt_commitment",
+        "source_family_origin", "producer_declared_source_family",
+    ):
         if field in item:
             core[field] = _nonempty(item.get(field), field)
     if "credibility" in item:
