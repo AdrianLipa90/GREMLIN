@@ -391,7 +391,7 @@ class HTTPSemanticEvidenceProducer:
             "timeout_s": self.timeout_s,
             "max_response_bytes": self.max_response_bytes,
             "retries": self.retries,
-            "network_policy": "PUBLIC_HTTPS_PORT_443_FAIL_CLOSED_AT_TRANSPORT",
+            "network_policy": "PUBLIC_HTTPS_PORT_443_FAIL_CLOSED",
             "remote_output_authority": "CANDIDATE_SEMANTIC_PROPOSAL_ONLY",
         }
         return {
