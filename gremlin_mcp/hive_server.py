@@ -8,10 +8,10 @@ from typing import Any
 from mcp.server import MCPServer
 
 from gremlin_mcp import __version__
-from gremlin_mcp.orbital_hive_memory import HIVE_SCHEMA, OrbitalHiveMemory, SQLiteHiveStore
+from gremlin_mcp.hive_authority import HiveAuthorityRuntime
+from gremlin_mcp.orbital_hive_memory import HIVE_SCHEMA
 
-hive = OrbitalHiveMemory(orbit_count=36)
-store: SQLiteHiveStore | None = None
+runtime = HiveAuthorityRuntime(orbit_count=36)
 
 mcp = MCPServer(
     "GREMLIN-HIVE",
@@ -36,45 +36,41 @@ def _record(record: Any) -> dict[str, Any]:
     return asdict(record)
 
 
-def _persist(record: Any) -> None:
-    if store is not None:
-        store.append(record)
-
-
 def configure_state(state_path: str | None) -> None:
-    """Reset process state and fail-closed hydrate an optional durable WAL lineage."""
-    global hive, store
-    if store is not None:
-        store.close()
-    hive = OrbitalHiveMemory(orbit_count=36)
-    store = None
-    if state_path is None or not str(state_path).strip():
-        return
-    candidate = SQLiteHiveStore(str(state_path))
+    """Replace process state with one fail-closed Hive authority runtime.
+
+    A durable runtime owns the SQLite transaction boundary for hydration, mutation,
+    head validation and append. The replacement runtime is constructed and validated
+    before the currently active runtime is closed, so a bad state path never silently
+    resets the server to empty process memory.
+    """
+    global runtime
+    normalized = None if state_path is None or not str(state_path).strip() else str(state_path)
+    candidate = HiveAuthorityRuntime(normalized, orbit_count=36)
+    previous = runtime
     try:
-        for row in candidate.rows():
-            hive.import_record(row)
+        previous.close()
     except Exception:
         candidate.close()
-        hive = OrbitalHiveMemory(orbit_count=36)
         raise
-    store = candidate
+    runtime = candidate
 
 
 @mcp.tool()
 def gremlin_hive_status() -> dict[str, Any]:
     """Return Hive authority, schema and current flat-ring head count."""
-    table = hive.flat_ring_table()
+    status = runtime.status()
     return {
         "schema": HIVE_SCHEMA,
-        "status": "AVAILABLE",
-        "orbit_count": hive.orbit_count,
-        "head_count": len(table),
-        "persistence": "SQLITE_WAL_HYDRATED_APPEND_ONLY" if store is not None else "PROCESS_RESIDENT",
-        "authority": "SHARED_COGNITION_ONLY",
-        "production_runtime_write": False,
-        "execution_admitted": False,
-        "canon_allowed": False,
+        "status": status["status"],
+        "orbit_count": status["orbit_count"],
+        "head_count": status["head_count"],
+        "persistence": status["persistence"],
+        "state_path": status["state_path"],
+        "authority": status["authority"],
+        "production_runtime_write": status["production_runtime_write"],
+        "execution_admitted": status["execution_admitted"],
+        "canon_allowed": status["canon_allowed"],
     }
 
 
@@ -89,7 +85,7 @@ def gremlin_hive_place(
     dependencies: list[str] | None = None,
 ) -> dict[str, Any]:
     """Place a new append-only information version on the 36-ring Hive surface."""
-    record = hive.place(
+    record = runtime.place(
         subject_id=subject_id,
         payload=payload,
         priority=priority,
@@ -98,7 +94,6 @@ def gremlin_hive_place(
         provenance=provenance or (),
         dependencies=dependencies or (),
     )
-    _persist(record)
     return _record(record)
 
 
@@ -125,37 +120,34 @@ def gremlin_hive_gates(
     }
     if not changes:
         raise ValueError("at least one closure gate must be supplied")
-    record = hive.update_gates(subject_id, **changes)
-    _persist(record)
+    record = runtime.update_gates(subject_id, **changes)
     return _record(record)
 
 
 @mcp.tool()
 def gremlin_hive_dispute(subject_id: str, contradiction_ref: str) -> dict[str, Any]:
     """Append a DISPUTED child while preserving its exact parent coordinate and lineage."""
-    record = hive.dispute(subject_id, contradiction_ref)
-    _persist(record)
+    record = runtime.dispute(subject_id, contradiction_ref)
     return _record(record)
 
 
 @mcp.tool()
 def gremlin_hive_latch(subject_id: str) -> dict[str, Any]:
     """Latch only when all five closure gates pass and the head is not disputed/quarantined."""
-    record = hive.latch(subject_id)
-    _persist(record)
+    record = runtime.latch(subject_id)
     return _record(record)
 
 
 @mcp.tool()
 def gremlin_hive_head(subject_id: str) -> dict[str, Any]:
     """Return the current append-only head for one information subject."""
-    return _record(hive.head(subject_id))
+    return _record(runtime.head(subject_id))
 
 
 @mcp.tool()
 def gremlin_hive_table() -> dict[str, Any]:
     """Return the current flat concentric table, sorted inner-to-outer then angle and phase."""
-    rows = [_record(record) for record in hive.flat_ring_table()]
+    rows = [_record(record) for record in runtime.table()]
     return {
         "schema": HIVE_SCHEMA,
         "ordering": "INNER_TO_OUTER_THEN_SEMANTIC_ANGLE_THEN_RELATION_PHASE",
@@ -170,14 +162,14 @@ def gremlin_hive_history(subject_id: str) -> dict[str, Any]:
     return {
         "schema": HIVE_SCHEMA,
         "subject_id": subject_id,
-        "records": [_record(record) for record in hive.history(subject_id)],
+        "records": [_record(record) for record in runtime.history(subject_id)],
     }
 
 
 @mcp.tool()
 def gremlin_hive_persisted(subject_id: str | None = None) -> dict[str, Any]:
     """Read durable WAL rows when a state path was configured."""
-    if store is None:
+    if not runtime.persistent:
         return {
             "schema": HIVE_SCHEMA,
             "status": "NO_DURABLE_STORE_CONFIGURED",
@@ -185,8 +177,8 @@ def gremlin_hive_persisted(subject_id: str | None = None) -> dict[str, Any]:
         }
     return {
         "schema": HIVE_SCHEMA,
-        "status": "SQLITE_WAL_HYDRATED_APPEND_ONLY",
-        "records": list(store.rows(subject_id)),
+        "status": "SQLITE_WAL_SINGLE_AUTHORITY",
+        "records": list(runtime.persisted(subject_id)),
     }
 
 
