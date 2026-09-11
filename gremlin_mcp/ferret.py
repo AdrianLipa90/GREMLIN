@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import hashlib
 import json
+import re
 import secrets
 import time
 from typing import Any, Callable, Mapping, Sequence
@@ -23,6 +24,7 @@ _ALLOWED_ACTIONS = frozenset(
         "snapshot",
     }
 )
+_HEX64 = re.compile(r"^[0-9a-f]{64}$")
 
 
 class FerretError(RuntimeError):
@@ -34,6 +36,10 @@ class FerretAuthorizationError(FerretError):
 
 
 class FerretExecutionError(FerretError):
+    pass
+
+
+class FerretHandoffError(FerretError):
     pass
 
 
@@ -74,6 +80,11 @@ def _normalize_public_https_url(value: str) -> str:
     if host in {"localhost", "localhost.localdomain"} or host.endswith(".local"):
         raise ValueError("local targets are blocked")
     return urllib.parse.urlunsplit(("https", parsed.netloc, parsed.path or "/", parsed.query, ""))
+
+
+def _origin(value: str) -> str:
+    parsed = urllib.parse.urlsplit(_normalize_public_https_url(value))
+    return f"https://{parsed.hostname}"
 
 
 def _normalize_step(step: Mapping[str, Any], index: int) -> dict[str, Any]:
@@ -118,6 +129,15 @@ def _normalize_step(step: Mapping[str, Any], index: int) -> dict[str, Any]:
             normalized["label"] = str(step.get("label", f"snapshot-{index}"))
 
     return normalized
+
+
+def _verify_preview(preview: Mapping[str, Any]) -> tuple[dict[str, Any], str]:
+    preview_dict = dict(preview)
+    supplied = str(preview_dict.pop("preview_commitment", ""))
+    expected = _commit(b"GREMLIN-FERRET-PREVIEW/v0.1\0", preview_dict)
+    if not supplied or not secrets.compare_digest(supplied, expected):
+        raise FerretAuthorizationError("preview commitment mismatch")
+    return preview_dict, supplied
 
 
 def prepare_action(request: Mapping[str, Any]) -> dict[str, Any]:
@@ -176,12 +196,7 @@ def authorize_action(
     if not actor_name:
         raise ValueError("actor is required")
 
-    preview_dict = dict(preview)
-    supplied = str(preview_dict.pop("preview_commitment", ""))
-    expected = _commit(b"GREMLIN-FERRET-PREVIEW/v0.1\0", preview_dict)
-    if not supplied or not secrets.compare_digest(supplied, expected):
-        raise FerretAuthorizationError("preview commitment mismatch")
-
+    preview_dict, supplied = _verify_preview(preview)
     core = {
         "schema": "GREMLIN_FERRET_AUTHORIZATION_RECEIPT_V0_1",
         "authorization_id": secrets.token_hex(16),
@@ -201,11 +216,7 @@ def authorize_action(
 def verify_authorization(
     preview: Mapping[str, Any], authorization: Mapping[str, Any]
 ) -> None:
-    preview_dict = dict(preview)
-    preview_commitment = str(preview_dict.pop("preview_commitment", ""))
-    expected_preview = _commit(b"GREMLIN-FERRET-PREVIEW/v0.1\0", preview_dict)
-    if not preview_commitment or not secrets.compare_digest(preview_commitment, expected_preview):
-        raise FerretAuthorizationError("preview commitment mismatch")
+    preview_dict, preview_commitment = _verify_preview(preview)
 
     auth_dict = dict(authorization)
     auth_commitment = str(auth_dict.pop("authorization_commitment", ""))
@@ -216,6 +227,222 @@ def verify_authorization(
         raise FerretAuthorizationError("authorization belongs to another preview")
     if auth_dict.get("preview_commitment") != preview_commitment:
         raise FerretAuthorizationError("authorization scope does not match preview")
+
+
+def detect_human_gate(observation: Mapping[str, Any]) -> dict[str, Any] | None:
+    """Detect CAPTCHA/MFA/anti-bot gates from bounded browser metadata without solving them."""
+    if not isinstance(observation, Mapping):
+        raise ValueError("observation must be a mapping")
+
+    values: list[str] = []
+    for key in ("title", "body_text", "resolved_url"):
+        value = observation.get(key)
+        if value is not None:
+            values.append(str(value))
+
+    frames = observation.get("frames") or []
+    if isinstance(frames, Sequence) and not isinstance(frames, (str, bytes)):
+        for frame in frames[:64]:
+            if isinstance(frame, Mapping):
+                for key in ("name", "url", "text", "title"):
+                    value = frame.get(key)
+                    if value is not None:
+                        values.append(str(value))
+
+    fields = observation.get("fields") or []
+    if isinstance(fields, Sequence) and not isinstance(fields, (str, bytes)):
+        for field in fields[:128]:
+            if isinstance(field, Mapping):
+                for key in ("name", "id", "type", "aria_label", "placeholder"):
+                    value = field.get(key)
+                    if value is not None:
+                        values.append(str(value))
+
+    haystack = "\n".join(values).lower()
+    providers: set[str] = set()
+    signals: list[str] = []
+
+    if "hcaptcha" in haystack or "h-captcha-response" in haystack:
+        providers.add("HCAPTCHA")
+        signals.append("HCAPTCHA_MARKER")
+    if "recaptcha" in haystack or "g-recaptcha-response" in haystack:
+        providers.add("RECAPTCHA")
+        signals.append("RECAPTCHA_MARKER")
+    if "imperva" in haystack or "incapsula" in haystack:
+        providers.add("IMPERVA")
+        signals.append("IMPERVA_MARKER")
+    if "additional security check" in haystack:
+        providers.add("IMPERVA")
+        signals.append("ADDITIONAL_SECURITY_CHECK")
+
+    captcha_markers = (
+        "captcha",
+        "i am human",
+        "verify you are human",
+        "verify that you are human",
+    )
+    mfa_markers = (
+        "two-factor",
+        "2fa",
+        "multi-factor",
+        "mfa",
+        "one-time code",
+        "verification code",
+        "authenticator app",
+    )
+
+    if any(marker in haystack for marker in captcha_markers) or {
+        "HCAPTCHA",
+        "RECAPTCHA",
+    } & providers:
+        gate_kind = "CAPTCHA"
+        signals.append("HUMAN_VERIFICATION_MARKER")
+    elif any(marker in haystack for marker in mfa_markers):
+        gate_kind = "MFA"
+        signals.append("MFA_MARKER")
+    elif "IMPERVA" in providers:
+        gate_kind = "BOT_CHALLENGE"
+    else:
+        return None
+
+    evidence_core = {
+        "gate_kind": gate_kind,
+        "providers": sorted(providers),
+        "signals": sorted(set(signals)),
+    }
+    result = {
+        "schema": "GREMLIN_FERRET_HUMAN_GATE_V0_1",
+        **evidence_core,
+        "policy": "HUMAN_HANDOFF_REQUIRED",
+        "automated_solution_attempted": False,
+        "observation_commitment": _commit(
+            b"GREMLIN-FERRET-GATE-EVIDENCE/v0.1\0", evidence_core
+        ),
+    }
+    result["gate_commitment"] = _commit(b"GREMLIN-FERRET-GATE/v0.1\0", result)
+    return result
+
+
+def _verify_gate(gate: Mapping[str, Any]) -> tuple[dict[str, Any], str]:
+    gate_dict = dict(gate)
+    supplied = str(gate_dict.pop("gate_commitment", ""))
+    expected = _commit(b"GREMLIN-FERRET-GATE/v0.1\0", gate_dict)
+    if not supplied or not secrets.compare_digest(supplied, expected):
+        raise FerretHandoffError("gate commitment mismatch")
+    if gate_dict.get("policy") != "HUMAN_HANDOFF_REQUIRED":
+        raise FerretHandoffError("gate is not eligible for human handoff")
+    return gate_dict, supplied
+
+
+def prepare_human_handoff(
+    preview: Mapping[str, Any],
+    gate: Mapping[str, Any],
+    *,
+    resolved_url: str,
+) -> dict[str, Any]:
+    """Bind an observed human-verification gate to one exact FERRET preview and origin."""
+    preview_dict, preview_commitment = _verify_preview(preview)
+    gate_dict, gate_commitment = _verify_gate(gate)
+    normalized_url = _normalize_public_https_url(resolved_url)
+    target_origin = _origin(preview_dict["target_url"])
+    if _origin(normalized_url) != target_origin:
+        raise FerretHandoffError("handoff origin differs from preview target origin")
+
+    core = {
+        "schema": "GREMLIN_FERRET_HUMAN_HANDOFF_V0_1",
+        "handoff_id": secrets.token_hex(16),
+        "created_unix_ns": time.time_ns(),
+        "preview_id": preview_dict["preview_id"],
+        "preview_commitment": preview_commitment,
+        "gate_kind": gate_dict["gate_kind"],
+        "gate_commitment": gate_commitment,
+        "target_origin": target_origin,
+        "resolved_url": normalized_url,
+        "status": "USER_ACTION_REQUIRED",
+        "automated_gate_solution_allowed": False,
+        "human_action_scope": "COMPLETE_SITE_CHALLENGE_IN_SAME_BROWSER_SESSION_ONLY",
+        "resume_requires_storage_state_hash": True,
+        "secret_material_returned": False,
+        "authority": _authority(),
+    }
+    core["handoff_commitment"] = _commit(b"GREMLIN-FERRET-HANDOFF/v0.1\0", core)
+    return core
+
+
+def _verify_handoff(handoff: Mapping[str, Any]) -> tuple[dict[str, Any], str]:
+    handoff_dict = dict(handoff)
+    supplied = str(handoff_dict.pop("handoff_commitment", ""))
+    expected = _commit(b"GREMLIN-FERRET-HANDOFF/v0.1\0", handoff_dict)
+    if not supplied or not secrets.compare_digest(supplied, expected):
+        raise FerretHandoffError("handoff commitment mismatch")
+    if handoff_dict.get("status") != "USER_ACTION_REQUIRED":
+        raise FerretHandoffError("handoff is not waiting for user action")
+    return handoff_dict, supplied
+
+
+def complete_human_handoff(
+    handoff: Mapping[str, Any],
+    *,
+    actor: str,
+    completed: bool,
+    resolved_url: str,
+    storage_state_sha256: str,
+) -> dict[str, Any]:
+    """Create a resume receipt after the human completes the gate in the same browser origin."""
+    handoff_dict, handoff_commitment = _verify_handoff(handoff)
+    if not completed:
+        raise FerretHandoffError("explicit human completion is required")
+    actor_name = str(actor).strip()
+    if not actor_name:
+        raise ValueError("actor is required")
+
+    normalized_url = _normalize_public_https_url(resolved_url)
+    if _origin(normalized_url) != handoff_dict["target_origin"]:
+        raise FerretHandoffError("resume origin differs from handoff target origin")
+
+    state_hash = str(storage_state_sha256).strip().lower()
+    if not _HEX64.fullmatch(state_hash):
+        raise FerretHandoffError("storage_state_sha256 must be a lowercase SHA-256 hex digest")
+
+    core = {
+        "schema": "GREMLIN_FERRET_HANDOFF_RESUME_V0_1",
+        "resume_id": secrets.token_hex(16),
+        "completed_unix_ns": time.time_ns(),
+        "actor": actor_name,
+        "handoff_id": handoff_dict["handoff_id"],
+        "handoff_commitment": handoff_commitment,
+        "preview_commitment": handoff_dict["preview_commitment"],
+        "target_origin": handoff_dict["target_origin"],
+        "resolved_url": normalized_url,
+        "storage_state_sha256": state_hash,
+        "status": "READY_TO_RESUME",
+        "scope": "SAME_ORIGIN_EXACT_HANDOFF_SESSION",
+        "secret_material_returned": False,
+    }
+    core["resume_commitment"] = _commit(b"GREMLIN-FERRET-RESUME/v0.1\0", core)
+    return core
+
+
+def verify_handoff_resume(
+    handoff: Mapping[str, Any], resume: Mapping[str, Any]
+) -> None:
+    handoff_dict, handoff_commitment = _verify_handoff(handoff)
+
+    resume_dict = dict(resume)
+    supplied = str(resume_dict.pop("resume_commitment", ""))
+    expected = _commit(b"GREMLIN-FERRET-RESUME/v0.1\0", resume_dict)
+    if not supplied or not secrets.compare_digest(supplied, expected):
+        raise FerretHandoffError("resume commitment mismatch")
+    if resume_dict.get("status") != "READY_TO_RESUME":
+        raise FerretHandoffError("resume receipt is not ready")
+    if resume_dict.get("handoff_id") != handoff_dict.get("handoff_id"):
+        raise FerretHandoffError("resume belongs to another handoff")
+    if resume_dict.get("handoff_commitment") != handoff_commitment:
+        raise FerretHandoffError("resume handoff commitment mismatch")
+    if resume_dict.get("preview_commitment") != handoff_dict.get("preview_commitment"):
+        raise FerretHandoffError("resume preview commitment mismatch")
+    if resume_dict.get("target_origin") != handoff_dict.get("target_origin"):
+        raise FerretHandoffError("resume origin binding mismatch")
 
 
 @dataclass(frozen=True)
