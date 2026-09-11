@@ -43,11 +43,21 @@ def _writable_target(path: str) -> tuple[bool, str]:
     return writable, str(existing)
 
 
+def _env_text(env: Mapping[str, str], name: str) -> str | None:
+    if name not in env:
+        return None
+    value = env[name]
+    if not isinstance(value, str):
+        raise ValueError(f"{name} environment value must be a string")
+    text = value.strip()
+    return text or None
+
+
 def _license_configuration(paths: GremlinPaths, env: Mapping[str, str]) -> tuple[str | None, str | None, str | None, str | None]:
-    license_key = str(env.get("GREMLIN_LICENSE_KEY") or "").strip() or None
-    license_path = str(env.get("GREMLIN_LICENSE_PATH") or "").strip() or None
-    public_key = str(env.get("GREMLIN_LICENSE_PUBLIC_KEY") or "").strip() or None
-    profile = str(env.get("GREMLIN_CLIENT_PROFILE") or "").strip() or None
+    license_key = _env_text(env, "GREMLIN_LICENSE_KEY")
+    license_path = _env_text(env, "GREMLIN_LICENSE_PATH")
+    public_key = _env_text(env, "GREMLIN_LICENSE_PUBLIC_KEY")
+    profile = _env_text(env, "GREMLIN_CLIENT_PROFILE")
 
     if license_key is None and license_path is None and Path(paths.license_file).is_file():
         license_path = paths.license_file
@@ -60,11 +70,32 @@ def _license_configuration(paths: GremlinPaths, env: Mapping[str, str]) -> tuple
     return license_path, license_key, public_key, profile
 
 
+def _product_status(runtime: ProductRuntime) -> tuple[dict[str, Any] | None, DoctorCheck]:
+    try:
+        raw = runtime.status()
+    except Exception as exc:
+        return None, DoctorCheck("license", "FAIL", f"{type(exc).__name__}: product entitlement status failed")
+    if not isinstance(raw, Mapping):
+        return None, DoctorCheck("license", "FAIL", "product runtime returned a non-object status")
+    product = dict(raw)
+    status = product.get("status")
+    if not isinstance(status, str) or not status.strip():
+        return product, DoctorCheck("license", "FAIL", "product runtime returned an invalid status field")
+    status = status.strip()
+    if status == "LICENSED":
+        return product, DoctorCheck("license", "PASS", "signed product entitlement admitted")
+    reason = product.get("reason")
+    detail = reason.strip() if isinstance(reason, str) and reason.strip() else status
+    return product, DoctorCheck("license", "FAIL", detail)
+
+
 def run_doctor(
     *,
     platform: str | None = None,
     env: Mapping[str, str] | None = None,
 ) -> dict[str, Any]:
+    if env is not None and not isinstance(env, Mapping):
+        raise ValueError("env must be a mapping of strings")
     environ = os.environ if env is None else env
     checks: list[DoctorCheck] = []
 
@@ -105,48 +136,69 @@ def run_doctor(
         )
     )
 
-    license_path, license_key, public_key, profile = _license_configuration(paths, environ)
-    if not license_path and not license_key:
-        checks.append(DoctorCheck("license", "WARN", "no product license configured"))
-        product = None
-    elif not public_key:
-        checks.append(DoctorCheck("license", "FAIL", "license is configured but issuer public key is unavailable"))
-        product = None
+    product: dict[str, Any] | None = None
+    try:
+        license_path, license_key, public_key, profile = _license_configuration(paths, environ)
+    except ValueError as exc:
+        checks.append(DoctorCheck("license", "FAIL", str(exc)))
     else:
-        runtime = ProductRuntime.from_configuration(
-            license_path=license_path,
-            license_key=license_key,
-            public_key_path=public_key,
-            profile_path=profile,
-            require_license=True,
-        )
-        product = runtime.status()
-        product_status = str(product.get("status") or "UNKNOWN")
-        if product_status == "LICENSED":
-            checks.append(DoctorCheck("license", "PASS", "signed product entitlement admitted"))
+        if not license_path and not license_key:
+            checks.append(DoctorCheck("license", "WARN", "no product license configured"))
+        elif not public_key:
+            checks.append(DoctorCheck("license", "FAIL", "license is configured but issuer public key is unavailable"))
         else:
-            reason = str(product.get("reason") or product_status)
-            checks.append(DoctorCheck("license", "FAIL", reason))
+            try:
+                runtime = ProductRuntime.from_configuration(
+                    license_path=license_path,
+                    license_key=license_key,
+                    public_key_path=public_key,
+                    profile_path=profile,
+                    require_license=True,
+                )
+            except Exception as exc:
+                checks.append(DoctorCheck("license", "FAIL", f"{type(exc).__name__}: product runtime initialization failed"))
+            else:
+                product, product_check = _product_status(runtime)
+                checks.append(product_check)
 
     if config is not None and config["runtime"]["transport"] == "streamable-http":
-        local_http = bool(config["network"].get("local_http"))
-        checks.append(
-            DoctorCheck(
-                "local_http_policy",
-                "PASS" if local_http else "FAIL",
-                "local streamable HTTP enabled" if local_http else "HTTP transport requested while local_http is disabled",
+        local_http = config["network"].get("local_http")
+        if type(local_http) is not bool:
+            checks.append(DoctorCheck("local_http_policy", "FAIL", "validated config returned non-boolean local_http"))
+        else:
+            checks.append(
+                DoctorCheck(
+                    "local_http_policy",
+                    "PASS" if local_http else "FAIL",
+                    "local streamable HTTP enabled" if local_http else "HTTP transport requested while local_http is disabled",
+                )
             )
-        )
 
-    secret_state = secret_store_status(paths)
-    secret_available = bool(secret_state.get("available"))
-    checks.append(
-        DoctorCheck(
-            "secret_store",
-            "PASS" if secret_available else "WARN",
-            f"backend={secret_state.get('backend')} available={secret_available}",
-        )
-    )
+    secret_state: dict[str, object] | None
+    try:
+        raw_secret_state = secret_store_status(paths)
+    except Exception as exc:
+        secret_state = None
+        checks.append(DoctorCheck("secret_store", "FAIL", f"{type(exc).__name__}: secret-store status failed"))
+    else:
+        if not isinstance(raw_secret_state, Mapping):
+            secret_state = None
+            checks.append(DoctorCheck("secret_store", "FAIL", "secret-store status returned a non-object payload"))
+        else:
+            secret_state = dict(raw_secret_state)
+            available = secret_state.get("available")
+            if type(available) is not bool:
+                checks.append(DoctorCheck("secret_store", "FAIL", "secret-store availability must be boolean"))
+            else:
+                backend = secret_state.get("backend")
+                backend_text = backend if isinstance(backend, str) and backend else "UNKNOWN"
+                checks.append(
+                    DoctorCheck(
+                        "secret_store",
+                        "PASS" if available else "WARN",
+                        f"backend={backend_text} available={available}",
+                    )
+                )
     return _result(checks, paths=paths, config=config, product=product, secret_store=secret_state)
 
 
@@ -160,7 +212,9 @@ def _result(
 ) -> dict[str, Any]:
     counts = {"PASS": 0, "WARN": 0, "FAIL": 0}
     for check in checks:
-        counts[check.status] = counts.get(check.status, 0) + 1
+        if check.status not in counts:
+            raise RuntimeError(f"unsupported doctor check status: {check.status}")
+        counts[check.status] += 1
     overall = "FAIL" if counts["FAIL"] else ("WARN" if counts["WARN"] else "PASS")
     return {
         "schema": "GREMLIN_DOCTOR_V0_1",
