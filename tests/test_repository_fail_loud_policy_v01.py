@@ -197,6 +197,19 @@ def test_control_center_does_not_discard_gremlinctl_results() -> None:
     assert not findings, "silent gremlinctl result discard detected:\n" + "\n".join(findings)
 
 
+def test_control_center_nonzero_gremlinctl_exit_is_always_an_error() -> None:
+    """Structured stdout must not turn a nonzero gremlinctl process exit into Ok(...)."""
+    main_rs = ROOT / "control_center" / "src" / "main.rs"
+    source = main_rs.read_text(encoding="utf-8")
+    unsafe_guard = "if !output.status.success() && output.stdout.is_empty() {"
+    assert unsafe_guard not in source, (
+        "control_center/src/main.rs conditionally ignores nonzero gremlinctl exits when stdout exists"
+    )
+    assert "if !output.status.success() {" in source, (
+        "control_center/src/main.rs must fail closed on every nonzero gremlinctl exit"
+    )
+
+
 def test_python_surfaces_compile_under_ast_parser() -> None:
     failures: list[str] = []
     scanned = 0
