@@ -53,6 +53,8 @@ def _base_execution():
             "url": "https://doi.org/10.1000/a",
             "doi": "10.1000/a",
             "published": "2026-08-30",
+            "content_basis": receipts[0]["content_basis"],
+            "content_commitment": receipts[0]["content_commitment"],
         },
         {
             "source_id": "src-b",
@@ -61,6 +63,8 @@ def _base_execution():
             "url": "https://doi.org/10.1000/b",
             "doi": "10.1000/b",
             "published": "2026-08-30",
+            "content_basis": receipts[1]["content_basis"],
+            "content_commitment": receipts[1]["content_commitment"],
         },
     ]
     return {
@@ -192,6 +196,7 @@ def test_cross_family_exact_frame_conflict_quarantines_belzebub_without_truth_re
 
 def test_clean_grounded_propositions_retain_existing_synthesis_without_promotion():
     semantic, by_source, excerpt_a, excerpt_b = _semantic_execution()
+    assert semantic["synthesis"] is not None
     producer = _producer(by_source, excerpt_a, excerpt_b, polarity_b=AFFIRM)
     original_synthesis = semantic["synthesis"]
     result = apply_registered_proposition_audit(
