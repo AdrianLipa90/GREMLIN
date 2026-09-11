@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import os
 import time
 import urllib.error
 import urllib.request
+from urllib.parse import urlsplit
 from typing import Any, Mapping, Sequence
 
 from gremlin_mcp.research_provenance import verify_source_receipt
@@ -15,6 +17,7 @@ from gremlin_mcp.web import WebAccessError, validate_url
 SCHEMA = "GREMLIN_HTTPS_SEMANTIC_PROVIDER_V0_1"
 VERSION = "0.1.0"
 _RETRYABLE_HTTP = frozenset({408, 425, 429, 500, 502, 503, 504})
+_REMOTE_CLASSIFICATION_KEYS = frozenset({"source_id", "source_family", "excerpt", "stance", "confidence"})
 
 
 class SemanticProviderError(RuntimeError):
@@ -22,17 +25,76 @@ class SemanticProviderError(RuntimeError):
 
 
 def _canonical(value: Any) -> bytes:
-    return json.dumps(
-        value,
-        sort_keys=True,
-        separators=(",", ":"),
-        ensure_ascii=False,
-        allow_nan=False,
-    ).encode("utf-8")
+    try:
+        return json.dumps(
+            value,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+            allow_nan=False,
+        ).encode("utf-8")
+    except (TypeError, ValueError) as exc:
+        raise ValueError("semantic HTTP provider data must be finite JSON") from exc
 
 
 def _commit(domain: bytes, value: Any) -> str:
     return hashlib.blake2b(domain + b"\0" + _canonical(value), digest_size=32).hexdigest()
+
+
+def _nonempty_text(value: Any, field: str) -> str:
+    if not isinstance(value, str):
+        raise ValueError(f"{field} must be a string")
+    text = value.strip()
+    if not text:
+        raise ValueError(f"{field} must be non-empty")
+    return text
+
+
+def _bounded_number(value: Any, field: str, *, minimum: float, maximum: float) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError(f"{field} must be a finite number in [{minimum}, {maximum}]")
+    number = float(value)
+    if not math.isfinite(number) or not minimum <= number <= maximum:
+        raise ValueError(f"{field} must be a finite number in [{minimum}, {maximum}]")
+    return number
+
+
+def _bounded_int(value: Any, field: str, *, minimum: int, maximum: int) -> int:
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ValueError(f"{field} must be an integer in [{minimum}, {maximum}]")
+    if not minimum <= value <= maximum:
+        raise ValueError(f"{field} must be an integer in [{minimum}, {maximum}]")
+    return value
+
+
+def _reject_unknown_keys(value: Mapping[Any, Any], allowed: frozenset[str], field: str) -> None:
+    unknown = [key for key in value if not isinstance(key, str) or key not in allowed]
+    if unknown:
+        raise SemanticProviderError(f"{field} contains unsupported keys: {unknown}")
+
+
+def _validate_endpoint_syntax(endpoint: Any) -> str:
+    """Validate deterministic endpoint syntax without DNS or any network side effect.
+
+    Public-address/DNS policy remains enforced by validate_url immediately before transport and on
+    every redirect. This split preserves the invariant that local credential/receipt validation can
+    fail before any network lookup while retaining fail-closed SSRF checks at the actual I/O edge.
+    """
+    text = _nonempty_text(endpoint, "endpoint")
+    try:
+        parts = urlsplit(text)
+        port = parts.port
+    except ValueError as exc:
+        raise WebAccessError("semantic provider endpoint is malformed") from exc
+    if parts.scheme.lower() != "https":
+        raise WebAccessError("only HTTPS semantic provider endpoints are allowed")
+    if not parts.hostname:
+        raise WebAccessError("semantic provider endpoint hostname is required")
+    if parts.username is not None or parts.password is not None:
+        raise WebAccessError("semantic provider endpoint userinfo is not allowed")
+    if port not in (None, 443):
+        raise WebAccessError("semantic provider endpoint must use HTTPS port 443")
+    return text
 
 
 class _SafeRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -58,16 +120,17 @@ def _post_json(
     max_response_bytes: int,
     retries: int,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
+    if not isinstance(endpoint, str):
+        raise ValueError("endpoint must be a string")
     safe = validate_url(endpoint)
-    timeout = float(timeout_s)
-    limit = int(max_response_bytes)
-    retry_count = int(retries)
-    if not (0.1 <= timeout <= 60.0):
-        raise ValueError("timeout_s must be in [0.1, 60]")
-    if not (1 <= limit <= 2_000_000):
-        raise ValueError("max_response_bytes must be in [1, 2000000]")
-    if not (0 <= retry_count <= 5):
-        raise ValueError("retries must be in 0..5")
+    if not isinstance(payload, Mapping):
+        raise ValueError("payload must be an object")
+    token = _nonempty_text(bearer_token, "bearer_token")
+    if "\r" in token or "\n" in token:
+        raise ValueError("bearer_token must not contain CR or LF")
+    timeout = _bounded_number(timeout_s, "timeout_s", minimum=0.1, maximum=60.0)
+    limit = _bounded_int(max_response_bytes, "max_response_bytes", minimum=1, maximum=2_000_000)
+    retry_count = _bounded_int(retries, "retries", minimum=0, maximum=5)
 
     body = _canonical(payload)
     request_commitment = _commit(b"GREMLIN-SEMANTIC-HTTPS-REQUEST/v0.1", payload)
@@ -79,7 +142,7 @@ def _post_json(
                 "User-Agent": "GREMLIN-SemanticProvider/0.1",
                 "Accept": "application/json",
                 "Content-Type": "application/json; charset=utf-8",
-                "Authorization": f"Bearer {bearer_token}",
+                "Authorization": f"Bearer {token}",
                 "Accept-Encoding": "identity",
             },
             method="POST",
@@ -100,11 +163,18 @@ def _post_json(
                     raise SemanticProviderError("semantic provider returned invalid UTF-8 JSON") from exc
                 if not isinstance(parsed, dict):
                     raise SemanticProviderError("semantic provider JSON root must be an object")
+                status = getattr(response, "status", 200)
+                if isinstance(status, bool) or not isinstance(status, int):
+                    raise SemanticProviderError("semantic provider HTTP status must be an integer")
+                final_url = response.geturl()
+                if not isinstance(final_url, str):
+                    raise SemanticProviderError("semantic provider response URL must be a string")
+                final_url = validate_url(final_url)
                 meta = {
                     "schema": SCHEMA,
                     "version": VERSION,
-                    "endpoint": response.geturl(),
-                    "http_status": int(getattr(response, "status", 200)),
+                    "endpoint": final_url,
+                    "http_status": status,
                     "response_bytes": len(raw),
                     "network_attempts": attempt + 1,
                     "request_commitment": request_commitment,
@@ -163,32 +233,30 @@ class HTTPSemanticEvidenceProducer:
         max_response_bytes: int = 1_000_000,
         retries: int = 2,
     ) -> None:
-        self.endpoint = str(endpoint).strip()
-        self.secret_env = str(secret_env).strip()
-        self.producer_id = str(producer_id).strip()
-        self.producer_version = str(producer_version).strip()
-        self.model_id = str(model_id).strip()
-        self.timeout_s = float(timeout_s)
-        self.max_response_bytes = int(max_response_bytes)
-        self.retries = int(retries)
-        if not self.endpoint:
-            raise ValueError("endpoint must be non-empty")
-        if not self.secret_env:
-            raise ValueError("secret_env must be non-empty")
-        if not self.producer_id:
-            raise ValueError("producer_id must be non-empty")
-        if not self.producer_version:
-            raise ValueError("producer_version must be non-empty")
-        if not self.model_id:
-            raise ValueError("model_id must be non-empty")
+        self.endpoint = _validate_endpoint_syntax(endpoint)
+        self.secret_env = _nonempty_text(secret_env, "secret_env")
+        self.producer_id = _nonempty_text(producer_id, "producer_id")
+        self.producer_version = _nonempty_text(producer_version, "producer_version")
+        self.model_id = _nonempty_text(model_id, "model_id")
+        self.timeout_s = _bounded_number(timeout_s, "timeout_s", minimum=0.1, maximum=60.0)
+        self.max_response_bytes = _bounded_int(
+            max_response_bytes,
+            "max_response_bytes",
+            minimum=1,
+            maximum=2_000_000,
+        )
+        self.retries = _bounded_int(retries, "retries", minimum=0, maximum=5)
         self._transport_receipt: dict[str, Any] | None = None
 
     def _token(self) -> str:
-        token = os.environ.get(self.secret_env, "").strip()
-        if not token:
+        token = os.environ.get(self.secret_env)
+        if token is None or not token.strip():
             raise SemanticProviderError(
                 f"semantic provider credential is missing from environment variable {self.secret_env}"
             )
+        token = token.strip()
+        if "\r" in token or "\n" in token:
+            raise SemanticProviderError("semantic provider credential contains invalid CR/LF characters")
         return token
 
     def classify(
@@ -197,16 +265,28 @@ class HTTPSemanticEvidenceProducer:
         claim_id: str,
         source_receipts: Sequence[Mapping[str, Any]],
     ) -> Sequence[Mapping[str, Any]]:
-        claim = str(claim_id).strip()
-        if not claim:
-            raise ValueError("claim_id must be non-empty")
-        receipts = [dict(row) for row in source_receipts]
+        claim = _nonempty_text(claim_id, "claim_id")
+        if isinstance(source_receipts, (str, bytes, Mapping)):
+            raise ValueError("source_receipts must be a sequence of objects")
+        try:
+            raw_receipts = list(source_receipts)
+        except TypeError as exc:
+            raise ValueError("source_receipts must be a sequence of objects") from exc
+        if any(not isinstance(row, Mapping) for row in raw_receipts):
+            raise ValueError("source_receipts must contain only objects")
+        receipts = [dict(row) for row in raw_receipts]
+
+        receipt_by_id: dict[str, Mapping[str, Any]] = {}
         for receipt in receipts:
             validation = verify_source_receipt(receipt)
             if not validation["valid"]:
                 raise SemanticProviderError(
                     f"source receipt failed integrity validation before external classification: {validation['errors']}"
                 )
+            source_id = validation["source_id"]
+            if source_id in receipt_by_id:
+                raise SemanticProviderError(f"duplicate source receipt id before external classification: {source_id}")
+            receipt_by_id[source_id] = receipt
 
         request_payload = {
             "schema": "GREMLIN_SEMANTIC_CLASSIFICATION_REQUEST_V0_1",
@@ -242,12 +322,32 @@ class HTTPSemanticEvidenceProducer:
         rows = response.get("classifications")
         if not isinstance(rows, list):
             raise SemanticProviderError("semantic provider response classifications must be a list")
-        receipt_by_id = {str(row["source_id"]): row for row in receipts}
         built: list[dict[str, Any]] = []
+        seen_source_ids: set[str] = set()
         for index, raw in enumerate(rows):
-            if not isinstance(raw, dict):
+            if not isinstance(raw, Mapping):
                 raise SemanticProviderError(f"classification at index {index} must be an object")
-            source_id = str(raw.get("source_id") or "").strip()
+            _reject_unknown_keys(raw, _REMOTE_CLASSIFICATION_KEYS, f"classification at index {index}")
+            try:
+                source_id = _nonempty_text(raw.get("source_id"), "source_id")
+                source_family = _nonempty_text(raw.get("source_family"), "source_family")
+                excerpt = _nonempty_text(raw.get("excerpt"), "excerpt")
+                stance = _nonempty_text(raw.get("stance"), "stance")
+                confidence = raw.get("confidence")
+                if isinstance(confidence, bool) or not isinstance(confidence, (int, float)):
+                    raise ValueError("confidence must be a finite number within [0, 1]")
+                numeric_confidence = float(confidence)
+                if not math.isfinite(numeric_confidence) or not 0.0 <= numeric_confidence <= 1.0:
+                    raise ValueError("confidence must be a finite number within [0, 1]")
+            except ValueError as exc:
+                raise SemanticProviderError(
+                    f"semantic provider classification at index {index} violates local GREMLIN contract: {exc}"
+                ) from exc
+            if source_id in seen_source_ids:
+                raise SemanticProviderError(
+                    f"semantic provider returned duplicate source_id classification: {source_id}"
+                )
+            seen_source_ids.add(source_id)
             receipt = receipt_by_id.get(source_id)
             if receipt is None:
                 raise SemanticProviderError(
@@ -258,10 +358,10 @@ class HTTPSemanticEvidenceProducer:
                     build_classification(
                         claim_id=claim,
                         source_receipt=receipt,
-                        source_family=str(raw.get("source_family") or "").strip(),
-                        excerpt=str(raw.get("excerpt") or ""),
-                        stance=str(raw.get("stance") or ""),
-                        confidence=float(raw.get("confidence", 0.0)),
+                        source_family=source_family,
+                        excerpt=excerpt,
+                        stance=stance,
+                        confidence=numeric_confidence,
                         producer_id=self.producer_id,
                         producer_version=self.producer_version,
                         model_id=self.model_id,

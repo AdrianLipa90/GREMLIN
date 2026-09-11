@@ -4,7 +4,7 @@ import ast
 import hashlib
 import json
 import math
-from typing import Any, Mapping, Iterable
+from typing import Any, Iterable, Mapping
 
 import sympy as sp
 
@@ -22,31 +22,84 @@ def _authority() -> dict[str, bool]:
 
 
 def _canonical(value: Any) -> bytes:
-    return json.dumps(
-        value,
-        sort_keys=True,
-        separators=(",", ":"),
-        ensure_ascii=False,
-        allow_nan=False,
-    ).encode("utf-8")
+    try:
+        return json.dumps(
+            value,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+            allow_nan=False,
+        ).encode("utf-8")
+    except (TypeError, ValueError) as exc:
+        raise ValueError("equation audit data must be finite JSON") from exc
 
 
 def _commit(domain: bytes, value: Any) -> str:
     return hashlib.blake2b(domain + b"\0" + _canonical(value), digest_size=32).hexdigest()
 
 
+def _nonempty(value: Any, field: str) -> str:
+    if not isinstance(value, str):
+        raise ValueError(f"{field} must be a string")
+    text = value.strip()
+    if not text:
+        raise ValueError(f"{field} must be non-empty")
+    return text
+
+
+def _finite_number(value: Any, field: str, *, nonnegative: bool = False) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError(f"{field} must be a finite number")
+    number = float(value)
+    if not math.isfinite(number):
+        raise ValueError(f"{field} must be a finite number")
+    if nonnegative and number < 0:
+        raise ValueError(f"{field} must be non-negative")
+    return number
+
+
+def _string_names(values: Iterable[str], field: str) -> list[str]:
+    if isinstance(values, (str, bytes, Mapping)):
+        raise ValueError(f"{field} must be an iterable of strings")
+    try:
+        raw = list(values)
+    except TypeError as exc:
+        raise ValueError(f"{field} must be an iterable of strings") from exc
+    names = [_nonempty(value, field) for value in raw]
+    if len(set(names)) != len(names):
+        raise ValueError(f"{field} must not contain duplicate names")
+    return names
+
+
+def _assumption_map(value: Mapping[str, str] | None) -> dict[str, str]:
+    if value is None:
+        return {}
+    if not isinstance(value, Mapping):
+        raise ValueError("assumptions must be an object")
+    out: dict[str, str] = {}
+    for raw_name, raw_mode in value.items():
+        name = _nonempty(raw_name, "assumption symbol")
+        mode = _nonempty(raw_mode, f"assumption for {name}")
+        if mode not in _ALLOWED_ASSUMPTIONS:
+            raise ValueError(f"unsupported assumption for {name}: {mode}")
+        if name in out:
+            raise ValueError(f"duplicate assumption symbol: {name}")
+        out[name] = mode
+    return out
+
+
 def _symbol_table(names: Iterable[str], assumptions: Mapping[str, str] | None = None) -> dict[str, sp.Symbol]:
-    assumptions = dict(assumptions or {})
+    assumption_rows = _assumption_map(assumptions)
     out: dict[str, sp.Symbol] = {}
-    for raw_name in names:
-        name = str(raw_name)
-        mode = assumptions.get(name)
+    for name in _string_names(names, "symbol name"):
+        mode = assumption_rows.get(name)
         kwargs: dict[str, bool] = {}
         if mode is not None:
-            if mode not in _ALLOWED_ASSUMPTIONS:
-                raise ValueError(f"unsupported assumption for {name}: {mode}")
             kwargs[mode] = True
         out[name] = sp.Symbol(name, **kwargs)
+    unknown_assumptions = sorted(set(assumption_rows) - set(out))
+    if unknown_assumptions:
+        raise ValueError(f"assumptions reference undeclared symbols: {unknown_assumptions}")
     return out
 
 
@@ -93,11 +146,24 @@ def _sym_from_ast(node: ast.AST, symbols: Mapping[str, sp.Symbol]) -> sp.Expr:
 
 
 def _parse_symbolic(expression: str, symbols: Mapping[str, sp.Symbol]) -> sp.Expr:
+    text = _nonempty(expression, "expression")
     try:
-        tree = ast.parse(str(expression), mode="eval")
+        tree = ast.parse(text, mode="eval")
     except SyntaxError as exc:
-        raise ValueError(f"invalid expression: {expression}") from exc
+        raise ValueError(f"invalid expression: {text}") from exc
     return _sym_from_ast(tree, symbols)
+
+
+def _numeric_symbol_map(symbols: Mapping[str, float]) -> dict[str, float]:
+    if not isinstance(symbols, Mapping):
+        raise ValueError("symbols must be an object")
+    values: dict[str, float] = {}
+    for raw_key, raw_value in symbols.items():
+        key = _nonempty(raw_key, "symbol name")
+        if key in values:
+            raise ValueError(f"duplicate numeric symbol: {key}")
+        values[key] = _finite_number(raw_value, f"numeric symbol {key}")
+    return values
 
 
 def audit_numeric_formula_claim(
@@ -108,17 +174,14 @@ def audit_numeric_formula_claim(
     rel_tol: float = 1e-9,
     abs_tol: float = 0.0,
 ) -> dict[str, Any]:
-    values = {str(key): float(value) for key, value in dict(symbols).items()}
-    if any(not math.isfinite(value) for value in values.values()):
-        raise ValueError("numeric symbols must be finite")
-    reported = float(reported_value)
-    if not math.isfinite(reported):
-        raise ValueError("reported_value must be finite")
-    if rel_tol < 0 or abs_tol < 0:
-        raise ValueError("tolerances must be non-negative")
+    expression_text = _nonempty(expression, "expression")
+    values = _numeric_symbol_map(symbols)
+    reported = _finite_number(reported_value, "reported_value")
+    relative_tolerance = _finite_number(rel_tol, "rel_tol", nonnegative=True)
+    absolute_tolerance = _finite_number(abs_tol, "abs_tol", nonnegative=True)
 
-    symbolic = _symbol_table(values)
-    parsed = _parse_symbolic(expression, symbolic)
+    symbolic = _symbol_table(values.keys())
+    parsed = _parse_symbolic(expression_text, symbolic)
     substitutions = {symbolic[name]: value for name, value in values.items()}
     computed = float(sp.N(parsed.subs(substitutions), 30))
     if not math.isfinite(computed):
@@ -126,24 +189,27 @@ def audit_numeric_formula_claim(
 
     absolute_error = abs(computed - reported)
     scale = max(abs(computed), abs(reported))
-    matches = absolute_error <= max(float(abs_tol), float(rel_tol) * scale)
+    matches = absolute_error <= max(absolute_tolerance, relative_tolerance * scale)
     orders_of_magnitude_error: float | None = None
     if computed != 0.0 and reported != 0.0:
         orders_of_magnitude_error = abs(math.log10(abs(reported / computed)))
+    relative_error: float | None
+    if computed != 0.0:
+        relative_error = absolute_error / abs(computed)
+    elif reported == 0.0:
+        relative_error = 0.0
+    else:
+        relative_error = None
 
     core = {
         "schema": SCHEMA,
         "version": VERSION,
         "kind": "NUMERIC_FORMULA_CLAIM",
-        "expression": str(expression),
+        "expression": expression_text,
         "computed_value": computed,
         "reported_value": reported,
         "absolute_error": absolute_error,
-        "relative_error": (
-            absolute_error / abs(computed)
-            if computed != 0.0
-            else (0.0 if reported == 0.0 else math.inf)
-        ),
+        "relative_error": relative_error,
         "orders_of_magnitude_error": orders_of_magnitude_error,
         "matches": matches,
         "status": "PASS" if matches else "FAIL",
@@ -153,6 +219,24 @@ def audit_numeric_formula_claim(
     return core
 
 
+def _dimension_map(value: Mapping[str, Mapping[str, float]]) -> dict[str, dict[str, float]]:
+    if not isinstance(value, Mapping):
+        raise ValueError("dimensions must be an object")
+    out: dict[str, dict[str, float]] = {}
+    for raw_symbol, raw_dimensions in value.items():
+        symbol = _nonempty(raw_symbol, "dimension symbol")
+        if not isinstance(raw_dimensions, Mapping):
+            raise ValueError(f"dimensions for {symbol} must be an object")
+        dimension: dict[str, float] = {}
+        for raw_axis, raw_power in raw_dimensions.items():
+            axis = _nonempty(raw_axis, f"dimension axis for {symbol}")
+            power = _finite_number(raw_power, f"dimension power {symbol}.{axis}")
+            if power != 0.0:
+                dimension[axis] = power
+        out[symbol] = dimension
+    return out
+
+
 def _dim_add(
     left: Mapping[str, float],
     right: Mapping[str, float],
@@ -160,15 +244,15 @@ def _dim_add(
 ) -> dict[str, float]:
     out = dict(left)
     for key, value in right.items():
-        out[key] = out.get(key, 0.0) + sign * float(value)
+        out[key] = out.get(key, 0.0) + sign * value
     return {key: value for key, value in out.items() if abs(value) > 1e-12}
 
 
 def _dim_scale(value: Mapping[str, float], scale: float) -> dict[str, float]:
     return {
-        key: float(power) * float(scale)
+        key: power * scale
         for key, power in value.items()
-        if abs(float(power) * float(scale)) > 1e-12
+        if abs(power * scale) > 1e-12
     }
 
 
@@ -178,7 +262,10 @@ def _constant_exponent(node: ast.AST) -> float:
         and not isinstance(node.value, bool)
         and isinstance(node.value, (int, float))
     ):
-        return float(node.value)
+        value = float(node.value)
+        if not math.isfinite(value):
+            raise ValueError("dimension exponent must be finite")
+        return value
     if (
         isinstance(node, ast.UnaryOp)
         and isinstance(node.op, (ast.UAdd, ast.USub))
@@ -187,6 +274,8 @@ def _constant_exponent(node: ast.AST) -> float:
         and isinstance(node.operand.value, (int, float))
     ):
         value = float(node.operand.value)
+        if not math.isfinite(value):
+            raise ValueError("dimension exponent must be finite")
         return value if isinstance(node.op, ast.UAdd) else -value
     raise ValueError("dimension analysis requires constant numeric exponent")
 
@@ -206,11 +295,7 @@ def _dim_from_ast(
             return {}
         if node.id not in dimensions:
             raise ValueError(f"unknown symbol: {node.id}")
-        return {
-            str(key): float(value)
-            for key, value in dict(dimensions[node.id]).items()
-            if float(value) != 0.0
-        }
+        return dict(dimensions[node.id])
     if isinstance(node, ast.UnaryOp) and isinstance(node.op, (ast.UAdd, ast.USub)):
         return _dim_from_ast(node.operand, dimensions)
     if isinstance(node, ast.BinOp):
@@ -245,10 +330,11 @@ def _dimension_of(
     expression: str,
     dimensions: Mapping[str, Mapping[str, float]],
 ) -> dict[str, float]:
+    text = _nonempty(expression, "expression")
     try:
-        tree = ast.parse(str(expression), mode="eval")
+        tree = ast.parse(text, mode="eval")
     except SyntaxError as exc:
-        raise ValueError(f"invalid expression: {expression}") from exc
+        raise ValueError(f"invalid expression: {text}") from exc
     return _dim_from_ast(tree, dimensions)
 
 
@@ -268,15 +354,18 @@ def audit_dimensional_identity(
     *,
     dimensions: Mapping[str, Mapping[str, float]],
 ) -> dict[str, Any]:
-    left = _clean_dimension(_dimension_of(lhs, dimensions))
-    right = _clean_dimension(_dimension_of(rhs, dimensions))
+    lhs_text = _nonempty(lhs, "lhs")
+    rhs_text = _nonempty(rhs, "rhs")
+    dimension_rows = _dimension_map(dimensions)
+    left = _clean_dimension(_dimension_of(lhs_text, dimension_rows))
+    right = _clean_dimension(_dimension_of(rhs_text, dimension_rows))
     consistent = left == right
     core = {
         "schema": SCHEMA,
         "version": VERSION,
         "kind": "DIMENSIONAL_IDENTITY",
-        "lhs": str(lhs),
-        "rhs": str(rhs),
+        "lhs": lhs_text,
+        "rhs": rhs_text,
         "lhs_dimension": left,
         "rhs_dimension": right,
         "dimensionally_consistent": consistent,
@@ -293,21 +382,26 @@ def audit_symbolic_identity(
     *,
     symbols: Iterable[str],
 ) -> dict[str, Any]:
-    names = [str(value) for value in symbols]
+    lhs_text = _nonempty(lhs, "lhs")
+    rhs_text = _nonempty(rhs, "rhs")
+    names = _string_names(symbols, "symbols")
     symbolic = _symbol_table(names)
-    left = _parse_symbolic(lhs, symbolic)
-    right = _parse_symbolic(rhs, symbolic)
+    left = _parse_symbolic(lhs_text, symbolic)
+    right = _parse_symbolic(rhs_text, symbolic)
     difference = sp.simplify(left - right)
-    identical = bool(difference == 0)
+    identical = difference == 0
+    if not isinstance(identical, (bool, sp.logic.boolalg.BooleanTrue, sp.logic.boolalg.BooleanFalse)):
+        identical = bool(identical)
+    identical_bool = bool(identical)
     core = {
         "schema": SCHEMA,
         "version": VERSION,
         "kind": "SYMBOLIC_IDENTITY",
-        "lhs": str(lhs),
-        "rhs": str(rhs),
+        "lhs": lhs_text,
+        "rhs": rhs_text,
         "difference": str(difference),
-        "identical": identical,
-        "status": "PASS" if identical else "FAIL",
+        "identical": identical_bool,
+        "status": "PASS" if identical_bool else "FAIL",
         "authority": _authority(),
     }
     core["audit_commitment"] = _commit(b"GREMLIN-EQUATION-IDENTITY/v0.1", core)
@@ -321,18 +415,21 @@ def audit_derivation_claim(
     claimed_expression: str,
     assumptions: Mapping[str, str] | None = None,
 ) -> dict[str, Any]:
-    assumptions = dict(assumptions or {})
-    target_name = str(target)
-    names = set(assumptions) | {target_name}
-    symbolic = _symbol_table(names, assumptions)
+    equation_text = _nonempty(equation, "equation")
+    target_name = _nonempty(target, "target")
+    claim_text = _nonempty(claimed_expression, "claimed_expression")
+    assumption_rows = _assumption_map(assumptions)
+    names = set(assumption_rows) | {target_name}
+    symbolic = _symbol_table(sorted(names), assumption_rows)
 
-    equation_text = str(equation)
     if equation_text.count("=") != 1:
         raise ValueError("equation must contain exactly one '='")
     lhs_text, rhs_text = [part.strip() for part in equation_text.split("=", 1)]
+    if not lhs_text or not rhs_text:
+        raise ValueError("equation sides must be non-empty")
     lhs = _parse_symbolic(lhs_text, symbolic)
     rhs = _parse_symbolic(rhs_text, symbolic)
-    claim = _parse_symbolic(claimed_expression, symbolic)
+    claim = _parse_symbolic(claim_text, symbolic)
 
     solutions = sp.solve(sp.Eq(lhs, rhs), symbolic[target_name])
     simplified = [sp.simplify(solution) for solution in solutions]
@@ -351,7 +448,7 @@ def audit_derivation_claim(
         "kind": "DERIVATION_CLAIM",
         "equation": equation_text,
         "target": target_name,
-        "claimed_expression": str(claimed_expression),
+        "claimed_expression": claim_text,
         "derived_solutions": [str(solution) for solution in simplified],
         "claim_matches_solution": claim_matches_solution,
         "status": status,

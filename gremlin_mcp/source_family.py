@@ -16,7 +16,16 @@ _STRONG_IDENTITY_KINDS = {"DOI", "ARXIV_WORK"}
 
 
 def _canonical(value: Any) -> bytes:
-    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False).encode("utf-8")
+    try:
+        return json.dumps(
+            value,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+            allow_nan=False,
+        ).encode("utf-8")
+    except (TypeError, ValueError) as exc:
+        raise ValueError("source family data must be finite JSON") from exc
 
 
 def _family_id(identity: Mapping[str, Any]) -> str:
@@ -24,13 +33,47 @@ def _family_id(identity: Mapping[str, Any]) -> str:
     return f"FAM-{digest}"
 
 
+def _optional_text(value: Any, field: str) -> str | None:
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise ValueError(f"{field} must be a string or None")
+    return value
+
+
+def _nonempty_text(value: Any, field: str) -> str:
+    if not isinstance(value, str):
+        raise ValueError(f"{field} must be a string")
+    text = value.strip()
+    if not text:
+        raise ValueError(f"{field} must be non-empty")
+    return text
+
+
+def _mapping_rows(values: Iterable[Mapping[str, Any]], field: str) -> list[dict[str, Any]]:
+    if isinstance(values, (str, bytes, Mapping)):
+        raise ValueError(f"{field} must be an iterable of objects")
+    try:
+        raw = list(values)
+    except TypeError as exc:
+        raise ValueError(f"{field} must be an iterable of objects") from exc
+    if any(not isinstance(row, Mapping) for row in raw):
+        raise ValueError(f"{field} must contain only objects")
+    return [dict(row) for row in raw]
+
+
 def normalize_title(value: Any) -> str:
-    text = str(value or "").casefold()
-    return " ".join(_NON_ALNUM.sub(" ", text).split())
+    raw = _optional_text(value, "title")
+    if raw is None:
+        return ""
+    return " ".join(_NON_ALNUM.sub(" ", raw.casefold()).split())
 
 
 def normalize_doi(value: Any) -> str | None:
-    text = str(value or "").strip().casefold()
+    raw = _optional_text(value, "doi")
+    if raw is None:
+        return None
+    text = raw.strip().casefold()
     if not text:
         return None
     for prefix in ("https://doi.org/", "http://doi.org/", "https://dx.doi.org/", "http://dx.doi.org/", "doi:"):
@@ -41,20 +84,32 @@ def normalize_doi(value: Any) -> str | None:
 
 
 def doi_from_url(value: Any) -> str | None:
-    text = str(value or "").strip()
+    raw = _optional_text(value, "url")
+    if raw is None:
+        return None
+    text = raw.strip()
     if not text:
         return None
-    parts = urlsplit(text)
+    try:
+        parts = urlsplit(text)
+    except ValueError as exc:
+        raise ValueError("url is malformed") from exc
     if parts.netloc.casefold() not in {"doi.org", "www.doi.org", "dx.doi.org"}:
         return None
     return normalize_doi(parts.path.lstrip("/"))
 
 
 def normalize_url(value: Any) -> str | None:
-    text = str(value or "").strip()
+    raw = _optional_text(value, "url")
+    if raw is None:
+        return None
+    text = raw.strip()
     if not text:
         return None
-    parts = urlsplit(text)
+    try:
+        parts = urlsplit(text)
+    except ValueError as exc:
+        raise ValueError("url is malformed") from exc
     if not parts.scheme or not parts.netloc:
         return text.casefold()
     path = parts.path.rstrip("/") or "/"
@@ -62,10 +117,16 @@ def normalize_url(value: Any) -> str | None:
 
 
 def arxiv_work_id(value: Any) -> str | None:
-    text = str(value or "").strip()
+    raw = _optional_text(value, "arxiv value")
+    if raw is None:
+        return None
+    text = raw.strip()
     if not text:
         return None
-    path = urlsplit(text).path if "://" in text else text
+    try:
+        path = urlsplit(text).path if "://" in text else text
+    except ValueError as exc:
+        raise ValueError("arxiv value is malformed") from exc
     match = _ARXIV_RE.search(path)
     if match:
         return match.group("id").casefold()
@@ -81,7 +142,10 @@ def _informative_title(value: Any) -> str | None:
 
 
 def _published_year(value: Any) -> int | None:
-    match = _YEAR_RE.match(str(value or ""))
+    raw = _optional_text(value, "published")
+    if raw is None or not raw.strip():
+        return None
+    match = _YEAR_RE.match(raw)
     return int(match.group("year")) if match else None
 
 
@@ -92,6 +156,8 @@ def source_identity(citation: Mapping[str, Any]) -> dict[str, Any]:
     cross-provider bridge only when the title group is not ambiguous in strong identifiers.
     This is a provenance-family heuristic, not proof of source independence.
     """
+    if not isinstance(citation, Mapping):
+        raise ValueError("citation must be an object")
     doi = normalize_doi(citation.get("doi")) or doi_from_url(citation.get("url"))
     if doi:
         return {"kind": "DOI", "value": doi}
@@ -104,9 +170,11 @@ def source_identity(citation: Mapping[str, Any]) -> dict[str, Any]:
     title = _informative_title(citation.get("title"))
     if title:
         return {"kind": "NORMALIZED_TITLE", "value": title}
-    source_id = str(citation.get("source_id") or "").strip()
-    if source_id:
-        return {"kind": "SOURCE_ID_FALLBACK", "value": source_id}
+    source_id = citation.get("source_id")
+    if isinstance(source_id, str) and source_id.strip():
+        return {"kind": "SOURCE_ID_FALLBACK", "value": source_id.strip()}
+    if source_id is not None and not isinstance(source_id, str):
+        raise ValueError("citation source_id must be a string")
     raise ValueError("citation must contain DOI, arXiv URL, URL, informative title, or source_id")
 
 
@@ -130,9 +198,12 @@ def _ambiguous_title_groups(records: list[dict[str, Any]]) -> dict[str, dict[str
             continue
         group = groups.setdefault(title, {"DOI": set(), "ARXIV_WORK": set()})
         identity = record["identity"]
-        kind = str(identity.get("kind"))
+        kind = identity.get("kind")
+        value = identity.get("value")
         if kind in _STRONG_IDENTITY_KINDS:
-            group[kind].add(str(identity.get("value")))
+            if not isinstance(value, str) or not value:
+                raise ValueError("strong source identity value must be a non-empty string")
+            group[kind].add(value)
 
     ambiguous: dict[str, dict[str, Any]] = {}
     for title, identifiers in groups.items():
@@ -150,27 +221,25 @@ def _ambiguous_title_groups(records: list[dict[str, Any]]) -> dict[str, dict[str
 
 def _canonical_family_identity(members: list[dict[str, Any]]) -> dict[str, Any]:
     identities = [row["identity"] for row in members]
-    dois = sorted({str(identity["value"]) for identity in identities if identity["kind"] == "DOI"})
+    dois = sorted({identity["value"] for identity in identities if identity["kind"] == "DOI"})
     if len(dois) == 1:
         return {"kind": "DOI", "value": dois[0]}
-    arxiv_ids = sorted({str(identity["value"]) for identity in identities if identity["kind"] == "ARXIV_WORK"})
+    arxiv_ids = sorted({identity["value"] for identity in identities if identity["kind"] == "ARXIV_WORK"})
     if len(arxiv_ids) == 1:
         return {"kind": "ARXIV_WORK", "value": arxiv_ids[0]}
     titles = sorted({title for row in members if (title := _informative_title(row.get("title")))})
     if len(titles) == 1:
         return {"kind": "NORMALIZED_TITLE", "value": titles[0]}
-    return min(identities, key=lambda row: (str(row.get("kind")), str(row.get("value"))))
+    return min(identities, key=lambda row: (row["kind"], row["value"]))
 
 
 def derive_source_families(citations: Iterable[Mapping[str, Any]]) -> dict[str, Any]:
-    rows = [dict(row) for row in citations]
+    rows = _mapping_rows(citations, "citations")
     records: list[dict[str, Any]] = []
     seen_source_ids: set[str] = set()
     duplicate_source_ids: list[str] = []
     for row in rows:
-        source_id = str(row.get("source_id") or "").strip()
-        if not source_id:
-            raise ValueError("citation source_id must be non-empty")
+        source_id = _nonempty_text(row.get("source_id"), "citation source_id")
         if source_id in seen_source_ids:
             duplicate_source_ids.append(source_id)
             continue
@@ -284,13 +353,17 @@ def bind_guard_evidence_to_families(
     families = family_receipt["families_by_source_id"]
     bound: list[dict[str, Any]] = []
     overrides: list[dict[str, str]] = []
-    for raw in guard_evidence:
-        row = dict(raw)
-        source_id = str(row.get("evidence_id") or "").strip()
+    rows = _mapping_rows(guard_evidence, "guard_evidence")
+    seen_evidence_ids: set[str] = set()
+    for row in rows:
+        source_id = _nonempty_text(row.get("evidence_id"), "guard evidence evidence_id")
+        if source_id in seen_evidence_ids:
+            raise ValueError(f"duplicate guard evidence evidence_id: {source_id}")
+        seen_evidence_ids.add(source_id)
         family = families.get(source_id)
         if family is None:
             raise ValueError(f"guard evidence source missing from citation family map: {source_id}")
-        declared = str(row.get("source_family") or "").strip()
+        declared = _nonempty_text(row.get("source_family"), "guard evidence source_family")
         derived = family["family_id"]
         row["source_family"] = derived
         row["source_family_origin"] = "DETERMINISTIC_EXECUTION_PROVENANCE_FAMILY"

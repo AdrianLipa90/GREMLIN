@@ -43,7 +43,16 @@ def _authority() -> dict[str, bool]:
 
 
 def _canonical(value: Any) -> bytes:
-    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False).encode("utf-8")
+    try:
+        return json.dumps(
+            value,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+            allow_nan=False,
+        ).encode("utf-8")
+    except (TypeError, ValueError) as exc:
+        raise ValueError("full text audit data must be finite JSON") from exc
 
 
 def _commit(domain: bytes, value: Any) -> str:
@@ -51,7 +60,7 @@ def _commit(domain: bytes, value: Any) -> str:
 
 
 def _sentences(text: str) -> list[str]:
-    compact = " ".join(str(text).replace("\x00", " ").split())
+    compact = " ".join(text.replace("\x00", " ").split())
     if not compact:
         return []
     return [row.strip() for row in _SENTENCE_SPLIT_RE.split(compact) if row.strip()]
@@ -97,7 +106,7 @@ def _contradiction_candidates(sentences: list[str]) -> list[dict[str, Any]]:
 
 def _numeric_assignments(text: str) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
-    for match in _NUMERIC_ASSIGNMENT_RE.finditer(str(text)):
+    for match in _NUMERIC_ASSIGNMENT_RE.finditer(text):
         value = float(match.group("value"))
         if not math.isfinite(value):
             continue
@@ -121,7 +130,7 @@ def _numeric_conflicts(assignments: list[dict[str, Any]]) -> list[dict[str, Any]
     for (lhs, unit), rows in grouped.items():
         if len(rows) < 2:
             continue
-        values = [float(row["value"]) for row in rows]
+        values = [row["value"] for row in rows]
         abs_nonzero = [abs(value) for value in values if value != 0.0]
         if not abs_nonzero:
             continue
@@ -142,7 +151,7 @@ def _numeric_conflicts(assignments: list[dict[str, Any]]) -> list[dict[str, Any]
                 "epistemic_status": "CANDIDATE_NOT_ESTABLISHED_ERROR",
             }
         )
-    conflicts.sort(key=lambda row: (-float(row["ratio"]), row["lhs"]))
+    conflicts.sort(key=lambda row: (-row["ratio"], row["lhs"]))
     return conflicts
 
 
@@ -191,10 +200,14 @@ def _open_claims(sentences: list[str]) -> list[dict[str, Any]]:
 
 
 def audit_full_text(text: str, *, source_id: str) -> dict[str, Any]:
-    source = str(source_id).strip()
+    if not isinstance(source_id, str):
+        raise ValueError("source_id must be a string")
+    source = source_id.strip()
     if not source:
         raise ValueError("source_id must be non-empty")
-    body = str(text or "")
+    if not isinstance(text, str):
+        raise ValueError("text must be a string")
+    body = text
     if not body.strip():
         core = {
             "schema": SCHEMA,

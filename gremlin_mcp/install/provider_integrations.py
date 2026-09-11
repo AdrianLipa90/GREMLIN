@@ -5,6 +5,7 @@ import json
 import ntpath
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 from typing import Callable, Mapping, Sequence
@@ -18,9 +19,10 @@ from .integrations import (
 from .paths import GremlinPaths
 
 
-PROVIDER_SCHEMA = "GREMLIN_MCP_PROVIDER_STATUS_V0_2"
-PROVIDER_ACTION_SCHEMA = "GREMLIN_MCP_PROVIDER_ACTION_V0_2"
+PROVIDER_SCHEMA = "GREMLIN_MCP_PROVIDER_STATUS_V0_3"
+PROVIDER_ACTION_SCHEMA = "GREMLIN_MCP_PROVIDER_ACTION_V0_3"
 SERVER_NAME = "gremlin"
+_NEGATED_LIVE_RE = re.compile(r"\b(?:not|never|no|failed|failure|error|offline|disconnected)\b")
 
 
 @dataclass(frozen=True)
@@ -129,6 +131,26 @@ def _run(command: Sequence[str], *, runner: Callable[..., subprocess.CompletedPr
         raise RuntimeError(f"provider command failed to launch: {exc}") from exc
 
 
+def _live_word_reported(text: str, word: str) -> bool:
+    """Require an explicit positive live-state line, not a substring such as 'not connected'."""
+    if not isinstance(text, str) or not isinstance(word, str):
+        raise RuntimeError("provider live-state evidence must be textual")
+    token = word.strip().casefold()
+    if not token:
+        raise RuntimeError("provider live-state token must be non-empty")
+    positive = re.compile(rf"\b{re.escape(token)}\b")
+    for raw_line in text.splitlines():
+        line = raw_line.casefold()
+        if SERVER_NAME.casefold() not in line:
+            continue
+        if not positive.search(line):
+            continue
+        if _NEGATED_LIVE_RE.search(line):
+            continue
+        return True
+    return False
+
+
 def _env_pairs(paths: GremlinPaths) -> list[str]:
     entry = gremlin_stdio_entry(paths)
     return [f"{key}={value}" for key, value in sorted(dict(entry.get("env") or {}).items())]
@@ -146,13 +168,19 @@ def _json_status(
     detected = bool(executable or config_path.exists() or config_path.parent.exists() or detected_hint)
     try:
         inspected = inspect_json_mcp(config_path, server_name=SERVER_NAME)
-        connected = bool(inspected.get("gremlin_present"))
+        registered = bool(inspected.get("gremlin_present"))
     except ValueError as exc:
         return ProviderStatus(provider_id, display_name, detected, executable, str(config_path), False,
                               "CONFIG_INVALID", "JSON_MCP", paths.platform, str(exc))
+    if registered:
+        return ProviderStatus(
+            provider_id, display_name, detected, executable, str(config_path), False,
+            "REGISTERED_UNVERIFIED", "JSON_MCP", paths.platform,
+            "GREMLIN is present in the client configuration, but this integration path does not prove a live MCP runtime.",
+        )
     return ProviderStatus(
-        provider_id, display_name, detected, executable, str(config_path), connected,
-        "CONNECTED" if connected else ("READY_TO_CONNECT" if detected else "NOT_DETECTED"),
+        provider_id, display_name, detected, executable, str(config_path), False,
+        "READY_TO_CONNECT" if detected else "NOT_DETECTED",
         "JSON_MCP", paths.platform, None,
     )
 
@@ -176,11 +204,19 @@ def _cli_status(
             registered = isinstance(transport, dict) and transport.get("type") == "stdio"
         except json.JSONDecodeError:
             registered = False
-    live = registered and (live_word is None or live_word.casefold() in text.casefold())
+    live = registered and live_word is not None and _live_word_reported(text, live_word)
+    if live:
+        status = "CONNECTED"
+        detail = None
+    elif registered:
+        status = "REGISTERED_UNVERIFIED"
+        detail = text or "Provider registration is present, but live MCP connectivity was not verified."
+    else:
+        status = "NOT_CONNECTED"
+        detail = text or None
     return ProviderStatus(
-        provider_id, display_name, True, executable, config_path, registered,
-        "CONNECTED" if live else ("REGISTERED" if registered else "NOT_CONNECTED"),
-        "NATIVE_CLI", paths.platform, None if registered else (text or None),
+        provider_id, display_name, True, executable, config_path, live,
+        status, "NATIVE_CLI", paths.platform, detail,
     )
 
 
@@ -288,6 +324,12 @@ def _provider_context(
     return exe, config
 
 
+def _require_config(provider: str, config: Path | None) -> Path:
+    if config is None:
+        raise RuntimeError(f"{provider} provider configuration path is unavailable")
+    return config
+
+
 def _json_provider_action(
     provider: str, action: str, paths: GremlinPaths, config: Path,
 ) -> ProviderAction:
@@ -297,15 +339,23 @@ def _json_provider_action(
             client_id=provider, config_path=config, entry=gremlin_stdio_entry(paths),
             backup_root=backup_root, server_name=SERVER_NAME,
         )
-        return ProviderAction(PROVIDER_ACTION_SCHEMA, provider, "CONNECTED_CONFIGURED", None, str(config), receipt.backup_path)
+        return ProviderAction(
+            PROVIDER_ACTION_SCHEMA, provider, "CONFIGURED_UNVERIFIED", None, str(config),
+            receipt.backup_path or "GREMLIN was written to the client configuration; live MCP connectivity is not verified by this path.",
+        )
     if action == "disconnect":
         receipt = remove_json_mcp(
             client_id=provider, config_path=config, backup_root=backup_root, server_name=SERVER_NAME,
         )
         return ProviderAction(PROVIDER_ACTION_SCHEMA, provider, "DISCONNECTED", None, str(config), receipt.backup_path)
     inspected = inspect_json_mcp(config, server_name=SERVER_NAME)
-    ok = bool(inspected.get("gremlin_present"))
-    return ProviderAction(PROVIDER_ACTION_SCHEMA, provider, "PASS" if ok else "NOT_CONNECTED", None, str(config), None)
+    registered = bool(inspected.get("gremlin_present"))
+    return ProviderAction(
+        PROVIDER_ACTION_SCHEMA, provider,
+        "REGISTERED_UNVERIFIED" if registered else "NOT_CONNECTED",
+        None, str(config),
+        "GREMLIN is present in the client configuration, but a live MCP runtime was not verified." if registered else None,
+    )
 
 
 def connect_provider(
@@ -317,8 +367,7 @@ def connect_provider(
     provider = provider_id.strip().casefold()
     executable, config = _provider_context(provider, paths, env=environ, which=which)
     if provider in {"cursor", "windsurf", "claude-desktop"}:
-        assert config is not None
-        return _json_provider_action(provider, "connect", paths, config)
+        return _json_provider_action(provider, "connect", paths, _require_config(provider, config))
     if executable is None:
         raise RuntimeError(f"{provider} client executable is not available on PATH or a known install location")
 
@@ -353,8 +402,9 @@ def connect_provider(
     if result.returncode != 0:
         raise RuntimeError((result.stderr or result.stdout).strip() or f"{provider} MCP registration failed")
     config_label = str(config) if config is not None else _vscode_config_label(environ)
-    status = "REGISTERED_RESTART_REQUIRED" if provider == "vscode" else "CONNECTED_CONFIGURED"
-    return ProviderAction(PROVIDER_ACTION_SCHEMA, provider, status, executable, config_label, (result.stdout or result.stderr).strip() or None)
+    status = "REGISTERED_RESTART_REQUIRED" if provider == "vscode" else "REGISTERED_UNVERIFIED"
+    detail = (result.stdout or result.stderr).strip() or "Provider registration command succeeded; live MCP connectivity has not been verified."
+    return ProviderAction(PROVIDER_ACTION_SCHEMA, provider, status, executable, config_label, detail)
 
 
 def disconnect_provider(
@@ -366,8 +416,7 @@ def disconnect_provider(
     provider = provider_id.strip().casefold()
     executable, config = _provider_context(provider, paths, env=environ, which=which)
     if provider in {"cursor", "windsurf", "claude-desktop"}:
-        assert config is not None
-        return _json_provider_action(provider, "disconnect", paths, config)
+        return _json_provider_action(provider, "disconnect", paths, _require_config(provider, config))
     if executable is None:
         raise RuntimeError(f"{provider} client executable is not available")
     if provider == "codex":
@@ -399,8 +448,7 @@ def test_provider(
     provider = provider_id.strip().casefold()
     executable, config = _provider_context(provider, paths, env=environ, which=which)
     if provider in {"cursor", "windsurf", "claude-desktop"}:
-        assert config is not None
-        return _json_provider_action(provider, "test", paths, config)
+        return _json_provider_action(provider, "test", paths, _require_config(provider, config))
     if executable is None:
         raise RuntimeError(f"{provider} client executable is not available")
     if provider == "codex":
@@ -410,10 +458,15 @@ def test_provider(
         try:
             payload = json.loads(result.stdout)
             transport = payload.get("transport") if isinstance(payload, dict) else None
-            ok = isinstance(transport, dict) and transport.get("type") == "stdio"
+            registered = isinstance(transport, dict) and transport.get("type") == "stdio"
         except json.JSONDecodeError:
-            ok = False
-        return ProviderAction(PROVIDER_ACTION_SCHEMA, provider, "PASS" if ok else "REGISTERED_UNVERIFIED", executable, str(config), None)
+            registered = False
+        return ProviderAction(
+            PROVIDER_ACTION_SCHEMA, provider,
+            "REGISTERED_UNVERIFIED" if registered else "NOT_CONNECTED",
+            executable, str(config),
+            "Codex reports a stdio registration, but this command does not prove a live GREMLIN MCP runtime." if registered else None,
+        )
     if provider == "claude-code":
         result = _run([executable, "mcp", "get", SERVER_NAME], runner=runner)
     elif provider in {"opencode", "gemini"}:
@@ -424,8 +477,17 @@ def test_provider(
         raise ValueError(f"unsupported provider action: {provider}")
     text = f"{result.stdout}\n{result.stderr}".strip()
     registered = result.returncode == 0 and SERVER_NAME.casefold() in text.casefold()
-    live = registered and (provider not in {"opencode"} or "connected" in text.casefold())
+    live = registered and provider == "opencode" and _live_word_reported(text, "connected")
+    if live:
+        status = "PASS"
+        detail = None
+    elif registered:
+        status = "REGISTERED_RUNTIME_NOT_READY" if provider == "opencode" else "REGISTERED_UNVERIFIED"
+        detail = text or "Provider registration is present, but live MCP connectivity was not verified."
+    else:
+        status = "NOT_CONNECTED"
+        detail = text or None
     return ProviderAction(
-        PROVIDER_ACTION_SCHEMA, provider, "PASS" if live else ("REGISTERED_RUNTIME_NOT_READY" if registered else "NOT_CONNECTED"),
-        executable, str(config), None if live else (text or None),
+        PROVIDER_ACTION_SCHEMA, provider, status,
+        executable, str(config), detail,
     )

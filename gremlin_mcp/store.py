@@ -9,7 +9,15 @@ from typing import Any, Mapping
 STORE_SCHEMA = "GREMLIN_MCP_SQLITE_WAL_V0_3"
 
 
+def _strict_key(value: Any, field: str) -> str:
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"{field} must be a non-empty string")
+    return value
+
+
 def _json(value: Mapping[str, Any]) -> str:
+    if not isinstance(value, Mapping):
+        raise ValueError("worker store value must be an object")
     return json.dumps(
         dict(value),
         sort_keys=True,
@@ -38,35 +46,56 @@ class SQLiteWorkerStore:
             isolation_level=None,
             check_same_thread=False,
         )
-        with self._lock:
-            self._connection.execute("PRAGMA journal_mode=WAL")
-            self._connection.execute("PRAGMA synchronous=FULL")
-            self._connection.execute("PRAGMA foreign_keys=ON")
-            self._connection.executescript(
-                """
-                CREATE TABLE IF NOT EXISTS meta (
-                    key TEXT PRIMARY KEY,
-                    value TEXT NOT NULL
-                );
-                CREATE TABLE IF NOT EXISTS workers (
-                    worker_id TEXT PRIMARY KEY,
-                    data_json TEXT NOT NULL
-                );
-                CREATE TABLE IF NOT EXISTS tasks (
-                    task_id TEXT PRIMARY KEY,
-                    data_json TEXT NOT NULL
-                );
-                CREATE TABLE IF NOT EXISTS leases (
-                    lease_id TEXT PRIMARY KEY,
-                    data_json TEXT NOT NULL
-                );
-                """
-            )
-            self._connection.execute(
-                "INSERT INTO meta(key, value) VALUES('schema', ?) "
-                "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
-                (STORE_SCHEMA,),
-            )
+        try:
+            with self._lock:
+                self._connection.execute("PRAGMA journal_mode=WAL")
+                self._connection.execute("PRAGMA synchronous=FULL")
+                self._connection.execute("PRAGMA foreign_keys=ON")
+                self._connection.executescript(
+                    """
+                    CREATE TABLE IF NOT EXISTS meta (
+                        key TEXT PRIMARY KEY,
+                        value TEXT NOT NULL
+                    );
+                    CREATE TABLE IF NOT EXISTS workers (
+                        worker_id TEXT PRIMARY KEY,
+                        data_json TEXT NOT NULL
+                    );
+                    CREATE TABLE IF NOT EXISTS tasks (
+                        task_id TEXT PRIMARY KEY,
+                        data_json TEXT NOT NULL
+                    );
+                    CREATE TABLE IF NOT EXISTS leases (
+                        lease_id TEXT PRIMARY KEY,
+                        data_json TEXT NOT NULL
+                    );
+                    """
+                )
+                schema_row = self._connection.execute(
+                    "SELECT value FROM meta WHERE key = 'schema'"
+                ).fetchone()
+                if schema_row is None:
+                    persisted_rows = sum(
+                        int(self._connection.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0])
+                        for table in ("workers", "tasks", "leases")
+                    )
+                    if persisted_rows:
+                        raise RuntimeError(
+                            "GREMLIN worker store contains persisted state without schema metadata"
+                        )
+                    self._connection.execute(
+                        "INSERT INTO meta(key, value) VALUES('schema', ?)",
+                        (STORE_SCHEMA,),
+                    )
+                else:
+                    schema = schema_row[0]
+                    if not isinstance(schema, str) or schema != STORE_SCHEMA:
+                        raise RuntimeError(
+                            f"incompatible GREMLIN worker store schema: {schema!r}; expected {STORE_SCHEMA}"
+                        )
+        except Exception:
+            self._connection.close()
+            raise
 
     def close(self) -> None:
         with self._lock:
@@ -75,13 +104,15 @@ class SQLiteWorkerStore:
     def _upsert(self, table: str, key_name: str, key: str, value: Mapping[str, Any]) -> None:
         if table not in {"workers", "tasks", "leases"}:
             raise ValueError("unsupported store table")
+        safe_key = _strict_key(key, key_name)
+        payload = _json(value)
         with self._lock:
             self._connection.execute("BEGIN IMMEDIATE")
             try:
                 self._connection.execute(
                     f"INSERT INTO {table}({key_name}, data_json) VALUES(?, ?) "
                     f"ON CONFLICT({key_name}) DO UPDATE SET data_json=excluded.data_json",
-                    (str(key), _json(value)),
+                    (safe_key, payload),
                 )
                 self._connection.execute("COMMIT")
             except Exception:
@@ -98,8 +129,9 @@ class SQLiteWorkerStore:
         self._upsert("leases", "lease_id", lease_id, value)
 
     def delete_lease(self, lease_id: str) -> None:
+        safe_lease_id = _strict_key(lease_id, "lease_id")
         with self._lock:
-            self._connection.execute("DELETE FROM leases WHERE lease_id = ?", (str(lease_id),))
+            self._connection.execute("DELETE FROM leases WHERE lease_id = ?", (safe_lease_id,))
 
     def _load_table(self, table: str, key_name: str) -> dict[str, dict[str, Any]]:
         if table not in {"workers", "tasks", "leases"}:
@@ -110,13 +142,22 @@ class SQLiteWorkerStore:
             ).fetchall()
         out: dict[str, dict[str, Any]] = {}
         for key, payload in rows:
+            safe_key = _strict_key(key, key_name)
+            if not isinstance(payload, str):
+                raise RuntimeError("corrupt GREMLIN worker store JSON payload type")
             value = json.loads(payload)
             if not isinstance(value, dict):
                 raise RuntimeError("corrupt GREMLIN worker store row")
-            out[str(key)] = value
+            out[safe_key] = value
         return out
 
     def load(self) -> dict[str, dict[str, dict[str, Any]]]:
+        with self._lock:
+            schema_row = self._connection.execute(
+                "SELECT value FROM meta WHERE key = 'schema'"
+            ).fetchone()
+        if schema_row is None or schema_row[0] != STORE_SCHEMA:
+            raise RuntimeError("GREMLIN worker store schema changed after initialization")
         return {
             "workers": self._load_table("workers", "worker_id"),
             "tasks": self._load_table("tasks", "task_id"),
@@ -129,9 +170,11 @@ class SQLiteWorkerStore:
                 table: int(self._connection.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0])
                 for table in ("workers", "tasks", "leases")
             }
-            journal = str(self._connection.execute("PRAGMA journal_mode").fetchone()[0]).upper()
+            journal = self._connection.execute("PRAGMA journal_mode").fetchone()[0]
+        if not isinstance(journal, str):
+            raise RuntimeError("SQLite returned a non-text journal mode")
         return {
             "schema": STORE_SCHEMA,
-            "journal_mode": journal,
+            "journal_mode": journal.upper(),
             **counts,
         }

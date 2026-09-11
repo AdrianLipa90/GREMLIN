@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-from typing import Any, Iterable
+from typing import Any, Iterable, Mapping
 
 SCHEMA = "GREMLIN_MATH_TOKEN_NORMALIZE_V0_1"
 VERSION = "0.2.1"
@@ -17,7 +17,10 @@ def _authority() -> dict[str, bool]:
 
 
 def _canonical(value: Any) -> bytes:
-    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False).encode("utf-8")
+    try:
+        return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False).encode("utf-8")
+    except (TypeError, ValueError) as exc:
+        raise ValueError("math token normalization data must be finite JSON") from exc
 
 
 def _commit(domain: bytes, value: Any) -> str:
@@ -25,9 +28,17 @@ def _commit(domain: bytes, value: Any) -> str:
 
 
 def _basic(token: str) -> tuple[str, list[str]]:
-    text = str(token).strip()
+    if not isinstance(token, str):
+        raise ValueError("math token must be a string")
+    text = token.strip()
     transforms: list[str] = []
-    for old, new, flag in (("×", "*", "UNICODE_MULTIPLICATION_NORMALIZED"), ("·", "*", "UNICODE_MULTIPLICATION_NORMALIZED"), ("⋅", "*", "UNICODE_MULTIPLICATION_NORMALIZED"), ("−", "-", "UNICODE_MINUS_NORMALIZED"), ("–", "-", "UNICODE_MINUS_NORMALIZED")):
+    for old, new, flag in (
+        ("×", "*", "UNICODE_MULTIPLICATION_NORMALIZED"),
+        ("·", "*", "UNICODE_MULTIPLICATION_NORMALIZED"),
+        ("⋅", "*", "UNICODE_MULTIPLICATION_NORMALIZED"),
+        ("−", "-", "UNICODE_MINUS_NORMALIZED"),
+        ("–", "-", "UNICODE_MINUS_NORMALIZED"),
+    ):
         if old in text:
             text = text.replace(old, new)
             transforms.append(flag)
@@ -38,7 +49,15 @@ def _basic(token: str) -> tuple[str, list[str]]:
 
 
 def normalize_math_tokens(tokens: Iterable[str]) -> dict[str, Any]:
-    raw = [str(value).strip() for value in tokens if str(value).strip()]
+    if isinstance(tokens, (str, bytes, Mapping)):
+        raise ValueError("tokens must be an iterable of strings")
+    try:
+        values = list(tokens)
+    except TypeError as exc:
+        raise ValueError("tokens must be an iterable of strings") from exc
+    if any(not isinstance(value, str) for value in values):
+        raise ValueError("tokens must contain only strings")
+    raw = [value.strip() for value in values if value.strip()]
     basic: list[str] = []
     transforms: list[str] = []
     for token in raw:
@@ -75,7 +94,10 @@ def normalize_math_tokens(tokens: Iterable[str]) -> dict[str, Any]:
         index += 1
 
     core = {
-        "schema": SCHEMA, "version": VERSION, "input_tokens": raw, "tokens": stitched,
+        "schema": SCHEMA,
+        "version": VERSION,
+        "input_tokens": raw,
+        "tokens": stitched,
         "transforms": sorted(set(transforms)),
         "scope_boundary": [
             "ONLY_EXPLICIT_UNICODE_OPERATOR_NORMALIZATION",
@@ -83,7 +105,10 @@ def normalize_math_tokens(tokens: Iterable[str]) -> dict[str, Any]:
             "DECIMAL_STITCH_REQUIRES_ADJACENT_DIGIT_DOT_DIGIT_TOKENS",
             "LEADING_DOT_DECIMAL_STITCH_REQUIRES_STREAM_START_OR_OPENING_DELIMITER",
             "ONE_OPENING_BRACKET_MAY_SHARE_THE_FIRST_INTEGER_FRAGMENT",
-            "NO_COMPACT_SYMBOL_STRING_SPLITTING", "UNITS_ARE_PRESERVED", "NO_SEMANTIC_GUESSING", "NO_AUTOMATIC_CANON_PROMOTION",
+            "NO_COMPACT_SYMBOL_STRING_SPLITTING",
+            "UNITS_ARE_PRESERVED",
+            "NO_SEMANTIC_GUESSING",
+            "NO_AUTOMATIC_CANON_PROMOTION",
         ],
         "authority": _authority(),
     }

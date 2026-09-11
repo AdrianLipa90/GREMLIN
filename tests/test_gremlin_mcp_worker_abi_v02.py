@@ -109,6 +109,44 @@ def test_task_id_is_idempotent_only_for_identical_content() -> None:
         broker.enqueue("HOUND", {"x": 2}, task_id="same")
 
 
+def test_worker_abi_rejects_type_coercions() -> None:
+    with pytest.raises(ValueError, match="lease_seconds must be an integer"):
+        WorkerBroker(lease_seconds="30")  # type: ignore[arg-type]
+
+    broker = WorkerBroker()
+    with pytest.raises(ValueError, match="worker_id must be a string"):
+        broker.register_worker(123, ["OWL"])  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="species must be an iterable"):
+        broker.register_worker("worker", "OWL")
+    with pytest.raises(ValueError, match="vector_width must be an integer"):
+        broker.register_worker("worker", ["OWL"], vector_width=8.0)  # type: ignore[arg-type]
+
+    broker.register_worker("worker", ["OWL"])
+    broker.enqueue("OWL", {"x": 1}, task_id="strict-task")
+    with pytest.raises(ValueError, match="limit must be an integer"):
+        broker.claim("worker", limit=1.9)  # type: ignore[arg-type]
+
+
+def test_worker_submit_rejects_numeric_task_id_instead_of_stringifying() -> None:
+    broker = WorkerBroker()
+    broker.register_worker("owl", ["OWL"])
+    broker.enqueue("OWL", {"x": 1}, task_id="1")
+    lease = broker.claim("owl", limit=1)
+    with pytest.raises(ValueError, match="task_id must be a string"):
+        broker.submit("owl", lease["lease_id"], [{"task_id": 1, "output": {}}])
+
+
+def test_expired_lease_lineage_corruption_is_not_silently_skipped() -> None:
+    broker = WorkerBroker()
+    broker.register_worker("owl", ["OWL"])
+    broker.enqueue("OWL", {"x": 1}, task_id="lease-task")
+    lease = broker.claim("owl", limit=1, lease_seconds=1)
+    broker._tasks["lease-task"].lease_id = "wrong-lineage"
+    with pytest.raises(RuntimeError, match="lineage is inconsistent"):
+        broker._reap_expired(lease["expires_ns"] + 1)
+    assert lease["lease_id"] in broker._leases
+
+
 def test_mcp_discovery_contains_worker_abi_tools() -> None:
     from mcp import Client
     from gremlin_mcp.server import mcp

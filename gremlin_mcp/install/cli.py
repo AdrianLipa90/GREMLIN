@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
 import sys
 from typing import Any, Sequence
@@ -67,12 +68,36 @@ def _init(args: argparse.Namespace) -> int:
     paths = resolve_paths(platform=args.platform)
     for directory in (paths.config_dir, paths.state_dir, paths.cache_dir, paths.data_dir, paths.logs_dir, paths.diagnostics_dir):
         Path(directory).mkdir(parents=True, exist_ok=True)
+
     config_path = Path(paths.config_file)
     created = False
-    if not config_path.exists():
-        config_path.write_text(DEFAULT_CONFIG_TEXT, encoding="utf-8")
+    try:
+        with config_path.open("x", encoding="utf-8") as handle:
+            handle.write(DEFAULT_CONFIG_TEXT)
+            handle.flush()
+            os.fsync(handle.fileno())
         created = True
-    _emit({"schema": "GREMLIN_INSTALL_INIT_V0_1", "status": "READY", "config_created": created, "paths": paths.as_dict()}, as_json=args.json)
+    except FileExistsError:
+        pass
+
+    if not config_path.is_file():
+        raise RuntimeError(f"GREMLIN config path exists but is not a regular file: {config_path}")
+
+    # `init` is allowed to report READY only after the bytes that now exist on
+    # disk pass the same effective-config validator used by normal runtime paths.
+    load_effective_config(
+        user_config_path=config_path,
+        machine_policy_path=paths.machine_policy_file,
+    )
+    _emit(
+        {
+            "schema": "GREMLIN_INSTALL_INIT_V0_1",
+            "status": "READY",
+            "config_created": created,
+            "paths": paths.as_dict(),
+        },
+        as_json=args.json,
+    )
     return 0
 
 
@@ -114,13 +139,26 @@ def _profile_import(args: argparse.Namespace) -> int:
 def _device_status(args: argparse.Namespace) -> int:
     paths = resolve_paths(platform=args.platform)
     store_state = secret_store_status(paths)
-    if not bool(store_state.get("available")):
-        payload = {"schema": "GREMLIN_DEVICE_STATUS_V0_1", "status": "SECRET_STORE_UNAVAILABLE", "secret_store": store_state, "identity": None}
+    available = store_state.get("available")
+    if not isinstance(available, bool):
+        raise RuntimeError("secret-store availability status must be boolean")
+    if not available:
+        payload = {
+            "schema": "GREMLIN_DEVICE_STATUS_V0_1",
+            "status": "SECRET_STORE_UNAVAILABLE",
+            "secret_store": store_state,
+            "identity": None,
+        }
     else:
         store = resolve_secret_store(paths)
-        payload = {"schema": "GREMLIN_DEVICE_STATUS_V0_1", "status": "READY", "secret_store": store_state, "identity": device_identity_status(store)}
+        payload = {
+            "schema": "GREMLIN_DEVICE_STATUS_V0_1",
+            "status": "READY",
+            "secret_store": store_state,
+            "identity": device_identity_status(store),
+        }
     _emit(payload, as_json=args.json)
-    return 0
+    return 0 if payload["status"] == "READY" else 1
 
 
 def _device_init(args: argparse.Namespace) -> int:
@@ -165,12 +203,20 @@ def _provider_action(args: argparse.Namespace) -> int:
     paths = resolve_paths(platform=args.platform)
     if args.provider_action == "connect":
         result = connect_provider(args.provider, paths)
+        success = result.status in {
+            "CONNECTED_CONFIGURED",
+            "CONFIGURED_UNVERIFIED",
+            "REGISTERED_UNVERIFIED",
+            "REGISTERED_RESTART_REQUIRED",
+        }
     elif args.provider_action == "disconnect":
         result = disconnect_provider(args.provider, paths)
+        success = result.status == "DISCONNECTED"
     else:
         result = test_provider(args.provider, paths)
+        success = result.status == "PASS"
     _emit(result.as_dict(), as_json=args.json)
-    return 0 if result.status not in {"NOT_CONNECTED"} else 1
+    return 0 if success else 1
 
 
 def _integration_common(parser: argparse.ArgumentParser) -> None:

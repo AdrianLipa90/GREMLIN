@@ -89,13 +89,18 @@ class ClosureGates:
     provenance_complete: bool = False
     phase_coherent: bool = False
 
+    def __post_init__(self) -> None:
+        for name in LOCK_GATES:
+            if type(getattr(self, name)) is not bool:
+                raise TypeError(f"{name} must be boolean")
+
     @property
     def closed(self) -> bool:
-        return all(bool(getattr(self, name)) for name in LOCK_GATES)
+        return all(getattr(self, name) for name in LOCK_GATES)
 
     @property
     def missing(self) -> tuple[str, ...]:
-        return tuple(name for name in LOCK_GATES if not bool(getattr(self, name)))
+        return tuple(name for name in LOCK_GATES if not getattr(self, name))
 
 
 @dataclass(frozen=True)
@@ -209,7 +214,7 @@ class OrbitalHiveMemory:
             ),
             semantic_key=str(data["semantic_key"]),
             state=str(data["state"]),
-            gates=ClosureGates(**{name: bool(gates_raw[name]) for name in LOCK_GATES}),
+            gates=ClosureGates(**{name: gates_raw[name] for name in LOCK_GATES}),
             provenance=tuple(data.get("provenance", ())),
             dependencies=tuple(data.get("dependencies", ())),
             contradictions=tuple(data.get("contradictions", ())),
@@ -242,10 +247,13 @@ class OrbitalHiveMemory:
         unknown = set(changes) - set(LOCK_GATES)
         if unknown:
             raise KeyError(f"unknown closure gates: {sorted(unknown)}")
+        for name, value in changes.items():
+            if type(value) is not bool:
+                raise TypeError(f"{name} must be boolean")
         current = self.head(subject_id)
         if current.state in {"LOCKED", "DISPUTED", "QUARANTINED"}:
             raise RuntimeError("locked/disputed/quarantined records cannot be gate-mutated; place an explicit reconciled child")
-        g = replace(current.gates, **{k: bool(v) for k, v in changes.items()})
+        g = replace(current.gates, **changes)
         return self.place(
             subject_id=current.subject_id,
             payload=current.payload,

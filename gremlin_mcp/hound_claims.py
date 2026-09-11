@@ -12,13 +12,16 @@ VERSION = "0.1.0"
 
 
 def _canonical(value: Any) -> bytes:
-    return json.dumps(
-        value,
-        sort_keys=True,
-        separators=(",", ":"),
-        ensure_ascii=False,
-        allow_nan=False,
-    ).encode("utf-8")
+    try:
+        return json.dumps(
+            value,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+            allow_nan=False,
+        ).encode("utf-8")
+    except (TypeError, ValueError) as exc:
+        raise ValueError("HOUND claim audit data must be finite JSON") from exc
 
 
 def _commit(domain: bytes, value: Any) -> str:
@@ -33,18 +36,47 @@ def _authority() -> dict[str, bool]:
     }
 
 
+def _mapping_rows(values: Iterable[Mapping[str, Any]], field: str) -> list[dict[str, Any]]:
+    if isinstance(values, (str, bytes, Mapping)):
+        raise ValueError(f"{field} must be an iterable of objects")
+    try:
+        raw = list(values)
+    except TypeError as exc:
+        raise ValueError(f"{field} must be an iterable of objects") from exc
+    if any(not isinstance(row, Mapping) for row in raw):
+        raise ValueError(f"{field} must contain only objects")
+    return [dict(row) for row in raw]
+
+
+def _invalid_set(error: str, *, frame_count: int = 0) -> dict[str, Any]:
+    core = {
+        "status": "INVALID_PROPOSITION_SET_FAIL_CLOSED",
+        "invalid": [{"index": -1, "errors": [error]}],
+        "frame_count": frame_count,
+        "cross_family_conflict_candidate_count": 0,
+        "intra_family_conflict_candidate_count": 0,
+        "conflict_candidates": [],
+        "authority": _authority(),
+    }
+    return {
+        "schema": SCHEMA,
+        "version": VERSION,
+        **core,
+        "hound_claim_audit_commitment": _commit(b"GREMLIN-HOUND-CLAIM-AUDIT/v0.1", core),
+    }
+
+
 def hound_claim_audit(
     propositions: Iterable[Mapping[str, Any]],
     *,
     citations: Iterable[Mapping[str, Any]],
 ) -> dict[str, Any]:
-    """Audit exact proposition conflicts against canonical source-family provenance.
+    """Audit exact proposition conflicts against canonical source-family provenance."""
+    try:
+        frames = _mapping_rows(propositions, "propositions")
+    except ValueError as exc:
+        return _invalid_set(str(exc))
 
-    This function identifies candidate logical conflicts. It never resolves which proposition is
-    true, never treats source-family separation as proof of independence, and never promotes a
-    candidate to canon or execution authority.
-    """
-    frames = [dict(row) for row in propositions]
     validations = [verify_proposition(row) for row in frames]
     invalid = [
         {"index": index, "errors": validation["errors"]}
@@ -68,13 +100,34 @@ def hound_claim_audit(
             "hound_claim_audit_commitment": _commit(b"GREMLIN-HOUND-CLAIM-AUDIT/v0.1", core),
         }
 
-    family_receipt = derive_source_families(citations)
+    try:
+        citation_rows = _mapping_rows(citations, "citations")
+        family_receipt = derive_source_families(citation_rows)
+    except ValueError as exc:
+        core = {
+            "status": "PROPOSITION_SOURCE_FAMILY_BINDING_FAILED",
+            "missing_source_ids": [],
+            "family_errors": [str(exc)],
+            "frame_count": len(frames),
+            "family_set_commitment": None,
+            "cross_family_conflict_candidate_count": 0,
+            "intra_family_conflict_candidate_count": 0,
+            "conflict_candidates": [],
+            "authority": _authority(),
+        }
+        return {
+            "schema": SCHEMA,
+            "version": VERSION,
+            **core,
+            "hound_claim_audit_commitment": _commit(b"GREMLIN-HOUND-CLAIM-AUDIT/v0.1", core),
+        }
+
     families = family_receipt["families_by_source_id"]
     missing_sources = sorted(
         {
-            str(frame.get("source_id") or "").strip()
+            frame["source_id"].strip()
             for frame in frames
-            if str(frame.get("source_id") or "").strip() not in families
+            if frame["source_id"].strip() not in families
         }
     )
     if missing_sources:

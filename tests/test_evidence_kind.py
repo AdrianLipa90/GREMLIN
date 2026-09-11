@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pytest
+
 from gremlin_mcp.evidence_kind import (
     CLAIM_MODE_UNKNOWN_FAIL_CLOSED,
     EMPIRICAL,
@@ -151,3 +153,90 @@ def test_mixed_stance_defers_to_hound_before_kind_policy():
     assert policy["conflict_present"] is True
     assert policy["policy_satisfied"] is None
     assert "DEFER_TO_HOUND" in policy["state"]
+
+
+def test_evidence_kind_does_not_coerce_non_string_values():
+    with pytest.raises(ValueError, match="evidence kind must be a string"):
+        normalize_evidence_kind(1)  # type: ignore[arg-type]
+
+
+def test_assignment_builder_rejects_numeric_provenance_identifiers():
+    receipt = _receipt("src-a")
+    with pytest.raises(ValueError, match="producer_id must be a string"):
+        build_evidence_kind_assignment(
+            source_receipt=receipt,
+            evidence_kind=PRIMARY_EXPERIMENT,
+            producer_id=123,  # type: ignore[arg-type]
+            producer_version="0.1.0",
+            mode="FIXTURE_ONLY_EXPLICIT_KIND_ASSIGNMENT",
+        )
+
+
+def test_assignment_verifier_rejects_unknown_unsigned_fields():
+    receipt = _receipt("src-a")
+    assignment = _assignment(receipt, PRIMARY_EXPERIMENT)
+    assignment["execution_admitted"] = True
+    validation = verify_evidence_kind_assignment(assignment, source_receipts=[receipt])
+    assert validation["valid"] is False
+    assert "INVALID_EVIDENCE_KIND_ASSIGNMENT_FIELD" in validation["errors"]
+
+
+def test_assignment_verifier_requires_exact_false_boolean_authority():
+    receipt = _receipt("src-a")
+    assignment = _assignment(receipt, PRIMARY_EXPERIMENT)
+    assignment["authority"] = {
+        "production_runtime_write": 0,
+        "execution_admitted": False,
+        "canon_allowed": False,
+    }
+    validation = verify_evidence_kind_assignment(assignment, source_receipts=[receipt])
+    assert validation["valid"] is False
+    assert "INVALID_AUTHORITY_ENVELOPE" in validation["errors"]
+
+
+def test_assignment_verifier_rejects_schema_or_policy_label_tamper():
+    receipt = _receipt("src-a")
+    assignment = _assignment(receipt, PRIMARY_EXPERIMENT)
+    assignment["schema"] = "OTHER"
+    assignment["kind_authority"] = "TRUTH"
+    validation = verify_evidence_kind_assignment(assignment, source_receipts=[receipt])
+    assert validation["valid"] is False
+    assert "ASSIGNMENT_SCHEMA_MISMATCH" in validation["errors"]
+    assert "KIND_AUTHORITY_MISMATCH" in validation["errors"]
+
+
+def test_minimum_direct_family_threshold_rejects_bool_and_fractional_values():
+    receipt = _receipt("a")
+    assignment = _assignment(receipt, PRIMARY_EXPERIMENT)
+    guard = [_guard("a", "fam-a")]
+    with pytest.raises(ValueError, match="must be an integer"):
+        assess_evidence_kind_policy(
+            guard,
+            assignments=[assignment],
+            claim_mode=EMPIRICAL,
+            min_direct_families=True,  # type: ignore[arg-type]
+        )
+    with pytest.raises(ValueError, match="must be an integer"):
+        assess_evidence_kind_policy(
+            guard,
+            assignments=[assignment],
+            claim_mode=EMPIRICAL,
+            min_direct_families=1.9,  # type: ignore[arg-type]
+        )
+
+
+def test_policy_rejects_non_string_and_unknown_guard_stances():
+    receipt = _receipt("a")
+    assignment = _assignment(receipt, PRIMARY_EXPERIMENT)
+    with pytest.raises(ValueError, match="stance must be a string"):
+        assess_evidence_kind_policy(
+            [_guard("a", "fam-a", stance=1)],  # type: ignore[arg-type]
+            assignments=[assignment],
+            claim_mode=EMPIRICAL,
+        )
+    with pytest.raises(ValueError, match="unsupported guard evidence stance"):
+        assess_evidence_kind_policy(
+            [_guard("a", "fam-a", stance="MAYBE")],
+            assignments=[assignment],
+            claim_mode=EMPIRICAL,
+        )

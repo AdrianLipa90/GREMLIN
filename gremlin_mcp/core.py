@@ -31,66 +31,51 @@ BESTIARY_ROLES: dict[str, dict[str, str]] = {
 TOPOLOGY = ("RAW", "HUMMINGBIRD", "OCTOPUS", "SPECIALISTS", "BELZEBUB", "GREMLIN")
 
 MCP_TOOLS = [
-    "gremlin_status",
-    "gremlin_bestiary",
-    "gremlin_species",
-    "gremlin_plan",
-    "gremlin_route",
-    "gremlin_web_fetch",
-    "gremlin_web_search",
-    "gremlin_research",
-    "gremlin_research_execute",
-    "gremlin_auto_fanout",
-    "gremlin_fanout",
-    "gremlin_collect",
-    "gremlin_synthesize",
-    "gremlin_prototype",
-    "gremlin_worker_register",
-    "gremlin_worker_heartbeat",
-    "gremlin_worker_list",
-    "gremlin_worker_enqueue",
-    "gremlin_worker_claim",
-    "gremlin_worker_submit",
-    "gremlin_worker_result",
-    "gremlin_worker_queue",
+    "gremlin_status", "gremlin_bestiary", "gremlin_species", "gremlin_plan", "gremlin_route",
+    "gremlin_web_fetch", "gremlin_web_search", "gremlin_research", "gremlin_research_execute",
+    "gremlin_auto_fanout", "gremlin_fanout", "gremlin_collect", "gremlin_synthesize", "gremlin_prototype",
+    "gremlin_worker_register", "gremlin_worker_heartbeat", "gremlin_worker_list", "gremlin_worker_enqueue",
+    "gremlin_worker_claim", "gremlin_worker_submit", "gremlin_worker_result", "gremlin_worker_queue",
 ]
 
 
+def _strict_text(value: Any, field: str) -> str:
+    if not isinstance(value, str):
+        raise ValueError(f"{field} must be a string")
+    text = value.strip()
+    if not text:
+        raise ValueError(f"{field} must be non-empty")
+    return text
+
+
+def _strict_int(value: Any, field: str, *, minimum: int) -> int:
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ValueError(f"{field} must be an integer")
+    if value < minimum:
+        raise ValueError(f"{field} must be >= {minimum}")
+    return value
+
+
 def authority_state() -> dict[str, bool]:
-    return {
-        "production_runtime_write": False,
-        "execution_admitted": False,
-        "canon_allowed": False,
-    }
+    return {"production_runtime_write": False, "execution_admitted": False, "canon_allowed": False}
 
 
 def status() -> dict[str, Any]:
     return {
-        "schema": SCHEMA,
-        "version": VERSION,
-        "mode": "STANDALONE_REFERENCE_MCP",
-        "standalone": True,
-        "noema_required": False,
-        "phasenav_native_authority_required": False,
+        "schema": SCHEMA, "version": VERSION, "mode": "STANDALONE_REFERENCE_MCP", "standalone": True,
+        "noema_required": False, "phasenav_native_authority_required": False,
         "transport_capabilities": ["stdio", "streamable-http"],
         "octopus_router": {
-            "version": "0.5.0",
-            "mode": "DETERMINISTIC_AUDITABLE_SEMANTIC_ROUTER",
-            "opaque_model_dependency": False,
-            "route_commitment": "BLAKE2B_256",
+            "version": "0.5.0", "mode": "DETERMINISTIC_AUDITABLE_SEMANTIC_ROUTER",
+            "opaque_model_dependency": False, "route_commitment": "BLAKE2B_256",
             "no_evidence_policy": "NO_CONFIDENT_ROUTE_NOT_QUEUED",
         },
         "worker_abi": {
-            "version": "0.2.0",
-            "model": "PULL_LEASE_SUBMIT",
-            "callback_networking": False,
-            "same_species_batches": True,
-            "orbit_lane_bounded": True,
+            "version": "0.2.0", "model": "PULL_LEASE_SUBMIT", "callback_networking": False,
+            "same_species_batches": True, "orbit_lane_bounded": True,
             "state_persistence": "PROCESS_MEMORY_OR_SQLITE_WAL",
         },
-        "tools": list(MCP_TOOLS),
-        "topology": list(TOPOLOGY),
-        "authority": authority_state(),
+        "tools": list(MCP_TOOLS), "topology": list(TOPOLOGY), "authority": authority_state(),
     }
 
 
@@ -101,39 +86,26 @@ def bestiary_manifest() -> dict[str, Any]:
         if name in PROFILES:
             profile = PROFILES[name]
             entry["scheduler_profile"] = {
-                "mass": profile.mass,
-                "radius": profile.radius,
-                "omega": service_omega(profile),
-                "period": service_period(profile),
+                "mass": profile.mass, "radius": profile.radius,
+                "omega": service_omega(profile), "period": service_period(profile),
             }
         entries.append(entry)
-    return {
-        "schema": SCHEMA,
-        "topology": list(TOPOLOGY),
-        "species": entries,
-        "authority": authority_state(),
-    }
+    return {"schema": SCHEMA, "topology": list(TOPOLOGY), "species": entries, "authority": authority_state()}
 
 
 def species_profile(species: str) -> dict[str, Any]:
-    name = str(species).strip().upper()
+    name = _strict_text(species, "species").upper()
     if name not in BESTIARY_ROLES:
         raise ValueError(f"unknown GREMLIN species: {species!r}")
     meta = BESTIARY_ROLES[name]
     result: dict[str, Any] = {
-        "schema": SCHEMA,
-        "name": name,
-        **meta,
-        "scheduler_profile": None,
-        "authority": authority_state(),
+        "schema": SCHEMA, "name": name, **meta, "scheduler_profile": None, "authority": authority_state(),
     }
     if name in PROFILES:
         profile = PROFILES[name]
         result["scheduler_profile"] = {
-            "mass": profile.mass,
-            "radius": profile.radius,
-            "omega": service_omega(profile),
-            "period": service_period(profile),
+            "mass": profile.mass, "radius": profile.radius,
+            "omega": service_omega(profile), "period": service_period(profile),
         }
     return result
 
@@ -143,26 +115,18 @@ def plan_bestiary(route_counts: Mapping[str, int], *, vector_width: int = 8) -> 
         raise ValueError("route_counts must be a non-empty mapping")
     normalized: dict[str, int] = {}
     for raw_name, raw_count in route_counts.items():
-        name = str(raw_name).strip().upper()
+        name = _strict_text(raw_name, "route_counts species").upper()
         if name not in PROFILES:
             raise ValueError(f"species has no scheduler profile: {raw_name!r}")
-        count = int(raw_count)
-        if count < 0:
-            raise ValueError("route counts must be non-negative")
+        count = _strict_int(raw_count, f"route count for {name}", minimum=0)
         normalized[name] = normalized.get(name, 0) + count
 
-    width = int(vector_width)
-    if width <= 0:
-        raise ValueError("vector_width must be positive")
-
+    width = _strict_int(vector_width, "vector_width", minimum=1)
     plan = build_species_plan(normalized, vector_width=width)
     validate_plan(plan)
     return {
-        "schema": SCHEMA,
-        "route_counts": normalized,
-        "vector_width": width,
-        "dispatch_compression": dispatch_compression(plan),
-        "plan": [asdict(item) for item in plan],
+        "schema": SCHEMA, "route_counts": normalized, "vector_width": width,
+        "dispatch_compression": dispatch_compression(plan), "plan": [asdict(item) for item in plan],
         "authority": authority_state(),
     }
 
@@ -172,5 +136,4 @@ def run_prototype(request: Mapping[str, Any]) -> dict[str, Any]:
     if not isinstance(request, Mapping):
         raise ValueError("request must be a mapping")
     from tools.gremlin_client_protocol_v01 import run_client_request
-
     return run_client_request(request)
