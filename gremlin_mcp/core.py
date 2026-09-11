@@ -24,6 +24,7 @@ BESTIARY_ROLES: dict[str, dict[str, str]] = {
     "ANT": {"stage": "specialist", "role": "bounded combinatorial scan"},
     "MANTIS": {"stage": "specialist", "role": "duplicate and dead-branch pruning"},
     "BELZEBUB": {"stage": "synthesis", "role": "defensive candidate synthesis"},
+    "FERRET": {"stage": "actuation", "role": "explicitly authorized interactive web actuator"},
     "GREMLIN": {"stage": "aggregate", "role": "aggregate verified heads and emit research candidates"},
 }
 
