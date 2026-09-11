@@ -119,7 +119,95 @@ def test_authority_escalation_is_rejected():
     classification["authority"]["canon_allowed"] = True
     validation = verify_classification(classification, claim_id="claim-1", source_receipts=[receipt])
     assert validation["valid"] is False
-    assert "INVALID_AUTHORITY_ESCALATION" in validation["errors"]
+    assert "INVALID_AUTHORITY_ENVELOPE" in validation["errors"]
+
+
+def test_missing_or_extra_authority_fields_are_rejected():
+    receipt = _receipt("src-a")
+    missing = _classification(receipt)
+    del missing["authority"]["canon_allowed"]
+    result = verify_classification(missing, claim_id="claim-1", source_receipts=[receipt])
+    assert result["valid"] is False
+    assert "INVALID_AUTHORITY_ENVELOPE" in result["errors"]
+
+    extra = _classification(receipt)
+    extra["authority"]["unexpected"] = False
+    result = verify_classification(extra, claim_id="claim-1", source_receipts=[receipt])
+    assert result["valid"] is False
+    assert "INVALID_AUTHORITY_ENVELOPE" in result["errors"]
+
+
+def test_schema_version_and_policy_markers_are_verified():
+    receipt = _receipt("src-a")
+    for field, bad_value, expected_error in (
+        ("schema", "OTHER", "CLASSIFICATION_SCHEMA_MISMATCH"),
+        ("version", "9.9.9", "CLASSIFICATION_VERSION_MISMATCH"),
+        ("source_content_authority", "TRUSTED", "INVALID_SOURCE_CONTENT_AUTHORITY"),
+        ("confidence_authority", "DECISION_AUTHORITY", "INVALID_CONFIDENCE_AUTHORITY"),
+        ("source_family_origin", "AUTO_INFERRED", "INVALID_SOURCE_FAMILY_ORIGIN"),
+    ):
+        classification = _classification(receipt)
+        classification[field] = bad_value
+        result = verify_classification(classification, claim_id="claim-1", source_receipts=[receipt])
+        assert result["valid"] is False
+        assert expected_error in result["errors"]
+
+
+def test_unknown_classification_fields_are_rejected():
+    receipt = _receipt("src-a")
+    classification = _classification(receipt)
+    classification["silent_override"] = True
+    result = verify_classification(classification, claim_id="claim-1", source_receipts=[receipt])
+    assert result["valid"] is False
+    assert result["errors"] == ["INVALID_CLASSIFICATION_FIELD_TYPE"]
+
+
+def test_confidence_rejects_bool_strings_nan_and_infinity():
+    receipt = _receipt("src-a")
+    for value in (True, "0.9", float("nan"), float("inf"), -0.01, 1.01):
+        with pytest.raises(ValueError, match="confidence must be a finite number"):
+            build_classification(
+                claim_id="claim-1",
+                source_receipt=receipt,
+                source_family="family-a",
+                excerpt="The measured relation supports the candidate claim.",
+                stance=SUPPORT,
+                confidence=value,  # type: ignore[arg-type]
+                producer_id="fixture-producer",
+                producer_version="0.1",
+                model_id=None,
+                mode="FIXTURE_ONLY_NO_SEMANTIC_INFERENCE",
+            )
+
+
+def test_identifiers_do_not_silently_coerce_non_strings():
+    receipt = _receipt("src-a")
+    with pytest.raises(ValueError, match="claim_id must be a string"):
+        build_classification(
+            claim_id=123,  # type: ignore[arg-type]
+            source_receipt=receipt,
+            source_family="family-a",
+            excerpt="The measured relation supports the candidate claim.",
+            stance=SUPPORT,
+            confidence=0.5,
+            producer_id="fixture-producer",
+            producer_version="0.1",
+            model_id=None,
+            mode="FIXTURE_ONLY_NO_SEMANTIC_INFERENCE",
+        )
+    with pytest.raises(ValueError, match="source_family must be a string"):
+        build_classification(
+            claim_id="claim-1",
+            source_receipt=receipt,
+            source_family=123,  # type: ignore[arg-type]
+            excerpt="The measured relation supports the candidate claim.",
+            stance=SUPPORT,
+            confidence=0.5,
+            producer_id="fixture-producer",
+            producer_version="0.1",
+            model_id=None,
+            mode="FIXTURE_ONLY_NO_SEMANTIC_INFERENCE",
+        )
 
 
 def test_duplicate_claim_source_classification_fails_closed():
@@ -160,3 +248,24 @@ def test_unresolved_high_confidence_never_becomes_support_or_contradict():
     assert result["resolved_count"] == 0
     assert result["unresolved_count"] == 1
     assert result["guard_evidence"] == []
+
+
+def test_fixture_assignment_container_rejects_wrong_types():
+    with pytest.raises(ValueError, match="iterable of FixtureAssignment"):
+        FixtureSemanticEvidenceProducer("not-a-sequence-of-assignments")  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="only FixtureAssignment"):
+        FixtureSemanticEvidenceProducer([{"source_id": "x"}])  # type: ignore[list-item]
+
+
+def test_run_producer_requires_declared_string_metadata():
+    class BadProducer:
+        producer_id = "bad"
+        producer_version = "1"
+        model_id = None
+        mode = 7
+
+        def classify(self, *, claim_id, source_receipts):
+            return []
+
+    with pytest.raises(ValueError, match="producer mode must be a string"):
+        run_producer(BadProducer(), claim_id="claim-1", source_receipts=[])
