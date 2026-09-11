@@ -21,7 +21,16 @@ SOURCE_RECEIPT_INTEGRITY_FAILED = "SOURCE_RECEIPT_INTEGRITY_FAILED"
 
 
 def _canonical(value: Any) -> bytes:
-    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False).encode("utf-8")
+    try:
+        return json.dumps(
+            value,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+            allow_nan=False,
+        ).encode("utf-8")
+    except (TypeError, ValueError) as exc:
+        raise ValueError("guarded research data must be finite JSON") from exc
 
 
 def _commit(domain: bytes, value: Any) -> str:
@@ -32,15 +41,39 @@ def _authority() -> dict[str, bool]:
     return {"production_runtime_write": False, "execution_admitted": False, "canon_allowed": False}
 
 
+def _strict_text(value: Any, field: str) -> str:
+    if not isinstance(value, str):
+        raise ValueError(f"{field} must be a string")
+    text = value.strip()
+    if not text:
+        raise ValueError(f"{field} must be non-empty")
+    return text
+
+
+def _strict_bool(value: Any, field: str) -> bool:
+    if type(value) is not bool:
+        raise ValueError(f"{field} must be boolean")
+    return value
+
+
+def _mapping_rows(values: Any, field: str) -> list[dict[str, Any]]:
+    if not isinstance(values, (list, tuple)):
+        raise ValueError(f"{field} must be a list/tuple of objects")
+    if any(not isinstance(row, Mapping) for row in values):
+        raise ValueError(f"{field} must contain only objects")
+    return [dict(row) for row in values]
+
+
 def _citation_binding(execution: Mapping[str, Any]) -> dict[str, Any]:
-    citations = list(execution.get("citations") or [])
-    source_ids = [str(row.get("source_id") or "").strip() for row in citations]
-    source_ids = [sid for sid in source_ids if sid]
+    if not isinstance(execution, Mapping):
+        raise ValueError("execution must be an object")
+    citations = _mapping_rows(execution.get("citations"), "execution.citations")
+    source_ids = [_strict_text(row.get("source_id"), "citation.source_id") for row in citations]
     if len(source_ids) != len(set(source_ids)):
         raise ValueError("execution citations contain duplicate source_id values")
     basis = [
         {
-            "source_id": str(row.get("source_id") or "").strip(),
+            "source_id": sid,
             "provider": row.get("provider"),
             "title": row.get("title"),
             "url": row.get("url"),
@@ -49,7 +82,7 @@ def _citation_binding(execution: Mapping[str, Any]) -> dict[str, Any]:
             "content_basis": row.get("content_basis"),
             "content_commitment": row.get("content_commitment"),
         }
-        for row in citations if str(row.get("source_id") or "").strip()
+        for sid, row in zip(source_ids, citations)
     ]
     basis.sort(key=lambda row: row["source_id"])
     return {
@@ -60,57 +93,68 @@ def _citation_binding(execution: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def _content_binding(execution: Mapping[str, Any], rows: list[dict[str, Any]]) -> dict[str, Any]:
-    receipts = list(execution.get("source_receipts") or [])
-    receipt_integrity = verify_source_receipt_set(receipts, citations=execution.get("citations") or [])
+    receipts = _mapping_rows(execution.get("source_receipts"), "execution.source_receipts")
+    citations = execution.get("citations")
+    receipt_integrity = verify_source_receipt_set(receipts, citations=citations)
     errors: list[dict[str, Any]] = list(receipt_integrity["errors"])
-    by_id: dict[str, Mapping[str, Any]] = {
-        str(receipt.get("source_id") or "").strip(): receipt
-        for receipt in receipts
-        if str(receipt.get("source_id") or "").strip()
-    }
+    by_id: dict[str, Mapping[str, Any]] = {}
+    for receipt in receipts:
+        sid = receipt.get("source_id")
+        if not isinstance(sid, str) or not sid.strip():
+            continue
+        normalized_sid = sid.strip()
+        if normalized_sid in by_id:
+            continue
+        by_id[normalized_sid] = receipt
 
     for row in rows:
-        sid = str(row.get("evidence_id") or "").strip()
+        sid = _strict_text(row.get("evidence_id"), "evidence_id")
         receipt = by_id.get(sid)
         if receipt is None:
             errors.append({"evidence_id": sid, "code": "SOURCE_RECEIPT_MISSING"})
             continue
 
-        supplied_content = str(row.get("content_commitment") or "").strip()
-        expected_content = str(receipt.get("content_commitment") or "").strip()
-        if not supplied_content:
-            errors.append({"evidence_id": sid, "code": "CONTENT_COMMITMENT_MISSING"})
-        elif supplied_content != expected_content:
+        supplied_content = _strict_text(row.get("content_commitment"), "content_commitment")
+        expected_raw = receipt.get("content_commitment")
+        if not isinstance(expected_raw, str) or not expected_raw.strip():
+            errors.append({"evidence_id": sid, "code": "EXECUTION_CONTENT_COMMITMENT_INVALID"})
+        elif supplied_content != expected_raw.strip():
             errors.append({"evidence_id": sid, "code": "CONTENT_COMMITMENT_MISMATCH"})
 
-        excerpt = str(row.get("excerpt") or "")
-        if not excerpt.strip():
-            errors.append({"evidence_id": sid, "code": "EXCERPT_MISSING"})
-            continue
-        evidence_text = str(receipt.get("evidence_text") or "")
-        if excerpt not in evidence_text:
+        excerpt = _strict_text(row.get("excerpt"), "excerpt")
+        evidence_text = receipt.get("evidence_text")
+        if not isinstance(evidence_text, str):
+            errors.append({"evidence_id": sid, "code": "EXECUTION_EVIDENCE_TEXT_INVALID"})
+        elif excerpt not in evidence_text:
             errors.append({"evidence_id": sid, "code": "EXCERPT_NOT_IN_EXECUTION_CONTENT"})
 
         expected_excerpt = excerpt_commitment(excerpt)
-        supplied_excerpt = str(row.get("excerpt_commitment") or "").strip()
-        if not supplied_excerpt:
-            errors.append({"evidence_id": sid, "code": "EXCERPT_COMMITMENT_MISSING"})
-        elif supplied_excerpt != expected_excerpt:
+        supplied_excerpt = _strict_text(row.get("excerpt_commitment"), "excerpt_commitment")
+        if supplied_excerpt != expected_excerpt:
             errors.append({"evidence_id": sid, "code": "EXCERPT_COMMITMENT_MISMATCH"})
 
-        payload = str(row.get("payload_commitment") or "").strip()
+        payload = _strict_text(row.get("payload_commitment"), "payload_commitment")
         if payload != expected_excerpt:
             errors.append({"evidence_id": sid, "code": "PAYLOAD_NOT_BOUND_TO_EXCERPT"})
 
-    receipt_basis = [
-        {
-            "source_id": str(row.get("source_id") or ""),
-            "content_commitment": str(row.get("content_commitment") or ""),
-            "source_receipt_commitment": str(row.get("source_receipt_commitment") or ""),
-        }
-        for row in receipts
-    ]
-    receipt_basis.sort(key=lambda row: row["source_id"])
+    validation_by_id = {
+        validation["source_id"]: validation
+        for validation in receipt_integrity.get("receipt_validations", [])
+        if isinstance(validation, Mapping)
+        and isinstance(validation.get("source_id"), str)
+        and validation.get("source_id")
+    }
+    receipt_basis = []
+    for sid in sorted(by_id):
+        receipt = by_id[sid]
+        validation = validation_by_id.get(sid, {})
+        receipt_basis.append(
+            {
+                "source_id": sid,
+                "content_commitment": receipt.get("content_commitment"),
+                "source_receipt_commitment": validation.get("expected_commitment"),
+            }
+        )
     return {
         "required": True,
         "valid": not errors,
@@ -133,6 +177,7 @@ def _quarantine(
     reason: str,
     assessment: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
+    claim = _strict_text(claim_id, "claim_id")
     base = dict(execution)
     base["quarantined_synthesis"] = base.get("synthesis")
     base["synthesis"] = None
@@ -140,7 +185,7 @@ def _quarantine(
     guard = {
         "schema": SCHEMA,
         "version": VERSION,
-        "claim_id": str(claim_id),
+        "claim_id": claim,
         "evidence_bundle": dict(bundle),
         "assessment": None if assessment is None else dict(assessment),
         "source_binding": dict(source_binding),
@@ -170,24 +215,31 @@ def apply_claim_evidence_guard(
     require_execution_source_binding: bool = True,
     require_execution_content_binding: bool = True,
 ) -> dict[str, Any]:
-    rows = [dict(row) for row in claim_evidence]
-    bundle = build_evidence_bundle(claim_id=claim_id, evidence=rows)
+    if not isinstance(execution, Mapping):
+        raise ValueError("execution must be an object")
+    claim = _strict_text(claim_id, "claim_id")
+    require_source = _strict_bool(require_execution_source_binding, "require_execution_source_binding")
+    require_content = _strict_bool(require_execution_content_binding, "require_execution_content_binding")
+    input_rows = _mapping_rows(claim_evidence, "claim_evidence")
+    bundle = build_evidence_bundle(claim_id=claim, evidence=input_rows)
+    rows = [dict(row) for row in bundle["evidence"]]
+
     source_binding = _citation_binding(execution)
     allowed_source_ids = set(source_binding["source_ids"])
-    evidence_ids = [str(row.get("evidence_id") or "").strip() for row in rows]
+    evidence_ids = [_strict_text(row.get("evidence_id"), "evidence_id") for row in rows]
     unknown_source_ids = sorted({eid for eid in evidence_ids if eid not in allowed_source_ids})
     source_binding = {
         **source_binding,
-        "required": bool(require_execution_source_binding),
+        "required": require_source,
         "valid": not unknown_source_ids,
         "unknown_evidence_source_ids": unknown_source_ids,
     }
 
-    if require_execution_source_binding and unknown_source_ids:
+    if require_source and unknown_source_ids:
         return _quarantine(
             execution,
             status=SOURCE_BINDING_FAILED,
-            claim_id=claim_id,
+            claim_id=claim,
             bundle=bundle,
             source_binding=source_binding,
             content_binding=None,
@@ -195,7 +247,8 @@ def apply_claim_evidence_guard(
         )
 
     content_binding = _content_binding(execution, rows)
-    if require_execution_content_binding and not content_binding["valid"]:
+    content_binding["required"] = require_content
+    if require_content and not content_binding["valid"]:
         receipt_integrity = content_binding["receipt_integrity"]
         status = CONTENT_BINDING_FAILED if receipt_integrity["valid"] else SOURCE_RECEIPT_INTEGRITY_FAILED
         reason = (
@@ -206,7 +259,7 @@ def apply_claim_evidence_guard(
         return _quarantine(
             execution,
             status=status,
-            claim_id=claim_id,
+            claim_id=claim,
             bundle=bundle,
             source_binding=source_binding,
             content_binding=content_binding,
@@ -218,7 +271,7 @@ def apply_claim_evidence_guard(
         return _quarantine(
             execution,
             status=CONTRADICTION_DETECTED_UNRESOLVED,
-            claim_id=claim_id,
+            claim_id=claim,
             bundle=bundle,
             source_binding=source_binding,
             content_binding=content_binding,
@@ -231,7 +284,7 @@ def apply_claim_evidence_guard(
     guard = {
         "schema": SCHEMA,
         "version": VERSION,
-        "claim_id": str(claim_id),
+        "claim_id": claim,
         "evidence_bundle": bundle,
         "assessment": assessment,
         "source_binding": source_binding,
@@ -263,20 +316,24 @@ def execute_guarded_research(
     max_species: int = 4,
     max_sources: int = 12,
 ) -> dict[str, Any]:
+    query_text = _strict_text(query, "query")
     result = execute_research(
-        query,
+        query_text,
         providers=providers,
         limit_per_provider=limit_per_provider,
         max_species=max_species,
         max_sources=max_sources,
     )
-    rows = list(claim_evidence or [])
+    if not isinstance(result, Mapping):
+        raise ValueError("research execution must be an object")
+
+    rows = [] if claim_evidence is None else _mapping_rows(claim_evidence, "claim_evidence")
     if not rows:
         base = dict(result)
         source_binding = _citation_binding(base)
         receipt_integrity = verify_source_receipt_set(
-            base.get("source_receipts") or [],
-            citations=base.get("citations") or [],
+            base.get("source_receipts"),
+            citations=base.get("citations"),
         )
         if not receipt_integrity["valid"] and (base.get("citations") or base.get("source_receipts")):
             base["quarantined_synthesis"] = base.get("synthesis")
@@ -312,9 +369,8 @@ def execute_guarded_research(
             {key: value for key, value in base.items() if key != "guarded_execution_commitment"},
         )
         return base
-    resolved_claim_id = str(claim_id or f"query:{query}").strip()
-    if not resolved_claim_id:
-        raise ValueError("claim_id must be non-empty when claim_evidence is supplied")
+
+    resolved_claim_id = f"query:{query_text}" if claim_id is None else _strict_text(claim_id, "claim_id")
     return apply_claim_evidence_guard(
         result,
         claim_id=resolved_claim_id,
