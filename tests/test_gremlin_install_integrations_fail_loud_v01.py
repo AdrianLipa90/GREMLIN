@@ -33,15 +33,17 @@ def test_new_config_is_removed_when_post_write_verification_fails(tmp_path: Path
     real_load = integrations._load
     calls = 0
 
-    def inconsistent_second_read(path: Path):
+    def inconsistent_post_write_read(path: Path):
         nonlocal calls
         calls += 1
-        if calls == 2:
+        # 1 = destination pre-read, 2 = staged temp verification,
+        # 3 = destination post-write verification.
+        if calls == 3:
             return {"mcpServers": {}}, b'{"mcpServers":{}}'
         return real_load(path)
 
-    monkeypatch.setattr(integrations, "_load", inconsistent_second_read)
-    with pytest.raises(RuntimeError, match="verification failed; original configuration restored"):
+    monkeypatch.setattr(integrations, "_load", inconsistent_post_write_read)
+    with pytest.raises(RuntimeError, match="verification failed; pre-update state restored"):
         integrations.install_json_mcp(
             client_id="strict-client",
             config_path=config,
@@ -49,6 +51,59 @@ def test_new_config_is_removed_when_post_write_verification_fails(tmp_path: Path
             backup_root=tmp_path / "backups",
         )
     assert not config.exists()
+
+
+def test_existing_config_exact_bytes_are_restored_when_post_write_verification_fails(tmp_path: Path, monkeypatch) -> None:
+    config = tmp_path / "client.json"
+    original = b'{"theme":"dark","mcpServers":{"other":{"command":"other"}}}\n'
+    config.write_bytes(original)
+    if os.name != "nt":
+        config.chmod(0o640)
+    real_load = integrations._load
+    calls = 0
+
+    def inconsistent_post_write_read(path: Path):
+        nonlocal calls
+        calls += 1
+        if calls == 3:
+            return {"mcpServers": {}}, b'{"mcpServers":{}}'
+        return real_load(path)
+
+    monkeypatch.setattr(integrations, "_load", inconsistent_post_write_read)
+    with pytest.raises(RuntimeError, match="verification failed; pre-update state restored"):
+        integrations.install_json_mcp(
+            client_id="strict-client",
+            config_path=config,
+            entry={"command": "gremlin-product-mcp"},
+            backup_root=tmp_path / "backups",
+        )
+    assert config.read_bytes() == original
+    if os.name != "nt":
+        assert stat.S_IMODE(config.stat().st_mode) == 0o640
+
+
+def test_remove_restores_exact_config_when_post_write_verification_fails(tmp_path: Path, monkeypatch) -> None:
+    config = tmp_path / "client.json"
+    original = b'{"mcpServers":{"gremlin":{"command":"gremlin-product-mcp"},"other":{"command":"other"}}}\n'
+    config.write_bytes(original)
+    real_load = integrations._load
+    calls = 0
+
+    def inconsistent_post_write_read(path: Path):
+        nonlocal calls
+        calls += 1
+        if calls == 3:
+            return {"mcpServers": {"gremlin": {"command": "gremlin-product-mcp"}}}, b'{}'
+        return real_load(path)
+
+    monkeypatch.setattr(integrations, "_load", inconsistent_post_write_read)
+    with pytest.raises(RuntimeError, match="verification failed; pre-update state restored"):
+        integrations.remove_json_mcp(
+            client_id="strict-client",
+            config_path=config,
+            backup_root=tmp_path / "backups",
+        )
+    assert config.read_bytes() == original
 
 
 def test_remove_rejects_false_success_when_entry_is_absent(tmp_path: Path) -> None:
