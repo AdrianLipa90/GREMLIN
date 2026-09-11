@@ -1,0 +1,30 @@
+name: FERRET giffgaff observe v0.1
+
+on:
+  pull_request:
+    paths:
+      - 'gremlin_mcp/ferret.py'
+      - 'gremlin_mcp/ferret_playwright.py'
+      - 'examples/ferret_giffgaff_observe.py'
+      - '.github/workflows/ferret-giffgaff-observe-v01.yml'
+
+jobs:
+  observe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Playwright
+        run: |
+          python -m pip install playwright
+          python -m playwright install --with-deps chromium
+      - name: FERRET observe-only probe
+        run: python examples/ferret_giffgaff_observe.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ferret-giffgaff-observe-${{ github.event.pull_request.head.sha || github.sha }}
+          path: artifacts/ferret-giffgaff-observe
+          if-no-files-found: error

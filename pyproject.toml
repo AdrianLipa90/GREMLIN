@@ -20,6 +20,11 @@ dependencies = [
   "tomli>=2,<3; python_version < '3.11'"
 ]
 
+[project.optional-dependencies]
+ferret = [
+  "playwright>=1.62,<2"
+]
+
 [project.scripts]
 gremlin-mcp = "gremlin_mcp.server_with_hive:main"
 gremlin-hive-mcp = "gremlin_mcp.hive_authority_server:main"
@@ -27,6 +32,7 @@ gremlin-product-mcp = "gremlin_mcp.product_server:main"
 gremlin-license = "gremlin_mcp.product.cli:main"
 gremlin-bundle = "gremlin_mcp.product.bundle_cli:main"
 gremlinctl = "gremlin_mcp.install.cli:main"
+gremlin-ferret = "gremlin_mcp.ferret_cli:main"
 
 [tool.setuptools.packages.find]
 include = ["gremlin_mcp*", "tools*"]
