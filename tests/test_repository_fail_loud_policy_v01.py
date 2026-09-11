@@ -5,12 +5,18 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-RUNTIME_ROOTS = (ROOT / "gremlin_mcp", ROOT / "tools", ROOT / "client")
+PYTHON_AUDIT_ROOTS = (
+    ROOT / "gremlin_mcp",
+    ROOT / "tools",
+    ROOT / "client",
+    ROOT / "examples",
+    ROOT / "benchmarks",
+)
 _BROAD_EXCEPTION_NAMES = {"BaseException", "Exception", "OSError"}
 
 
 def _python_files():
-    for root in RUNTIME_ROOTS:
+    for root in PYTHON_AUDIT_ROOTS:
         if not root.exists():
             continue
         yield from sorted(path for path in root.rglob("*.py") if path.is_file())
@@ -53,7 +59,7 @@ def _is_pass_or_ellipsis(statement: ast.stmt) -> bool:
     )
 
 
-def test_runtime_has_no_bare_or_broad_except_pass_blackholes() -> None:
+def test_python_surfaces_have_no_bare_or_broad_except_pass_blackholes() -> None:
     """Narrow expected-control-flow catches may be empty; broad error swallowing may not.
 
     Examples such as FileExistsError during create-if-absent, FileNotFoundError during idempotent
@@ -82,8 +88,8 @@ def test_runtime_has_no_bare_or_broad_except_pass_blackholes() -> None:
     assert not findings, "silent exception blackholes detected:\n" + "\n".join(findings)
 
 
-def test_runtime_has_no_executable_pass_or_ellipsis_function_stubs() -> None:
-    """Concrete runtime functions must contain executable behavior, not pass/ellipsis placeholders."""
+def test_python_surfaces_have_no_executable_pass_or_ellipsis_function_stubs() -> None:
+    """Concrete Python functions must contain executable behavior, not pass/ellipsis placeholders."""
     findings: list[str] = []
     scanned = 0
     for path in _python_files():
@@ -101,8 +107,8 @@ def test_runtime_has_no_executable_pass_or_ellipsis_function_stubs() -> None:
     assert not findings, "runtime pass/ellipsis function stubs detected:\n" + "\n".join(findings)
 
 
-def test_runtime_does_not_import_mock_patch_frameworks() -> None:
-    """Production/runtime surfaces must not depend on test mocking or monkeypatch frameworks."""
+def test_python_surfaces_do_not_import_mock_patch_frameworks() -> None:
+    """Runtime, tool, client, example and benchmark code must not depend on test mocking frameworks."""
     findings: list[str] = []
     scanned = 0
     for path in _python_files():
@@ -114,16 +120,16 @@ def test_runtime_does_not_import_mock_patch_frameworks() -> None:
             if isinstance(node, ast.Import):
                 for alias in node.names:
                     if alias.name == "mock" or alias.name.startswith("unittest.mock"):
-                        findings.append(f"{relative}:{node.lineno}: runtime mock import {alias.name}")
+                        findings.append(f"{relative}:{node.lineno}: mock import {alias.name}")
             elif isinstance(node, ast.ImportFrom):
                 module = node.module or ""
                 if module == "mock" or module.startswith("unittest.mock"):
-                    findings.append(f"{relative}:{node.lineno}: runtime mock import from {module}")
+                    findings.append(f"{relative}:{node.lineno}: mock import from {module}")
     assert scanned > 0
-    assert not findings, "runtime mock/patch framework imports detected:\n" + "\n".join(findings)
+    assert not findings, "mock/patch framework imports detected:\n" + "\n".join(findings)
 
 
-def test_runtime_python_sources_compile_under_ast_parser() -> None:
+def test_python_surfaces_compile_under_ast_parser() -> None:
     failures: list[str] = []
     scanned = 0
     for path in _python_files():
@@ -133,4 +139,4 @@ def test_runtime_python_sources_compile_under_ast_parser() -> None:
         except (SyntaxError, UnicodeError) as exc:
             failures.append(f"{path.relative_to(ROOT)}: {type(exc).__name__}: {exc}")
     assert scanned > 0
-    assert not failures, "runtime Python parse failures:\n" + "\n".join(failures)
+    assert not failures, "Python parse failures:\n" + "\n".join(failures)
