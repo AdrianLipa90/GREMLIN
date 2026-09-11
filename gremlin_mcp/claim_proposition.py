@@ -48,6 +48,11 @@ _PROPOSITION_KEYS = frozenset(
         "term_normalization",
         "source_content_authority",
         "authority",
+        "producer_grounding",
+        "producer_proposal_index",
+        "producer_supplied_proposition_commitment_ignored",
+        "producer_supplied_support_span_commitment_ignored",
+        "producer_authority_ignored",
     }
 )
 
