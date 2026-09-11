@@ -1,0 +1,41 @@
+name: GREMLIN Repository Fail-Loud Audit v0.1
+
+on:
+  pull_request:
+    paths:
+      - 'gremlin_mcp/**'
+      - 'tools/**'
+      - 'client/**'
+      - 'tests/**'
+      - 'pyproject.toml'
+      - '.github/workflows/gremlin-fail-loud-audit-v01.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'gremlin_mcp/**'
+      - 'tools/**'
+      - 'client/**'
+      - 'tests/**'
+      - 'pyproject.toml'
+      - '.github/workflows/gremlin-fail-loud-audit-v01.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  repository-fail-loud-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install GREMLIN and test runner
+        run: python -m pip install --disable-pip-version-check -e . pytest
+      - name: Compile all Python runtime surfaces
+        run: python -m compileall -q gremlin_mcp tools client
+      - name: Run repository-wide test suite
+        run: python -m pytest -q tests
