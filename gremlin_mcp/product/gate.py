@@ -42,6 +42,18 @@ class ProductRuntime:
     client_profile: dict[str, Any] | None = None
     configuration_error: str | None = None
 
+    def __post_init__(self) -> None:
+        # `require_license` is an authorization boundary. Python truthiness must never
+        # turn malformed values such as "" or 0 into an unlicensed execution bypass.
+        if type(self.require_license) is not bool:
+            raise ProductAuthorizationError("INVALID_REQUIRE_LICENSE:BOOLEAN_REQUIRED")
+        if self.license_payload is not None and not isinstance(self.license_payload, dict):
+            raise ProductAuthorizationError("PRODUCT_ENTITLEMENT_MALFORMED:license_payload")
+        if self.client_profile is not None and not isinstance(self.client_profile, dict):
+            raise ProductAuthorizationError("PRODUCT_ENTITLEMENT_MALFORMED:client_profile")
+        if self.configuration_error is not None and not isinstance(self.configuration_error, str):
+            raise ProductAuthorizationError("PRODUCT_CONFIGURATION_ERROR_MALFORMED")
+
     @classmethod
     def unconfigured(cls, *, require_license: bool = True) -> "ProductRuntime":
         return cls(require_license=require_license)
