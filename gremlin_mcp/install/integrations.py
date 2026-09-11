@@ -139,14 +139,10 @@ def _atomic_json_write(
         if original_mode is not None and os.name == "nt":
             os.chmod(temp, original_mode)
 
-        # Parse the exact staged bytes with the same strict loader used for live
-        # configs before touching the destination.
         staged, staged_raw = _load(temp)
         if staged_raw != payload or staged != dict(value):
             raise RuntimeError("staged MCP client configuration verification mismatch")
 
-        # Prevent a lost update when the AI client rewrites its own config while
-        # GREMLIN is preparing the mutation.
         _assert_unchanged(path, expected_before)
         os.replace(temp, path)
     finally:
@@ -155,6 +151,75 @@ def _atomic_json_write(
         if temp.exists():
             temp.unlink()
     return payload
+
+
+def _restore_pre_update_state(
+    path: Path,
+    *,
+    before: bytes | None,
+    written: bytes,
+    original_mode: int | None,
+) -> None:
+    """Restore the exact pre-update bytes without overwriting a concurrent writer."""
+    _assert_unchanged(path, written)
+    if before is None:
+        path.unlink()
+        if path.exists():
+            raise RuntimeError("failed to remove newly-created MCP config during rollback")
+        return
+
+    fd, temp_name = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".rollback", dir=str(path.parent))
+    temp = Path(temp_name)
+    fd_open = True
+    try:
+        if original_mode is not None and os.name != "nt":
+            os.fchmod(fd, original_mode)
+        handle = os.fdopen(fd, "wb")
+        fd_open = False
+        with handle:
+            handle.write(before)
+            handle.flush()
+            os.fsync(handle.fileno())
+        if original_mode is not None and os.name == "nt":
+            os.chmod(temp, original_mode)
+        _assert_unchanged(path, written)
+        os.replace(temp, path)
+    finally:
+        if fd_open:
+            os.close(fd)
+        if temp.exists():
+            temp.unlink()
+
+    if _current_bytes(path) != before:
+        raise RuntimeError("MCP config rollback verification failed")
+
+
+def _verify_or_rollback(
+    path: Path,
+    *,
+    before: bytes | None,
+    written: bytes,
+    original_mode: int | None,
+    verifier,
+    operation: str,
+) -> None:
+    try:
+        verifier()
+    except BaseException as exc:
+        try:
+            _restore_pre_update_state(
+                path,
+                before=before,
+                written=written,
+                original_mode=original_mode,
+            )
+        except BaseException as rollback_exc:
+            raise RuntimeError(
+                f"MCP integration {operation} verification failed and automatic rollback failed or was unsafe: {rollback_exc}"
+            ) from exc
+        raise RuntimeError(
+            f"MCP integration {operation} verification failed; pre-update state restored"
+        ) from exc
 
 
 def _write_backup(path: Path, data: bytes, *, mode: int) -> None:
@@ -259,16 +324,23 @@ def install_json_mcp(
         original_mode=original_mode,
         expected_before=before,
     )
-    installed, reread = _load(path)
-    installed_servers = installed.get("mcpServers")
-    if not isinstance(installed_servers, dict) or installed_servers.get(safe_server) != normalized_entry:
-        raise RuntimeError(
-            "MCP integration verification failed after atomic replacement; backup retained for explicit recovery"
-        )
-    if reread != after:
-        raise RuntimeError(
-            "MCP client config changed immediately after atomic replacement; refusing to report INSTALLED"
-        )
+
+    def verify_install() -> None:
+        installed, reread = _load(path)
+        installed_servers = installed.get("mcpServers")
+        if not isinstance(installed_servers, dict) or installed_servers.get(safe_server) != normalized_entry:
+            raise RuntimeError("installed MCP entry does not match requested entry")
+        if reread != after:
+            raise RuntimeError("MCP client config bytes changed immediately after atomic replacement")
+
+    _verify_or_rollback(
+        path,
+        before=before,
+        written=after,
+        original_mode=original_mode,
+        verifier=verify_install,
+        operation="installation",
+    )
     return IntegrationReceipt(
         schema=INTEGRATION_SCHEMA,
         status="INSTALLED",
@@ -314,16 +386,23 @@ def remove_json_mcp(
         original_mode=mode,
         expected_before=before,
     )
-    reread, reread_raw = _load(path)
-    reread_servers = reread.get("mcpServers")
-    if not isinstance(reread_servers, dict) or safe_server in reread_servers:
-        raise RuntimeError(
-            "MCP integration removal verification failed after atomic replacement; backup retained for explicit recovery"
-        )
-    if reread_raw != after:
-        raise RuntimeError(
-            "MCP client config changed immediately after atomic replacement; refusing to report REMOVED"
-        )
+
+    def verify_remove() -> None:
+        reread, reread_raw = _load(path)
+        reread_servers = reread.get("mcpServers")
+        if not isinstance(reread_servers, dict) or safe_server in reread_servers:
+            raise RuntimeError("removed MCP entry is still present after replacement")
+        if reread_raw != after:
+            raise RuntimeError("MCP client config bytes changed immediately after atomic replacement")
+
+    _verify_or_rollback(
+        path,
+        before=before,
+        written=after,
+        original_mode=mode,
+        verifier=verify_remove,
+        operation="removal",
+    )
     return IntegrationReceipt(
         schema=INTEGRATION_SCHEMA,
         status="REMOVED",
