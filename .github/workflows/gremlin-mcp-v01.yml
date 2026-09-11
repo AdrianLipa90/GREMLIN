@@ -92,7 +92,7 @@ jobs:
           provenance = {
               'schema': 'CIEL_GREMLIN_GREMLIN_RECEIPT_PROVENANCE_V0_1',
               'gremlin_head': os.environ['GREMLIN_HEAD'],
-              'benchmark_commit': BENCHMARK_COMMIT if False else os.environ['BENCHMARK_COMMIT'],
+              'benchmark_commit': os.environ['BENCHMARK_COMMIT'],
               'task_count': len(rows),
               'bundle_sha256': hashlib.sha256(path.read_bytes()).hexdigest(),
           }
