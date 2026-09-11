@@ -22,10 +22,10 @@ def _safe_text(value: str | None, limit: int = 200) -> str | None:
     return " ".join(value.split())[:limit]
 
 
-def _inventory(page):
-    fields = page.locator("input, textarea, select, button").all()
+def _inventory(scope):
+    fields = scope.locator("input, textarea, select, button, a").all()
     result = []
-    for node in fields[:120]:
+    for node in fields[:160]:
         try:
             result.append(
                 {
@@ -36,12 +36,54 @@ def _inventory(page):
                     "aria_label": node.get_attribute("aria-label"),
                     "autocomplete": node.get_attribute("autocomplete"),
                     "placeholder": node.get_attribute("placeholder"),
+                    "href": node.get_attribute("href"),
                     "text": _safe_text(node.inner_text()),
                 }
             )
         except Exception:
             continue
     return result
+
+
+def _frame_snapshot(page):
+    frames = []
+    for frame in page.frames:
+        try:
+            body = frame.locator("body")
+            body_text = _safe_text(body.inner_text(), 5000) if body.count() else None
+            frames.append(
+                {
+                    "name": frame.name,
+                    "url": frame.url,
+                    "body_text": body_text,
+                    "controls": _inventory(frame),
+                }
+            )
+        except Exception as exc:
+            frames.append({"name": frame.name, "url": frame.url, "error": f"{type(exc).__name__}: {exc}"})
+    return frames
+
+
+def _find_guest_control(page):
+    pattern = re.compile(r"continue as a guest", re.I)
+    scopes = [page, *page.frames]
+    seen = set()
+    for scope in scopes:
+        key = getattr(scope, "url", None) or id(scope)
+        if key in seen:
+            continue
+        seen.add(key)
+        for locator in (
+            scope.get_by_role("button", name=pattern),
+            scope.get_by_role("link", name=pattern),
+            scope.get_by_text(pattern, exact=False),
+        ):
+            try:
+                if locator.count():
+                    return locator.first, getattr(scope, "url", None)
+            except Exception:
+                continue
+    return None, None
 
 
 def main() -> None:
@@ -51,6 +93,8 @@ def main() -> None:
         "target": TARGET,
         "mutation_performed": False,
         "submit_clicked": False,
+        "guest_control_found": False,
+        "guest_control_scope": None,
         "stages": [],
     }
 
@@ -60,7 +104,7 @@ def main() -> None:
         page = context.new_page()
         page.set_default_timeout(15000)
         page.goto(TARGET, wait_until="domcontentloaded")
-        page.wait_for_timeout(1500)
+        page.wait_for_timeout(2500)
 
         shot1 = OUT / "01-entry.png"
         page.screenshot(path=str(shot1), full_page=True)
@@ -72,32 +116,33 @@ def main() -> None:
                 "screenshot": str(shot1),
                 "screenshot_sha256": _sha256(shot1),
                 "fields": _inventory(page),
+                "frames": _frame_snapshot(page),
             }
         )
 
-        guest = page.get_by_role("button", name=re.compile(r"continue as a guest", re.I))
-        if guest.count() == 0:
-            guest = page.get_by_text(re.compile(r"continue as a guest", re.I), exact=False)
-        if guest.count() == 0:
-            raise RuntimeError("Continue as a guest control was not found")
+        guest, scope_url = _find_guest_control(page)
+        if guest is not None:
+            receipt["guest_control_found"] = True
+            receipt["guest_control_scope"] = scope_url
+            guest.click()
+            page.wait_for_timeout(1800)
 
-        guest.first.click()
-        page.wait_for_load_state("domcontentloaded")
-        page.wait_for_timeout(1200)
-
-        shot2 = OUT / "02-guest-details.png"
-        page.screenshot(path=str(shot2), full_page=True)
-        receipt["stages"].append(
-            {
-                "name": "GUEST_DETAILS",
-                "url": page.url,
-                "title": page.title(),
-                "screenshot": str(shot2),
-                "screenshot_sha256": _sha256(shot2),
-                "fields": _inventory(page),
-                "body_text": _safe_text(page.locator("body").inner_text(), 5000),
-            }
-        )
+            shot2 = OUT / "02-guest-details.png"
+            page.screenshot(path=str(shot2), full_page=True)
+            receipt["stages"].append(
+                {
+                    "name": "GUEST_DETAILS",
+                    "url": page.url,
+                    "title": page.title(),
+                    "screenshot": str(shot2),
+                    "screenshot_sha256": _sha256(shot2),
+                    "fields": _inventory(page),
+                    "frames": _frame_snapshot(page),
+                    "body_text": _safe_text(page.locator("body").inner_text(), 5000),
+                }
+            )
+        else:
+            receipt["observe_status"] = "GUEST_CONTROL_NOT_FOUND"
 
         context.close()
         browser.close()
