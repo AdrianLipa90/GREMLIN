@@ -13,16 +13,20 @@ QUORUM_SUFFICIENT = "FAMILY_QUORUM_SUFFICIENT"
 QUORUM_INSUFFICIENT = "FAMILY_QUORUM_INSUFFICIENT"
 CONFLICT_DEFER_TO_HOUND = "FAMILY_CONFLICT_DEFER_TO_HOUND"
 NO_RESOLVED_EVIDENCE = "NO_RESOLVED_EVIDENCE"
+_ALLOWED_STANCES = frozenset({SUPPORT, CONTRADICT})
 
 
 def _canonical(value: Any) -> bytes:
-    return json.dumps(
-        value,
-        sort_keys=True,
-        separators=(",", ":"),
-        ensure_ascii=False,
-        allow_nan=False,
-    ).encode("utf-8")
+    try:
+        return json.dumps(
+            value,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+            allow_nan=False,
+        ).encode("utf-8")
+    except (TypeError, ValueError) as exc:
+        raise ValueError("evidence quorum data must be finite JSON") from exc
 
 
 def _commit(domain: bytes, value: Any) -> str:
@@ -37,15 +41,40 @@ def _authority() -> dict[str, bool]:
     }
 
 
+def _nonempty(value: Any, field: str) -> str:
+    if not isinstance(value, str):
+        raise ValueError(f"{field} must be a string")
+    text = value.strip()
+    if not text:
+        raise ValueError(f"{field} must be non-empty")
+    return text
+
+
+def _rows(evidence: Iterable[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    if isinstance(evidence, (str, bytes, Mapping)):
+        raise ValueError("evidence must be an iterable of objects")
+    try:
+        raw = list(evidence)
+    except TypeError as exc:
+        raise ValueError("evidence must be an iterable of objects") from exc
+    if any(not isinstance(row, Mapping) for row in raw):
+        raise ValueError("evidence must contain only objects")
+    rows = [dict(row) for row in raw]
+    for row in rows:
+        stance = _nonempty(row.get("stance"), "evidence stance").upper()
+        if stance not in _ALLOWED_STANCES:
+            raise ValueError(f"unsupported evidence stance: {stance}")
+        row["stance"] = stance
+        row["source_family"] = _nonempty(row.get("source_family"), "source_family")
+    return rows
+
+
 def _family_set(rows: Iterable[Mapping[str, Any]], stance: str) -> set[str]:
     out: set[str] = set()
     for row in rows:
-        if str(row.get("stance") or "").strip().upper() != stance:
+        if row["stance"] != stance:
             continue
-        family = str(row.get("source_family") or "").strip()
-        if not family:
-            raise ValueError("every resolved evidence row must contain source_family")
-        out.add(family)
+        out.add(row["source_family"])
     return out
 
 
@@ -56,22 +85,20 @@ def assess_family_quorum(
 ) -> dict[str, Any]:
     """Assess provenance-family diversity without treating it as independence proof.
 
-    The quorum applies only to unipolar evidence. Mixed SUPPORT/CONTRADICT evidence is
-    always delegated to the contradiction/HOUND gate; family counts cannot vote away a
-    contradiction.
+    The quorum applies only to resolved SUPPORT/CONTRADICT evidence. Any other stance
+    is rejected rather than silently dropped. Mixed SUPPORT/CONTRADICT evidence is
+    always delegated to the contradiction/HOUND gate; family counts cannot vote away
+    a contradiction.
     """
-    minimum = int(min_unipolar_families)
+    if isinstance(min_unipolar_families, bool) or not isinstance(min_unipolar_families, int):
+        raise ValueError("min_unipolar_families must be an integer in [1, 8]")
+    minimum = min_unipolar_families
     if not 1 <= minimum <= 8:
         raise ValueError("min_unipolar_families must be in [1, 8]")
 
-    rows = [dict(row) for row in evidence]
-    resolved = [
-        row
-        for row in rows
-        if str(row.get("stance") or "").strip().upper() in {SUPPORT, CONTRADICT}
-    ]
-    support_families = _family_set(resolved, SUPPORT)
-    contradict_families = _family_set(resolved, CONTRADICT)
+    rows = _rows(evidence)
+    support_families = _family_set(rows, SUPPORT)
+    contradict_families = _family_set(rows, CONTRADICT)
     conflict = bool(support_families and contradict_families)
 
     if conflict:
