@@ -25,13 +25,16 @@ PROPOSITION_ANALYSIS_READY = "PROPOSITION_ANALYSIS_READY"
 
 
 def _canonical(value: Any) -> bytes:
-    return json.dumps(
-        value,
-        sort_keys=True,
-        separators=(",", ":"),
-        ensure_ascii=False,
-        allow_nan=False,
-    ).encode("utf-8")
+    try:
+        return json.dumps(
+            value,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+            allow_nan=False,
+        ).encode("utf-8")
+    except (TypeError, ValueError) as exc:
+        raise ValueError("proposition bridge data must be finite JSON") from exc
 
 
 def _commit(domain: bytes, value: Any) -> str:
@@ -46,7 +49,40 @@ def _authority() -> dict[str, bool]:
     }
 
 
+def _strict_bool(value: Any, field: str) -> bool:
+    if type(value) is not bool:
+        raise ValueError(f"{field} must be boolean")
+    return value
+
+
+def _nonempty_text(value: Any, field: str) -> str:
+    if not isinstance(value, str):
+        raise ValueError(f"{field} must be a string")
+    text = value.strip()
+    if not text:
+        raise ValueError(f"{field} must be non-empty")
+    return text
+
+
+def _mapping_list(value: Any, field: str, *, require_nonempty: bool = False) -> list[Mapping[str, Any]]:
+    if not isinstance(value, list):
+        raise ValueError(f"{field} must be a list")
+    if require_nonempty and not value:
+        raise ValueError(f"{field} must be non-empty")
+    if any(not isinstance(row, Mapping) for row in value):
+        raise ValueError(f"{field} must contain only objects")
+    return value
+
+
+def _nonnegative_int(value: Any, field: str) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        raise ValueError(f"{field} must be a non-negative integer")
+    return value
+
+
 def _semantic_precondition(execution: Mapping[str, Any]) -> dict[str, Any]:
+    if not isinstance(execution, Mapping):
+        raise ValueError("execution must be an object")
     errors: list[str] = []
     semantic = execution.get("semantic_evidence")
     if not isinstance(semantic, Mapping):
@@ -82,30 +118,44 @@ def _semantic_precondition(execution: Mapping[str, Any]) -> dict[str, Any]:
         if normalized.get("status") != "VALID":
             errors.append("SEMANTIC_NORMALIZED_OUTPUT_NOT_VALID")
         raw_classifications = normalized.get("classifications")
-        if not isinstance(raw_classifications, list):
-            errors.append("SEMANTIC_CLASSIFICATIONS_MUST_BE_LIST")
+        try:
+            classifications = _mapping_list(raw_classifications, "semantic classifications")
+        except ValueError:
+            errors.append("SEMANTIC_CLASSIFICATIONS_MUST_BE_LIST_OF_OBJECTS")
             classifications = []
+        raw_claim_id = normalized.get("claim_id")
+        if not isinstance(raw_claim_id, str) or not raw_claim_id.strip():
+            claim_id = None
+            errors.append("SEMANTIC_CLAIM_ID_INVALID")
         else:
-            classifications = raw_classifications
-        claim_id = str(normalized.get("claim_id") or "").strip() or None
-        if claim_id is None:
-            errors.append("SEMANTIC_CLAIM_ID_MISSING")
+            claim_id = raw_claim_id.strip()
 
-    source_receipts = execution.get("source_receipts")
-    if not isinstance(source_receipts, list) or not source_receipts:
-        errors.append("SOURCE_RECEIPTS_MISSING")
+    try:
+        source_receipts = _mapping_list(
+            execution.get("source_receipts"),
+            "source_receipts",
+            require_nonempty=True,
+        )
+    except ValueError:
+        errors.append("SOURCE_RECEIPTS_MISSING_OR_INVALID")
         source_receipts = []
 
-    citations = execution.get("citations")
-    if not isinstance(citations, list) or not citations:
-        errors.append("CITATIONS_MISSING")
+    try:
+        _mapping_list(execution.get("citations"), "citations", require_nonempty=True)
+    except ValueError:
+        errors.append("CITATIONS_MISSING_OR_INVALID")
 
     family_binding = semantic.get("provenance_families")
     semantic_family_set_commitment = None
     if isinstance(family_binding, Mapping):
         family_receipt = family_binding.get("family_receipt")
         if isinstance(family_receipt, Mapping):
-            semantic_family_set_commitment = family_receipt.get("family_set_commitment")
+            raw_family_commitment = family_receipt.get("family_set_commitment")
+            if raw_family_commitment is not None:
+                if not isinstance(raw_family_commitment, str) or not raw_family_commitment.strip():
+                    errors.append("SEMANTIC_FAMILY_SET_COMMITMENT_INVALID")
+                else:
+                    semantic_family_set_commitment = raw_family_commitment.strip()
 
     return {
         "valid": not errors,
@@ -189,11 +239,9 @@ def apply_registered_proposition_audit(
     require_complete_coverage: bool = True,
     quarantine_on_direct_conflict: bool = True,
 ) -> dict[str, Any]:
-    """Run admitted proposition extraction over an already validated semantic execution.
-
-    This bridge never resolves truth. Direct exact-frame conflicts can only quarantine synthesis;
-    they cannot select a winning proposition or promote any source/model output.
-    """
+    """Run admitted proposition extraction over an already validated semantic execution."""
+    coverage_required = _strict_bool(require_complete_coverage, "require_complete_coverage")
+    quarantine_conflict = _strict_bool(quarantine_on_direct_conflict, "quarantine_on_direct_conflict")
     precondition = _semantic_precondition(execution)
     if not precondition["valid"]:
         return _quarantine(
@@ -205,14 +253,15 @@ def apply_registered_proposition_audit(
             reason="VALID_COMPLETE_SEMANTIC_EVIDENCE_AND_EXECUTION_PROVENANCE_REQUIRED",
         )
 
+    claim_id = _nonempty_text(precondition["claim_id"], "semantic claim_id")
     try:
         proposition_output = run_registered_proposition_producer(
             registry,
             producer_id=producer_id,
-            claim_id=str(precondition["claim_id"]),
+            claim_id=claim_id,
             classifications=precondition["classifications"],
             source_receipts=precondition["source_receipts"],
-            require_complete_coverage=require_complete_coverage,
+            require_complete_coverage=coverage_required,
         )
     except PropositionProducerAdmissionError as exc:
         return _quarantine(
@@ -224,17 +273,27 @@ def apply_registered_proposition_audit(
             reason=f"SEALED_REGISTRY_ADMISSION_REQUIRED:{exc}",
         )
 
-    if proposition_output.get("status") != "VALID":
+    if not isinstance(proposition_output, Mapping) or proposition_output.get("status") != "VALID":
+        return _quarantine(
+            execution,
+            precondition=precondition,
+            proposition_output=proposition_output if isinstance(proposition_output, Mapping) else None,
+            hound_audit=None,
+            status=PROPOSITION_PRODUCER_OUTPUT_INVALID,
+            reason="PROPOSITION_PROVIDER_OUTPUT_MUST_PASS_LOCAL_COVERAGE_INTEGRITY_AND_GROUNDING",
+        )
+
+    raw_propositions = proposition_output.get("propositions")
+    if not isinstance(raw_propositions, list) or any(not isinstance(row, Mapping) for row in raw_propositions):
         return _quarantine(
             execution,
             precondition=precondition,
             proposition_output=proposition_output,
             hound_audit=None,
             status=PROPOSITION_PRODUCER_OUTPUT_INVALID,
-            reason="PROPOSITION_PROVIDER_OUTPUT_MUST_PASS_LOCAL_COVERAGE_INTEGRITY_AND_GROUNDING",
+            reason="VALID_PROPOSITION_OUTPUT_REQUIRES_A_LIST_OF_PROPOSITION_OBJECTS",
         )
-
-    propositions = list(proposition_output.get("propositions") or [])
+    propositions = raw_propositions
     if not propositions:
         return _quarantine(
             execution,
@@ -247,9 +306,9 @@ def apply_registered_proposition_audit(
 
     hound_audit = hound_claim_audit(
         propositions,
-        citations=execution.get("citations") or [],
+        citations=execution.get("citations"),
     )
-    if hound_audit.get("status") in {
+    if not isinstance(hound_audit, Mapping) or hound_audit.get("status") in {
         "INVALID_PROPOSITION_SET_FAIL_CLOSED",
         "PROPOSITION_SOURCE_FAMILY_BINDING_FAILED",
     }:
@@ -257,27 +316,43 @@ def apply_registered_proposition_audit(
             execution,
             precondition=precondition,
             proposition_output=proposition_output,
-            hound_audit=hound_audit,
+            hound_audit=hound_audit if isinstance(hound_audit, Mapping) else None,
             status=PROPOSITION_HOUND_AUDIT_FAILED,
             reason="HOUND_CLAIM_AUDIT_MUST_BIND_TO_CURRENT_PROVENANCE_FAMILIES",
         )
 
     semantic_family = precondition.get("semantic_family_set_commitment")
     hound_family = hound_audit.get("family_set_commitment")
-    if semantic_family is not None and hound_family != semantic_family:
+    if semantic_family is not None:
+        if not isinstance(hound_family, str) or hound_family.strip() != semantic_family:
+            return _quarantine(
+                execution,
+                precondition=precondition,
+                proposition_output=proposition_output,
+                hound_audit=hound_audit,
+                status=PROPOSITION_FAMILY_TOPOLOGY_MISMATCH,
+                reason="SEMANTIC_AND_HOUND_LAYERS_MUST_SHARE_THE_EXACT_FAMILY_SET_COMMITMENT",
+            )
+
+    try:
+        direct_conflicts = _nonnegative_int(
+            hound_audit.get("cross_family_conflict_candidate_count"),
+            "cross_family_conflict_candidate_count",
+        ) + _nonnegative_int(
+            hound_audit.get("intra_family_conflict_candidate_count"),
+            "intra_family_conflict_candidate_count",
+        )
+    except ValueError:
         return _quarantine(
             execution,
             precondition=precondition,
             proposition_output=proposition_output,
             hound_audit=hound_audit,
-            status=PROPOSITION_FAMILY_TOPOLOGY_MISMATCH,
-            reason="SEMANTIC_AND_HOUND_LAYERS_MUST_SHARE_THE_EXACT_FAMILY_SET_COMMITMENT",
+            status=PROPOSITION_HOUND_AUDIT_FAILED,
+            reason="HOUND_CONFLICT_COUNTS_MUST_BE_EXACT_NONNEGATIVE_INTEGERS",
         )
 
-    direct_conflicts = int(hound_audit.get("cross_family_conflict_candidate_count") or 0) + int(
-        hound_audit.get("intra_family_conflict_candidate_count") or 0
-    )
-    if quarantine_on_direct_conflict and direct_conflicts > 0:
+    if quarantine_conflict and direct_conflicts > 0:
         return _quarantine(
             execution,
             precondition=precondition,
