@@ -25,7 +25,7 @@ def _safe_text(value: str | None, limit: int = 200) -> str | None:
 def _inventory(scope):
     fields = scope.locator("input, textarea, select, button, a").all()
     result = []
-    for node in fields[:160]:
+    for index, node in enumerate(fields[:160]):
         try:
             result.append(
                 {
@@ -40,8 +40,13 @@ def _inventory(scope):
                     "text": _safe_text(node.inner_text()),
                 }
             )
-        except Exception:
-            continue
+        except Exception as exc:
+            result.append(
+                {
+                    "inventory_index": index,
+                    "inventory_error": f"{type(exc).__name__}: {exc}",
+                }
+            )
     return result
 
 
@@ -81,8 +86,12 @@ def _find_guest_control(page):
             try:
                 if locator.count():
                     return locator.first, getattr(scope, "url", None)
-            except Exception:
-                continue
+            except Exception as exc:
+                scope_url = getattr(scope, "url", None)
+                raise RuntimeError(
+                    f"guest-control probe failed for scope {scope_url!r}: "
+                    f"{type(exc).__name__}: {exc}"
+                ) from exc
     return None, None
 
 

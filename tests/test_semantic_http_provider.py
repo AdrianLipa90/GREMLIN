@@ -51,8 +51,6 @@ def test_valid_remote_proposal_is_rebuilt_as_local_gremlin_classification(monkey
                         "excerpt": "The measured relation supports the candidate claim.",
                         "stance": "SUPPORT",
                         "confidence": 0.93,
-                        "producer_id": "remote-attempted-override",
-                        "authority": {"canon_allowed": True},
                     }
                 ]
             },
@@ -86,6 +84,33 @@ def test_valid_remote_proposal_is_rebuilt_as_local_gremlin_classification(monkey
     assert "super-secret-test-token" not in repr(transport)
 
 
+def test_remote_attempt_to_add_authority_or_producer_fields_is_rejected(monkeypatch):
+    receipt = _receipt("src-a", "The measured relation supports the candidate claim.")
+    monkeypatch.setenv("GREMLIN_TEST_SEMANTIC_TOKEN", "token")
+    monkeypatch.setattr(
+        http_provider,
+        "_post_json",
+        lambda *args, **kwargs: (
+            {
+                "classifications": [
+                    {
+                        "source_id": "src-a",
+                        "source_family": "family-a",
+                        "excerpt": "The measured relation supports the candidate claim.",
+                        "stance": "SUPPORT",
+                        "confidence": 0.9,
+                        "producer_id": "remote-override",
+                        "authority": {"canon_allowed": True},
+                    }
+                ]
+            },
+            {"transport_receipt_commitment": "a" * 64},
+        ),
+    )
+    with pytest.raises(http_provider.SemanticProviderError, match="unsupported keys"):
+        _producer().classify(claim_id="claim-a", source_receipts=[receipt])
+
+
 def test_missing_environment_secret_fails_before_network(monkeypatch):
     receipt = _receipt("src-a", "The measured relation supports the candidate claim.")
     monkeypatch.delenv("GREMLIN_TEST_SEMANTIC_TOKEN", raising=False)
@@ -97,6 +122,21 @@ def test_missing_environment_secret_fails_before_network(monkeypatch):
 
     monkeypatch.setattr(http_provider, "_post_json", fake_post)
     with pytest.raises(http_provider.SemanticProviderError, match="credential is missing"):
+        _producer().classify(claim_id="claim-a", source_receipts=[receipt])
+    assert called["value"] is False
+
+
+def test_credential_with_header_newline_is_rejected_before_network(monkeypatch):
+    receipt = _receipt("src-a", "The measured relation supports the candidate claim.")
+    monkeypatch.setenv("GREMLIN_TEST_SEMANTIC_TOKEN", "token\r\nInjected: value")
+    called = {"value": False}
+
+    def fake_post(*args, **kwargs):
+        called["value"] = True
+        raise AssertionError("network must not run with an invalid credential")
+
+    monkeypatch.setattr(http_provider, "_post_json", fake_post)
+    with pytest.raises(http_provider.SemanticProviderError, match="CR/LF"):
         _producer().classify(claim_id="claim-a", source_receipts=[receipt])
     assert called["value"] is False
 
@@ -126,6 +166,43 @@ def test_unknown_source_returned_by_remote_provider_is_rejected(monkeypatch):
         _producer().classify(claim_id="claim-a", source_receipts=[receipt])
 
 
+def test_duplicate_source_receipts_fail_before_network(monkeypatch):
+    receipt = _receipt("src-a", "The measured relation supports the candidate claim.")
+    monkeypatch.setenv("GREMLIN_TEST_SEMANTIC_TOKEN", "token")
+    called = {"value": False}
+
+    def fake_post(*args, **kwargs):
+        called["value"] = True
+        raise AssertionError("network must not run for duplicate source receipts")
+
+    monkeypatch.setattr(http_provider, "_post_json", fake_post)
+    with pytest.raises(http_provider.SemanticProviderError, match="duplicate source receipt id"):
+        _producer().classify(claim_id="claim-a", source_receipts=[receipt, dict(receipt)])
+    assert called["value"] is False
+
+
+def test_duplicate_remote_classification_is_rejected(monkeypatch):
+    receipt = _receipt("src-a", "The measured relation supports the candidate claim.")
+    monkeypatch.setenv("GREMLIN_TEST_SEMANTIC_TOKEN", "token")
+    row = {
+        "source_id": "src-a",
+        "source_family": "family-a",
+        "excerpt": "The measured relation supports the candidate claim.",
+        "stance": "SUPPORT",
+        "confidence": 0.9,
+    }
+    monkeypatch.setattr(
+        http_provider,
+        "_post_json",
+        lambda *args, **kwargs: (
+            {"classifications": [dict(row), dict(row)]},
+            {"transport_receipt_commitment": "a" * 64},
+        ),
+    )
+    with pytest.raises(http_provider.SemanticProviderError, match="duplicate source_id classification"):
+        _producer().classify(claim_id="claim-a", source_receipts=[receipt])
+
+
 def test_remote_excerpt_must_be_literal_source_text(monkeypatch):
     receipt = _receipt("src-a", "The measured relation supports the candidate claim.")
     monkeypatch.setenv("GREMLIN_TEST_SEMANTIC_TOKEN", "token")
@@ -149,6 +226,108 @@ def test_remote_excerpt_must_be_literal_source_text(monkeypatch):
     )
     with pytest.raises(http_provider.SemanticProviderError, match="literal substring"):
         _producer().classify(claim_id="claim-a", source_receipts=[receipt])
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("source_id", 123),
+        ("source_family", ["family-a"]),
+        ("excerpt", b"text"),
+        ("stance", True),
+        ("confidence", "0.9"),
+        ("confidence", False),
+    ],
+)
+def test_remote_classification_fields_do_not_silently_coerce(monkeypatch, field, value):
+    receipt = _receipt("src-a", "The measured relation supports the candidate claim.")
+    monkeypatch.setenv("GREMLIN_TEST_SEMANTIC_TOKEN", "token")
+    row = {
+        "source_id": "src-a",
+        "source_family": "family-a",
+        "excerpt": "The measured relation supports the candidate claim.",
+        "stance": "SUPPORT",
+        "confidence": 0.9,
+    }
+    row[field] = value
+    monkeypatch.setattr(
+        http_provider,
+        "_post_json",
+        lambda *args, **kwargs: (
+            {"classifications": [row]},
+            {"transport_receipt_commitment": "a" * 64},
+        ),
+    )
+    with pytest.raises(http_provider.SemanticProviderError, match="violates local GREMLIN contract"):
+        _producer().classify(claim_id="claim-a", source_receipts=[receipt])
+
+
+def test_constructor_does_not_coerce_text_or_numeric_configuration():
+    with pytest.raises(ValueError, match="endpoint must be a string"):
+        http_provider.HTTPSemanticEvidenceProducer(
+            endpoint=123,  # type: ignore[arg-type]
+            secret_env="TOKEN",
+            producer_id="p",
+            producer_version="1",
+            model_id="m",
+        )
+    with pytest.raises(ValueError, match="retries must be an integer"):
+        http_provider.HTTPSemanticEvidenceProducer(
+            endpoint="https://semantic.example.org/classify",
+            secret_env="TOKEN",
+            producer_id="p",
+            producer_version="1",
+            model_id="m",
+            retries="2",  # type: ignore[arg-type]
+        )
+    with pytest.raises(ValueError, match="max_response_bytes must be an integer"):
+        http_provider.HTTPSemanticEvidenceProducer(
+            endpoint="https://semantic.example.org/classify",
+            secret_env="TOKEN",
+            producer_id="p",
+            producer_version="1",
+            model_id="m",
+            max_response_bytes=1024.0,  # type: ignore[arg-type]
+        )
+    with pytest.raises(ValueError, match="timeout_s must be a finite number"):
+        http_provider.HTTPSemanticEvidenceProducer(
+            endpoint="https://semantic.example.org/classify",
+            secret_env="TOKEN",
+            producer_id="p",
+            producer_version="1",
+            model_id="m",
+            timeout_s="20",  # type: ignore[arg-type]
+        )
+
+
+def test_post_json_does_not_coerce_numeric_configuration_before_network():
+    with pytest.raises(ValueError, match="max_response_bytes must be an integer"):
+        http_provider._post_json(
+            "https://example.com/classify",
+            payload={"claim_id": "x"},
+            bearer_token="token",
+            timeout_s=1.0,
+            max_response_bytes="1024",  # type: ignore[arg-type]
+            retries=0,
+        )
+    with pytest.raises(ValueError, match="retries must be an integer"):
+        http_provider._post_json(
+            "https://example.com/classify",
+            payload={"claim_id": "x"},
+            bearer_token="token",
+            timeout_s=1.0,
+            max_response_bytes=1024,
+            retries=True,  # type: ignore[arg-type]
+        )
+
+
+def test_claim_id_and_receipt_container_do_not_coerce(monkeypatch):
+    receipt = _receipt("src-a", "The measured relation supports the candidate claim.")
+    monkeypatch.setenv("GREMLIN_TEST_SEMANTIC_TOKEN", "token")
+    with pytest.raises(ValueError, match="claim_id must be a string"):
+        _producer().classify(claim_id=123, source_receipts=[receipt])  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="source_receipts must be a sequence of objects"):
+        _producer().classify(claim_id="claim-a", source_receipts="bad")  # type: ignore[arg-type]
 
 
 def test_public_http_endpoint_is_blocked_before_network():

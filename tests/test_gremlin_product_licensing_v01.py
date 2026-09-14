@@ -144,6 +144,65 @@ def test_product_runtime_enforces_tool_species_provider_and_limits(tmp_path) -> 
         runtime.authorize(tool="gremlin_research", requested_sources=13)
 
 
+def test_authorization_rejects_fractional_and_boolean_limits_instead_of_coercing(tmp_path) -> None:
+    license_path, public_path, profile_path = _write_runtime_files(tmp_path, profile=_profile())
+    runtime = ProductRuntime.from_paths(
+        license_path=license_path,
+        public_key_path=public_path,
+        profile_path=profile_path,
+        require_license=True,
+    )
+    assert runtime.status()["status"] == "LICENSED"
+    with pytest.raises(ProductAuthorizationError, match="INVALID_REQUESTED_WORKERS:INTEGER_REQUIRED"):
+        runtime.authorize(tool="gremlin_route", requested_workers=4.9)  # type: ignore[arg-type]
+    with pytest.raises(ProductAuthorizationError, match="INVALID_REQUESTED_SOURCES:INTEGER_REQUIRED"):
+        runtime.authorize(tool="gremlin_research", requested_sources=True)  # type: ignore[arg-type]
+
+
+def test_authorization_fails_closed_if_in_memory_entitlement_is_malformed() -> None:
+    runtime = ProductRuntime(
+        require_license=True,
+        license_payload={
+            "features": ["MCP_STDIO"],
+            "limits": {"max_workers": "8", "max_sources": 24},
+        },
+    )
+    with pytest.raises(ProductAuthorizationError, match="PRODUCT_ENTITLEMENT_MALFORMED:limits.max_workers"):
+        runtime.authorize(tool="gremlin_route", requested_workers=1)
+
+
+def test_required_profile_cannot_be_bypassed_by_omitting_profile_path(tmp_path) -> None:
+    license_path, public_path, _ = _write_runtime_files(
+        tmp_path,
+        payload=_payload(metadata={"profile_required": True}),
+    )
+    runtime = ProductRuntime.from_paths(
+        license_path=license_path,
+        public_key_path=public_path,
+        profile_path=None,
+        require_license=True,
+    )
+    status = runtime.status()
+    assert status["status"] == "BLOCKED"
+    assert status["reason"] == "required client profile is missing"
+
+
+def test_profile_required_metadata_must_be_boolean(tmp_path) -> None:
+    license_path, public_path, _ = _write_runtime_files(
+        tmp_path,
+        payload=_payload(metadata={"profile_required": "false"}),
+    )
+    runtime = ProductRuntime.from_paths(
+        license_path=license_path,
+        public_key_path=public_path,
+        profile_path=None,
+        require_license=True,
+    )
+    status = runtime.status()
+    assert status["status"] == "BLOCKED"
+    assert "metadata.profile_required must be boolean" in status["reason"]
+
+
 def test_missing_license_blocks_product_runtime() -> None:
     runtime = ProductRuntime.unconfigured(require_license=True)
     with pytest.raises(ProductAuthorizationError, match="LICENSE_REQUIRED"):

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 from typing import Any, Mapping
 
 from gremlin_mcp.equation_audit import (
@@ -24,72 +25,129 @@ def _authority() -> dict[str, bool]:
 
 
 def _canonical(value: Any) -> bytes:
-    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False).encode("utf-8")
+    try:
+        return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False).encode("utf-8")
+    except (TypeError, ValueError) as exc:
+        raise ValueError("equation witness bundle data must be finite JSON") from exc
 
 
 def _commit(domain: bytes, value: Any) -> str:
     return hashlib.blake2b(domain + b"\0" + _canonical(value), digest_size=32).hexdigest()
 
 
+def _nonempty(value: Any, field: str) -> str:
+    if not isinstance(value, str):
+        raise ValueError(f"{field} must be a string")
+    text = value.strip()
+    if not text:
+        raise ValueError(f"{field} must be non-empty")
+    return text
+
+
+def _optional_text(value: Any, field: str) -> str | None:
+    if value is None:
+        return None
+    return _nonempty(value, field)
+
+
+def _mapping(value: Any, field: str) -> dict[str, Any]:
+    if not isinstance(value, Mapping):
+        raise ValueError(f"{field} must be an object")
+    return dict(value)
+
+
+def _mapping_list(value: Any, field: str) -> list[dict[str, Any]]:
+    if not isinstance(value, list):
+        raise ValueError(f"{field} must be a list")
+    if any(not isinstance(row, Mapping) for row in value):
+        raise ValueError(f"{field} must contain only objects")
+    return [dict(row) for row in value]
+
+
+def _string_list(value: Any, field: str) -> list[str]:
+    if not isinstance(value, list):
+        raise ValueError(f"{field} must be a list")
+    return [_nonempty(item, field) for item in value]
+
+
+def _number(value: Any, field: str, *, nonnegative: bool = False) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError(f"{field} must be a finite number")
+    number = float(value)
+    if not math.isfinite(number):
+        raise ValueError(f"{field} must be a finite number")
+    if nonnegative and number < 0:
+        raise ValueError(f"{field} must be non-negative")
+    return number
+
+
 def _run_witness(witness: Mapping[str, Any]) -> dict[str, Any]:
-    kind = str(witness.get("kind") or "").strip()
+    if not isinstance(witness, Mapping):
+        raise ValueError("witness must be an object")
+    kind = _nonempty(witness.get("kind"), "witness kind")
     if kind == "numeric":
+        symbols = _mapping(witness.get("symbols"), "numeric witness symbols")
+        expression = _nonempty(witness.get("expression"), "numeric witness expression")
+        reported_value = _number(witness.get("reported_value"), "reported_value")
+        rel_tol = _number(witness.get("rel_tol", 1e-9), "rel_tol", nonnegative=True)
+        abs_tol = _number(witness.get("abs_tol", 0.0), "abs_tol", nonnegative=True)
         result = audit_numeric_formula_claim(
-            expression=str(witness["expression"]),
-            symbols=dict(witness.get("symbols") or {}),
-            reported_value=float(witness["reported_value"]),
-            rel_tol=float(witness.get("rel_tol", 1e-9)),
-            abs_tol=float(witness.get("abs_tol", 0.0)),
+            expression=expression,
+            symbols=symbols,
+            reported_value=reported_value,
+            rel_tol=rel_tol,
+            abs_tol=abs_tol,
         )
     elif kind == "dimensional_identity":
         result = audit_dimensional_identity(
-            str(witness["lhs"]),
-            str(witness["rhs"]),
-            dimensions=dict(witness.get("dimensions") or {}),
+            _nonempty(witness.get("lhs"), "dimensional witness lhs"),
+            _nonempty(witness.get("rhs"), "dimensional witness rhs"),
+            dimensions=_mapping(witness.get("dimensions"), "dimensional witness dimensions"),
         )
     elif kind == "symbolic_identity":
         result = audit_symbolic_identity(
-            str(witness["lhs"]),
-            str(witness["rhs"]),
-            symbols=list(witness.get("symbols") or []),
+            _nonempty(witness.get("lhs"), "symbolic witness lhs"),
+            _nonempty(witness.get("rhs"), "symbolic witness rhs"),
+            symbols=_string_list(witness.get("symbols"), "symbolic witness symbols"),
         )
     elif kind == "derivation":
         result = audit_derivation_claim(
-            equation=str(witness["equation"]),
-            target=str(witness["target"]),
-            claimed_expression=str(witness["claimed_expression"]),
-            assumptions=dict(witness.get("assumptions") or {}),
+            equation=_nonempty(witness.get("equation"), "derivation equation"),
+            target=_nonempty(witness.get("target"), "derivation target"),
+            claimed_expression=_nonempty(witness.get("claimed_expression"), "claimed_expression"),
+            assumptions=_mapping(witness.get("assumptions"), "derivation assumptions"),
         )
     else:
         raise ValueError(f"unsupported witness kind: {kind}")
-    return result
+    if not isinstance(result, Mapping):
+        raise RuntimeError("equation audit returned a non-object result")
+    status = result.get("status")
+    if status not in {"PASS", "FAIL", "UNRESOLVED"}:
+        raise RuntimeError(f"equation audit returned unsupported status: {status!r}")
+    return dict(result)
 
 
 def run_equation_witness_bundle(bundle: Mapping[str, Any]) -> dict[str, Any]:
-    bundle_id = str(bundle.get("bundle_id") or "").strip()
-    if not bundle_id:
-        raise ValueError("bundle_id must be non-empty")
-    classification = str(bundle.get("classification") or "").strip()
-    if not classification:
-        raise ValueError("classification must be non-empty")
+    if not isinstance(bundle, Mapping):
+        raise ValueError("bundle must be an object")
+    bundle_id = _nonempty(bundle.get("bundle_id"), "bundle_id")
+    classification = _nonempty(bundle.get("classification"), "classification")
 
-    witnesses = list(bundle.get("witnesses") or [])
-    ids = [str(row.get("id") or "").strip() for row in witnesses]
-    if any(not witness_id for witness_id in ids):
-        raise ValueError("witness id must be non-empty")
+    witnesses = _mapping_list(bundle.get("witnesses"), "witnesses")
+    ids = [_nonempty(row.get("id"), "witness id") for row in witnesses]
     if len(set(ids)) != len(ids):
         raise ValueError("duplicate witness id")
 
     rows: list[dict[str, Any]] = []
-    for witness in witnesses:
-        witness_id = str(witness["id"]).strip()
+    for witness_id, witness in zip(ids, witnesses):
         audit = _run_witness(witness)
+        kind = _nonempty(witness.get("kind"), "witness kind")
         rows.append(
             {
                 "id": witness_id,
-                "kind": str(witness["kind"]),
-                "source_locator": witness.get("source_locator"),
-                "source_excerpt": witness.get("source_excerpt"),
+                "kind": kind,
+                "source_locator": _optional_text(witness.get("source_locator"), "source_locator"),
+                "source_excerpt": _optional_text(witness.get("source_excerpt"), "source_excerpt"),
                 "audit": audit,
                 "status": audit["status"],
             }

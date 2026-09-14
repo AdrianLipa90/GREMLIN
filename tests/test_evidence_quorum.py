@@ -1,3 +1,5 @@
+import pytest
+
 from gremlin_mcp.evidence_quorum import (
     CONFLICT_DEFER_TO_HOUND,
     QUORUM_INSUFFICIENT,
@@ -63,9 +65,31 @@ def test_high_confidence_single_family_cannot_substitute_for_diversity():
 
 
 def test_quorum_minimum_is_bounded_fail_closed():
-    try:
+    with pytest.raises(ValueError, match="min_unipolar_families"):
         assess_family_quorum([_row("a", "fam-1", SUPPORT)], min_unipolar_families=99)
-    except ValueError as exc:
-        assert "min_unipolar_families" in str(exc)
-    else:
-        raise AssertionError("expected bounded quorum validation")
+
+
+def test_quorum_minimum_does_not_coerce_bool_float_or_string():
+    for value in (True, 2.0, "2"):
+        with pytest.raises(ValueError, match="must be an integer"):
+            assess_family_quorum(
+                [_row("a", "fam-1", SUPPORT)],
+                min_unipolar_families=value,  # type: ignore[arg-type]
+            )
+
+
+def test_quorum_rejects_non_mapping_evidence_rows():
+    with pytest.raises(ValueError, match="only objects"):
+        assess_family_quorum([_row("a", "fam-1", SUPPORT), "bad-row"])  # type: ignore[list-item]
+    with pytest.raises(ValueError, match="iterable of objects"):
+        assess_family_quorum("not-evidence")  # type: ignore[arg-type]
+
+
+def test_quorum_rejects_unknown_stance_instead_of_silently_dropping_it():
+    with pytest.raises(ValueError, match="unsupported evidence stance"):
+        assess_family_quorum([_row("a", "fam-1", "UNRESOLVED")])
+
+
+def test_quorum_rejects_non_string_family_instead_of_coercing():
+    with pytest.raises(ValueError, match="source_family must be a string"):
+        assess_family_quorum([_row("a", 123, SUPPORT)])

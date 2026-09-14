@@ -17,26 +17,16 @@ def _write_new(path: Path, data: bytes, *, private: bool = False) -> None:
     if path.exists():
         raise FileExistsError(f"refusing to overwrite existing issuer bootstrap file: {path}")
     flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
-    if private and os.name != "nt":
-        fd = os.open(path, flags, 0o600)
-    else:
-        fd = os.open(path, flags, 0o644)
+    mode = 0o600 if private else 0o644
+    fd = os.open(path, flags, mode)
     try:
         with os.fdopen(fd, "wb") as handle:
             handle.write(data)
             handle.flush()
             os.fsync(handle.fileno())
-    except Exception:
-        try:
-            path.unlink()
-        except OSError:
-            pass
+    except BaseException:
+        path.unlink(missing_ok=True)
         raise
-    if private:
-        try:
-            os.chmod(path, 0o600)
-        except OSError:
-            pass
 
 
 def bootstrap(output_dir: Path) -> dict[str, str]:

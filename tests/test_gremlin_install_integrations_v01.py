@@ -4,6 +4,7 @@ import json
 
 import pytest
 
+import gremlin_mcp.install.integrations as integrations_module
 from gremlin_mcp.install.integrations import gremlin_stdio_entry, inspect_json_mcp, install_json_mcp, remove_json_mcp
 from gremlin_mcp.install.paths import resolve_paths
 
@@ -87,3 +88,52 @@ def test_windows_stdio_entry_uses_windows_separators_even_when_tested_on_linux()
     entry = gremlin_stdio_entry(paths)
     assert entry["command"] == r"C:\Users\Alice\AppData\Local\Programs\GREMLIN\gremlin-product-mcp.exe"
     assert entry["env"]["GREMLIN_LICENSE_PUBLIC_KEY"] == r"C:\Users\Alice\AppData\Local\Programs\GREMLIN\resources\issuer-public.pem"
+
+
+def test_integration_rejects_duplicate_json_keys_without_rewriting_config(tmp_path) -> None:
+    config = tmp_path / "client.json"
+    original = '{"mcpServers":{"existing":{"command":"a"}},"mcpServers":{"existing":{"command":"b"}}}\n'
+    config.write_text(original, encoding="utf-8")
+    paths = resolve_paths(platform="linux", env={"HOME": str(tmp_path)})
+
+    with pytest.raises(ValueError, match="duplicate JSON key"):
+        install_json_mcp(
+            client_id="test-client",
+            config_path=config,
+            entry=gremlin_stdio_entry(paths),
+            backup_root=tmp_path / "backups",
+        )
+
+    assert config.read_text(encoding="utf-8") == original
+    assert not (tmp_path / "backups").exists()
+
+
+def test_integration_refuses_to_clobber_concurrent_client_change(tmp_path, monkeypatch) -> None:
+    config = tmp_path / "client.json"
+    original = {"theme": "dark", "mcpServers": {"existing": {"command": "old"}}}
+    config.write_text(json.dumps(original), encoding="utf-8")
+    paths = resolve_paths(platform="linux", env={"HOME": str(tmp_path)})
+    external = {"theme": "light", "mcpServers": {"external": {"command": "new"}}}
+
+    real_assert = integrations_module._assert_unchanged
+    mutated = False
+
+    def mutate_then_check(path, expected_before):
+        nonlocal mutated
+        if not mutated:
+            path.write_text(json.dumps(external), encoding="utf-8")
+            mutated = True
+        real_assert(path, expected_before)
+
+    monkeypatch.setattr(integrations_module, "_assert_unchanged", mutate_then_check)
+
+    with pytest.raises(RuntimeError, match="changed during integration update"):
+        install_json_mcp(
+            client_id="test-client",
+            config_path=config,
+            entry=gremlin_stdio_entry(paths),
+            backup_root=tmp_path / "backups",
+        )
+
+    assert json.loads(config.read_text(encoding="utf-8")) == external
+    assert not list(tmp_path.glob(".client.json.*.tmp"))

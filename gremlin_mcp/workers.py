@@ -45,17 +45,37 @@ def _commit(value: Any) -> str:
     return hashlib.blake2b(COMMITMENT_DOMAIN + _canonical(value), digest_size=32).hexdigest()
 
 
+def _strict_int(value: Any, *, field: str, minimum: int, maximum: int | None = None) -> int:
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ValueError(f"{field} must be an integer")
+    if value < minimum or (maximum is not None and value > maximum):
+        if maximum is None:
+            raise ValueError(f"{field} must be >= {minimum}")
+        raise ValueError(f"{field} must be in {minimum}..{maximum}")
+    return value
+
+
 def _normalize_id(value: str, *, field: str) -> str:
-    out = str(value).strip()
+    if not isinstance(value, str):
+        raise ValueError(f"{field} must be a string")
+    out = value.strip()
     if not out or len(out) > 128:
         raise ValueError(f"{field} must contain 1..128 characters")
     return out
 
 
 def _normalize_species(values: Iterable[str]) -> tuple[str, ...]:
+    if isinstance(values, (str, bytes)):
+        raise ValueError("species must be an iterable of species names, not a string")
+    try:
+        raw_values = list(values)
+    except TypeError as exc:
+        raise ValueError("species must be iterable") from exc
     names: list[str] = []
-    for raw in values:
-        name = str(raw).strip().upper()
+    for raw in raw_values:
+        if not isinstance(raw, str):
+            raise ValueError("worker species names must be strings")
+        name = raw.strip().upper()
         if name not in WORKER_SPECIES:
             raise ValueError(f"unsupported worker species: {raw!r}")
         if name not in names:
@@ -63,6 +83,16 @@ def _normalize_species(values: Iterable[str]) -> tuple[str, ...]:
     if not names:
         raise ValueError("at least one worker species is required")
     return tuple(names)
+
+
+def _normalize_capabilities(values: Iterable[str]) -> tuple[str, ...]:
+    if isinstance(values, (str, bytes)):
+        raise ValueError("capabilities must be an iterable of capability names, not a string")
+    try:
+        raw_values = list(values)
+    except TypeError as exc:
+        raise ValueError("capabilities must be iterable") from exc
+    return tuple(sorted({_normalize_id(value, field="capability") for value in raw_values}))
 
 
 @dataclass
@@ -110,12 +140,8 @@ class WorkerBroker:
     """
 
     def __init__(self, *, lease_seconds: int = 30, max_pending: int = 10_000) -> None:
-        lease = int(lease_seconds)
-        pending = int(max_pending)
-        if lease <= 0 or lease > 300:
-            raise ValueError("lease_seconds must be in 1..300")
-        if pending <= 0:
-            raise ValueError("max_pending must be positive")
+        lease = _strict_int(lease_seconds, field="lease_seconds", minimum=1, maximum=300)
+        pending = _strict_int(max_pending, field="max_pending", minimum=1)
         self._lease_seconds = lease
         self._max_pending = pending
         self._workers: dict[str, WorkerRecord] = {}
@@ -134,13 +160,9 @@ class WorkerBroker:
     ) -> dict[str, Any]:
         wid = _normalize_id(worker_id, field="worker_id")
         names = _normalize_species(species)
-        caps = tuple(sorted({_normalize_id(c, field="capability") for c in capabilities}))
-        vw = int(vector_width)
-        batch = int(max_batch)
-        if vw <= 0 or vw > 1024:
-            raise ValueError("vector_width must be in 1..1024")
-        if batch <= 0 or batch > 128:
-            raise ValueError("max_batch must be in 1..128")
+        caps = _normalize_capabilities(capabilities)
+        vw = _strict_int(vector_width, field="vector_width", minimum=1, maximum=1024)
+        batch = _strict_int(max_batch, field="max_batch", minimum=1, maximum=128)
         now = time.time_ns()
         with self._lock:
             old = self._workers.get(wid)
@@ -167,7 +189,9 @@ class WorkerBroker:
         }
 
     def enqueue(self, species: str, payload: Mapping[str, Any], *, task_id: str | None = None) -> dict[str, Any]:
-        name = str(species).strip().upper()
+        if not isinstance(species, str):
+            raise ValueError("species must be a string")
+        name = species.strip().upper()
         if name not in WORKER_SPECIES:
             raise ValueError(f"unsupported worker species: {species!r}")
         if not isinstance(payload, Mapping):
@@ -216,7 +240,9 @@ class WorkerBroker:
                     sorted(worker.species, key=lambda name: (-service_omega(PROFILES[name]), name))
                 )
             else:
-                requested = str(species).strip().upper()
+                if not isinstance(species, str):
+                    raise ValueError("species must be a string")
+                requested = species.strip().upper()
                 if requested not in worker.species:
                     raise ValueError("worker is not registered for requested species")
                 candidates = (requested,)
@@ -245,13 +271,13 @@ class WorkerBroker:
                 }
 
             lane = lane_width(selected_species, vector_width=worker.vector_width)
-            requested_limit = worker.max_batch if limit is None else int(limit)
-            if requested_limit <= 0:
-                raise ValueError("limit must be positive")
+            requested_limit = worker.max_batch if limit is None else _strict_int(
+                limit, field="limit", minimum=1
+            )
             batch_size = min(requested_limit, worker.max_batch, lane, len(pending))
-            ttl = self._lease_seconds if lease_seconds is None else int(lease_seconds)
-            if ttl <= 0 or ttl > 300:
-                raise ValueError("lease_seconds must be in 1..300")
+            ttl = self._lease_seconds if lease_seconds is None else _strict_int(
+                lease_seconds, field="lease_seconds", minimum=1, maximum=300
+            )
             lease_id = uuid.uuid4().hex
             expires = now + ttl * 1_000_000_000
             chosen = pending[:batch_size]
@@ -286,7 +312,12 @@ class WorkerBroker:
     def submit(self, worker_id: str, lease_id: str, results: Iterable[Mapping[str, Any]]) -> dict[str, Any]:
         wid = _normalize_id(worker_id, field="worker_id")
         lid = _normalize_id(lease_id, field="lease_id")
-        rows = list(results)
+        if isinstance(results, (str, bytes)):
+            raise ValueError("results must be an iterable of mappings")
+        try:
+            rows = list(results)
+        except TypeError as exc:
+            raise ValueError("results must be iterable") from exc
         now = time.time_ns()
         with self._lock:
             self._reap_expired(now)
@@ -302,11 +333,12 @@ class WorkerBroker:
             for row in rows:
                 if not isinstance(row, Mapping):
                     raise ValueError("each result must be a mapping")
-                tid = _normalize_id(str(row.get("task_id", "")), field="task_id")
+                tid = _normalize_id(row.get("task_id"), field="task_id")  # type: ignore[arg-type]
                 if tid in supplied:
                     raise ValueError("duplicate task result")
                 supplied.add(tid)
-                if row.get("status", "CANDIDATE") != "CANDIDATE":
+                status = row.get("status", "CANDIDATE")
+                if not isinstance(status, str) or status != "CANDIDATE":
                     raise ValueError("worker results must remain CANDIDATE")
                 if "output" not in row:
                     raise ValueError("worker result requires output")
@@ -389,13 +421,20 @@ class WorkerBroker:
         return worker
 
     def _reap_expired(self, now_ns: int) -> None:
+        if isinstance(now_ns, bool) or not isinstance(now_ns, int):
+            raise ValueError("now_ns must be an integer")
         expired = [lid for lid, lease in self._leases.items() if lease.expires_ns <= now_ns]
         for lid in expired:
-            lease = self._leases.pop(lid)
+            lease = self._leases[lid]
             for tid in lease.task_ids:
                 task = self._tasks.get(tid)
-                if task is None or task.state != "LEASED" or task.lease_id != lid:
-                    continue
+                if task is None:
+                    raise RuntimeError("expired lease references a missing task")
+                if task.state != "LEASED" or task.lease_id != lid or task.leased_to != lease.worker_id:
+                    raise RuntimeError("expired lease/task lineage is inconsistent")
+            self._leases.pop(lid)
+            for tid in lease.task_ids:
+                task = self._tasks[tid]
                 task.state = "QUEUED"
                 task.lease_id = None
                 task.leased_to = None

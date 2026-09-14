@@ -26,7 +26,7 @@ def _request() -> dict:
         "steps": [
             {"action": "navigate", "url": "https://example.com/complaints"},
             {"action": "fill", "selector": "#subject", "value": "Incorrect plan"},
-            {"action": "fill", "selector": "#password", "value": "secret-value", "secret": True},
+            {"action": "fill", "selector": "#password", "secret": True, "secret_ref": "complaint-password"},
             {"action": "upload", "selector": "input[type=file]", "files": ["/tmp/evidence.png"]},
             {"action": "click", "selector": "button[type=submit]"},
             {"action": "snapshot", "label": "confirmation"},
@@ -64,6 +64,7 @@ def test_prepare_is_receipt_bound_and_redacts_secret() -> None:
     assert preview["approval_scope"] == "EXACT_PREVIEW_COMMITMENT"
     assert preview["steps"][2]["value"] == "<REDACTED>"
     assert preview["steps"][2]["secret"] is True
+    assert preview["steps"][2]["secret_ref"] == "complaint-password"
     assert len(preview["preview_commitment"]) == 64
 
 

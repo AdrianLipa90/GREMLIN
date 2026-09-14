@@ -65,15 +65,41 @@ DEFAULT_MIN_ORIGIN_GROUPS_BY_CLAIM_MODE = {
     UNKNOWN_CLAIM_MODE: 1,
 }
 
+_ASSIGNMENT_KEYS = frozenset(
+    {
+        "schema",
+        "version",
+        "source_id",
+        "content_commitment",
+        "origin_refs",
+        "producer_id",
+        "producer_version",
+        "model_id",
+        "mode",
+        "rationale_code",
+        "assignment_commitment",
+        "origin_authority",
+        "inference_policy",
+        "authority",
+    }
+)
+_AUTHORITY_KEYS = frozenset({"production_runtime_write", "execution_admitted", "canon_allowed"})
+_ORIGIN_AUTHORITY = "CANDIDATE_METADATA_ONLY"
+_INFERENCE_POLICY = "NO_AUTOMATIC_ORIGIN_INFERENCE_FROM_TITLE_PROVIDER_OR_CITATION_COUNT"
+_ALLOWED_STANCES = frozenset({SUPPORT, CONTRADICT})
+
 
 def _canonical(value: Any) -> bytes:
-    return json.dumps(
-        value,
-        sort_keys=True,
-        separators=(",", ":"),
-        ensure_ascii=False,
-        allow_nan=False,
-    ).encode("utf-8")
+    try:
+        return json.dumps(
+            value,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+            allow_nan=False,
+        ).encode("utf-8")
+    except (TypeError, ValueError) as exc:
+        raise ValueError("evidence origin data must be finite JSON") from exc
 
 
 def _commit(domain: bytes, value: Any) -> str:
@@ -88,21 +114,71 @@ def _authority() -> dict[str, bool]:
     }
 
 
+def _strict_authority(value: Any) -> bool:
+    return (
+        isinstance(value, Mapping)
+        and set(value) == _AUTHORITY_KEYS
+        and all(type(value.get(key)) is bool and value.get(key) is False for key in _AUTHORITY_KEYS)
+    )
+
+
 def _nonempty(value: Any, name: str) -> str:
-    text = str(value or "").strip()
+    if not isinstance(value, str):
+        raise ValueError(f"{name} must be a string")
+    text = value.strip()
     if not text:
         raise ValueError(f"{name} must be non-empty")
     return text
 
 
+def _optional_text(value: Any, name: str) -> str | None:
+    if value is None:
+        return None
+    return _nonempty(value, name)
+
+
+def _mapping_rows(values: Iterable[Mapping[str, Any]], field: str) -> list[dict[str, Any]]:
+    if isinstance(values, (str, bytes, Mapping)):
+        raise ValueError(f"{field} must be an iterable of objects")
+    try:
+        raw = list(values)
+    except TypeError as exc:
+        raise ValueError(f"{field} must be an iterable of objects") from exc
+    if any(not isinstance(row, Mapping) for row in raw):
+        raise ValueError(f"{field} must contain only objects")
+    return [dict(row) for row in raw]
+
+
+def _reject_unknown_keys(value: Mapping[Any, Any], allowed: frozenset[str], field: str) -> None:
+    unknown = [key for key in value if not isinstance(key, str) or key not in allowed]
+    if unknown:
+        raise ValueError(f"{field} contains unsupported keys: {unknown}")
+
+
 def _normalize_origin_ref(ref: Mapping[str, Any]) -> dict[str, str]:
-    kind = str(ref.get("origin_kind") or UNKNOWN_ORIGIN).strip().upper() or UNKNOWN_ORIGIN
+    if not isinstance(ref, Mapping):
+        raise ValueError("origin ref must be an object")
+    allowed = frozenset({"origin_id", "origin_kind", "usage"})
+    _reject_unknown_keys(ref, allowed, "origin ref")
+
+    raw_kind = ref.get("origin_kind")
+    if raw_kind is None:
+        kind = UNKNOWN_ORIGIN
+    else:
+        kind = _nonempty(raw_kind, "origin_kind").upper()
     if kind not in ORIGIN_KINDS:
         raise ValueError(f"unsupported origin kind: {kind}")
-    usage = str(ref.get("usage") or UNKNOWN_USAGE).strip().upper() or UNKNOWN_USAGE
+
+    raw_usage = ref.get("usage")
+    if raw_usage is None:
+        usage = UNKNOWN_USAGE
+    else:
+        usage = _nonempty(raw_usage, "usage").upper()
     if usage not in ORIGIN_USAGES:
         raise ValueError(f"unsupported origin usage: {usage}")
-    origin_id = str(ref.get("origin_id") or "").strip()
+
+    raw_origin_id = ref.get("origin_id")
+    origin_id = "" if raw_origin_id is None else _nonempty(raw_origin_id, "origin_id")
     if kind == UNKNOWN_ORIGIN:
         origin_id = origin_id or "UNKNOWN"
     elif not origin_id:
@@ -115,29 +191,31 @@ def _normalize_origin_ref(ref: Mapping[str, Any]) -> dict[str, str]:
 
 
 def normalize_origin_refs(refs: Iterable[Mapping[str, Any]] | None) -> list[dict[str, str]]:
-    rows = [_normalize_origin_ref(ref) for ref in (refs or [])]
+    if refs is None:
+        rows: list[dict[str, str]] = []
+    else:
+        rows = [_normalize_origin_ref(ref) for ref in _mapping_rows(refs, "origin_refs")]
     if not rows:
         rows = [{"origin_id": "UNKNOWN", "origin_kind": UNKNOWN_ORIGIN, "usage": UNKNOWN_USAGE}]
     unique = {
         (row["origin_id"], row["origin_kind"], row["usage"]): row
         for row in rows
     }
-    return [
-        unique[key]
-        for key in sorted(unique)
-    ]
+    return [unique[key] for key in sorted(unique)]
 
 
 def evidence_origin_assignment_core(assignment: Mapping[str, Any]) -> dict[str, Any]:
+    if not isinstance(assignment, Mapping):
+        raise ValueError("evidence origin assignment must be an object")
     return {
-        "source_id": str(assignment.get("source_id") or "").strip(),
-        "content_commitment": str(assignment.get("content_commitment") or "").strip(),
+        "source_id": _nonempty(assignment.get("source_id"), "source_id"),
+        "content_commitment": _nonempty(assignment.get("content_commitment"), "content_commitment"),
         "origin_refs": normalize_origin_refs(assignment.get("origin_refs")),
-        "producer_id": str(assignment.get("producer_id") or "").strip(),
-        "producer_version": str(assignment.get("producer_version") or "").strip(),
-        "model_id": None if assignment.get("model_id") is None else str(assignment.get("model_id")),
-        "mode": str(assignment.get("mode") or "").strip(),
-        "rationale_code": str(assignment.get("rationale_code") or "UNSPECIFIED").strip().upper(),
+        "producer_id": _nonempty(assignment.get("producer_id"), "producer_id"),
+        "producer_version": _nonempty(assignment.get("producer_version"), "producer_version"),
+        "model_id": _optional_text(assignment.get("model_id"), "model_id"),
+        "mode": _nonempty(assignment.get("mode"), "mode"),
+        "rationale_code": _nonempty(assignment.get("rationale_code"), "rationale_code").upper(),
     }
 
 
@@ -158,6 +236,8 @@ def build_evidence_origin_assignment(
     rationale_code: str = "EXPLICIT_ORIGIN_ASSIGNMENT",
     model_id: str | None = None,
 ) -> dict[str, Any]:
+    if not isinstance(source_receipt, Mapping):
+        raise ValueError("source_receipt must be an object")
     receipt_validation = verify_source_receipt(source_receipt)
     if not receipt_validation["valid"]:
         raise ValueError(f"source receipt failed integrity validation: {receipt_validation['errors']}")
@@ -167,7 +247,7 @@ def build_evidence_origin_assignment(
         "origin_refs": normalize_origin_refs(origin_refs),
         "producer_id": _nonempty(producer_id, "producer_id"),
         "producer_version": _nonempty(producer_version, "producer_version"),
-        "model_id": None if model_id is None else str(model_id),
+        "model_id": _optional_text(model_id, "model_id"),
         "mode": _nonempty(mode, "mode"),
         "rationale_code": _nonempty(rationale_code, "rationale_code").upper(),
     }
@@ -176,8 +256,8 @@ def build_evidence_origin_assignment(
         "version": VERSION,
         **core,
         "assignment_commitment": _commit(b"GREMLIN-EVIDENCE-ORIGIN-ASSIGNMENT/v0.1", core),
-        "origin_authority": "CANDIDATE_METADATA_ONLY",
-        "inference_policy": "NO_AUTOMATIC_ORIGIN_INFERENCE_FROM_TITLE_PROVIDER_OR_CITATION_COUNT",
+        "origin_authority": _ORIGIN_AUTHORITY,
+        "inference_policy": _INFERENCE_POLICY,
         "authority": _authority(),
     }
 
@@ -187,32 +267,60 @@ def verify_evidence_origin_assignment(
     *,
     source_receipts: Iterable[Mapping[str, Any]],
 ) -> dict[str, Any]:
+    if not isinstance(assignment, Mapping):
+        return {
+            "schema": SCHEMA,
+            "version": VERSION,
+            "valid": False,
+            "errors": ["ASSIGNMENT_MUST_BE_OBJECT"],
+            "source_id": "",
+            "authority": _authority(),
+        }
     errors: list[str] = []
     try:
+        _reject_unknown_keys(assignment, _ASSIGNMENT_KEYS, "evidence origin assignment")
         core = evidence_origin_assignment_core(assignment)
     except (TypeError, ValueError):
+        source_id = assignment.get("source_id")
         return {
             "schema": SCHEMA,
             "version": VERSION,
             "valid": False,
             "errors": ["INVALID_EVIDENCE_ORIGIN_ASSIGNMENT_FIELD"],
-            "source_id": str(assignment.get("source_id") or ""),
+            "source_id": source_id.strip() if isinstance(source_id, str) else "",
             "authority": _authority(),
         }
 
+    if assignment.get("schema") != SCHEMA:
+        errors.append("ASSIGNMENT_SCHEMA_MISMATCH")
+    if assignment.get("version") != VERSION:
+        errors.append("ASSIGNMENT_VERSION_MISMATCH")
+    if assignment.get("origin_authority") != _ORIGIN_AUTHORITY:
+        errors.append("ORIGIN_AUTHORITY_MISMATCH")
+    if assignment.get("inference_policy") != _INFERENCE_POLICY:
+        errors.append("INFERENCE_POLICY_MISMATCH")
+    if not _strict_authority(assignment.get("authority")):
+        errors.append("INVALID_AUTHORITY_ENVELOPE")
+
+    try:
+        receipt_rows = _mapping_rows(source_receipts, "source_receipts")
+    except ValueError:
+        receipt_rows = []
+        errors.append("SOURCE_RECEIPTS_INVALID")
+
     receipt_by_id: dict[str, Mapping[str, Any]] = {}
     duplicates: set[str] = set()
-    for receipt in source_receipts:
-        sid = str(receipt.get("source_id") or "").strip()
-        if not sid:
+    for receipt in receipt_rows:
+        sid_raw = receipt.get("source_id")
+        if not isinstance(sid_raw, str) or not sid_raw.strip():
+            errors.append("SOURCE_RECEIPT_ID_INVALID")
             continue
+        sid = sid_raw.strip()
         if sid in receipt_by_id:
             duplicates.add(sid)
         receipt_by_id[sid] = receipt
 
     sid = core["source_id"]
-    if not sid:
-        errors.append("SOURCE_ID_MISSING")
     if sid in duplicates:
         errors.append("DUPLICATE_SOURCE_RECEIPT")
     receipt = receipt_by_id.get(sid)
@@ -222,29 +330,19 @@ def verify_evidence_origin_assignment(
         receipt_validation = verify_source_receipt(receipt)
         if not receipt_validation["valid"]:
             errors.append("SOURCE_RECEIPT_INTEGRITY_FAILED")
-        if core["content_commitment"] != str(receipt.get("content_commitment") or "").strip():
+        receipt_commitment = receipt.get("content_commitment")
+        if (
+            not isinstance(receipt_commitment, str)
+            or core["content_commitment"] != receipt_commitment.strip()
+        ):
             errors.append("CONTENT_COMMITMENT_MISMATCH")
 
-    if not core["producer_id"]:
-        errors.append("PRODUCER_ID_MISSING")
-    if not core["producer_version"]:
-        errors.append("PRODUCER_VERSION_MISSING")
-    if not core["mode"]:
-        errors.append("MODE_MISSING")
-
     expected = _commit(b"GREMLIN-EVIDENCE-ORIGIN-ASSIGNMENT/v0.1", core)
-    supplied = str(assignment.get("assignment_commitment") or "").strip()
-    if not supplied:
+    supplied = assignment.get("assignment_commitment")
+    if not isinstance(supplied, str) or not supplied.strip():
         errors.append("ASSIGNMENT_COMMITMENT_MISSING")
-    elif supplied != expected:
+    elif supplied.strip() != expected:
         errors.append("ASSIGNMENT_COMMITMENT_MISMATCH")
-
-    authority = assignment.get("authority")
-    if authority is not None and any(
-        bool(authority.get(key))
-        for key in ("production_runtime_write", "execution_admitted", "canon_allowed")
-    ):
-        errors.append("INVALID_AUTHORITY_ESCALATION")
 
     known_origins = [
         ref for ref in core["origin_refs"]
@@ -267,8 +365,28 @@ def normalize_evidence_origin_assignments(
     *,
     source_receipts: Iterable[Mapping[str, Any]],
 ) -> dict[str, Any]:
-    rows = [dict(row) for row in assignments]
-    receipts = [dict(row) for row in source_receipts]
+    try:
+        rows = _mapping_rows(assignments, "assignments")
+        receipts = _mapping_rows(source_receipts, "source_receipts")
+    except ValueError as exc:
+        core = {
+            "status": "INVALID_FAIL_CLOSED",
+            "assignment_count": 0,
+            "invalid_count": 1,
+            "invalid": [{"index": -1, "source_id": "", "errors": [str(exc)]}],
+            "assignments": [],
+            "validations": [],
+            "origin_authority": _ORIGIN_AUTHORITY,
+            "inference_policy": _INFERENCE_POLICY,
+            "authority": _authority(),
+        }
+        return {
+            "schema": SCHEMA,
+            "version": VERSION,
+            **core,
+            "assignment_set_commitment": _commit(b"GREMLIN-EVIDENCE-ORIGIN-ASSIGNMENT-SET/v0.1", core),
+        }
+
     validations = [
         verify_evidence_origin_assignment(row, source_receipts=receipts)
         for row in rows
@@ -278,8 +396,12 @@ def normalize_evidence_origin_assignments(
         for index, validation in enumerate(validations)
         if not validation["valid"]
     ]
-    source_ids = [str(row.get("source_id") or "").strip() for row in rows]
-    duplicates = sorted({sid for sid in source_ids if sid and source_ids.count(sid) > 1})
+    source_ids = [
+        row.get("source_id").strip()
+        for row in rows
+        if isinstance(row.get("source_id"), str) and row.get("source_id").strip()
+    ]
+    duplicates = sorted({sid for sid in source_ids if source_ids.count(sid) > 1})
     if duplicates:
         invalid.extend(
             {"index": -1, "source_id": sid, "errors": ["DUPLICATE_SOURCE_ORIGIN_ASSIGNMENT"]}
@@ -293,8 +415,8 @@ def normalize_evidence_origin_assignments(
         "invalid": invalid,
         "assignments": accepted,
         "validations": validations,
-        "origin_authority": "CANDIDATE_METADATA_ONLY",
-        "inference_policy": "NO_AUTOMATIC_ORIGIN_INFERENCE_FROM_TITLE_PROVIDER_OR_CITATION_COUNT",
+        "origin_authority": _ORIGIN_AUTHORITY,
+        "inference_policy": _INFERENCE_POLICY,
         "authority": _authority(),
     }
     return {
@@ -340,34 +462,49 @@ def assess_evidence_origin_lineage(
     min_origin_groups: int | None = None,
 ) -> dict[str, Any]:
     mode = normalize_claim_mode(claim_mode)
-    if mode == UNKNOWN_CLAIM_MODE:
-        minimum = 1 if min_origin_groups is None else int(min_origin_groups)
-    else:
-        minimum = (
-            DEFAULT_MIN_ORIGIN_GROUPS_BY_CLAIM_MODE[mode]
-            if min_origin_groups is None
-            else int(min_origin_groups)
-        )
+    if min_origin_groups is not None and (
+        isinstance(min_origin_groups, bool) or not isinstance(min_origin_groups, int)
+    ):
+        raise ValueError("min_origin_groups must be an integer in [1, 8]")
+    minimum = (
+        DEFAULT_MIN_ORIGIN_GROUPS_BY_CLAIM_MODE[mode]
+        if min_origin_groups is None
+        else min_origin_groups
+    )
     if not 1 <= minimum <= 8:
         raise ValueError("min_origin_groups must be in [1, 8]")
 
-    rows = [dict(row) for row in guard_evidence]
-    support = [row for row in rows if str(row.get("stance") or "").strip().upper() == SUPPORT]
-    contradict = [row for row in rows if str(row.get("stance") or "").strip().upper() == CONTRADICT]
+    rows = _mapping_rows(guard_evidence, "guard_evidence")
+    kind_rows = _mapping_rows(evidence_kind_assignments, "evidence_kind_assignments")
+    origin_rows = _mapping_rows(origin_assignments, "origin_assignments")
+
+    support: list[dict[str, Any]] = []
+    contradict: list[dict[str, Any]] = []
+    for row in rows:
+        stance = _nonempty(row.get("stance"), "guard evidence stance").upper()
+        if stance == SUPPORT:
+            support.append(row)
+        elif stance == CONTRADICT:
+            contradict.append(row)
+        else:
+            raise ValueError(f"unsupported guard evidence stance: {stance}")
     conflict = bool(support and contradict)
     candidate_rows = support if support else contradict
     candidate_stance = SUPPORT if support and not contradict else CONTRADICT if contradict and not support else None
 
-    kind_by_source = {
-        str(row.get("source_id") or "").strip(): normalize_evidence_kind(row.get("evidence_kind"))
-        for row in evidence_kind_assignments
-        if str(row.get("source_id") or "").strip()
-    }
-    origin_by_source = {
-        str(row.get("source_id") or "").strip(): normalize_origin_refs(row.get("origin_refs"))
-        for row in origin_assignments
-        if str(row.get("source_id") or "").strip()
-    }
+    kind_by_source: dict[str, str] = {}
+    for row in kind_rows:
+        sid = _nonempty(row.get("source_id"), "evidence kind source_id")
+        if sid in kind_by_source:
+            raise ValueError(f"duplicate evidence kind source_id: {sid}")
+        kind_by_source[sid] = normalize_evidence_kind(row.get("evidence_kind"))
+
+    origin_by_source: dict[str, list[dict[str, str]]] = {}
+    for row in origin_rows:
+        sid = _nonempty(row.get("source_id"), "origin assignment source_id")
+        if sid in origin_by_source:
+            raise ValueError(f"duplicate origin assignment source_id: {sid}")
+        origin_by_source[sid] = normalize_origin_refs(row.get("origin_refs"))
 
     if conflict:
         state = CONFLICT_DEFER_TO_HOUND
@@ -385,13 +522,12 @@ def assess_evidence_origin_lineage(
         satisfied = False
     else:
         direct_kinds = DIRECT_KINDS_BY_CLAIM_MODE[mode]
-        direct_source_ids = sorted(
-            {
-                str(row.get("evidence_id") or "").strip()
-                for row in candidate_rows
-                if kind_by_source.get(str(row.get("evidence_id") or "").strip()) in direct_kinds
-            }
-        )
+        direct_ids: set[str] = set()
+        for row in candidate_rows:
+            evidence_id = _nonempty(row.get("evidence_id"), "guard evidence evidence_id")
+            if kind_by_source.get(evidence_id) in direct_kinds:
+                direct_ids.add(evidence_id)
+        direct_source_ids = sorted(direct_ids)
         if not direct_source_ids:
             state = NO_DIRECT_EVIDENCE
             missing_origin_source_ids = []
@@ -431,18 +567,13 @@ def assess_evidence_origin_lineage(
                 satisfied = len(groups) >= minimum
                 state = ORIGIN_POLICY_SUFFICIENT if satisfied else ORIGIN_POLICY_INSUFFICIENT
 
-    assignment_refs = {
-        str(row.get("source_id") or "").strip(): normalize_origin_refs(row.get("origin_refs"))
-        for row in origin_assignments
-        if str(row.get("source_id") or "").strip()
-    }
     group_rows = []
     for members in groups:
         origins = sorted(
             {
                 ref["origin_id"]
                 for sid in members
-                for ref in assignment_refs.get(sid, [])
+                for ref in origin_by_source.get(sid, [])
                 if ref["origin_kind"] != UNKNOWN_ORIGIN and ref["origin_id"] != "UNKNOWN"
             }
         )
@@ -463,7 +594,7 @@ def assess_evidence_origin_lineage(
         "origin_semantics": "EXPLICIT_CANDIDATE_LINEAGE_METADATA_NOT_PROOF_OF_CAUSAL_OR_STATISTICAL_INDEPENDENCE",
         "grouping_rule": "DIRECT_EVIDENCE_SOURCES_SHARING_ANY_KNOWN_ORIGIN_ID_COLLAPSE_TO_ONE_CONNECTED_LINEAGE_GROUP",
         "unknown_origin_policy": "UNKNOWN_ORIGIN_DOES_NOT_COUNT_AS_INDEPENDENT_LINEAGE",
-        "inference_policy": "NO_AUTOMATIC_ORIGIN_INFERENCE_FROM_TITLE_PROVIDER_OR_CITATION_COUNT",
+        "inference_policy": _INFERENCE_POLICY,
         "conflict_policy": "STANCE_CONFLICT_ALWAYS_DEFERRED_TO_HOUND_BEFORE_ORIGIN_POLICY",
     }
     return {
