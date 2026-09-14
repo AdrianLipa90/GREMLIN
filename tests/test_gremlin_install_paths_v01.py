@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pytest
+
 from gremlin_mcp.install.paths import resolve_paths
 
 
@@ -52,3 +54,26 @@ def test_linux_paths_use_xdg_defaults() -> None:
     assert paths.state_dir == "/home/alice/.local/state/gremlin"
     assert paths.cache_dir == "/home/alice/.cache/gremlin"
     assert paths.data_dir == "/home/alice/.local/share/gremlin"
+
+
+def test_non_string_home_is_rejected_instead_of_coerced() -> None:
+    with pytest.raises(RuntimeError, match="HOME environment value must be a string"):
+        resolve_paths(platform="linux", env={"HOME": False})  # type: ignore[dict-item]
+
+
+def test_non_string_xdg_path_is_rejected_instead_of_coerced() -> None:
+    with pytest.raises(RuntimeError, match="XDG_CONFIG_HOME environment value must be a string"):
+        resolve_paths(
+            platform="linux",
+            env={"HOME": "/home/alice", "XDG_CONFIG_HOME": 123},  # type: ignore[dict-item]
+        )
+
+
+def test_explicit_empty_platform_is_rejected_instead_of_using_host_platform() -> None:
+    with pytest.raises(RuntimeError, match="platform must be non-empty"):
+        resolve_paths(platform="", env={"HOME": "/home/alice"})
+
+
+def test_non_string_platform_is_rejected_instead_of_coerced() -> None:
+    with pytest.raises(RuntimeError, match="platform must be a string"):
+        resolve_paths(platform=False, env={"HOME": "/home/alice"})  # type: ignore[arg-type]

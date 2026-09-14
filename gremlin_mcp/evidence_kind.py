@@ -53,15 +53,29 @@ CLAIM_MODE_UNKNOWN_FAIL_CLOSED = "CLAIM_MODE_UNKNOWN_FAIL_CLOSED"
 CONFLICT_DEFER_TO_HOUND = "EVIDENCE_KIND_CONFLICT_DEFER_TO_HOUND"
 NO_RESOLVED_EVIDENCE = "NO_RESOLVED_EVIDENCE"
 
+_ASSIGNMENT_KEYS = frozenset(
+    {
+        "schema", "version", "source_id", "content_commitment", "evidence_kind",
+        "producer_id", "producer_version", "model_id", "mode", "rationale_code",
+        "assignment_commitment", "kind_authority", "inference_policy", "authority",
+    }
+)
+_AUTHORITY_KEYS = frozenset({"production_runtime_write", "execution_admitted", "canon_allowed"})
+_KIND_AUTHORITY = "CANDIDATE_METADATA_ONLY"
+_INFERENCE_POLICY = "NO_AUTOMATIC_KIND_INFERENCE_FROM_TITLE_OR_PROVIDER_METADATA"
+
 
 def _canonical(value: Any) -> bytes:
-    return json.dumps(
-        value,
-        sort_keys=True,
-        separators=(",", ":"),
-        ensure_ascii=False,
-        allow_nan=False,
-    ).encode("utf-8")
+    try:
+        return json.dumps(
+            value,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+            allow_nan=False,
+        ).encode("utf-8")
+    except (TypeError, ValueError) as exc:
+        raise ValueError("evidence-kind data must be finite JSON") from exc
 
 
 def _commit(domain: bytes, value: Any) -> str:
@@ -77,16 +91,52 @@ def _authority() -> dict[str, bool]:
 
 
 def _nonempty(value: Any, name: str) -> str:
-    text = str(value or "").strip()
+    if not isinstance(value, str):
+        raise ValueError(f"{name} must be a string")
+    text = value.strip()
     if not text:
         raise ValueError(f"{name} must be non-empty")
     return text
 
 
+def _optional_text(value: Any, name: str) -> str | None:
+    if value is None:
+        return None
+    return _nonempty(value, name)
+
+
+def _reject_unknown_keys(value: Mapping[Any, Any], allowed: frozenset[str], field: str) -> None:
+    unknown = [key for key in value if not isinstance(key, str) or key not in allowed]
+    if unknown:
+        raise ValueError(f"{field} contains unsupported keys: {unknown}")
+
+
+def _strict_mapping_rows(values: Iterable[Mapping[str, Any]], field: str) -> list[Mapping[str, Any]]:
+    if isinstance(values, (str, bytes, Mapping)):
+        raise ValueError(f"{field} must be an iterable of objects")
+    try:
+        rows = list(values)
+    except TypeError as exc:
+        raise ValueError(f"{field} must be an iterable of objects") from exc
+    if any(not isinstance(row, Mapping) for row in rows):
+        raise ValueError(f"{field} must contain only objects")
+    return rows
+
+
+def _strict_authority(authority: Any) -> bool:
+    if not isinstance(authority, Mapping):
+        return False
+    if set(authority) != _AUTHORITY_KEYS:
+        return False
+    return all(type(authority.get(key)) is bool and authority.get(key) is False for key in _AUTHORITY_KEYS)
+
+
 def normalize_evidence_kind(value: str | None) -> str:
     if value is None:
         return UNKNOWN
-    kind = str(value).strip().upper()
+    if not isinstance(value, str):
+        raise ValueError("evidence kind must be a string or None")
+    kind = value.strip().upper()
     if not kind:
         return UNKNOWN
     if kind not in EVIDENCE_KINDS:
@@ -97,7 +147,9 @@ def normalize_evidence_kind(value: str | None) -> str:
 def normalize_claim_mode(value: str | None) -> str:
     if value is None:
         return UNKNOWN_CLAIM_MODE
-    mode = str(value).strip().upper()
+    if not isinstance(value, str):
+        raise ValueError("claim mode must be a string or None")
+    mode = value.strip().upper()
     if not mode:
         return UNKNOWN_CLAIM_MODE
     if mode not in CLAIM_MODES:
@@ -106,15 +158,17 @@ def normalize_claim_mode(value: str | None) -> str:
 
 
 def evidence_kind_assignment_core(assignment: Mapping[str, Any]) -> dict[str, Any]:
+    if not isinstance(assignment, Mapping):
+        raise ValueError("evidence kind assignment must be an object")
     return {
-        "source_id": str(assignment.get("source_id") or "").strip(),
-        "content_commitment": str(assignment.get("content_commitment") or "").strip(),
+        "source_id": _nonempty(assignment.get("source_id"), "source_id"),
+        "content_commitment": _nonempty(assignment.get("content_commitment"), "content_commitment"),
         "evidence_kind": normalize_evidence_kind(assignment.get("evidence_kind")),
-        "producer_id": str(assignment.get("producer_id") or "").strip(),
-        "producer_version": str(assignment.get("producer_version") or "").strip(),
-        "model_id": None if assignment.get("model_id") is None else str(assignment.get("model_id")),
-        "mode": str(assignment.get("mode") or "").strip(),
-        "rationale_code": str(assignment.get("rationale_code") or "UNSPECIFIED").strip().upper(),
+        "producer_id": _nonempty(assignment.get("producer_id"), "producer_id"),
+        "producer_version": _nonempty(assignment.get("producer_version"), "producer_version"),
+        "model_id": _optional_text(assignment.get("model_id"), "model_id"),
+        "mode": _nonempty(assignment.get("mode"), "mode"),
+        "rationale_code": _nonempty(assignment.get("rationale_code"), "rationale_code").upper(),
     }
 
 
@@ -135,6 +189,8 @@ def build_evidence_kind_assignment(
     rationale_code: str = "EXPLICIT_TYPED_ASSIGNMENT",
     model_id: str | None = None,
 ) -> dict[str, Any]:
+    if not isinstance(source_receipt, Mapping):
+        raise ValueError("source_receipt must be an object")
     receipt_validation = verify_source_receipt(source_receipt)
     if not receipt_validation["valid"]:
         raise ValueError(f"source receipt failed integrity validation: {receipt_validation['errors']}")
@@ -145,7 +201,7 @@ def build_evidence_kind_assignment(
         "evidence_kind": normalize_evidence_kind(evidence_kind),
         "producer_id": _nonempty(producer_id, "producer_id"),
         "producer_version": _nonempty(producer_version, "producer_version"),
-        "model_id": None if model_id is None else str(model_id),
+        "model_id": _optional_text(model_id, "model_id"),
         "mode": _nonempty(mode, "mode"),
         "rationale_code": _nonempty(rationale_code, "rationale_code").upper(),
     }
@@ -154,8 +210,8 @@ def build_evidence_kind_assignment(
         "version": VERSION,
         **core,
         "assignment_commitment": _commit(b"GREMLIN-EVIDENCE-KIND-ASSIGNMENT/v0.1", core),
-        "kind_authority": "CANDIDATE_METADATA_ONLY",
-        "inference_policy": "NO_AUTOMATIC_KIND_INFERENCE_FROM_TITLE_OR_PROVIDER_METADATA",
+        "kind_authority": _KIND_AUTHORITY,
+        "inference_policy": _INFERENCE_POLICY,
         "authority": _authority(),
     }
 
@@ -166,7 +222,17 @@ def verify_evidence_kind_assignment(
     source_receipts: Iterable[Mapping[str, Any]],
 ) -> dict[str, Any]:
     errors: list[str] = []
+    if not isinstance(assignment, Mapping):
+        return {
+            "schema": SCHEMA,
+            "version": VERSION,
+            "valid": False,
+            "errors": ["ASSIGNMENT_MUST_BE_OBJECT"],
+            "source_id": "",
+            "authority": _authority(),
+        }
     try:
+        _reject_unknown_keys(assignment, _ASSIGNMENT_KEYS, "evidence kind assignment")
         core = evidence_kind_assignment_core(assignment)
     except (TypeError, ValueError):
         return {
@@ -174,22 +240,39 @@ def verify_evidence_kind_assignment(
             "version": VERSION,
             "valid": False,
             "errors": ["INVALID_EVIDENCE_KIND_ASSIGNMENT_FIELD"],
-            "source_id": str(assignment.get("source_id") or ""),
+            "source_id": assignment.get("source_id") if isinstance(assignment.get("source_id"), str) else "",
             "authority": _authority(),
         }
 
+    if assignment.get("schema") != SCHEMA:
+        errors.append("ASSIGNMENT_SCHEMA_MISMATCH")
+    if assignment.get("version") != VERSION:
+        errors.append("ASSIGNMENT_VERSION_MISMATCH")
+    if assignment.get("kind_authority") != _KIND_AUTHORITY:
+        errors.append("KIND_AUTHORITY_MISMATCH")
+    if assignment.get("inference_policy") != _INFERENCE_POLICY:
+        errors.append("INFERENCE_POLICY_MISMATCH")
+    if not _strict_authority(assignment.get("authority")):
+        errors.append("INVALID_AUTHORITY_ENVELOPE")
+
+    try:
+        receipt_rows = _strict_mapping_rows(source_receipts, "source_receipts")
+    except ValueError:
+        receipt_rows = []
+        errors.append("SOURCE_RECEIPTS_INVALID")
+
     by_id: dict[str, Mapping[str, Any]] = {}
     duplicates: set[str] = set()
-    for receipt in source_receipts:
-        sid = str(receipt.get("source_id") or "").strip()
-        if not sid:
+    for receipt in receipt_rows:
+        sid = receipt.get("source_id")
+        if not isinstance(sid, str) or not sid.strip():
+            errors.append("SOURCE_RECEIPT_ID_INVALID")
             continue
+        sid = sid.strip()
         if sid in by_id:
             duplicates.add(sid)
         by_id[sid] = receipt
 
-    if not core["source_id"]:
-        errors.append("SOURCE_ID_MISSING")
     if core["source_id"] in duplicates:
         errors.append("DUPLICATE_SOURCE_RECEIPT")
     receipt = by_id.get(core["source_id"])
@@ -199,29 +282,16 @@ def verify_evidence_kind_assignment(
         receipt_validation = verify_source_receipt(receipt)
         if not receipt_validation["valid"]:
             errors.append("SOURCE_RECEIPT_INTEGRITY_FAILED")
-        if core["content_commitment"] != str(receipt.get("content_commitment") or "").strip():
+        receipt_commitment = receipt.get("content_commitment")
+        if not isinstance(receipt_commitment, str) or core["content_commitment"] != receipt_commitment.strip():
             errors.append("CONTENT_COMMITMENT_MISMATCH")
 
-    if not core["producer_id"]:
-        errors.append("PRODUCER_ID_MISSING")
-    if not core["producer_version"]:
-        errors.append("PRODUCER_VERSION_MISSING")
-    if not core["mode"]:
-        errors.append("MODE_MISSING")
-
     expected = _commit(b"GREMLIN-EVIDENCE-KIND-ASSIGNMENT/v0.1", core)
-    supplied = str(assignment.get("assignment_commitment") or "").strip()
-    if not supplied:
+    supplied = assignment.get("assignment_commitment")
+    if not isinstance(supplied, str) or not supplied.strip():
         errors.append("ASSIGNMENT_COMMITMENT_MISSING")
-    elif supplied != expected:
+    elif supplied.strip() != expected:
         errors.append("ASSIGNMENT_COMMITMENT_MISMATCH")
-
-    authority = assignment.get("authority")
-    if authority is not None and any(
-        bool(authority.get(key))
-        for key in ("production_runtime_write", "execution_admitted", "canon_allowed")
-    ):
-        errors.append("INVALID_AUTHORITY_ESCALATION")
 
     return {
         "schema": SCHEMA,
@@ -240,8 +310,30 @@ def normalize_evidence_kind_assignments(
     *,
     source_receipts: Iterable[Mapping[str, Any]],
 ) -> dict[str, Any]:
-    rows = [dict(row) for row in assignments]
-    receipts = [dict(row) for row in source_receipts]
+    try:
+        assignment_rows = _strict_mapping_rows(assignments, "assignments")
+        receipt_rows = _strict_mapping_rows(source_receipts, "source_receipts")
+    except ValueError as exc:
+        core = {
+            "status": "INVALID_FAIL_CLOSED",
+            "assignment_count": 0,
+            "invalid_count": 1,
+            "invalid": [{"index": -1, "source_id": "", "errors": [str(exc)]}],
+            "assignments": [],
+            "validations": [],
+            "kind_authority": _KIND_AUTHORITY,
+            "inference_policy": _INFERENCE_POLICY,
+            "authority": _authority(),
+        }
+        return {
+            "schema": SCHEMA,
+            "version": VERSION,
+            **core,
+            "assignment_set_commitment": _commit(b"GREMLIN-EVIDENCE-KIND-ASSIGNMENT-SET/v0.1", core),
+        }
+
+    rows = [dict(row) for row in assignment_rows]
+    receipts = [dict(row) for row in receipt_rows]
     validations = [
         verify_evidence_kind_assignment(row, source_receipts=receipts)
         for row in rows
@@ -255,8 +347,12 @@ def normalize_evidence_kind_assignments(
         for index, validation in enumerate(validations)
         if not validation["valid"]
     ]
-    source_ids = [str(row.get("source_id") or "").strip() for row in rows]
-    duplicates = sorted({sid for sid in source_ids if sid and source_ids.count(sid) > 1})
+    source_ids = [
+        row.get("source_id").strip()
+        for row in rows
+        if isinstance(row.get("source_id"), str) and row.get("source_id").strip()
+    ]
+    duplicates = sorted({sid for sid in source_ids if source_ids.count(sid) > 1})
     if duplicates:
         invalid.extend(
             {"index": -1, "source_id": sid, "errors": ["DUPLICATE_SOURCE_KIND_ASSIGNMENT"]}
@@ -270,8 +366,8 @@ def normalize_evidence_kind_assignments(
         "invalid": invalid,
         "assignments": accepted,
         "validations": validations,
-        "kind_authority": "CANDIDATE_METADATA_ONLY",
-        "inference_policy": "NO_AUTOMATIC_KIND_INFERENCE_FROM_TITLE_OR_PROVIDER_METADATA",
+        "kind_authority": _KIND_AUTHORITY,
+        "inference_policy": _INFERENCE_POLICY,
         "authority": _authority(),
     }
     return {
@@ -289,27 +385,40 @@ def assess_evidence_kind_policy(
     claim_mode: str | None,
     min_direct_families: int = 1,
 ) -> dict[str, Any]:
-    minimum = int(min_direct_families)
+    if isinstance(min_direct_families, bool) or not isinstance(min_direct_families, int):
+        raise ValueError("min_direct_families must be an integer in [1, 8]")
+    minimum = min_direct_families
     if not 1 <= minimum <= 8:
         raise ValueError("min_direct_families must be in [1, 8]")
     mode = normalize_claim_mode(claim_mode)
-    rows = [dict(row) for row in guard_evidence]
-    assignment_rows = [dict(row) for row in assignments]
-    assignment_by_source = {
-        str(row.get("source_id") or "").strip(): row
-        for row in assignment_rows
-        if str(row.get("source_id") or "").strip()
-    }
+    rows = [dict(row) for row in _strict_mapping_rows(guard_evidence, "guard_evidence")]
+    assignment_rows = [dict(row) for row in _strict_mapping_rows(assignments, "assignments")]
 
-    support = [row for row in rows if str(row.get("stance") or "").strip().upper() == SUPPORT]
-    contradict = [row for row in rows if str(row.get("stance") or "").strip().upper() == CONTRADICT]
+    assignment_by_source: dict[str, dict[str, Any]] = {}
+    for row in assignment_rows:
+        source_id = _nonempty(row.get("source_id"), "assignment source_id")
+        if source_id in assignment_by_source:
+            raise ValueError(f"duplicate evidence-kind assignment source_id: {source_id}")
+        assignment_by_source[source_id] = row
+
+    support: list[dict[str, Any]] = []
+    contradict: list[dict[str, Any]] = []
+    for row in rows:
+        stance = _nonempty(row.get("stance"), "guard evidence stance").upper()
+        if stance == SUPPORT:
+            support.append(row)
+        elif stance == CONTRADICT:
+            contradict.append(row)
+        else:
+            raise ValueError(f"unsupported guard evidence stance: {stance}")
+
     conflict = bool(support and contradict)
     resolved = support + contradict
     missing_source_ids = sorted(
         {
-            str(row.get("evidence_id") or "").strip()
+            _nonempty(row.get("evidence_id"), "guard evidence evidence_id")
             for row in resolved
-            if str(row.get("evidence_id") or "").strip() not in assignment_by_source
+            if _nonempty(row.get("evidence_id"), "guard evidence evidence_id") not in assignment_by_source
         }
     )
 
@@ -339,10 +448,8 @@ def assess_evidence_kind_policy(
         direct_kinds = DIRECT_KINDS_BY_CLAIM_MODE[mode]
         direct_families: set[str] = set()
         for row in candidate_rows:
-            sid = str(row.get("evidence_id") or "").strip()
-            family = str(row.get("source_family") or "").strip()
-            if not family:
-                raise ValueError("guard evidence requires deterministic source_family")
+            sid = _nonempty(row.get("evidence_id"), "guard evidence evidence_id")
+            family = _nonempty(row.get("source_family"), "guard evidence source_family")
             kind = normalize_evidence_kind(assignment_by_source[sid].get("evidence_kind"))
             if kind in direct_kinds:
                 direct_families.add(family)
@@ -370,7 +477,7 @@ def assess_evidence_kind_policy(
         "conflict_present": conflict,
         "kind_semantics": "EXPLICIT_COMMITMENT_BOUND_CANDIDATE_METADATA_NOT_AUTOMATIC_TRUTH",
         "family_semantics": "PROVENANCE_DIVERSITY_HEURISTIC_NOT_INDEPENDENCE_PROOF",
-        "inference_policy": "NO_AUTOMATIC_EVIDENCE_KIND_INFERENCE_FROM_TITLE_OR_PROVIDER_METADATA",
+        "inference_policy": _INFERENCE_POLICY,
         "conflict_policy": "STANCE_CONFLICT_ALWAYS_DEFERRED_TO_HOUND_BEFORE_KIND_POLICY",
     }
     return {

@@ -14,6 +14,31 @@ VERSION = "0.1.1"
 PROPOSITIONS = "PROPOSITIONS"
 UNRESOLVED = "UNRESOLVED"
 _ALLOWED_DECISIONS = {PROPOSITIONS, UNRESOLVED}
+_DECISION_KEYS = frozenset({"source_id", "classification_commitment", "decision", "frames"})
+_FRAME_KEYS = frozenset(
+    {
+        "subject",
+        "predicate",
+        "object",
+        "polarity",
+        "modality",
+        "support_span",
+        "proposition_commitment",
+        "support_span_commitment",
+        "authority",
+    }
+)
+_GROUNDING_KEYS = frozenset(
+    {
+        "proposition_commitment",
+        "classification_commitment",
+        "excerpt_commitment",
+        "support_span",
+        "support_span_commitment",
+        "grounding_policy",
+        "grounding_commitment",
+    }
+)
 
 
 class PropositionProducer(Protocol):
@@ -42,13 +67,16 @@ class PropositionProducer(Protocol):
 
 
 def _canonical(value: Any) -> bytes:
-    return json.dumps(
-        value,
-        sort_keys=True,
-        separators=(",", ":"),
-        ensure_ascii=False,
-        allow_nan=False,
-    ).encode("utf-8")
+    try:
+        return json.dumps(
+            value,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+            allow_nan=False,
+        ).encode("utf-8")
+    except (TypeError, ValueError) as exc:
+        raise ValueError("proposition producer data must be finite JSON") from exc
 
 
 def _commit(domain: bytes, value: Any) -> str:
@@ -63,9 +91,53 @@ def _authority() -> dict[str, bool]:
     }
 
 
+def _nonempty(value: Any, field: str) -> str:
+    if not isinstance(value, str):
+        raise ValueError(f"{field} must be a string")
+    text = value.strip()
+    if not text:
+        raise ValueError(f"{field} must be non-empty")
+    return text
+
+
+def _optional_text(value: Any, field: str) -> str | None:
+    if value is None:
+        return None
+    return _nonempty(value, field)
+
+
+def _mapping_rows(values: Iterable[Mapping[str, Any]], field: str) -> list[dict[str, Any]]:
+    if isinstance(values, (str, bytes, Mapping)):
+        raise ValueError(f"{field} must be an iterable of objects")
+    try:
+        raw = list(values)
+    except TypeError as exc:
+        raise ValueError(f"{field} must be an iterable of objects") from exc
+    if any(not isinstance(row, Mapping) for row in raw):
+        raise ValueError(f"{field} must contain only objects")
+    return [dict(row) for row in raw]
+
+
+def _sequence_rows(values: Sequence[Mapping[str, Any]], field: str) -> list[dict[str, Any]]:
+    return _mapping_rows(values, field)
+
+
+def _reject_unknown_keys(value: Mapping[Any, Any], allowed: frozenset[str], field: str) -> None:
+    unknown = [key for key in value if not isinstance(key, str) or key not in allowed]
+    if unknown:
+        raise ValueError(f"{field} contains unsupported keys: {unknown}")
+
+
+def _strict_bool(value: Any, field: str) -> bool:
+    if type(value) is not bool:
+        raise ValueError(f"{field} must be boolean")
+    return value
+
+
 def support_span_commitment(value: str) -> str:
-    text = str(value or "")
-    return _commit(b"GREMLIN-PROPOSITION-SUPPORT-SPAN/v0.1", {"support_span": text})
+    if not isinstance(value, str):
+        raise ValueError("support_span must be a string")
+    return _commit(b"GREMLIN-PROPOSITION-SUPPORT-SPAN/v0.1", {"support_span": value})
 
 
 def _grounding_core(
@@ -76,29 +148,24 @@ def _grounding_core(
     support_span: str,
 ) -> dict[str, Any]:
     return {
-        "proposition_commitment": str(proposition_commitment),
-        "classification_commitment": str(classification_commitment),
-        "excerpt_commitment": str(excerpt_commitment),
-        "support_span": str(support_span),
+        "proposition_commitment": _nonempty(proposition_commitment, "proposition_commitment"),
+        "classification_commitment": _nonempty(classification_commitment, "classification_commitment"),
+        "excerpt_commitment": _nonempty(excerpt_commitment, "excerpt_commitment"),
+        "support_span": _nonempty(support_span, "support_span"),
         "support_span_commitment": support_span_commitment(support_span),
         "grounding_policy": "LITERAL_SUBSTRING_OF_VERIFIED_CLASSIFICATION_EXCERPT",
     }
 
 
 def _producer_descriptor(producer: PropositionProducer) -> dict[str, Any]:
-    producer_id = str(getattr(producer, "producer_id", "")).strip()
-    producer_version = str(getattr(producer, "producer_version", "")).strip()
-    mode = str(getattr(producer, "mode", "")).strip()
-    if not producer_id:
-        raise ValueError("producer_id must be non-empty")
-    if not producer_version:
-        raise ValueError("producer_version must be non-empty")
-    if not mode:
-        raise ValueError("producer mode must be non-empty")
+    producer_id = _nonempty(getattr(producer, "producer_id", None), "producer_id")
+    producer_version = _nonempty(getattr(producer, "producer_version", None), "producer_version")
+    mode = _nonempty(getattr(producer, "mode", None), "producer mode")
+    model_id = _optional_text(getattr(producer, "model_id", None), "model_id")
     return {
         "producer_id": producer_id,
         "producer_version": producer_version,
-        "model_id": getattr(producer, "model_id", None),
+        "model_id": model_id,
         "mode": mode,
     }
 
@@ -109,17 +176,23 @@ def _classification_index(
     classifications: Sequence[Mapping[str, Any]],
     source_receipts: Sequence[Mapping[str, Any]],
 ) -> tuple[dict[str, Mapping[str, Any]], list[dict[str, Any]]]:
+    classification_rows = _sequence_rows(classifications, "classifications")
+    receipt_rows = _sequence_rows(source_receipts, "source_receipts")
     by_source: dict[str, Mapping[str, Any]] = {}
     invalid: list[dict[str, Any]] = []
-    for index, classification in enumerate(classifications):
+    for index, classification in enumerate(classification_rows):
         validation = verify_classification(
             classification,
             claim_id=claim_id,
-            source_receipts=source_receipts,
+            source_receipts=receipt_rows,
         )
-        source_id = str(classification.get("source_id") or "").strip()
+        raw_source_id = classification.get("source_id")
+        source_id = raw_source_id.strip() if isinstance(raw_source_id, str) else ""
         if not validation["valid"]:
             invalid.append({"index": index, "source_id": source_id, "errors": validation["errors"]})
+            continue
+        if not source_id:
+            invalid.append({"index": index, "source_id": "", "errors": ["SOURCE_ID_INVALID"]})
             continue
         if source_id in by_source:
             invalid.append(
@@ -141,16 +214,32 @@ def verify_grounded_proposition(
     classifications: Sequence[Mapping[str, Any]],
     source_receipts: Sequence[Mapping[str, Any]],
 ) -> dict[str, Any]:
+    if not isinstance(frame, Mapping):
+        return {
+            "schema": SCHEMA,
+            "version": VERSION,
+            "valid": False,
+            "errors": ["PROPOSITION_MUST_BE_OBJECT"],
+            "source_id": "",
+            "expected_grounding": None,
+            "expected_grounding_commitment": None,
+            "authority": _authority(),
+        }
     errors: list[str] = []
+    classification_rows = _sequence_rows(classifications, "classifications")
+    receipt_rows = _sequence_rows(source_receipts, "source_receipts")
     proposition_validation = verify_proposition(frame)
     if not proposition_validation["valid"]:
         errors.append("PROPOSITION_INTEGRITY_FAILED")
 
-    source_id = str(frame.get("source_id") or "").strip()
+    raw_source_id = frame.get("source_id")
+    source_id = raw_source_id.strip() if isinstance(raw_source_id, str) else ""
+    if not source_id:
+        errors.append("SOURCE_ID_INVALID")
     matching = [
         row
-        for row in classifications
-        if str(row.get("source_id") or "").strip() == source_id
+        for row in classification_rows
+        if isinstance(row.get("source_id"), str) and row.get("source_id").strip() == source_id
     ]
     if len(matching) != 1:
         errors.append("EXACT_SEMANTIC_CLASSIFICATION_REQUIRED")
@@ -160,13 +249,17 @@ def verify_grounded_proposition(
         classification_validation = verify_classification(
             classification,
             claim_id=claim_id,
-            source_receipts=source_receipts,
+            source_receipts=receipt_rows,
         )
         if not classification_validation["valid"]:
             errors.append("SEMANTIC_CLASSIFICATION_INTEGRITY_FAILED")
-        if str(frame.get("classification_commitment") or "").strip() != str(
-            classification.get("classification_commitment") or ""
-        ).strip():
+        frame_commitment = frame.get("classification_commitment")
+        classification_commitment = classification.get("classification_commitment")
+        if (
+            not isinstance(frame_commitment, str)
+            or not isinstance(classification_commitment, str)
+            or frame_commitment.strip() != classification_commitment.strip()
+        ):
             errors.append("CLASSIFICATION_COMMITMENT_MISMATCH")
 
     grounding = frame.get("producer_grounding")
@@ -178,27 +271,45 @@ def verify_grounded_proposition(
         expected_grounding = None
         expected_grounding_commitment = None
     else:
-        support_span = str(grounding.get("support_span") or "")
-        excerpt = str(classification.get("excerpt") or "")
-        if not support_span.strip():
-            errors.append("SUPPORT_SPAN_MISSING")
-        elif support_span not in excerpt:
-            errors.append("SUPPORT_SPAN_NOT_IN_CLASSIFICATION_EXCERPT")
-        expected_grounding = _grounding_core(
-            proposition_commitment=str(frame.get("proposition_commitment") or ""),
-            classification_commitment=str(classification.get("classification_commitment") or ""),
-            excerpt_commitment=str(classification.get("excerpt_commitment") or ""),
-            support_span=support_span,
-        )
-        for key, value in expected_grounding.items():
-            if grounding.get(key) != value:
-                errors.append(f"GROUNDING_{key.upper()}_MISMATCH")
-        expected_grounding_commitment = _commit(
-            b"GREMLIN-PROPOSITION-GROUNDING/v0.1",
-            expected_grounding,
-        )
-        if str(grounding.get("grounding_commitment") or "").strip() != expected_grounding_commitment:
-            errors.append("GROUNDING_COMMITMENT_MISMATCH")
+        try:
+            _reject_unknown_keys(grounding, _GROUNDING_KEYS, "producer grounding")
+            support_span = _nonempty(grounding.get("support_span"), "support_span")
+            excerpt = _nonempty(classification.get("excerpt"), "classification excerpt")
+            proposition_commitment_value = _nonempty(
+                frame.get("proposition_commitment"), "proposition_commitment"
+            )
+            classification_commitment_value = _nonempty(
+                classification.get("classification_commitment"), "classification_commitment"
+            )
+            excerpt_commitment_value = _nonempty(
+                classification.get("excerpt_commitment"), "excerpt_commitment"
+            )
+        except ValueError:
+            errors.append("GROUNDING_FIELD_TYPE_INVALID")
+            expected_grounding = None
+            expected_grounding_commitment = None
+        else:
+            if support_span not in excerpt:
+                errors.append("SUPPORT_SPAN_NOT_IN_CLASSIFICATION_EXCERPT")
+            expected_grounding = _grounding_core(
+                proposition_commitment=proposition_commitment_value,
+                classification_commitment=classification_commitment_value,
+                excerpt_commitment=excerpt_commitment_value,
+                support_span=support_span,
+            )
+            for key, value in expected_grounding.items():
+                if grounding.get(key) != value:
+                    errors.append(f"GROUNDING_{key.upper()}_MISMATCH")
+            expected_grounding_commitment = _commit(
+                b"GREMLIN-PROPOSITION-GROUNDING/v0.1",
+                expected_grounding,
+            )
+            supplied_grounding_commitment = grounding.get("grounding_commitment")
+            if (
+                not isinstance(supplied_grounding_commitment, str)
+                or supplied_grounding_commitment.strip() != expected_grounding_commitment
+            ):
+                errors.append("GROUNDING_COMMITMENT_MISMATCH")
 
     return {
         "schema": SCHEMA,
@@ -221,31 +332,43 @@ def normalize_proposition_producer_output(
     producer: Mapping[str, Any],
     require_complete_coverage: bool = True,
 ) -> dict[str, Any]:
-    claim = str(claim_id or "").strip()
-    if not claim:
-        raise ValueError("claim_id must be non-empty")
-
+    claim = _nonempty(claim_id, "claim_id")
+    coverage_required = _strict_bool(require_complete_coverage, "require_complete_coverage")
+    classification_rows = _sequence_rows(classifications, "classifications")
+    receipt_rows = _sequence_rows(source_receipts, "source_receipts")
+    if not isinstance(producer, Mapping):
+        raise ValueError("producer descriptor must be an object")
     descriptor = {
-        "producer_id": str(producer.get("producer_id") or "").strip(),
-        "producer_version": str(producer.get("producer_version") or "").strip(),
-        "model_id": producer.get("model_id"),
-        "mode": str(producer.get("mode") or "").strip(),
+        "producer_id": _nonempty(producer.get("producer_id"), "producer_id"),
+        "producer_version": _nonempty(producer.get("producer_version"), "producer_version"),
+        "model_id": _optional_text(producer.get("model_id"), "model_id"),
+        "mode": _nonempty(producer.get("mode"), "producer mode"),
     }
-    if not descriptor["producer_id"] or not descriptor["producer_version"] or not descriptor["mode"]:
-        raise ValueError("producer descriptor must include non-empty producer_id, producer_version and mode")
 
     classification_by_source, classification_errors = _classification_index(
         claim_id=claim,
-        classifications=classifications,
-        source_receipts=source_receipts,
+        classifications=classification_rows,
+        source_receipts=receipt_rows,
     )
-    receipt_by_source = {
-        str(row.get("source_id") or "").strip(): row
-        for row in source_receipts
-        if str(row.get("source_id") or "").strip()
-    }
+    receipt_by_source: dict[str, Mapping[str, Any]] = {}
+    duplicate_receipts: set[str] = set()
+    for row in receipt_rows:
+        sid_raw = row.get("source_id")
+        if not isinstance(sid_raw, str) or not sid_raw.strip():
+            classification_errors.append(
+                {"index": -1, "source_id": "", "errors": ["SOURCE_RECEIPT_ID_INVALID"]}
+            )
+            continue
+        sid = sid_raw.strip()
+        if sid in receipt_by_source:
+            duplicate_receipts.add(sid)
+        receipt_by_source[sid] = row
+    for sid in sorted(duplicate_receipts):
+        classification_errors.append(
+            {"index": -1, "source_id": sid, "errors": ["DUPLICATE_SOURCE_RECEIPT"]}
+        )
 
-    rows = [dict(row) for row in decisions]
+    rows = _mapping_rows(decisions, "decisions")
     decision_errors: list[dict[str, Any]] = []
     seen_sources: set[str] = set()
     normalized_decisions: list[dict[str, Any]] = []
@@ -253,12 +376,21 @@ def normalize_proposition_producer_output(
     unresolved_sources: list[str] = []
 
     for index, row in enumerate(rows):
-        source_id = str(row.get("source_id") or "").strip()
-        decision = str(row.get("decision") or "").strip().upper()
         errors: list[str] = []
-        if not source_id:
-            errors.append("SOURCE_ID_MISSING")
-        elif source_id in seen_sources:
+        try:
+            _reject_unknown_keys(row, _DECISION_KEYS, f"decision at index {index}")
+            source_id = _nonempty(row.get("source_id"), "source_id")
+            decision = _nonempty(row.get("decision"), "decision").upper()
+            supplied_classification_commitment = _nonempty(
+                row.get("classification_commitment"), "classification_commitment"
+            )
+        except ValueError as exc:
+            decision_errors.append(
+                {"index": index, "source_id": "", "errors": [f"INVALID_DECISION_FIELD:{exc}"]}
+            )
+            continue
+
+        if source_id in seen_sources:
             errors.append("DUPLICATE_SOURCE_DECISION")
         seen_sources.add(source_id)
 
@@ -266,9 +398,11 @@ def normalize_proposition_producer_output(
         if classification is None:
             errors.append("SEMANTIC_CLASSIFICATION_MISSING_OR_INVALID")
         else:
-            supplied_classification_commitment = str(row.get("classification_commitment") or "").strip()
-            expected_classification_commitment = str(classification.get("classification_commitment") or "").strip()
-            if supplied_classification_commitment != expected_classification_commitment:
+            expected_classification_commitment = classification.get("classification_commitment")
+            if (
+                not isinstance(expected_classification_commitment, str)
+                or supplied_classification_commitment != expected_classification_commitment.strip()
+            ):
                 errors.append("CLASSIFICATION_COMMITMENT_MISMATCH")
 
         if decision not in _ALLOWED_DECISIONS:
@@ -288,14 +422,21 @@ def normalize_proposition_producer_output(
             if receipt is None:
                 errors.append("SOURCE_RECEIPT_MISSING")
             else:
-                excerpt = str(classification.get("excerpt") or "")
+                excerpt_value = classification.get("excerpt")
+                if not isinstance(excerpt_value, str) or not excerpt_value.strip():
+                    errors.append("CLASSIFICATION_EXCERPT_INVALID")
+                    excerpt = ""
+                else:
+                    excerpt = excerpt_value
                 for frame_index, raw_frame in enumerate(raw_frames):
                     if not isinstance(raw_frame, Mapping):
                         errors.append(f"FRAME_{frame_index}_MUST_BE_MAPPING")
                         continue
-                    support_span = str(raw_frame.get("support_span") or "")
-                    if not support_span.strip():
-                        errors.append(f"FRAME_{frame_index}_SUPPORT_SPAN_MISSING")
+                    try:
+                        _reject_unknown_keys(raw_frame, _FRAME_KEYS, f"frame {frame_index}")
+                        support_span = _nonempty(raw_frame.get("support_span"), "support_span")
+                    except ValueError as exc:
+                        errors.append(f"FRAME_{frame_index}_REJECTED:ValueError:{exc}")
                         continue
                     if support_span not in excerpt:
                         errors.append(f"FRAME_{frame_index}_SUPPORT_SPAN_NOT_IN_CLASSIFICATION_EXCERPT")
@@ -304,12 +445,12 @@ def normalize_proposition_producer_output(
                         local_frame = build_proposition(
                             classification=classification,
                             claim_id=claim,
-                            source_receipts=source_receipts,
-                            subject=str(raw_frame.get("subject") or ""),
-                            predicate=str(raw_frame.get("predicate") or ""),
-                            object=None if raw_frame.get("object") is None else str(raw_frame.get("object")),
-                            polarity=str(raw_frame.get("polarity") or ""),
-                            modality=str(raw_frame.get("modality") or ASSERTED),
+                            source_receipts=receipt_rows,
+                            subject=raw_frame.get("subject"),  # type: ignore[arg-type]
+                            predicate=raw_frame.get("predicate"),  # type: ignore[arg-type]
+                            object=raw_frame.get("object"),  # type: ignore[arg-type]
+                            polarity=raw_frame.get("polarity"),  # type: ignore[arg-type]
+                            modality=raw_frame.get("modality", ASSERTED),  # type: ignore[arg-type]
                             extraction_mode=(
                                 f"PRODUCER_PROPOSED_GREMLIN_REBUILT:{descriptor['producer_id']}:{descriptor['producer_version']}"
                             ),
@@ -317,10 +458,16 @@ def normalize_proposition_producer_output(
                     except (TypeError, ValueError) as exc:
                         errors.append(f"FRAME_{frame_index}_REJECTED:{type(exc).__name__}:{exc}")
                         continue
+                    classification_commitment_value = _nonempty(
+                        classification.get("classification_commitment"), "classification_commitment"
+                    )
+                    excerpt_commitment_value = _nonempty(
+                        classification.get("excerpt_commitment"), "excerpt_commitment"
+                    )
                     grounding_core = _grounding_core(
                         proposition_commitment=local_frame["proposition_commitment"],
-                        classification_commitment=str(classification.get("classification_commitment") or ""),
-                        excerpt_commitment=str(classification.get("excerpt_commitment") or ""),
+                        classification_commitment=classification_commitment_value,
+                        excerpt_commitment=excerpt_commitment_value,
                         support_span=support_span,
                     )
                     local_frame["producer_grounding"] = {
@@ -348,13 +495,18 @@ def normalize_proposition_producer_output(
             unresolved_sources.append(source_id)
         else:
             propositions.extend(local_frames)
+        assert classification is not None
         normalized_decisions.append(
             {
                 "source_id": source_id,
-                "classification_commitment": str(classification.get("classification_commitment") or ""),
+                "classification_commitment": _nonempty(
+                    classification.get("classification_commitment"), "classification_commitment"
+                ),
                 "decision": decision,
                 "proposition_commitments": [frame["proposition_commitment"] for frame in local_frames],
-                "grounding_commitments": [frame["producer_grounding"]["grounding_commitment"] for frame in local_frames],
+                "grounding_commitments": [
+                    frame["producer_grounding"]["grounding_commitment"] for frame in local_frames
+                ],
                 "proposition_count": len(local_frames),
             }
         )
@@ -375,7 +527,7 @@ def normalize_proposition_producer_output(
 
     if classification_errors or decision_errors:
         status = "INVALID_FAIL_CLOSED"
-    elif require_complete_coverage and not coverage_complete:
+    elif coverage_required and not coverage_complete:
         status = "INCOMPLETE_COVERAGE_FAIL_CLOSED"
     else:
         status = "VALID"
@@ -388,8 +540,8 @@ def normalize_proposition_producer_output(
         verify_grounded_proposition(
             frame,
             claim_id=claim,
-            classifications=classifications,
-            source_receipts=source_receipts,
+            classifications=classification_rows,
+            source_receipts=receipt_rows,
         )
         for frame in accepted_propositions
     ]
@@ -407,7 +559,7 @@ def normalize_proposition_producer_output(
         "proposition_count": len(accepted_propositions),
         "unresolved_source_count": len(accepted_unresolved),
         "status": status,
-        "require_complete_coverage": bool(require_complete_coverage),
+        "require_complete_coverage": coverage_required,
         "coverage": {
             "expected_source_ids": sorted(expected_sources),
             "covered_source_ids": sorted(covered_sources),
@@ -447,18 +599,22 @@ def run_proposition_producer(
     require_complete_coverage: bool = True,
 ) -> dict[str, Any]:
     descriptor = _producer_descriptor(producer)
+    claim = _nonempty(claim_id, "claim_id")
+    classification_rows = _sequence_rows(classifications, "classifications")
+    receipt_rows = _sequence_rows(source_receipts, "source_receipts")
+    coverage_required = _strict_bool(require_complete_coverage, "require_complete_coverage")
     raw = producer.extract(
-        claim_id=claim_id,
-        classifications=classifications,
-        source_receipts=source_receipts,
+        claim_id=claim,
+        classifications=classification_rows,
+        source_receipts=receipt_rows,
     )
     result = normalize_proposition_producer_output(
-        claim_id=claim_id,
-        classifications=classifications,
-        source_receipts=source_receipts,
+        claim_id=claim,
+        classifications=classification_rows,
+        source_receipts=receipt_rows,
         decisions=raw,
         producer=descriptor,
-        require_complete_coverage=require_complete_coverage,
+        require_complete_coverage=coverage_required,
     )
     result["external_proposition_provider_executed"] = not descriptor["mode"].startswith("FIXTURE_ONLY")
     result["fixture_propositions_claimed_as_real"] = False
@@ -482,7 +638,15 @@ class FixturePropositionProducer:
     mode = "FIXTURE_ONLY_NO_PROPOSITION_INFERENCE"
 
     def __init__(self, decisions: Iterable[FixturePropositionDecision]):
-        self._decisions = list(decisions)
+        if isinstance(decisions, (str, bytes, Mapping)):
+            raise ValueError("fixture decisions must be an iterable of FixturePropositionDecision")
+        try:
+            rows = list(decisions)
+        except TypeError as exc:
+            raise ValueError("fixture decisions must be an iterable of FixturePropositionDecision") from exc
+        if any(not isinstance(row, FixturePropositionDecision) for row in rows):
+            raise ValueError("fixture decisions must contain only FixturePropositionDecision values")
+        self._decisions = rows
 
     def extract(
         self,

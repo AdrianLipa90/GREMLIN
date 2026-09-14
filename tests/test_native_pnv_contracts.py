@@ -3,6 +3,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 NATIVE = ROOT / "native"
 FILES = sorted(NATIVE.glob("*.pnv"))
+PROGRAM_FILES = [p for p in FILES if p.read_text().splitlines() and p.read_text().splitlines()[0] == "PNV 1"]
+DECLARATIVE_PNV = {"GREMLIN_ORBITAL_HIVE_MEMORY_V0_1.pnv"}
 ALLOWED = {"SOURCE","IDENTITY","DIFFERENCE","CONDITION","ORDER","TRANSFORM","COMPOSITION","RETURN"}
 REQUIRED_NATIVE = {
     "BELZEBUB_TOOL_V0_4.pnv",
@@ -32,18 +34,32 @@ def test_required_native_units_present():
     assert REQUIRED_NATIVE <= {p.name for p in FILES}
 
 
-def test_native_header_and_epistemic():
-    for p in FILES:
+def test_pnv_files_have_explicit_program_or_declarative_classification():
+    classified = {p.name for p in PROGRAM_FILES} | DECLARATIVE_PNV
+    assert {p.name for p in FILES} == classified
+
+
+def test_native_program_header_and_epistemic():
+    for p in PROGRAM_FILES:
         lines=p.read_text().splitlines()
         assert lines[0] == "PNV 1"
         assert lines[1] == "EPISTEMIC CHYBA"
 
 
-def test_existing_opcodes_only():
-    for p in FILES:
+def test_existing_opcodes_only_for_pnv_programs():
+    for p in PROGRAM_FILES:
         text=p.read_text()
         assert set(parse_ops(text)) <= ALLOWED
         assert "# NEW_PNV_OPCODES 0" in text
+
+
+def test_orbital_hive_memory_is_explicit_declarative_native_unit():
+    text=(NATIVE/"GREMLIN_ORBITAL_HIVE_MEMORY_V0_1.pnv").read_text()
+    assert text.startswith("# GREMLIN_ORBITAL_HIVE_MEMORY_V0_1\n")
+    assert "# Authority: CANDIDATE_ONLY / SHARED_COGNITION_ONLY" in text
+    assert "SYSTEM GREMLIN_ORBITAL_HIVE_MEMORY_V0_1" in text
+    assert "CONST FAIL_CLOSED = TRUE" in text
+    assert "Runtime promotion requires separate NOEMA admission" in text
 
 
 def test_persistent_memory_heads():

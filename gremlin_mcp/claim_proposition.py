@@ -22,16 +22,52 @@ CONDITIONAL = "CONDITIONAL"
 UNRESOLVED = "UNRESOLVED"
 _ALLOWED_MODALITIES = {ASSERTED, NECESSARY, POSSIBLE, CONDITIONAL, UNRESOLVED}
 _STRONG_ASSERTION_MODALITIES = {ASSERTED, NECESSARY}
+_AUTHORITY_KEYS = frozenset({"production_runtime_write", "execution_admitted", "canon_allowed"})
+_PROPOSITION_KEYS = frozenset(
+    {
+        "schema",
+        "version",
+        "claim_id",
+        "source_id",
+        "classification_commitment",
+        "content_commitment",
+        "excerpt_commitment",
+        "subject",
+        "predicate",
+        "object",
+        "normalized_subject",
+        "normalized_predicate",
+        "normalized_object",
+        "polarity",
+        "modality",
+        "extraction_mode",
+        "directionality",
+        "proposition_commitment",
+        "epistemic_status",
+        "semantic_equivalence_policy",
+        "term_normalization",
+        "source_content_authority",
+        "authority",
+        "producer_grounding",
+        "producer_proposal_index",
+        "producer_supplied_proposition_commitment_ignored",
+        "producer_supplied_support_span_commitment_ignored",
+        "producer_authority_ignored",
+    }
+)
 
 
 def _canonical(value: Any) -> bytes:
-    return json.dumps(
-        value,
-        sort_keys=True,
-        separators=(",", ":"),
-        ensure_ascii=False,
-        allow_nan=False,
-    ).encode("utf-8")
+    try:
+        return json.dumps(
+            value,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+            allow_nan=False,
+        ).encode("utf-8")
+    except (TypeError, ValueError) as exc:
+        raise ValueError("claim proposition data must be finite JSON") from exc
 
 
 def _commit(domain: bytes, value: Any) -> str:
@@ -39,10 +75,18 @@ def _commit(domain: bytes, value: Any) -> str:
 
 
 def _nonempty(value: Any, name: str) -> str:
-    text = str(value or "").strip()
+    if not isinstance(value, str):
+        raise ValueError(f"{name} must be a string")
+    text = value.strip()
     if not text:
         raise ValueError(f"{name} must be non-empty")
     return text
+
+
+def _optional_text(value: Any, name: str) -> str | None:
+    if value is None:
+        return None
+    return _nonempty(value, name)
 
 
 def _authority() -> dict[str, bool]:
@@ -53,14 +97,37 @@ def _authority() -> dict[str, bool]:
     }
 
 
-def normalize_term(value: Any) -> str:
-    """Normalize entity/relation arguments without discarding non-ASCII letters.
+def _strict_authority(value: Any) -> bool:
+    return (
+        isinstance(value, Mapping)
+        and set(value) == _AUTHORITY_KEYS
+        and all(type(value.get(key)) is bool and value.get(key) is False for key in _AUTHORITY_KEYS)
+    )
 
-    NFKC + casefold gives stable compatibility normalization while Unicode letters/digits and
-    combining marks remain evidence-bearing term content. Punctuation becomes token boundaries;
-    `_`, `:` and `-` are retained for explicit symbolic identifiers.
-    """
-    text = unicodedata.normalize("NFKC", str(value or "")).casefold().strip()
+
+def _reject_unknown_keys(value: Mapping[Any, Any], allowed: frozenset[str], field: str) -> None:
+    unknown = [key for key in value if not isinstance(key, str) or key not in allowed]
+    if unknown:
+        raise ValueError(f"{field} contains unsupported keys: {unknown}")
+
+
+def _mapping_rows(values: Iterable[Mapping[str, Any]], field: str) -> list[dict[str, Any]]:
+    if isinstance(values, (str, bytes, Mapping)):
+        raise ValueError(f"{field} must be an iterable of objects")
+    try:
+        raw = list(values)
+    except TypeError as exc:
+        raise ValueError(f"{field} must be an iterable of objects") from exc
+    if any(not isinstance(row, Mapping) for row in raw):
+        raise ValueError(f"{field} must contain only objects")
+    return [dict(row) for row in raw]
+
+
+def normalize_term(value: Any) -> str:
+    """Normalize a typed string term without discarding non-ASCII letters."""
+    if not isinstance(value, str):
+        raise ValueError("term must be a string")
+    text = unicodedata.normalize("NFKC", value).casefold().strip()
     normalized = []
     for char in text:
         category = unicodedata.category(char)
@@ -72,29 +139,38 @@ def normalize_term(value: Any) -> str:
 
 
 def normalize_predicate(value: Any) -> str:
-    predicate = _nonempty(value, "predicate").strip().upper()
-    return re.sub(r"[^A-Z0-9_:-]+", "_", predicate).strip("_")
+    predicate = _nonempty(value, "predicate").upper()
+    normalized = re.sub(r"[^A-Z0-9_:-]+", "_", predicate).strip("_")
+    if not normalized:
+        raise ValueError("predicate normalization produced an empty operator")
+    return normalized
 
 
 def proposition_core(frame: Mapping[str, Any]) -> dict[str, Any]:
+    if not isinstance(frame, Mapping):
+        raise ValueError("proposition must be an object")
     raw_object = frame.get("object")
     normalized_object = frame.get("normalized_object")
+    polarity = _nonempty(frame.get("polarity"), "polarity").upper()
+    modality = _nonempty(frame.get("modality"), "modality").upper()
     return {
-        "claim_id": str(frame.get("claim_id") or "").strip(),
-        "source_id": str(frame.get("source_id") or "").strip(),
-        "classification_commitment": str(frame.get("classification_commitment") or "").strip(),
-        "content_commitment": str(frame.get("content_commitment") or "").strip(),
-        "excerpt_commitment": str(frame.get("excerpt_commitment") or "").strip(),
-        "subject": str(frame.get("subject") or "").strip(),
-        "predicate": str(frame.get("predicate") or "").strip(),
-        "object": None if raw_object is None else str(raw_object).strip(),
-        "normalized_subject": str(frame.get("normalized_subject") or "").strip(),
-        "normalized_predicate": str(frame.get("normalized_predicate") or "").strip(),
-        "normalized_object": None if normalized_object is None else str(normalized_object).strip(),
-        "polarity": str(frame.get("polarity") or "").strip().upper(),
-        "modality": str(frame.get("modality") or "").strip().upper(),
-        "extraction_mode": str(frame.get("extraction_mode") or "").strip(),
-        "directionality": "EXPLICIT_TYPED_SUBJECT_PREDICATE_OBJECT",
+        "claim_id": _nonempty(frame.get("claim_id"), "claim_id"),
+        "source_id": _nonempty(frame.get("source_id"), "source_id"),
+        "classification_commitment": _nonempty(
+            frame.get("classification_commitment"), "classification_commitment"
+        ),
+        "content_commitment": _nonempty(frame.get("content_commitment"), "content_commitment"),
+        "excerpt_commitment": _nonempty(frame.get("excerpt_commitment"), "excerpt_commitment"),
+        "subject": _nonempty(frame.get("subject"), "subject"),
+        "predicate": _nonempty(frame.get("predicate"), "predicate"),
+        "object": _optional_text(raw_object, "object"),
+        "normalized_subject": _nonempty(frame.get("normalized_subject"), "normalized_subject"),
+        "normalized_predicate": _nonempty(frame.get("normalized_predicate"), "normalized_predicate"),
+        "normalized_object": _optional_text(normalized_object, "normalized_object"),
+        "polarity": polarity,
+        "modality": modality,
+        "extraction_mode": _nonempty(frame.get("extraction_mode"), "extraction_mode"),
+        "directionality": _nonempty(frame.get("directionality"), "directionality"),
     }
 
 
@@ -114,9 +190,12 @@ def build_proposition(
     modality: str = ASSERTED,
     extraction_mode: str = "EXPLICIT_TYPED_INPUT",
 ) -> dict[str, Any]:
+    if not isinstance(classification, Mapping):
+        raise ValueError("classification must be an object")
+    claim = _nonempty(claim_id, "claim_id")
     validation = verify_classification(
         classification,
-        claim_id=claim_id,
+        claim_id=claim,
         source_receipts=source_receipts,
     )
     if not validation["valid"]:
@@ -124,9 +203,7 @@ def build_proposition(
 
     raw_subject = _nonempty(subject, "subject")
     raw_predicate = _nonempty(predicate, "predicate")
-    raw_object = None if object is None else str(object).strip()
-    if object is not None and not raw_object:
-        raise ValueError("object must be non-empty when supplied")
+    raw_object = _optional_text(object, "object")
 
     normalized_subject = normalize_term(raw_subject)
     normalized_predicate = normalize_predicate(raw_predicate)
@@ -144,11 +221,17 @@ def build_proposition(
         raise ValueError(f"unsupported modality: {normalized_modality}")
 
     core = {
-        "claim_id": str(claim_id).strip(),
-        "source_id": str(classification.get("source_id") or "").strip(),
-        "classification_commitment": str(classification.get("classification_commitment") or "").strip(),
-        "content_commitment": str(classification.get("content_commitment") or "").strip(),
-        "excerpt_commitment": str(classification.get("excerpt_commitment") or "").strip(),
+        "claim_id": claim,
+        "source_id": _nonempty(classification.get("source_id"), "classification.source_id"),
+        "classification_commitment": _nonempty(
+            classification.get("classification_commitment"), "classification.classification_commitment"
+        ),
+        "content_commitment": _nonempty(
+            classification.get("content_commitment"), "classification.content_commitment"
+        ),
+        "excerpt_commitment": _nonempty(
+            classification.get("excerpt_commitment"), "classification.excerpt_commitment"
+        ),
         "subject": raw_subject,
         "predicate": raw_predicate,
         "object": raw_object,
@@ -174,23 +257,35 @@ def build_proposition(
 
 
 def verify_proposition(frame: Mapping[str, Any]) -> dict[str, Any]:
+    if not isinstance(frame, Mapping):
+        return {"valid": False, "errors": ["PROPOSITION_MUST_BE_OBJECT"], "authority": _authority()}
     errors: list[str] = []
     try:
+        _reject_unknown_keys(frame, _PROPOSITION_KEYS, "proposition")
         core = proposition_core(frame)
     except (TypeError, ValueError):
         return {"valid": False, "errors": ["INVALID_PROPOSITION_FIELD_TYPE"], "authority": _authority()}
 
-    if not core["claim_id"]:
-        errors.append("CLAIM_ID_MISSING")
-    if not core["source_id"]:
-        errors.append("SOURCE_ID_MISSING")
-    if not core["classification_commitment"]:
-        errors.append("CLASSIFICATION_COMMITMENT_MISSING")
-    if not core["content_commitment"]:
-        errors.append("CONTENT_COMMITMENT_MISSING")
-    if not core["excerpt_commitment"]:
-        errors.append("EXCERPT_COMMITMENT_MISSING")
-    if normalize_term(core["subject"]) != core["normalized_subject"]:
+    if frame.get("schema") != SCHEMA:
+        errors.append("PROPOSITION_SCHEMA_MISMATCH")
+    if frame.get("version") != VERSION:
+        errors.append("PROPOSITION_VERSION_MISMATCH")
+    if core["directionality"] != "EXPLICIT_TYPED_SUBJECT_PREDICATE_OBJECT":
+        errors.append("DIRECTIONALITY_MISMATCH")
+    if frame.get("epistemic_status") != "CANDIDATE_PROPOSITION_FRAME":
+        errors.append("EPISTEMIC_STATUS_MISMATCH")
+    if frame.get("semantic_equivalence_policy") != "EXACT_NORMALIZED_FRAME_ONLY_NO_SYNONYM_INFERENCE":
+        errors.append("SEMANTIC_EQUIVALENCE_POLICY_MISMATCH")
+    if frame.get("term_normalization") != "UNICODE_NFKC_CASEFOLD_ALNUM_MARK_SAFE":
+        errors.append("TERM_NORMALIZATION_POLICY_MISMATCH")
+    if frame.get("source_content_authority") != "UNTRUSTED_EVIDENCE_ONLY":
+        errors.append("SOURCE_CONTENT_AUTHORITY_MISMATCH")
+
+    try:
+        expected_subject = normalize_term(core["subject"])
+    except ValueError:
+        expected_subject = ""
+    if expected_subject != core["normalized_subject"]:
         errors.append("SUBJECT_NORMALIZATION_MISMATCH")
     try:
         expected_predicate = normalize_predicate(core["predicate"])
@@ -198,24 +293,23 @@ def verify_proposition(frame: Mapping[str, Any]) -> dict[str, Any]:
         expected_predicate = ""
     if expected_predicate != core["normalized_predicate"]:
         errors.append("PREDICATE_NORMALIZATION_MISMATCH")
-    expected_object = None if core["object"] is None else normalize_term(core["object"])
+    try:
+        expected_object = None if core["object"] is None else normalize_term(core["object"])
+    except ValueError:
+        expected_object = ""
     if expected_object != core["normalized_object"]:
         errors.append("OBJECT_NORMALIZATION_MISMATCH")
     if core["polarity"] not in _ALLOWED_POLARITIES:
         errors.append("INVALID_POLARITY")
     if core["modality"] not in _ALLOWED_MODALITIES:
         errors.append("INVALID_MODALITY")
-    if not core["extraction_mode"]:
-        errors.append("EXTRACTION_MODE_MISSING")
 
     expected_commitment = _commit(b"GREMLIN-CLAIM-PROPOSITION/v0.1", core)
-    if str(frame.get("proposition_commitment") or "").strip() != expected_commitment:
+    supplied_commitment = frame.get("proposition_commitment")
+    if not isinstance(supplied_commitment, str) or supplied_commitment.strip() != expected_commitment:
         errors.append("PROPOSITION_COMMITMENT_MISMATCH")
-    authority = frame.get("authority")
-    if authority is not None and any(
-        bool(authority.get(key)) for key in ("production_runtime_write", "execution_admitted", "canon_allowed")
-    ):
-        errors.append("INVALID_AUTHORITY_ESCALATION")
+    if not _strict_authority(frame.get("authority")):
+        errors.append("INVALID_AUTHORITY_ENVELOPE")
 
     return {
         "schema": SCHEMA,
@@ -283,14 +377,14 @@ def compare_propositions(left: Mapping[str, Any], right: Mapping[str, Any]) -> d
 
 
 def scan_proposition_conflicts(frames: Iterable[Mapping[str, Any]]) -> dict[str, Any]:
-    rows = [dict(row) for row in frames]
+    rows = _mapping_rows(frames, "frames")
     comparisons: list[dict[str, Any]] = []
     conflicts: list[dict[str, Any]] = []
     for index, left in enumerate(rows):
         for right in rows[index + 1 :]:
             comparison = compare_propositions(left, right)
             comparisons.append(comparison)
-            if comparison.get("logical_conflict_candidate"):
+            if comparison.get("logical_conflict_candidate") is True:
                 conflicts.append(comparison)
 
     core = {

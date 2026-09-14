@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
+import stat
 
 import pytest
 
+import gremlin_mcp.install.license_activation as license_activation_module
 from gremlin_mcp.install.integrations import gremlin_stdio_entry
 from gremlin_mcp.install.license_activation import activate_license_key, installed_license_status
 from gremlin_mcp.install.paths import GremlinPaths
@@ -72,10 +75,29 @@ def test_grm1_activation_verifies_and_persists_license(tmp_path: Path) -> None:
     result = activate_license_key(key, paths)
     assert result.status == "ACTIVE"
     assert result.license_id == "LIC-EARLY-ACCESS-001"
-    assert Path(paths.license_file).is_file()
+    target = Path(paths.license_file)
+    assert target.is_file()
+    if os.name != "nt":
+        assert stat.S_IMODE(target.stat().st_mode) & 0o077 == 0
     status = installed_license_status(paths)
     assert status["status"] == "ACTIVE"
     assert status["license"]["license_id"] == "LIC-EARLY-ACCESS-001"
+
+
+def test_license_activation_fails_loudly_if_temp_permissions_cannot_be_set(tmp_path: Path, monkeypatch) -> None:
+    if os.name == "nt":
+        pytest.skip("POSIX permission hardening is not used on Windows")
+    paths = make_paths(tmp_path)
+    key = issue_test_key(tmp_path, paths)
+
+    def fail_fchmod(_fd: int, _mode: int) -> None:
+        raise OSError("simulated fchmod failure")
+
+    monkeypatch.setattr(license_activation_module.os, "fchmod", fail_fchmod)
+    with pytest.raises(OSError, match="simulated fchmod failure"):
+        activate_license_key(key, paths)
+    assert not Path(paths.license_file).exists()
+    assert not list(Path(paths.config_dir).glob(".license.json.*.tmp"))
 
 
 def test_tampered_customer_key_never_replaces_installed_license(tmp_path: Path) -> None:
@@ -118,20 +140,114 @@ def test_signed_profile_required_flag_blocks_missing_profile(tmp_path: Path) -> 
     assert status["reason"] == "required client profile is missing"
 
 
-def test_readiness_reaches_ready_with_license_runtime_and_connected_provider(tmp_path: Path, monkeypatch) -> None:
+def _runtime_ready_setup(tmp_path: Path, monkeypatch) -> GremlinPaths:
     paths = make_paths(tmp_path)
     key = issue_test_key(tmp_path, paths)
     activate_license_key(key, paths)
     runtime = tmp_path / "gremlin-product-mcp"
     runtime.write_text("runtime", encoding="utf-8")
+    if os.name != "nt":
+        runtime.chmod(0o755)
+    monkeypatch.setattr("gremlin_mcp.install.readiness.gremlin_stdio_entry", lambda _paths: {
+        "command": str(runtime), "args": ["--transport", "stdio"], "env": {}
+    })
+    return paths
 
+
+def test_readiness_reaches_ready_with_license_runtime_and_verified_provider(tmp_path: Path, monkeypatch) -> None:
+    paths = _runtime_ready_setup(tmp_path, monkeypatch)
+    monkeypatch.setattr("gremlin_mcp.install.readiness.list_providers", lambda _paths: {
+        "providers": [{
+            "provider_id": "opencode",
+            "detected": True,
+            "connected": True,
+            "connection_status": "CONNECTED",
+        }]
+    })
+    ready = evaluate_readiness(paths)
+    assert ready["status"] == "READY"
+    assert ready["providers"]["connected_ids"] == ["opencode"]
+    assert ready["actions"] == []
+
+
+def test_readiness_rejects_registered_but_unverified_provider(tmp_path: Path, monkeypatch) -> None:
+    paths = _runtime_ready_setup(tmp_path, monkeypatch)
+    monkeypatch.setattr("gremlin_mcp.install.readiness.list_providers", lambda _paths: {
+        "providers": [{
+            "provider_id": "codex",
+            "detected": True,
+            "connected": False,
+            "connection_status": "REGISTERED_UNVERIFIED",
+        }]
+    })
+    ready = evaluate_readiness(paths)
+    assert ready["status"] == "ACTION_REQUIRED"
+    assert ready["providers"]["connected"] == 0
+    assert ready["providers"]["unverified_ids"] == ["codex"]
+    assert "Verify a live GREMLIN MCP connection in one detected AI client" in ready["actions"]
+
+
+def test_readiness_fails_loudly_on_non_boolean_provider_flags(tmp_path: Path, monkeypatch) -> None:
+    paths = _runtime_ready_setup(tmp_path, monkeypatch)
+    monkeypatch.setattr("gremlin_mcp.install.readiness.list_providers", lambda _paths: {
+        "providers": [{
+            "provider_id": "bad",
+            "detected": "false",
+            "connected": False,
+            "connection_status": "NOT_DETECTED",
+        }]
+    })
+    with pytest.raises(RuntimeError, match="non-boolean detected"):
+        evaluate_readiness(paths)
+
+
+def test_readiness_rejects_inconsistent_connected_status(tmp_path: Path, monkeypatch) -> None:
+    paths = _runtime_ready_setup(tmp_path, monkeypatch)
+    monkeypatch.setattr("gremlin_mcp.install.readiness.list_providers", lambda _paths: {
+        "providers": [{
+            "provider_id": "opencode",
+            "detected": True,
+            "connected": True,
+            "connection_status": "REGISTERED_UNVERIFIED",
+        }]
+    })
+    with pytest.raises(RuntimeError, match="inconsistent connected/connection_status"):
+        evaluate_readiness(paths)
+
+
+def test_readiness_rejects_duplicate_provider_identity(tmp_path: Path, monkeypatch) -> None:
+    paths = _runtime_ready_setup(tmp_path, monkeypatch)
+    monkeypatch.setattr("gremlin_mcp.install.readiness.list_providers", lambda _paths: {
+        "providers": [
+            {"provider_id": "codex", "detected": True, "connected": False, "connection_status": "NOT_CONNECTED"},
+            {"provider_id": "codex", "detected": True, "connected": False, "connection_status": "NOT_CONNECTED"},
+        ]
+    })
+    with pytest.raises(RuntimeError, match="duplicate provider_id"):
+        evaluate_readiness(paths)
+
+
+def test_readiness_does_not_treat_non_executable_file_as_runtime(tmp_path: Path, monkeypatch) -> None:
+    if os.name == "nt":
+        pytest.skip("POSIX execute-bit readiness check is not used on Windows")
+    paths = make_paths(tmp_path)
+    key = issue_test_key(tmp_path, paths)
+    activate_license_key(key, paths)
+    runtime = tmp_path / "gremlin-product-mcp"
+    runtime.write_text("not executable", encoding="utf-8")
+    runtime.chmod(0o644)
     monkeypatch.setattr("gremlin_mcp.install.readiness.gremlin_stdio_entry", lambda _paths: {
         "command": str(runtime), "args": ["--transport", "stdio"], "env": {}
     })
     monkeypatch.setattr("gremlin_mcp.install.readiness.list_providers", lambda _paths: {
-        "providers": [{"provider_id": "codex", "detected": True, "connected": True}]
+        "providers": [{
+            "provider_id": "opencode",
+            "detected": True,
+            "connected": True,
+            "connection_status": "CONNECTED",
+        }]
     })
     ready = evaluate_readiness(paths)
-    assert ready["status"] == "READY"
-    assert ready["providers"]["connected_ids"] == ["codex"]
-    assert ready["actions"] == []
+    assert ready["status"] == "ACTION_REQUIRED"
+    assert ready["runtime"]["available"] is False
+    assert "Repair the GREMLIN runtime installation" in ready["actions"]

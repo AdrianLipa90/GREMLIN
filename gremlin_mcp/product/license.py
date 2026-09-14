@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import base64
+import binascii
 from datetime import date, datetime, timezone
 import hashlib
 import json
 from pathlib import Path
+import re
 from typing import Any, Mapping
 
 from cryptography.exceptions import InvalidSignature
@@ -15,6 +17,19 @@ LICENSE_PAYLOAD_SCHEMA = "GREMLIN_LICENSE_V0_1"
 LICENSE_ENVELOPE_SCHEMA = "GREMLIN_LICENSE_ENVELOPE_V0_1"
 SIGNATURE_ALGORITHM = "Ed25519"
 LICENSE_DOMAIN = b"GREMLIN-LICENSE/v0.1\0"
+_B64URL_RE = re.compile(r"^[A-Za-z0-9_-]+$")
+
+_LICENSE_KEYS = frozenset(
+    {
+        "schema", "license_id", "product", "edition", "customer", "issued_at",
+        "not_before", "expires_at", "updates_until", "seats", "devices",
+        "features", "limits", "usage", "metadata",
+    }
+)
+_LIMIT_KEYS = frozenset({"max_workers", "max_sources"})
+_USAGE_KEYS = frozenset({"commercial_use", "production_use", "hosted_service"})
+_ENVELOPE_KEYS = frozenset({"schema", "payload", "signature"})
+_SIGNATURE_KEYS = frozenset({"algorithm", "key_id", "value"})
 
 KNOWN_EDITIONS = frozenset({"RESEARCH", "PERSONAL_PRO", "COMMERCIAL", "ENTERPRISE"})
 KNOWN_FEATURES = frozenset(
@@ -50,19 +65,46 @@ def _canonical(value: Any) -> bytes:
         raise LicenseError("license data must be finite JSON") from exc
 
 
+def _reject_unknown_keys(value: Mapping[str, Any], allowed: frozenset[str], field: str) -> None:
+    unknown = sorted(key for key in value if not isinstance(key, str) or key not in allowed)
+    if unknown:
+        raise LicenseError(f"{field} contains unsupported keys: {unknown}")
+
+
+def _json_no_duplicates(text: str) -> Any:
+    def hook(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+        out: dict[str, Any] = {}
+        for key, value in pairs:
+            if key in out:
+                raise LicenseError(f"duplicate JSON key in license data: {key}")
+            out[key] = value
+        return out
+
+    try:
+        return json.loads(text, object_pairs_hook=hook)
+    except LicenseError:
+        raise
+    except json.JSONDecodeError as exc:
+        raise LicenseError("license JSON is malformed") from exc
+
+
 def _b64u(data: bytes) -> str:
     return base64.urlsafe_b64encode(data).rstrip(b"=").decode("ascii")
 
 
-def _b64u_decode(value: str) -> bytes:
-    text = str(value).strip()
-    if not text:
-        raise LicenseError("signature must be non-empty")
-    padding = "=" * ((4 - len(text) % 4) % 4)
+def _b64u_decode(value: Any) -> bytes:
+    if not isinstance(value, str):
+        raise LicenseError("signature must be a string")
+    if not value or not _B64URL_RE.fullmatch(value):
+        raise LicenseError("signature must be canonical unpadded base64url")
+    padding = "=" * ((4 - len(value) % 4) % 4)
     try:
-        return base64.urlsafe_b64decode((text + padding).encode("ascii"))
-    except Exception as exc:  # noqa: BLE001 - normalized into a product error
+        raw = base64.b64decode((value + padding).encode("ascii"), altchars=b"-_", validate=True)
+    except (binascii.Error, ValueError) as exc:
         raise LicenseError("invalid base64url signature") from exc
+    if _b64u(raw) != value:
+        raise LicenseError("signature must use canonical unpadded base64url encoding")
+    return raw
 
 
 def public_key_id(public_key: Ed25519PublicKey) -> str:
@@ -111,22 +153,20 @@ def generate_keypair() -> tuple[bytes, bytes, str]:
 
 
 def _nonempty_string(value: Any, field: str, *, max_len: int = 256) -> str:
-    text = str(value or "").strip()
+    if not isinstance(value, str):
+        raise LicenseError(f"{field} must be a string")
+    text = value.strip()
     if not text or len(text) > max_len:
         raise LicenseError(f"{field} must contain 1..{max_len} characters")
     return text
 
 
 def _positive_int(value: Any, field: str, *, minimum: int = 1, maximum: int = 1_000_000) -> int:
-    if isinstance(value, bool):
+    if isinstance(value, bool) or not isinstance(value, int):
         raise LicenseError(f"{field} must be an integer")
-    try:
-        out = int(value)
-    except (TypeError, ValueError) as exc:
-        raise LicenseError(f"{field} must be an integer") from exc
-    if out < minimum or out > maximum:
+    if value < minimum or value > maximum:
         raise LicenseError(f"{field} must be in {minimum}..{maximum}")
-    return out
+    return value
 
 
 def _iso_date(value: Any, field: str, *, optional: bool = False) -> str | None:
@@ -140,10 +180,21 @@ def _iso_date(value: Any, field: str, *, optional: bool = False) -> str | None:
     return parsed.isoformat()
 
 
+def _metadata(value: Any) -> dict[str, Any]:
+    if value is None:
+        return {}
+    if not isinstance(value, Mapping):
+        raise LicenseError("metadata must be an object")
+    normalized = dict(value)
+    _canonical(normalized)
+    return normalized
+
+
 def normalize_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
     if not isinstance(payload, Mapping):
         raise LicenseError("license payload must be an object")
     body = dict(payload)
+    _reject_unknown_keys(body, _LICENSE_KEYS, "license payload")
     if body.get("schema") != LICENSE_PAYLOAD_SCHEMA:
         raise LicenseError(f"license payload schema must be {LICENSE_PAYLOAD_SCHEMA}")
     if body.get("product") != "GREMLIN":
@@ -164,6 +215,7 @@ def normalize_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
     usage = body.get("usage")
     if not isinstance(usage, Mapping):
         raise LicenseError("usage must be an object")
+    _reject_unknown_keys(usage, _USAGE_KEYS, "usage")
     normalized_usage: dict[str, bool] = {}
     for name in ("commercial_use", "production_use", "hosted_service"):
         value = usage.get(name)
@@ -174,6 +226,7 @@ def normalize_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
     limits = body.get("limits")
     if not isinstance(limits, Mapping):
         raise LicenseError("limits must be an object")
+    _reject_unknown_keys(limits, _LIMIT_KEYS, "limits")
 
     normalized = {
         "schema": LICENSE_PAYLOAD_SCHEMA,
@@ -193,9 +246,8 @@ def normalize_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
         "features": features,
         "usage": normalized_usage,
         "updates_until": _iso_date(body.get("updates_until"), "updates_until", optional=True),
-        "metadata": dict(body.get("metadata") or {}),
+        "metadata": _metadata(body.get("metadata")),
     }
-    _canonical(normalized["metadata"])
     if normalized["expires_at"] is not None and normalized["not_before"] > normalized["expires_at"]:
         raise LicenseError("not_before must not be after expires_at")
     return normalized
@@ -221,28 +273,39 @@ def verify_license(
     *,
     today: date | None = None,
 ) -> dict[str, Any]:
-    if not isinstance(envelope, Mapping) or envelope.get("schema") != LICENSE_ENVELOPE_SCHEMA:
+    if not isinstance(envelope, Mapping):
+        raise LicenseError("license envelope must be an object")
+    _reject_unknown_keys(envelope, _ENVELOPE_KEYS, "license envelope")
+    if envelope.get("schema") != LICENSE_ENVELOPE_SCHEMA:
         raise LicenseError(f"license envelope schema must be {LICENSE_ENVELOPE_SCHEMA}")
-    payload = normalize_payload(envelope.get("payload") or {})
+    payload = envelope.get("payload")
+    if not isinstance(payload, Mapping):
+        raise LicenseError("license payload must be an object")
+    payload = normalize_payload(payload)
     signature = envelope.get("signature")
     if not isinstance(signature, Mapping):
         raise LicenseError("signature must be an object")
+    _reject_unknown_keys(signature, _SIGNATURE_KEYS, "signature")
     if signature.get("algorithm") != SIGNATURE_ALGORITHM:
         raise LicenseError("signature algorithm must be Ed25519")
     expected_key_id = public_key_id(public_key)
     if signature.get("key_id") != expected_key_id:
         raise LicenseError("license key_id does not match configured public key")
-    raw_signature = _b64u_decode(str(signature.get("value") or ""))
+    raw_signature = _b64u_decode(signature.get("value"))
+    if len(raw_signature) != 64:
+        raise LicenseError("license signature must decode to 64 bytes")
     try:
         public_key.verify(raw_signature, LICENSE_DOMAIN + _canonical(payload))
     except InvalidSignature as exc:
         raise LicenseError("license signature is invalid") from exc
 
-    current = today or datetime.now(timezone.utc).date()
-    not_before = date.fromisoformat(str(payload["not_before"]))
+    if today is not None and type(today) is not date:
+        raise LicenseError("today must be a date")
+    current = today if today is not None else datetime.now(timezone.utc).date()
+    not_before = date.fromisoformat(payload["not_before"])
     if current < not_before:
         raise LicenseError("license is not active yet")
-    if payload["expires_at"] is not None and current > date.fromisoformat(str(payload["expires_at"])):
+    if payload["expires_at"] is not None and current > date.fromisoformat(payload["expires_at"]):
         raise LicenseError("license has expired")
     return payload
 
@@ -254,9 +317,10 @@ def load_license(
     today: date | None = None,
 ) -> dict[str, Any]:
     try:
-        envelope = json.loads(Path(license_path).read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
+        text = Path(license_path).read_text(encoding="utf-8")
+    except OSError as exc:
         raise LicenseError("unable to load license file") from exc
+    envelope = _json_no_duplicates(text)
     return verify_license(envelope, load_public_key(public_key_path), today=today)
 
 

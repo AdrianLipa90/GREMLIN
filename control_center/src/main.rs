@@ -85,11 +85,17 @@ fn ctl_program() -> PathBuf {
 }
 
 fn decode_ctl_output(output: std::process::Output) -> Result<Value, String> {
-    if !output.status.success() && output.stdout.is_empty() {
-        return Err(format!(
-            "gremlinctl failed: {}",
-            String::from_utf8_lossy(&output.stderr).trim()
-        ));
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_owned();
+        let stdout = String::from_utf8_lossy(&output.stdout).trim().to_owned();
+        let detail = if !stderr.is_empty() {
+            stderr
+        } else if !stdout.is_empty() {
+            stdout
+        } else {
+            "no diagnostic output".to_owned()
+        };
+        return Err(format!("gremlinctl failed ({}): {detail}", output.status));
     }
     serde_json::from_slice::<Value>(&output.stdout)
         .map_err(|err| format!("Could not decode gremlinctl JSON: {err}"))
@@ -267,19 +273,32 @@ impl GremlinControlCenter {
         match run_ctl_json(&args) {
             Ok(value) => {
                 self.provider_result = Some(value);
-                if action == "connect" {
+                let test_error = if action == "connect" {
                     let test_args = vec![
                         "integrations".to_owned(),
                         "test".to_owned(),
                         provider.to_owned(),
                         "--json".to_owned(),
                     ];
-                    if let Ok(test_value) = run_ctl_json(&test_args) {
-                        self.provider_result = Some(test_value);
+                    match run_ctl_json(&test_args) {
+                        Ok(test_value) => {
+                            self.provider_result = Some(test_value);
+                            None
+                        }
+                        Err(err) => Some(err),
                     }
-                }
+                } else {
+                    None
+                };
                 self.refresh_providers();
                 self.refresh_readiness();
+                if let Some(err) = test_error {
+                    let test_message = format!("Provider connected, but MCP test failed: {err}");
+                    self.provider_error = Some(match self.provider_error.take() {
+                        Some(existing) => format!("{existing}; {test_message}"),
+                        None => test_message,
+                    });
+                }
             }
             Err(err) => self.provider_error = Some(err),
         }
@@ -357,7 +376,6 @@ impl GremlinControlCenter {
         self.device.as_ref().and_then(|v| v.get("identity")).and_then(|v| v.get("status")).and_then(Value::as_str)
             .unwrap_or_else(|| self.device.as_ref().and_then(|v| v.get("status")).and_then(Value::as_str).unwrap_or("UNAVAILABLE"))
     }
-
     fn runtime_transport(&self) -> &str {
         self.doctor.as_ref().and_then(|v| v.get("config")).and_then(|v| v.get("runtime")).and_then(|v| v.get("transport")).and_then(Value::as_str).unwrap_or("stdio")
     }

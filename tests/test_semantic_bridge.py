@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pytest
+
 import gremlin_mcp.semantic_bridge as bridge
 from gremlin_mcp.evidence_robustness import CONTRADICT, CONTRADICTION_DETECTED_UNRESOLVED, SUPPORT
 from gremlin_mcp.research_provenance import source_receipt_commitment
@@ -173,6 +175,61 @@ def test_strict_coverage_can_only_be_disabled_explicitly():
     assert result["synthesis"] is not None
     assert result["semantic_evidence"]["coverage"]["complete"] is False
     assert result["authority"]["canon_allowed"] is False
+
+
+def test_coverage_flag_rejects_truthy_strings_instead_of_coercing():
+    execution = _execution()
+    producer = FixtureSemanticEvidenceProducer(_support_plus_unresolved_assignments())
+    output = run_producer(producer, claim_id="claim-bool", source_receipts=execution["source_receipts"])
+    with pytest.raises(ValueError, match="require_complete_coverage must be boolean"):
+        bridge.apply_semantic_producer_output(
+            execution,
+            producer_output=output,
+            require_complete_coverage="false",  # type: ignore[arg-type]
+        )
+
+
+def test_authority_envelope_must_exist_and_be_exactly_false():
+    execution = _execution()
+    producer = FixtureSemanticEvidenceProducer(_support_plus_unresolved_assignments())
+    output = run_producer(producer, claim_id="claim-authority", source_receipts=execution["source_receipts"])
+    del output["authority"]["canon_allowed"]
+    result = bridge.apply_semantic_producer_output(execution, producer_output=output)
+    assert result["status"] == bridge.SEMANTIC_PRODUCER_OUTPUT_INVALID
+    assert "INVALID_AUTHORITY_ENVELOPE" in result["semantic_evidence"]["validation"]["errors"]
+
+
+def test_boolean_and_count_fields_do_not_accept_python_truthiness_or_bool_int_aliasing():
+    execution = _execution()
+    producer = FixtureSemanticEvidenceProducer(_support_plus_unresolved_assignments())
+    output = run_producer(producer, claim_id="claim-flags", source_receipts=execution["source_receipts"])
+    output["external_semantic_provider_executed"] = "false"
+    output["classification_count"] = True
+    result = bridge.apply_semantic_producer_output(execution, producer_output=output)
+    errors = result["semantic_evidence"]["validation"]["errors"]
+    assert result["status"] == bridge.SEMANTIC_PRODUCER_OUTPUT_INVALID
+    assert "EXTERNAL_PROVIDER_FLAG_INVALID" in errors
+    assert "CLASSIFICATION_COUNT_MISMATCH" in errors
+
+
+def test_fixture_semantics_claimed_as_real_is_rejected():
+    execution = _execution()
+    producer = FixtureSemanticEvidenceProducer(_support_plus_unresolved_assignments())
+    output = run_producer(producer, claim_id="claim-fixture", source_receipts=execution["source_receipts"])
+    output["fixture_semantics_claimed_as_real"] = True
+    result = bridge.apply_semantic_producer_output(execution, producer_output=output)
+    assert result["status"] == bridge.SEMANTIC_PRODUCER_OUTPUT_INVALID
+    assert "FIXTURE_SEMANTICS_FLAG_INVALID" in result["semantic_evidence"]["validation"]["errors"]
+
+
+def test_producer_envelope_requires_exact_typed_shape():
+    execution = _execution()
+    producer = FixtureSemanticEvidenceProducer(_support_plus_unresolved_assignments())
+    output = run_producer(producer, claim_id="claim-envelope", source_receipts=execution["source_receipts"])
+    output["producer"]["mode"] = 7
+    result = bridge.apply_semantic_producer_output(execution, producer_output=output)
+    assert result["status"] == bridge.SEMANTIC_PRODUCER_OUTPUT_INVALID
+    assert "PRODUCER_ENVELOPE_FIELD_TYPE_INVALID" in result["semantic_evidence"]["validation"]["errors"]
 
 
 def test_execute_wrapper_uses_strict_coverage_by_default_without_network(monkeypatch):

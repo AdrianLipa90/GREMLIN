@@ -43,27 +43,32 @@ class HiveAuthorityRuntime:
                 isolation_level=None,
                 check_same_thread=False,
             )
-            with self._lock:
-                self._db.execute("PRAGMA journal_mode=WAL")
-                self._db.execute("PRAGMA synchronous=FULL")
-                self._db.execute("PRAGMA foreign_keys=ON")
-                self._db.executescript(
-                    """
-                    CREATE TABLE IF NOT EXISTS hive_records (
-                        ordinal INTEGER PRIMARY KEY AUTOINCREMENT,
-                        record_id TEXT UNIQUE NOT NULL,
-                        subject_id TEXT NOT NULL,
-                        data_json TEXT NOT NULL
-                    );
-                    CREATE INDEX IF NOT EXISTS hive_subject_idx
-                        ON hive_records(subject_id, ordinal);
-                    CREATE TABLE IF NOT EXISTS hive_heads (
-                        subject_id TEXT PRIMARY KEY,
-                        record_id TEXT UNIQUE NOT NULL
-                    );
-                    """
-                )
-                self._repair_heads_locked()
+            try:
+                with self._lock:
+                    self._db.execute("PRAGMA journal_mode=WAL")
+                    self._db.execute("PRAGMA synchronous=FULL")
+                    self._db.execute("PRAGMA foreign_keys=ON")
+                    self._db.executescript(
+                        """
+                        CREATE TABLE IF NOT EXISTS hive_records (
+                            ordinal INTEGER PRIMARY KEY AUTOINCREMENT,
+                            record_id TEXT UNIQUE NOT NULL,
+                            subject_id TEXT NOT NULL,
+                            data_json TEXT NOT NULL
+                        );
+                        CREATE INDEX IF NOT EXISTS hive_subject_idx
+                            ON hive_records(subject_id, ordinal);
+                        CREATE TABLE IF NOT EXISTS hive_heads (
+                            subject_id TEXT PRIMARY KEY,
+                            record_id TEXT UNIQUE NOT NULL
+                        );
+                        """
+                    )
+                    self._repair_heads_locked()
+            except Exception:
+                self._db.close()
+                self._db = None
+                raise
 
     @property
     def persistent(self) -> bool:
@@ -102,26 +107,37 @@ class HiveAuthorityRuntime:
         return hive
 
     def _repair_heads_locked(self) -> None:
-        """Rebuild heads from append-only lineage; fail closed on corrupt forks."""
+        """Atomically rebuild heads from append-only lineage; fail closed on error."""
         if self._db is None:
             return
-        hive = OrbitalHiveMemory(orbit_count=self.orbit_count)
-        children: dict[str, list[str]] = {}
-        rows = self._rows_locked()
-        for row in rows:
-            parent = row.get("parent_record_id")
-            if parent is not None:
-                children.setdefault(str(parent), []).append(str(row["record_id"]))
-            hive.import_record(row)
-        forks = {parent: ids for parent, ids in children.items() if len(ids) > 1}
-        if forks:
-            raise RuntimeError(f"forked persisted hive lineage: {forks}")
-        self._db.execute("DELETE FROM hive_heads")
-        for record in hive.flat_ring_table():
-            self._db.execute(
-                "INSERT INTO hive_heads(subject_id, record_id) VALUES(?, ?)",
-                (record.subject_id, record.record_id),
-            )
+        if self._db.in_transaction:
+            raise RuntimeError("Hive head repair requires its own transaction boundary")
+
+        self._db.execute("BEGIN IMMEDIATE")
+        try:
+            hive = OrbitalHiveMemory(orbit_count=self.orbit_count)
+            children: dict[str, list[str]] = {}
+            rows = self._rows_locked()
+            for row in rows:
+                parent = row.get("parent_record_id")
+                if parent is not None:
+                    children.setdefault(str(parent), []).append(str(row["record_id"]))
+                hive.import_record(row)
+            forks = {parent: ids for parent, ids in children.items() if len(ids) > 1}
+            if forks:
+                raise RuntimeError(f"forked persisted hive lineage: {forks}")
+
+            self._db.execute("DELETE FROM hive_heads")
+            for record in hive.flat_ring_table():
+                self._db.execute(
+                    "INSERT INTO hive_heads(subject_id, record_id) VALUES(?, ?)",
+                    (record.subject_id, record.record_id),
+                )
+            self._db.execute("COMMIT")
+        except Exception:
+            if self._db.in_transaction:
+                self._db.execute("ROLLBACK")
+            raise
 
     def _persist_locked(self, record: HiveRecord) -> None:
         if self._db is None:

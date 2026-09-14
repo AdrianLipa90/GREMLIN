@@ -25,55 +25,85 @@ def _authority() -> dict[str, bool]:
 
 
 def _canonical(value: Any) -> bytes:
-    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False).encode("utf-8")
+    try:
+        return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False).encode("utf-8")
+    except (TypeError, ValueError) as exc:
+        raise ValueError("equation witness proposal data must be finite JSON") from exc
 
 
 def _commit(domain: bytes, value: Any) -> str:
     return hashlib.blake2b(domain + b"\0" + _canonical(value), digest_size=32).hexdigest()
 
 
+def _text(value: Any, field: str, *, allow_empty: bool = False) -> str:
+    if not isinstance(value, str):
+        raise ValueError(f"{field} must be a string")
+    if not allow_empty and not value.strip():
+        raise ValueError(f"{field} must be non-empty")
+    return value
+
+
 def _normalize_math(value: str) -> str:
-    text = str(value).replace("×", "*").replace("·", "*").replace("⋅", "*").replace("−", "-").replace("–", "-").replace("≈", "~=").replace("^", "**")
+    text = _text(value, "mathematical text", allow_empty=True)
+    text = text.replace("×", "*").replace("·", "*").replace("⋅", "*").replace("−", "-").replace("–", "-").replace("≈", "~=").replace("^", "**")
     text = _SCI_RE.sub(lambda m: f"{m.group('mant')}e{m.group('exp')}", text)
     return " ".join(text.strip().split())
 
 
 def _safe_expression_symbols(expression: str) -> set[str]:
+    expression_text = _text(expression, "expression")
     try:
-        tree = ast.parse(str(expression), mode="eval")
+        tree = ast.parse(expression_text, mode="eval")
     except SyntaxError as exc:
         raise ValueError("invalid mathematical expression") from exc
     symbols: set[str] = set()
+
     def walk(node: ast.AST) -> None:
-        if isinstance(node, ast.Expression): walk(node.body); return
+        if isinstance(node, ast.Expression):
+            walk(node.body)
+            return
         if isinstance(node, ast.Constant):
-            if isinstance(node.value, bool) or not isinstance(node.value, (int, float)): raise ValueError("non-numeric literal")
+            if isinstance(node.value, bool) or not isinstance(node.value, (int, float)):
+                raise ValueError("non-numeric literal")
             return
         if isinstance(node, ast.Name):
-            if node.id != "pi": symbols.add(node.id)
+            if node.id != "pi":
+                symbols.add(node.id)
             return
-        if isinstance(node, ast.UnaryOp) and isinstance(node.op, _ALLOWED_UNARY): walk(node.operand); return
-        if isinstance(node, ast.BinOp) and isinstance(node.op, _ALLOWED_BINARY): walk(node.left); walk(node.right); return
-        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "sqrt" and len(node.args) == 1 and not node.keywords: walk(node.args[0]); return
+        if isinstance(node, ast.UnaryOp) and isinstance(node.op, _ALLOWED_UNARY):
+            walk(node.operand)
+            return
+        if isinstance(node, ast.BinOp) and isinstance(node.op, _ALLOWED_BINARY):
+            walk(node.left)
+            walk(node.right)
+            return
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "sqrt" and len(node.args) == 1 and not node.keywords:
+            walk(node.args[0])
+            return
         raise ValueError(f"unsupported syntax: {type(node).__name__}")
+
     walk(tree)
     return symbols
 
 
 def _parse_number(value: str) -> float:
     normalized = _normalize_math(value)
-    if not _SIMPLE_NUMBER_RE.fullmatch(normalized): raise ValueError("not a numeric literal")
+    if not _SIMPLE_NUMBER_RE.fullmatch(normalized):
+        raise ValueError("not a numeric literal")
     number = float(normalized)
-    if not math.isfinite(number): raise ValueError("numeric literal must be finite")
+    if not math.isfinite(number):
+        raise ValueError("numeric literal must be finite")
     return number
 
 
 def _parse_reported_quantity(value: str) -> tuple[float, str | None]:
     normalized = _normalize_math(value)
     match = _REPORTED_QUANTITY_RE.fullmatch(normalized)
-    if not match: raise ValueError("reported approximation is not a numeric scalar with optional explicit unit")
+    if not match:
+        raise ValueError("reported approximation is not a numeric scalar with optional explicit unit")
     number = float(match.group("number"))
-    if not math.isfinite(number): raise ValueError("reported numeric scalar must be finite")
+    if not math.isfinite(number):
+        raise ValueError("reported numeric scalar must be finite")
     return number, match.group("unit") or None
 
 
@@ -82,27 +112,36 @@ def _proposal_id(source_id: str, kind: str, basis: Any) -> str:
 
 
 def propose_equation_witnesses(text: str, *, source_id: str) -> dict[str, Any]:
-    source = str(source_id).strip()
-    if not source: raise ValueError("source_id must be non-empty")
-    body = str(text or "")
+    source = _text(source_id, "source_id").strip()
+    body = _text(text, "text", allow_empty=True)
     if not body.strip():
         core = {"schema": SCHEMA, "version": VERSION, "source_id": source, "status": "NO_TEXT_FAIL_CLOSED", "declared_constants": {}, "formula_spans": [], "relation_chain_spans": [], "witness_proposals": [], "unresolved_proposals": [], "rejected_spans": [], "authority": _authority()}
-        core["proposal_commitment"] = _commit(b"GREMLIN-EQUATION-PROPOSALS/v0.1", core); return core
+        core["proposal_commitment"] = _commit(b"GREMLIN-EQUATION-PROPOSALS/v0.1", core)
+        return core
 
-    constants: dict[str, float] = {}; formula_spans: list[dict[str, Any]] = []; relation_chain_spans: list[dict[str, Any]] = []; rejected: list[dict[str, Any]] = []
+    constants: dict[str, float] = {}
+    formula_spans: list[dict[str, Any]] = []
+    relation_chain_spans: list[dict[str, Any]] = []
+    rejected: list[dict[str, Any]] = []
     for line_no, raw in enumerate(body.splitlines(), start=1):
         line = _normalize_math(raw)
-        if not line or _EQ_PREFIX_RE.match(line): continue
+        if not line or _EQ_PREFIX_RE.match(line):
+            continue
         match = _ASSIGN_RE.match(line)
-        if not match: continue
-        try: constants[match.group("lhs")] = _parse_number(match.group("rhs"))
-        except ValueError: continue
+        if not match:
+            continue
+        try:
+            constants[match.group("lhs")] = _parse_number(match.group("rhs"))
+        except ValueError:
+            continue
 
     for line_no, raw in enumerate(body.splitlines(), start=1):
         line = _normalize_math(raw)
-        if not line: continue
+        if not line:
+            continue
         prefixed = _EQ_PREFIX_RE.match(line)
-        if not prefixed: continue
+        if not prefixed:
+            continue
         label, equation_body = prefixed.group("label"), prefixed.group("body")
         assignment = _ASSIGN_RE.match(equation_body)
         if not assignment:
@@ -110,27 +149,39 @@ def propose_equation_witnesses(text: str, *, source_id: str) -> dict[str, Any]:
             if chain_approx:
                 final_expression = chain_approx.group("expr").strip().rsplit("=", 1)[-1].strip()
                 try:
-                    reported, reported_unit = _parse_reported_quantity(chain_approx.group("reported")); symbols = sorted(_safe_expression_symbols(final_expression))
+                    reported, reported_unit = _parse_reported_quantity(chain_approx.group("reported"))
+                    symbols = sorted(_safe_expression_symbols(final_expression))
                 except ValueError as exc:
-                    rejected.append({"line": line_no, "label": label, "text": raw.strip(), "reason": "UNSAFE_OR_UNSUPPORTED_RELATION_CHAIN", "detail": str(exc)}); continue
-                relation_chain_spans.append({"line": line_no, "label": label, "expression": final_expression.replace(" ", ""), "symbols": symbols, "reported_value": reported, "reported_unit": reported_unit, "source_excerpt": raw.strip(), "extraction_basis": "FINAL_NUMERIC_SUBSTITUTION_BEFORE_APPROXIMATION"}); continue
-            rejected.append({"line": line_no, "label": label, "text": raw.strip(), "reason": "EQUATION_LABEL_WITHOUT_SIMPLE_ASSIGNMENT_OR_NUMERIC_RELATION_CHAIN"}); continue
+                    rejected.append({"line": line_no, "label": label, "text": raw.strip(), "reason": "UNSAFE_OR_UNSUPPORTED_RELATION_CHAIN", "detail": str(exc)})
+                    continue
+                relation_chain_spans.append({"line": line_no, "label": label, "expression": final_expression.replace(" ", ""), "symbols": symbols, "reported_value": reported, "reported_unit": reported_unit, "source_excerpt": raw.strip(), "extraction_basis": "FINAL_NUMERIC_SUBSTITUTION_BEFORE_APPROXIMATION"})
+                continue
+            rejected.append({"line": line_no, "label": label, "text": raw.strip(), "reason": "EQUATION_LABEL_WITHOUT_SIMPLE_ASSIGNMENT_OR_NUMERIC_RELATION_CHAIN"})
+            continue
 
         lhs, rhs_raw = assignment.group("lhs"), assignment.group("rhs")
-        approx = _APPROX_SPLIT_RE.match(rhs_raw); expression = approx.group("expr").strip() if approx else rhs_raw.strip()
-        reported = None; reported_unit = None
+        approx = _APPROX_SPLIT_RE.match(rhs_raw)
+        expression = approx.group("expr").strip() if approx else rhs_raw.strip()
+        reported = None
+        reported_unit = None
         if approx:
-            try: reported, reported_unit = _parse_reported_quantity(approx.group("reported"))
+            try:
+                reported, reported_unit = _parse_reported_quantity(approx.group("reported"))
             except ValueError:
-                rejected.append({"line": line_no, "label": label, "text": raw.strip(), "reason": "INVALID_REPORTED_NUMERIC_QUANTITY"}); continue
-        try: symbols = sorted(_safe_expression_symbols(expression))
+                rejected.append({"line": line_no, "label": label, "text": raw.strip(), "reason": "INVALID_REPORTED_NUMERIC_QUANTITY"})
+                continue
+        try:
+            symbols = sorted(_safe_expression_symbols(expression))
         except ValueError as exc:
-            rejected.append({"line": line_no, "label": label, "text": raw.strip(), "reason": "UNSAFE_OR_UNSUPPORTED_EXPRESSION", "detail": str(exc)}); continue
+            rejected.append({"line": line_no, "label": label, "text": raw.strip(), "reason": "UNSAFE_OR_UNSUPPORTED_EXPRESSION", "detail": str(exc)})
+            continue
         formula_spans.append({"line": line_no, "label": label, "lhs": lhs, "expression": expression.replace(" ", ""), "symbols": symbols, "reported_value": reported, "reported_unit": reported_unit, "source_excerpt": raw.strip(), "extraction_basis": "FINAL_NUMERIC_SUBSTITUTION_BEFORE_APPROXIMATION" if approx else None})
 
-    proposals: list[dict[str, Any]] = []; unresolved: list[dict[str, Any]] = []
+    proposals: list[dict[str, Any]] = []
+    unresolved: list[dict[str, Any]] = []
     for row in formula_spans:
-        if row["reported_value"] is None: continue
+        if row["reported_value"] is None:
+            continue
         missing = sorted(s for s in row["symbols"] if s not in constants)
         basis = {"label": row["label"], "lhs": row["lhs"], "expression": row["expression"], "reported": row["reported_value"], "reported_unit": row["reported_unit"], "extraction_basis": row["extraction_basis"]}
         common = {"id": _proposal_id(source, "numeric", basis), "kind": "numeric", "expression": row["expression"], "reported_value": row["reported_value"], "reported_unit": row["reported_unit"], "source_locator": f"{source}:{row['label']}", "source_excerpt": row["source_excerpt"], "extraction_basis": row["extraction_basis"], "epistemic_status": "CANDIDATE_WITNESS"}
@@ -145,13 +196,17 @@ def propose_equation_witnesses(text: str, *, source_id: str) -> dict[str, Any]:
         (unresolved if missing else proposals).append({**common, **({"missing_symbols": missing} if missing else {}), "symbols": bound})
 
     by_lhs: dict[str, list[dict[str, Any]]] = defaultdict(list)
-    for row in formula_spans: by_lhs[row["lhs"]].append(row)
+    for row in formula_spans:
+        by_lhs[row["lhs"]].append(row)
     for lhs, rows in sorted(by_lhs.items()):
         for index, left in enumerate(rows):
             for right in rows[index + 1:]:
-                if left["expression"] == right["expression"]: continue
-                symbols = sorted(set(left["symbols"]) | set(right["symbols"])); basis = {"lhs": lhs, "left": left["expression"], "right": right["expression"], "labels": [left["label"], right["label"]]}
+                if left["expression"] == right["expression"]:
+                    continue
+                symbols = sorted(set(left["symbols"]) | set(right["symbols"]))
+                basis = {"lhs": lhs, "left": left["expression"], "right": right["expression"], "labels": [left["label"], right["label"]]}
                 proposals.append({"id": _proposal_id(source, "symbolic_identity", basis), "kind": "symbolic_identity", "lhs": left["expression"], "rhs": right["expression"], "symbols": symbols, "source_locator": f"{source}:{left['label']} <-> {right['label']}", "source_excerpt": f"{left['source_excerpt']} || {right['source_excerpt']}", "epistemic_status": "CANDIDATE_WITNESS"})
 
     core = {"schema": SCHEMA, "version": VERSION, "source_id": source, "status": "CANDIDATE_PROPOSALS_READY", "declared_constants": dict(sorted(constants.items())), "formula_spans": formula_spans, "relation_chain_spans": relation_chain_spans, "witness_proposals": proposals, "unresolved_proposals": unresolved, "rejected_spans": rejected, "scope_boundary": ["EQUATION_LABELLED_LINES_ONLY", "NO_PROSE_TO_EQUATION_HALLUCINATION", "NO_UNSAFE_EVAL_OR_ARBITRARY_FUNCTION_CALLS", "NUMERIC_RELATION_CHAIN_AUDITS_ONLY_FINAL_EXPRESSION_BEFORE_EXPLICIT_APPROXIMATION", "OPTIONAL_REPORTED_UNIT_IS_PRESERVED_BUT_NOT_USED_IN_NUMERIC_SCALAR_COMPARISON", "EARLIER_RELATIONS_IN_CHAIN_ARE_NOT_PROMOTED_BY_THE_NUMERIC_WITNESS", "MISSING_SYMBOLS_REMAIN_UNRESOLVED", "CANDIDATE_WITNESSES_REQUIRE_EQUATION_AUDIT", "NO_AUTOMATIC_CANON_PROMOTION"], "authority": _authority()}
-    core["proposal_commitment"] = _commit(b"GREMLIN-EQUATION-PROPOSALS/v0.1", core); return core
+    core["proposal_commitment"] = _commit(b"GREMLIN-EQUATION-PROPOSALS/v0.1", core)
+    return core
