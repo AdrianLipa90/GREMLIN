@@ -17,7 +17,7 @@ def _write_entry_wrapper(work: Path) -> Path:
     Compiling gremlin_mcp/install/launcher.py directly makes that directory a
     script search root. Because it contains secrets.py, Python/Nuitka can resolve
     an unrelated `import secrets` to gremlin_mcp/install/secrets.py as a top-level
-    module, shadowing the standard-library secrets module.  A wrapper in the build
+    module, shadowing the standard-library secrets module. A wrapper in the build
     directory preserves normal package import semantics while keeping the runtime
     dispatch implementation in gremlin_mcp.install.launcher.
     """
@@ -28,6 +28,30 @@ def _write_entry_wrapper(work: Path) -> Path:
         encoding="utf-8",
     )
     return entry
+
+
+def _nuitka_command(*, entry: Path, work: Path, exe_name: str) -> list[str]:
+    """Build only the shipped runtime import graph, not every GREMLIN module.
+
+    The product executable exposes two entry surfaces: the installation CLI and
+    the licensed MCP product server. Nuitka follows their static imports and the
+    imports reachable from those modules. Do not use ``--include-package`` for the
+    whole ``gremlin_mcp`` tree here: that also drags development/audit-only modules
+    (notably SymPy and PyMuPDF) into the native C backend and can exhaust MSVC heap
+    space even though those modules are not part of the shipped runtime surface.
+    """
+    return [
+        sys.executable,
+        "-m",
+        "nuitka",
+        "--standalone",
+        "--assume-yes-for-downloads",
+        "--include-module=gremlin_mcp.install.cli",
+        "--include-module=gremlin_mcp.product_server",
+        f"--output-dir={work}",
+        f"--output-filename={exe_name}",
+        str(entry),
+    ]
 
 
 def build(*, output_root: Path, clean: bool) -> Path:
@@ -42,17 +66,7 @@ def build(*, output_root: Path, clean: bool) -> Path:
 
     exe_name = "gremlin-runtime.exe" if platform == "windows" else "gremlin-runtime"
     entry = _write_entry_wrapper(work)
-    command = [
-        sys.executable,
-        "-m",
-        "nuitka",
-        "--standalone",
-        "--assume-yes-for-downloads",
-        "--include-package=gremlin_mcp",
-        f"--output-dir={work}",
-        f"--output-filename={exe_name}",
-        str(entry),
-    ]
+    command = _nuitka_command(entry=entry, work=work, exe_name=exe_name)
     subprocess.run(command, check=True)
 
     candidates = [path for path in work.rglob("*.dist") if path.is_dir()]
