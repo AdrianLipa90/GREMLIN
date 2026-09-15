@@ -11,6 +11,7 @@ on:
       - 'native/GREMLIN_PHASENAV_MCP_VCS_CAPABILITY_V0_1.pnv'
       - 'spec/GREMLIN_PHASENAV_MCP_VCS_CAPABILITY_V0_1.md'
       - 'tests/test_gremlin_phasenav_vcs_capability_v01.py'
+      - 'tests/test_gremlin_phasenav_vcs_server_v01.py'
       - 'pyproject.toml'
       - '.github/workflows/gremlin-phasenav-vcs-capability-v01.yml'
 
@@ -25,7 +26,10 @@ jobs:
       - name: Install candidate and test runner
         run: python -m pip install -e . pytest
       - name: Run PhaseNav VCS MCP contract tests
-        run: python -m pytest -q tests/test_gremlin_phasenav_vcs_capability_v01.py
+        run: >-
+          python -m pytest -q
+          tests/test_gremlin_phasenav_vcs_capability_v01.py
+          tests/test_gremlin_phasenav_vcs_server_v01.py
       - name: Enforce no shell/process escape in capability modules
         run: |
           python - <<'PY'
