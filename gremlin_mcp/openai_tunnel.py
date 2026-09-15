@@ -172,6 +172,14 @@ def _run(
     )
 
 
+def _redact(text: str, secrets: Sequence[str]) -> str:
+    out = str(text)
+    for secret in secrets:
+        if secret:
+            out = out.replace(secret, "[REDACTED]")
+    return out
+
+
 def setup_and_doctor(
     plan: TunnelPlan,
     *,
@@ -181,14 +189,15 @@ def setup_and_doctor(
     if not plan.ready:
         return {"schema": SCHEMA, "status": "BLOCKED", "plan": plan.as_dict(), "steps": []}
     child_env = _child_env(plan, env)
+    secrets = (str(child_env.get("CONTROL_PLANE_API_KEY") or ""),)
     steps: list[dict[str, object]] = []
     for name, command in (("init", init_command(plan)), ("doctor", doctor_command(plan))):
         result = _run(command, env=child_env, runner=runner)
         steps.append({
             "name": name,
             "returncode": result.returncode,
-            "stdout": result.stdout,
-            "stderr": result.stderr,
+            "stdout": _redact(result.stdout, secrets),
+            "stderr": _redact(result.stderr, secrets),
         })
         if result.returncode != 0:
             return {"schema": SCHEMA, "status": "FAIL", "plan": plan.as_dict(), "steps": steps}
