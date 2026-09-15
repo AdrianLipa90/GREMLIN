@@ -9,7 +9,7 @@ from gremlin_mcp.phasenav_vcs_capability import (
     commit_prepare,
     execution_receipt_build,
     tag_prepare,
-    test_receipt_bind,
+    test_receipt_bind as bind_test_receipt,
     validate_preflight,
     writes_prepare,
 )
@@ -73,7 +73,7 @@ def _chain() -> tuple[dict, dict, dict, dict, dict, dict, dict, dict]:
     commit = commit_prepare(prepared_writes=writes, message="candidate: test bounded write")
     tag = tag_prepare(checkpoint=checkpoint, tag_name="checkpoint/test-vcs-capability-v01")
     bundle = bundle_prepare(checkpoint=checkpoint, tag=tag, branch=branch)
-    test_binding = test_receipt_bind(
+    test_binding = bind_test_receipt(
         logical_step="bounded-vcs-test",
         evidence={"status": "PASS", "suite": "unit-fixture"},
     )
