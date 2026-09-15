@@ -96,3 +96,24 @@ def test_setup_ready_only_after_init_and_doctor_pass():
     assert len(calls) == 2
     assert calls[0][1] == "init"
     assert calls[1][1] == "doctor"
+
+
+def test_setup_redacts_runtime_key_from_receipts():
+    env = {
+        "GREMLIN_OPENAI_TUNNEL_ID": "tunnel_0123456789abcdef",
+        "CONTROL_PLANE_API_KEY": "sk-ultra-secret",
+    }
+    plan = tunnel.build_plan(
+        env=env, which=lambda _: "/opt/tunnel-client",
+        mcp_command="gremlin-mcp --transport stdio",
+    )
+
+    def runner(command, **kwargs):
+        return subprocess.CompletedProcess(
+            command, 0, "token=sk-ultra-secret", "also sk-ultra-secret"
+        )
+
+    result = tunnel.setup_and_doctor(plan, env=env, runner=runner)
+    rendered = str(result)
+    assert "sk-ultra-secret" not in rendered
+    assert "[REDACTED]" in rendered
