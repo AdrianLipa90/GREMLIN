@@ -33,6 +33,7 @@ gremlin-license = "gremlin_mcp.product.cli:main"
 gremlin-bundle = "gremlin_mcp.product.bundle_cli:main"
 gremlinctl = "gremlin_mcp.install.cli:main"
 gremlin-ferret = "gremlin_mcp.ferret_cli:main"
+gremlin-openai-tunnel = "gremlin_mcp.openai_tunnel:main"
 
 [tool.setuptools.packages.find]
 include = ["gremlin_mcp*", "tools*"]
