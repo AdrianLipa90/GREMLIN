@@ -4,7 +4,7 @@ MODE READ_ONLY
 
 # GREMLIN Bestiary PhaseNav Phase Gates v0.1
 # Candidate-only 36D phase-gate declaration.
-# No new opcode. No semantic-axis invention. No external effect authority.
+# No new opcode. No semantic-axis invention. No external effect authority.\n# NEW_PNV_OPCODES 0
 
 SYSTEM GREMLIN_BESTIARY_PHASENAV_PHASE_GATES_V0_1
 
