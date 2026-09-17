@@ -1,0 +1,64 @@
+{
+  "schema": "GREMLIN_BESTIARY_PHASENAV_NUMPY_CI_RECEIPT_V0_1",
+  "status": "PASS_EXACT_HEAD_CANDIDATE",
+  "repository": "AdrianLipa90/GREMLIN",
+  "branch": "feat/bestiary-phasenav-phase-gates-v0.1",
+  "head_sha": "68107a699107655b106ac365fc0610616e76c325",
+  "base_main_sha": "b33d8c3fec014db4686856958c17e0e948192742",
+  "pull_request": 62,
+  "phase_gate_workflow": {
+    "run_id": 35288246350,
+    "job_id": 105425248122,
+    "conclusion": "success",
+    "targeted_tests": {
+      "passed": 64,
+      "failed": 0,
+      "duration_s": 0.35
+    }
+  },
+  "repository_fail_loud_audit": {
+    "run_id": 35288246332,
+    "conclusion": "success",
+    "passed": 1236,
+    "skipped": 1,
+    "failed": 0,
+    "duration_s": 9.97
+  },
+  "frozen_benchmark": {
+    "contract_id": "GREMLIN_BESTIARY_PHASENAV_NUMPY_BATCH_V0_1",
+    "backend": "NUMPY_FLOAT64_BATCH",
+    "batch_size": 512,
+    "repeats": 7,
+    "species_count": 18,
+    "max_scalar_vector_torus_error": 0.0,
+    "all_species_scalar_vector_equivalent_1e_12": true,
+    "all_phase_kernels_continuity_candidates": true,
+    "min_measured_speedup": 2.9872662888238564,
+    "median_measured_speedup": 3.0211896458017113,
+    "max_measured_speedup": 3.0673651823493246,
+    "performance_gate": "MEASURE_ONLY_NO_PROMOTION_THRESHOLD"
+  },
+  "artifact": {
+    "artifact_id": 10524892627,
+    "name": "gremlin-bestiary-phasenav-numpy-v01",
+    "zip_sha256": "07cc6bae643703eebe46db5b7b062f3d1949983961dcaeaebe9ac49b4fa24ab6",
+    "benchmark_json_sha256": "c0851cc98f12e12906370240f6da89136e8aeaf5859b070ee4aebd550991106f",
+    "benchmark_json_name": "GREMLIN_BESTIARY_PHASENAV_NUMPY_BENCHMARK_V0_1.json"
+  },
+  "authority": {
+    "canon_allowed": false,
+    "production_runtime_write": false,
+    "external_effects": false,
+    "physical_analog_claim": false,
+    "semantic_axis_assignment": false,
+    "silent_scalar_fallback": false
+  },
+  "interpretation": {
+    "computational_vectorization_verified": true,
+    "numerical_phase_kernel_continuity_verified_on_fixture": true,
+    "hybrid_or_analog_realization_not_yet_verified": true,
+    "canonical_pncs_operator_vector_binding_pending": true,
+    "live_noema_t36_replay_pending": true,
+    "hardware_analog_witness_pending": true
+  }
+}
