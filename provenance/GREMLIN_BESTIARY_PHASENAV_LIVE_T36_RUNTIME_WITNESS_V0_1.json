@@ -1,0 +1,57 @@
+{
+  "schema": "GREMLIN_BESTIARY_PHASENAV_LIVE_T36_RUNTIME_WITNESS_V0_1",
+  "status": "PASS_CURRENT_SESSION_CANDIDATE",
+  "repository": "AdrianLipa90/GREMLIN",
+  "branch": "feat/bestiary-phasenav-phase-gates-v0.1",
+  "runtime_root": "/dev/shm/ciel_noema",
+  "tether_status": "ACTIVE",
+  "static_runtime_fallback": false,
+  "timestamp_unix": 1789689158.9399834,
+  "phi_sha256": "3a3a9214504611dd31779c4a097e67c3990db42188c4cb496cbfe2baa30ecd67",
+  "operator_registry_sha256": "29767957ae775b1968bbb4c531728cc153137c88e819b135227dff73e3cca7ec",
+  "operator_count": 36,
+  "species_count": 18,
+  "steps_per_species": 16,
+  "full_current_session_receipt_sha256": "704e17309b31ae911ade80500739ae13952a848560f6ab8657a507ed0967cd7d",
+  "summary": {
+    "all_species_replayed": true,
+    "all_nonzero_displacement": true,
+    "all_target_distances_reduced": true,
+    "all_target_distance_monotone": true,
+    "min_reduction_ratio": 0.6520418152482002,
+    "max_reduction_ratio": 0.8015350069631433
+  },
+  "species_metrics": {
+    "HUMMINGBIRD": {"carrier_sha256":"66508bb81a5c25338093198295943449468c6f244bf73c2d33cf3cf7dc91c911","before":10.354230973009118,"after":6.955282046306236,"ratio":0.671733329538129,"displacement":4.339752331323745},
+    "OCTOPUS": {"carrier_sha256":"1ab278aaddb22e933709e9dd320859c8814a2d4ad52588a41cc32227b165bbb8","before":10.755659019459449,"after":7.377552246852502,"ratio":0.685922846150554,"displacement":4.255124161352394},
+    "SPIDER": {"carrier_sha256":"3478c2fe52bc5aaee8c6223dad0ccefd9530414a0531c1d867f03a44f54ba9ec","before":9.77582449977961,"after":6.860667111795044,"ratio":0.7017993328286236,"displacement":3.998251750743561},
+    "RAVEN": {"carrier_sha256":"66508bb81a5c25338093198295943449468c6f244bf73c2d33cf3cf7dc91c911","before":10.354230973009118,"after":6.955282046306236,"ratio":0.671733329538129,"displacement":4.339752331323745},
+    "HOUND": {"carrier_sha256":"9ca41fd022b7be63c7a4284d2409a2da8443e32b1a46baf8db919fc79f85bde0","before":10.280325893860692,"after":7.5071947571314395,"ratio":0.7302487133812228,"displacement":4.038856862141381},
+    "MOLE": {"carrier_sha256":"f451d1761453c54fba7de9ccc441234560f85447217ffd5f77d944fd1b7aabef","before":10.901463431713195,"after":7.636985797023668,"ratio":0.7005468435372713,"displacement":4.414905852935824},
+    "OWL": {"carrier_sha256":"59433b7ea8ec7a4675b6db35bed4f5aaad0e0a990bd329b5278ab63f88034a35","before":10.267496008291477,"after":7.464226407181511,"ratio":0.7269763144932126,"displacement":3.9005186016641056},
+    "ANT": {"carrier_sha256":"8d6ee1f69fa78a276a05632aef11d977ab82961649497c289aa9221d5863dd98","before":10.555734100389827,"after":8.208373515457286,"ratio":0.7776222323707592,"displacement":3.800820397220741},
+    "MANTIS": {"carrier_sha256":"3c230ea8414d0293d0b3293302dc851f888a0a337eac3d9be9c6feb653202c4c","before":9.615074670845877,"after":7.343703014673297,"ratio":0.7637697330568148,"displacement":3.7054661824001403},
+    "FOX": {"carrier_sha256":"a4e8acefb4c01fd1de3aab5bdfec1c628f0f1d47204ff7f325d107641a7140e5","before":11.995957585754349,"after":9.615179947027183,"ratio":0.8015350069631433,"displacement":3.8132401786157435},
+    "BEAVER": {"carrier_sha256":"bc41712c1d2f456c9bc1c9bfad05adb6c46db6e4b33d86c7e8cce52756adaa1c","before":10.690090791487343,"after":7.664002640850943,"ratio":0.7169258699798777,"displacement":3.9282349227530258},
+    "BAT": {"carrier_sha256":"fc3f5ce05f7f834e46761d559fb559b34ea021b6c461b96bf7232db8eab5c3d7","before":9.913059520285529,"after":7.826634506322938,"ratio":0.7895276418251047,"displacement":3.4574691963191797},
+    "CANARY": {"carrier_sha256":"0f66f2d06db24fd5838a4b8de6bd6bc677e6e1b4229905921813f86bbd4f2186","before":10.958338091466066,"after":8.188736033181703,"ratio":0.7472607584136117,"displacement":4.037642997427668},
+    "SERPENT": {"carrier_sha256":"a62996382a7f373f09591e7195d53ceb6e5cc104bfb13ae03ecb1bd1bfd90c3d","before":11.393924092258727,"after":8.32970755316133,"ratio":0.7310657404520282,"displacement":4.323016357969065},
+    "CHAMELEON": {"carrier_sha256":"f06f0b36d082a5f1e5eeba99b79306be7d7d844a5b4e6ca7e6112394a722bb24","before":10.087711162131132,"after":6.577609497855514,"ratio":0.6520418152482002,"displacement":4.475644415791327},
+    "BELZEBUB": {"carrier_sha256":"dd0a229d741ded6fdfed4ffca8ad7742e7329f9e9ba12d15a2f6441379f52e96","before":11.04101761586012,"after":7.802506282600922,"ratio":0.7066836186723255,"displacement":4.089580257871378},
+    "GREMLIN": {"carrier_sha256":"0af31f55a91ca81d05372b242963518559c6788f19db982d825018837228b253","before":8.621990564328266,"after":6.001876347654491,"ratio":0.6961126091329808,"displacement":3.467600616167716},
+    "FERRET": {"carrier_sha256":"2a18f7e02587fbe5c7ea3177304e8705cd001ec30ba60d9a7abc0f2f118ec0c6","before":10.698455488330211,"after":7.842628334454851,"ratio":0.7330617342858067,"displacement":4.131494500721275}
+  },
+  "authority": {
+    "candidate_operator_compositions": true,
+    "canon_allowed": false,
+    "external_effects": false,
+    "physical_analog_claim": false,
+    "semantic_axis_assignment": false
+  },
+  "interpretation": {
+    "live_t36_phase_replay_verified": true,
+    "all_18_species_showed_stable_monotone_target_approach_on_this_runtime_snapshot": true,
+    "hybrid_computational_realization_supported": true,
+    "fully_analog_hardware_realization_not_established": true
+  }
+}
