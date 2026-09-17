@@ -175,3 +175,29 @@ def test_receipts_are_deterministic():
     s = state(0.2)
     assert g.hummingbird_capture(s) == g.hummingbird_capture(s)
     assert g.species_manifest() == g.species_manifest()
+
+
+def test_numpy_vectorized_gate_matches_scalar_for_every_species():
+    manifest = g.phase_gate_vectorization_manifest()
+    assert manifest["vectorized_batch_realization"] is True
+    batch = [
+        g.PhaseState36([((0.03 * n + 0.011 * i + 0.07 * math.sin((n + 1) * (i + 1))) % g.TAU) for i in range(g.DIM)])
+        for n in range(48)
+    ]
+    for species in g.SPECIES:
+        gate = g.PhaseGate36(species)
+        err = gate.vectorized_max_error(batch)
+        assert err <= 1e-12, (species, err)
+        out = gate.step_batch_vectorized(batch)
+        assert len(out) == len(batch)
+        assert all(0.0 <= x < g.TAU for state_out in out for x in state_out.theta)
+
+
+def test_full_reference_sweep_calculates_every_animal_and_stays_candidate_only():
+    sweep = g.run_full_bestiary_reference_sweep()
+    assert sweep["species_count"] == len(g.SPECIES)
+    assert set(sweep["receipt_sha256_by_species"]) == set(g.SPECIES)
+    assert sweep["ferret_verdict"] == "BLOCK"
+    assert sweep["external_effects"] is False
+    assert sweep["canon_allowed"] is False
+    assert sweep["physical_analog_claim"] is False
