@@ -45,7 +45,7 @@ jobs:
         run: |
           python -m pytest -q             tests/test_gremlin_bestiary_phasenav_phase_gates_v01.py             tests/test_gremlin_bestiary_phasenav_numpy_v01.py
       - name: Run frozen NumPy batch benchmark
-        run: python tools/gremlin_bestiary_phasenav_numpy_bench_v01.py
+        run: python -m tools.gremlin_bestiary_phasenav_numpy_bench_v01
       - name: Verify benchmark equivalence gate
         run: |
           python - <<'PY'
