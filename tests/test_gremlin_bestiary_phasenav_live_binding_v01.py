@@ -78,6 +78,8 @@ def test_all_species_live_replay_runs_as_candidate_without_effects(tmp_path):
     assert out["species_count"] == len(base.SPECIES)
     assert out["all_nonzero_displacement"] is True
     assert out["all_hybrid_realization_candidates"] is True
+    assert out["all_species_carriers_unique"] is True
+    assert len({r["carrier_sha256"] for r in out["results"]}) == len(base.SPECIES)
     assert out["fully_analog_physical_claim"] is False
     assert out["canon_allowed"] is False
     assert out["external_effects"] is False
