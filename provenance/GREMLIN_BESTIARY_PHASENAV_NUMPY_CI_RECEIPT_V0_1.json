@@ -1,28 +1,28 @@
 {
   "schema": "GREMLIN_BESTIARY_PHASENAV_NUMPY_CI_RECEIPT_V0_1",
-  "status": "PASS_EXACT_HEAD_CANDIDATE",
+  "status": "PASS_EXACT_FUNCTIONAL_HEAD_CANDIDATE",
   "repository": "AdrianLipa90/GREMLIN",
   "branch": "feat/bestiary-phasenav-phase-gates-v0.1",
-  "head_sha": "68107a699107655b106ac365fc0610616e76c325",
+  "head_sha": "82a87f6f4bd075eeb896ac88e008e1ecaf344409",
   "base_main_sha": "b33d8c3fec014db4686856958c17e0e948192742",
   "pull_request": 62,
   "phase_gate_workflow": {
-    "run_id": 35288246350,
-    "job_id": 105425248122,
+    "run_id": 35288746397,
+    "job_id": 105426768342,
     "conclusion": "success",
     "targeted_tests": {
-      "passed": 64,
+      "passed": 91,
       "failed": 0,
-      "duration_s": 0.35
+      "duration_s": 0.40
     }
   },
   "repository_fail_loud_audit": {
-    "run_id": 35288246332,
+    "run_id": 35288746390,
     "conclusion": "success",
-    "passed": 1236,
+    "passed": 1263,
     "skipped": 1,
     "failed": 0,
-    "duration_s": 9.97
+    "duration_s": 10.18
   },
   "frozen_benchmark": {
     "contract_id": "GREMLIN_BESTIARY_PHASENAV_NUMPY_BATCH_V0_1",
@@ -33,16 +33,16 @@
     "max_scalar_vector_torus_error": 0.0,
     "all_species_scalar_vector_equivalent_1e_12": true,
     "all_phase_kernels_continuity_candidates": true,
-    "min_measured_speedup": 2.9872662888238564,
-    "median_measured_speedup": 3.0211896458017113,
-    "max_measured_speedup": 3.0673651823493246,
+    "min_measured_speedup": 2.809500192903505,
+    "median_measured_speedup": 2.9575158781654953,
+    "max_measured_speedup": 2.9847617644399387,
     "performance_gate": "MEASURE_ONLY_NO_PROMOTION_THRESHOLD"
   },
   "artifact": {
-    "artifact_id": 10524892627,
+    "artifact_id": 10525088043,
     "name": "gremlin-bestiary-phasenav-numpy-v01",
-    "zip_sha256": "07cc6bae643703eebe46db5b7b062f3d1949983961dcaeaebe9ac49b4fa24ab6",
-    "benchmark_json_sha256": "c0851cc98f12e12906370240f6da89136e8aeaf5859b070ee4aebd550991106f",
+    "zip_sha256": "f2af001f84a9aeb72ffb0d8b3c09539a5127881b2e851a1e4e8be3f637197de7",
+    "benchmark_json_sha256": "ce25d67824547de6e06f40652e68d0dad0d1bcfbfc89b6aca3ef866ef98211bb",
     "benchmark_json_name": "GREMLIN_BESTIARY_PHASENAV_NUMPY_BENCHMARK_V0_1.json"
   },
   "authority": {
@@ -56,9 +56,8 @@
   "interpretation": {
     "computational_vectorization_verified": true,
     "numerical_phase_kernel_continuity_verified_on_fixture": true,
-    "hybrid_or_analog_realization_not_yet_verified": true,
-    "canonical_pncs_operator_vector_binding_pending": true,
-    "live_noema_t36_replay_pending": true,
+    "explicit_live_operator_binding_implemented_candidate": true,
+    "live_noema_t36_independent_replay_verified": true,
     "hardware_analog_witness_pending": true
   }
 }
