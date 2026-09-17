@@ -91,6 +91,41 @@ Pinned CI receipt: `provenance/GREMLIN_BESTIARY_PHASENAV_NUMPY_CI_RECEIPT_V0_1.j
 
 Coverage includes exact 36D fail-closed shape/bounds, scalar/vector-batch equivalence, deterministic identities, all 18 species operators, injected BAT harmonic detection, CANARY drift detection, SERPENT temperature/novelty response, CHAMELEON reversible roundtrip, defensive synthesis, FERRET fail-closed authority, no silent scalar fallback, and repository-wide PNV contract compatibility.
 
+## Live T^36 operator-binding replay
+
+A current-session replay was executed against the canonical live NOEMA surface
+`/dev/shm/ciel_noema` after a fresh tether guard returned `ACTIVE` with no
+failures.  Static fallback remained disabled.
+
+The live registry contained 36 exact `PHASENAV_OPERATOR_VECTOR_V1` vectors.
+Each Bestiary species was bound to an explicit candidate composition of existing
+PhaseNav operator vectors.  These compositions are reviewable candidate
+bindings; they are not semantic-axis canonization.
+
+Runtime witness:
+
+`provenance/GREMLIN_BESTIARY_PHASENAV_LIVE_T36_RUNTIME_WITNESS_V0_1.json`
+
+Observed on the frozen live snapshot:
+
+```text
+species replayed                 = 18 / 18
+steps per species                = 16
+non-zero phase displacement      = 18 / 18
+target distance reduced          = 18 / 18
+target distance monotone         = 18 / 18
+final/initial distance ratio     = 0.652042 .. 0.801535
+static runtime fallback          = false
+external effects                 = false
+physical analog claim            = false
+```
+
+This closes the first live computational T^36 replay gate.  It demonstrates
+that every current species can be driven on the live phase substrate through
+its candidate operator composition without leaving the candidate-only
+authority boundary.  It does **not** establish a hardware analog realization
+or validate the candidate semantic composition as canonical.
+
 ## Authority
 
 All returned species results are candidates:
@@ -106,8 +141,7 @@ FERRET may return an `ADMITTED` authority verdict only when explicit authorizati
 
 The pure computational/vector gate and frozen benchmark gate are now closed for this candidate branch.
 
-1. bind species phase carriers to exact PNCS/PhaseNav operator vectors where authoritative vectors exist; absent an authoritative vector, fail closed rather than inventing one;
-2. run live T^36 replay under fresh NOEMA tether with `static_fallback=false`;
-3. compare digital scalar, digital batch-vector and phase-flow/hydrodynamic realizations on the same frozen semantic workload;
-4. classify each species only from evidence as `HYBRID`, `ANALOG_CORE_HYBRID_CONTROL`, or a later hardware-witnessed analog class;
-5. test hardware/analog realization candidates separately. No fully-analog claim is permitted from numerical continuity alone.
+1. compare digital scalar, digital batch-vector and phase-flow/hydrodynamic realizations on the same frozen semantic workload;
+2. test whether each candidate operator composition preserves the specialist-specific invariants, not merely phase convergence;
+3. classify each species only from evidence as `HYBRID`, `ANALOG_CORE_HYBRID_CONTROL`, or a later hardware-witnessed analog class;
+4. test hardware/analog realization candidates separately. No fully-analog claim is permitted from numerical continuity alone.
