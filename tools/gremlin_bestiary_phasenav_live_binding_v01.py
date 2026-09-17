@@ -28,7 +28,7 @@ SPECIES_OPERATOR_BINDINGS: dict[str, tuple[str, ...]] = {
     "HUMMINGBIRD": ("SOURCE", "MEMORY"),
     "OCTOPUS": ("SCOPE", "CONDITION", "RETURN"),
     "SPIDER": ("COMPOSITION", "DIFFERENCE"),
-    "RAVEN": ("MEMORY", "SOURCE"),
+    "RAVEN": ("MEMORY", "QUESTION"),
     "HOUND": ("DIFFERENCE", "RISK", "ASSERTION"),
     "MOLE": ("TRANSFORM", "COMPOSITION"),
     "OWL": ("ASSERTION", "SOURCE_REQUIRED", "UNCERTAINTY"),
@@ -257,6 +257,7 @@ def replay_live_species_gate(
         "trace_state_ids": trace_ids,
         "phi_sha256": phi["phi_sha256"],
         "binding_receipt_sha256": binding["receipt_sha256"],
+        "carrier_sha256": binding["carrier_sha256"],
         "operator_binding": list(SPECIES_OPERATOR_BINDINGS[name]),
         "result_status": "LIVE_T36_COMPUTATIONAL_REPLAY",
         "hybrid_realization_candidate": True,
@@ -284,6 +285,13 @@ def replay_all_live_species(
         )
         for species in SPECIES
     ]
+    carrier_hashes = [str(r["carrier_sha256"]) for r in results]
+    if len(set(carrier_hashes)) != len(carrier_hashes):
+        collisions: dict[str, list[str]] = {}
+        for result in results:
+            collisions.setdefault(str(result["carrier_sha256"]), []).append(str(result["species"]))
+        repeated = [names for names in collisions.values() if len(names) > 1]
+        raise PhaseGateError(f"species carrier collision: {repeated}")
     payload = {
         "schema": "GREMLIN_BESTIARY_PHASENAV_ALL_SPECIES_LIVE_REPLAY_V0_1",
         "contract_id": CONTRACT_ID,
@@ -295,6 +303,7 @@ def replay_all_live_species(
         "all_hybrid_realization_candidates": all(
             bool(r["hybrid_realization_candidate"]) for r in results
         ),
+        "all_species_carriers_unique": True,
         "fully_analog_physical_claim": False,
         "canon_allowed": False,
         "external_effects": False,
