@@ -1,0 +1,42 @@
+name: GREMLIN Bestiary PhaseNav Phase Gates v0.1
+
+on:
+  push:
+    branches:
+      - 'feat/bestiary-phasenav-phase-gates-v0.1'
+    paths:
+      - 'tools/gremlin_bestiary_phasenav_phase_gates_v01.py'
+      - 'tests/test_gremlin_bestiary_phasenav_phase_gates_v01.py'
+      - 'spec/GREMLIN_BESTIARY_PHASENAV_PHASE_GATES_V0_1.md'
+      - 'native/GREMLIN_BESTIARY_PHASENAV_PHASE_GATES_V0_1.pnv'
+      - '.github/workflows/gremlin-bestiary-phasenav-phase-gates-v01.yml'
+  pull_request:
+    paths:
+      - 'tools/gremlin_bestiary_phasenav_phase_gates_v01.py'
+      - 'tests/test_gremlin_bestiary_phasenav_phase_gates_v01.py'
+      - 'spec/GREMLIN_BESTIARY_PHASENAV_PHASE_GATES_V0_1.md'
+      - 'native/GREMLIN_BESTIARY_PHASENAV_PHASE_GATES_V0_1.pnv'
+      - '.github/workflows/gremlin-bestiary-phasenav-phase-gates-v01.yml'
+  workflow_dispatch:
+
+jobs:
+  phase-gate-conformance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install test runner
+        run: python -m pip install --disable-pip-version-check pytest
+      - name: Compile reference kernel
+        run: python -m py_compile tools/gremlin_bestiary_phasenav_phase_gates_v01.py
+      - name: Run 36D phase-gate Bestiary conformance
+        run: python -m pytest -q tests/test_gremlin_bestiary_phasenav_phase_gates_v01.py
+      - name: Verify native contract has no external authority
+        run: |
+          grep -q '^PNV 1$' native/GREMLIN_BESTIARY_PHASENAV_PHASE_GATES_V0_1.pnv
+          grep -q '# CANON_ALLOWED FALSE' native/GREMLIN_BESTIARY_PHASENAV_PHASE_GATES_V0_1.pnv
+          grep -q '# EXTERNAL_EFFECTS FALSE' native/GREMLIN_BESTIARY_PHASENAV_PHASE_GATES_V0_1.pnv
+          grep -q '# PHYSICAL_ANALOG_CLAIM FALSE' native/GREMLIN_BESTIARY_PHASENAV_PHASE_GATES_V0_1.pnv
