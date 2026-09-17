@@ -65,11 +65,11 @@ No species is declared physically analog by this v0.1 gate.
 
 ## Validation
 
-Exact evidence head: `68107a699107655b106ac365fc0610616e76c325`.
+Exact functional-code evidence head: `82a87f6f4bd075eeb896ac88e008e1ecaf344409`.
 
-Dedicated PhaseNav phase-gate workflow `35288246350`: `64/64 PASS`.
+Dedicated PhaseNav phase-gate workflow `35288746397`: `91/91 PASS`.
 
-Repository-wide fail-loud audit `35288246332`: `1236 PASS / 1 SKIP / 0 FAIL`.
+Repository-wide fail-loud audit `35288746390`: `1263 PASS / 1 SKIP / 0 FAIL`.
 
 Frozen NumPy batch workload: 512 states x 36 coordinates, 7 repeats per species, all 18 species.
 
@@ -80,9 +80,9 @@ max scalar/vector torus error = 0.0
 equivalence tolerance          = 1e-12
 all 18 species equivalent     = PASS
 all continuity probes finite  = PASS
-min measured speedup           = 2.987266x
-median measured speedup        = 3.021190x
-max measured speedup           = 3.067365x
+min measured speedup           = 2.809500x
+median measured speedup        = 2.957516x
+max measured speedup           = 2.984762x
 ```
 
 The speedup is an environment-specific Python/NumPy batch result, not a hardware-independent throughput claim. The continuity probes establish numerical continuity of the implemented phase kernels on the frozen fixture; they do not establish physical analog realization.
@@ -95,7 +95,9 @@ Coverage includes exact 36D fail-closed shape/bounds, scalar/vector-batch equiva
 
 A current-session replay was executed against the canonical live NOEMA surface
 `/dev/shm/ciel_noema` after a fresh tether guard returned `ACTIVE` with no
-failures.  Static fallback remained disabled.
+failures. Static fallback remained disabled. The live witness is an independent
+local replay of the documented v0.1 equations and the exact explicit binding
+profile; hosted CI separately covers the repository implementation.
 
 The live registry contained 36 exact `PHASENAV_OPERATOR_VECTOR_V1` vectors.
 Each Bestiary species was bound to an explicit candidate composition of existing
@@ -110,17 +112,18 @@ Observed on the frozen live snapshot:
 
 ```text
 species replayed                 = 18 / 18
+unique species carriers          = 18 / 18
 steps per species                = 16
 non-zero phase displacement      = 18 / 18
 target distance reduced          = 18 / 18
 target distance monotone         = 18 / 18
-final/initial distance ratio     = 0.652042 .. 0.801535
+final/initial distance ratio     = 0.601287 .. 0.783944
 static runtime fallback          = false
 external effects                 = false
 physical analog claim            = false
 ```
 
-This closes the first live computational T^36 replay gate.  It demonstrates
+This closes the first independent live computational T^36 replay gate. It demonstrates
 that every current species can be driven on the live phase substrate through
 its candidate operator composition without leaving the candidate-only
 authority boundary.  It does **not** establish a hardware analog realization
