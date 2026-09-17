@@ -1,6 +1,6 @@
 # GREMLIN Bestiary PhaseNav Phase Gates v0.1
 
-Status: CANDIDATE / PURE REFERENCE 22/22 PASS / NO PHYSICAL ANALOG CLAIM / NO EXTERNAL EFFECTS
+Status: CANDIDATE / COMPUTATIONAL VECTOR GATE PASS / EXACT 36D / NO PHYSICAL ANALOG CLAIM / NO EXTERNAL EFFECTS
 
 ## Objective
 
@@ -65,9 +65,31 @@ No species is declared physically analog by this v0.1 gate.
 
 ## Validation
 
-Pure reference suite: `22/22 PASS`.
+Exact evidence head: `68107a699107655b106ac365fc0610616e76c325`.
 
-Coverage includes exact 36D fail-closed shape/bounds, scalar/batch equivalence, deterministic identities, all 18 species operators, injected BAT harmonic detection, CANARY drift detection, SERPENT temperature/novelty response, CHAMELEON reversible roundtrip, defensive synthesis, and FERRET fail-closed authority.
+Dedicated PhaseNav phase-gate workflow `35288246350`: `64/64 PASS`.
+
+Repository-wide fail-loud audit `35288246332`: `1236 PASS / 1 SKIP / 0 FAIL`.
+
+Frozen NumPy batch workload: 512 states x 36 coordinates, 7 repeats per species, all 18 species.
+
+Observed batch-vector equivalence and performance on the hosted CI fixture:
+
+```text
+max scalar/vector torus error = 0.0
+equivalence tolerance          = 1e-12
+all 18 species equivalent     = PASS
+all continuity probes finite  = PASS
+min measured speedup           = 2.987266x
+median measured speedup        = 3.021190x
+max measured speedup           = 3.067365x
+```
+
+The speedup is an environment-specific Python/NumPy batch result, not a hardware-independent throughput claim. The continuity probes establish numerical continuity of the implemented phase kernels on the frozen fixture; they do not establish physical analog realization.
+
+Pinned CI receipt: `provenance/GREMLIN_BESTIARY_PHASENAV_NUMPY_CI_RECEIPT_V0_1.json`.
+
+Coverage includes exact 36D fail-closed shape/bounds, scalar/vector-batch equivalence, deterministic identities, all 18 species operators, injected BAT harmonic detection, CANARY drift detection, SERPENT temperature/novelty response, CHAMELEON reversible roundtrip, defensive synthesis, FERRET fail-closed authority, no silent scalar fallback, and repository-wide PNV contract compatibility.
 
 ## Authority
 
@@ -82,8 +104,10 @@ FERRET may return an `ADMITTED` authority verdict only when explicit authorizati
 
 ## Next gate
 
-1. run repository CI on the exact feature-branch head;
-2. add a frozen phase workload and benchmark scalar vs batch-first PhaseNav kernels;
-3. bind species phase carriers to exact PNCS/PhaseNav operator vectors where authoritative vectors exist;
-4. run live T^36 replay under fresh NOEMA tether with no static fallback;
-5. only after numerical equivalence, test hardware/analog realization candidates separately.
+The pure computational/vector gate and frozen benchmark gate are now closed for this candidate branch.
+
+1. bind species phase carriers to exact PNCS/PhaseNav operator vectors where authoritative vectors exist; absent an authoritative vector, fail closed rather than inventing one;
+2. run live T^36 replay under fresh NOEMA tether with `static_fallback=false`;
+3. compare digital scalar, digital batch-vector and phase-flow/hydrodynamic realizations on the same frozen semantic workload;
+4. classify each species only from evidence as `HYBRID`, `ANALOG_CORE_HYBRID_CONTROL`, or a later hardware-witnessed analog class;
+5. test hardware/analog realization candidates separately. No fully-analog claim is permitted from numerical continuity alone.
