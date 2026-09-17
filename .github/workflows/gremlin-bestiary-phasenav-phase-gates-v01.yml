@@ -20,8 +20,10 @@ on:
       - 'tools/gremlin_bestiary_phasenav_phase_gates_v01.py'
       - 'tools/gremlin_bestiary_phasenav_numpy_v01.py'
       - 'tools/gremlin_bestiary_phasenav_numpy_bench_v01.py'
+      - 'tools/gremlin_bestiary_phasenav_live_binding_v01.py'
       - 'tests/test_gremlin_bestiary_phasenav_phase_gates_v01.py'
       - 'tests/test_gremlin_bestiary_phasenav_numpy_v01.py'
+      - 'tests/test_gremlin_bestiary_phasenav_live_binding_v01.py'
       - 'spec/GREMLIN_BESTIARY_PHASENAV_PHASE_GATES_V0_1.md'
       - 'native/GREMLIN_BESTIARY_PHASENAV_PHASE_GATES_V0_1.pnv'
       - '.github/workflows/gremlin-bestiary-phasenav-phase-gates-v01.yml'
@@ -46,7 +48,9 @@ jobs:
           python -m py_compile tools/gremlin_bestiary_phasenav_live_binding_v01.py
       - name: Run 36D phase-gate Bestiary conformance
         run: |
-          python -m pytest -q             tests/test_gremlin_bestiary_phasenav_phase_gates_v01.py             tests/test_gremlin_bestiary_phasenav_numpy_v01.py \
+          python -m pytest -q \
+            tests/test_gremlin_bestiary_phasenav_phase_gates_v01.py \
+            tests/test_gremlin_bestiary_phasenav_numpy_v01.py \
             tests/test_gremlin_bestiary_phasenav_live_binding_v01.py
       - name: Run frozen NumPy batch benchmark
         run: python -m tools.gremlin_bestiary_phasenav_numpy_bench_v01
@@ -55,9 +59,9 @@ jobs:
           python - <<'PY'
           import json
           from pathlib import Path
-          p=Path("provenance/GREMLIN_BESTIARY_PHASENAV_NUMPY_BENCHMARK_V0_1.json")
-          d=json.loads(p.read_text())
-          s=d["summary"]
+          p = Path("provenance/GREMLIN_BESTIARY_PHASENAV_NUMPY_BENCHMARK_V0_1.json")
+          d = json.loads(p.read_text())
+          s = d["summary"]
           assert s["all_species_scalar_vector_equivalent_1e_12"] is True
           assert s["all_phase_kernels_continuity_candidates"] is True
           assert s["physical_analog_claim"] is False
@@ -67,6 +71,7 @@ jobs:
       - name: Verify native contract has no external authority
         run: |
           grep -q '^PNV 1$' native/GREMLIN_BESTIARY_PHASENAV_PHASE_GATES_V0_1.pnv
+          grep -q '# NEW_PNV_OPCODES 0' native/GREMLIN_BESTIARY_PHASENAV_PHASE_GATES_V0_1.pnv
           grep -q '# CANON_ALLOWED FALSE' native/GREMLIN_BESTIARY_PHASENAV_PHASE_GATES_V0_1.pnv
           grep -q '# EXTERNAL_EFFECTS FALSE' native/GREMLIN_BESTIARY_PHASENAV_PHASE_GATES_V0_1.pnv
           grep -q '# PHYSICAL_ANALOG_CLAIM FALSE' native/GREMLIN_BESTIARY_PHASENAV_PHASE_GATES_V0_1.pnv
