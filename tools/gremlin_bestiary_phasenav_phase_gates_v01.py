@@ -4,6 +4,11 @@ from dataclasses import dataclass
 import cmath, hashlib, json, math
 from typing import Iterable, Mapping, Sequence
 
+try:
+    import numpy as np
+except ImportError:  # optional accelerated path; scalar reference remains dependency-free
+    np = None  # type: ignore[assignment]
+
 DIM = 36
 TAU = 2.0 * math.pi
 CONTRACT_ID = "GREMLIN_BESTIARY_PHASENAV_PHASE_GATES_V0_1"
@@ -127,7 +132,48 @@ class PhaseGate36:
             out.append(_wrap(t[i]+self.dt*(drive+coupling+harmonic)))
         return PhaseState36(out)
     def step_batch(self, states: Sequence[PhaseState36], target: Sequence[float] | None = None) -> tuple[PhaseState36,...]:
+        """Dependency-free scalar reference batch."""
         return tuple(self.step(s,target=target) for s in states)
+
+    def step_batch_vectorized(self, states: Sequence[PhaseState36], target: Sequence[float] | None = None) -> tuple[PhaseState36,...]:
+        """NumPy batch-first realization of the same PhaseNav phase gate.
+
+        This is an accelerated numerical realization only.  It does not change
+        semantic identity, authority, or the phase-gate equations.
+        """
+        if np is None:
+            raise PhaseGateError("NumPy is required for vectorized phase-gate execution")
+        if not states:
+            return tuple()
+        if not all(isinstance(s, PhaseState36) for s in states):
+            raise PhaseGateError("step_batch_vectorized requires PhaseState36 inputs")
+        theta = np.asarray([s.theta for s in states], dtype=np.float64)
+        if theta.shape != (len(states), DIM) or not np.isfinite(theta).all():
+            raise PhaseGateError("invalid vectorized T^36 batch")
+        bias = np.asarray(self.phase_bias if target is None else _theta36(target), dtype=np.float64)
+        delta = (bias[None, :] - theta + math.pi) % TAU - math.pi
+        left_delta = (np.roll(theta, 1, axis=1) - theta + math.pi) % TAU - math.pi
+        right_delta = (np.roll(theta, -1, axis=1) - theta + math.pi) % TAU - math.pi
+        drive = self.drive_gain * np.sin(delta)
+        coupling = 0.5 * self.neighbor_coupling * (np.sin(left_delta) + np.sin(right_delta))
+        harmonic = self.harmonic_gain * np.sin(2.0 * delta)
+        out = np.mod(theta + self.dt * (drive + coupling + harmonic), TAU)
+        if out.shape != theta.shape or not np.isfinite(out).all():
+            raise PhaseGateError("vectorized phase gate produced invalid output")
+        return tuple(PhaseState36(row.tolist()) for row in out)
+
+    def vectorized_max_error(self, states: Sequence[PhaseState36], target: Sequence[float] | None = None) -> float:
+        scalar = self.step_batch(states, target=target)
+        vector = self.step_batch_vectorized(states, target=target)
+        if len(scalar) != len(vector):
+            raise PhaseGateError("scalar/vector batch length mismatch")
+        if not scalar:
+            return 0.0
+        return max(
+            abs(circular_delta(a, b))
+            for s_ref, s_vec in zip(scalar, vector)
+            for a, b in zip(s_ref.theta, s_vec.theta)
+        )
 
 def _result(species: str, operation: str, data: Mapping[str,object], parents: Iterable[str]) -> dict[str,object]:
     body={"schema":"GREMLIN_PHASENAV_SPECIES_RESULT_V0_1","contract_id":CONTRACT_ID,"species":species,
@@ -300,3 +346,83 @@ def species_manifest()->dict[str,object]:
     return {"contract_id":CONTRACT_ID,"dimension":DIM,"space":"T^36",
             "species":[{"name":n,"realization_mode":REALIZATION_MODE[n],"carrier_sha256":_sha(list(_carrier36(n)))} for n in SPECIES],
             "semantic_axis_assignment":False,"fully_analog_physical_claim":False,"external_effects":False}
+
+
+def phase_gate_vectorization_manifest() -> dict[str, object]:
+    return {
+        "schema": "GREMLIN_BESTIARY_PHASENAV_VECTOR_GATE_MANIFEST_V0_1",
+        "contract_id": CONTRACT_ID,
+        "dimension": DIM,
+        "space": "T^36",
+        "numpy_available": np is not None,
+        "scalar_reference": True,
+        "vectorized_batch_realization": np is not None,
+        "semantic_identity_modified": False,
+        "authority_modified": False,
+        "physical_analog_claim": False,
+    }
+
+
+def run_full_bestiary_reference_sweep() -> dict[str, object]:
+    """Exercise every declared species on one deterministic frozen fixture.
+
+    The sweep is a conformance harness, not a claim that all specialist
+    semantics are physically analog.  FERRET is deliberately exercised in a
+    blocked state.
+    """
+    base = PhaseState36([_wrap(0.10 + 0.017 * i) for i in range(DIM)])
+    near = PhaseState36([_wrap(x + 0.02) for x in base.theta])
+    mid = PhaseState36([_wrap(x + 0.21 * math.sin(i + 1.0)) for i, x in enumerate(base.theta)])
+    far = PhaseState36([_wrap(2.4 + 0.071 * i) for i in range(DIM)])
+    history = tuple(
+        PhaseState36([_wrap(x + 0.03 * t + 0.04 * math.sin(2.0 * math.pi * 3 * t / 16.0)) for x in base.theta])
+        for t in range(16)
+    )
+
+    receipts: dict[str, dict[str, object]] = {}
+    receipts["HUMMINGBIRD"] = hummingbird_capture(base)
+    receipts["OCTOPUS"] = octopus_route(base, [n for n in SPECIES if n not in {"HUMMINGBIRD","OCTOPUS","BELZEBUB","GREMLIN","FERRET"}], max_species=4, min_score=0.0)
+    receipts["SPIDER"] = spider_scan([base, near, far], threshold=0.8)
+    receipts["RAVEN"] = raven_recall(base, [far, near, base], k=2)
+    receipts["HOUND"] = hound_scan(mid, base)
+    receipts["MOLE"] = mole_relax(base, near, steps=8)
+    receipts["OWL"] = owl_audit(base, [near, mid])
+    receipts["ANT"] = ant_enumerate(base, axes=(0,1), delta=0.10, budget=5)
+    receipts["MANTIS"] = mantis_prune([base, PhaseState36(base.theta), near], epsilon=1e-12)
+    receipts["FOX"] = fox_plan(base, near, steps=4)
+    receipts["BEAVER"] = beaver_construct([base, near])
+    receipts["BAT"] = bat_scan(history)
+    receipts["CANARY"] = canary_watch(history, slack=0.001, threshold=4.0)
+    receipts["SERPENT"] = serpent_sense(history, reference=[base, near])
+    receipts["CHAMELEON"] = chameleon_transform(base, "reference-sweep-v0.1")
+    receipts["BELZEBUB"] = belzebub_synthesize([base, near, mid])
+    receipts["GREMLIN"] = gremlin_aggregate([base, near])
+    receipts["FERRET"] = ferret_authorize(
+        explicit_authorization=False,
+        scope_match=True,
+        receipt_valid=True,
+        action_commitment="reference-sweep-no-effect",
+    )
+
+    missing = [name for name in SPECIES if name not in receipts]
+    if missing:
+        raise PhaseGateError(f"full Bestiary sweep missing species: {missing}")
+    if any(rec.get("external_effects") is not False or rec.get("canon_allowed") is not False for rec in receipts.values()):
+        raise PhaseGateError("Bestiary sweep crossed candidate-only authority boundary")
+
+    return {
+        "schema": "GREMLIN_BESTIARY_FULL_REFERENCE_SWEEP_V0_1",
+        "contract_id": CONTRACT_ID,
+        "species_count": len(SPECIES),
+        "species": list(SPECIES),
+        "receipt_sha256_by_species": {name: str(receipts[name]["receipt_sha256"]) for name in SPECIES},
+        "ferret_verdict": receipts["FERRET"]["data"]["verdict"],
+        "external_effects": False,
+        "canon_allowed": False,
+        "physical_analog_claim": False,
+        "receipt_sha256": _sha({
+            "contract_id": CONTRACT_ID,
+            "species": list(SPECIES),
+            "receipt_sha256_by_species": {name: str(receipts[name]["receipt_sha256"]) for name in SPECIES},
+        }),
+    }
