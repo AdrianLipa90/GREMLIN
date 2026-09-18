@@ -129,6 +129,101 @@ fn run_ctl_json_input(args: &[String], input: &str) -> Result<Value, String> {
 }
 
 impl GremlinControlCenter {
+    fn configure_style(ctx: &egui::Context) {
+        let mut visuals = egui::Visuals::dark();
+        visuals.panel_fill = egui::Color32::from_rgb(8, 10, 20);
+        visuals.window_fill = egui::Color32::from_rgb(10, 12, 24);
+        visuals.extreme_bg_color = egui::Color32::from_rgb(5, 7, 15);
+        visuals.faint_bg_color = egui::Color32::from_rgb(18, 20, 36);
+        visuals.selection.bg_fill = egui::Color32::from_rgb(85, 50, 190);
+        visuals.selection.stroke.color = egui::Color32::from_rgb(208, 190, 255);
+        visuals.hyperlink_color = egui::Color32::from_rgb(111, 216, 255);
+        visuals.warn_fg_color = egui::Color32::from_rgb(255, 198, 92);
+        visuals.error_fg_color = egui::Color32::from_rgb(255, 110, 135);
+        visuals.widgets.inactive.bg_fill = egui::Color32::from_rgb(20, 23, 42);
+        visuals.widgets.hovered.bg_fill = egui::Color32::from_rgb(39, 30, 75);
+        visuals.widgets.active.bg_fill = egui::Color32::from_rgb(70, 43, 140);
+        ctx.set_visuals(visuals);
+        ctx.style_mut(|style| {
+            style.spacing.item_spacing = egui::vec2(10.0, 8.0);
+            style.spacing.button_padding = egui::vec2(12.0, 7.0);
+        });
+    }
+
+    fn status_color(status: &str) -> egui::Color32 {
+        match status {
+            "READY" | "ACTIVE" | "LICENSED" | "CONNECTED" | "PASS" | "OK" => egui::Color32::from_rgb(104, 224, 169),
+            "ACTION_REQUIRED" | "CONFIGURED_UNVERIFIED" | "REGISTERED_UNVERIFIED" | "NOT_CONFIGURED" | "DETECTED" => egui::Color32::from_rgb(255, 196, 92),
+            "ERROR" | "FAILED" | "FAIL" | "BLOCKED" | "INVALID" => egui::Color32::from_rgb(255, 110, 135),
+            _ => egui::Color32::from_rgb(119, 190, 255),
+        }
+    }
+
+    fn status_label(ui: &mut egui::Ui, status: &str) {
+        ui.colored_label(
+            Self::status_color(status),
+            egui::RichText::new(status.replace('_', " ")).strong(),
+        );
+    }
+
+    fn provider_counts(&self) -> (usize, usize) {
+        let providers = self.providers.as_ref()
+            .and_then(|v| v.get("providers"))
+            .and_then(Value::as_array);
+        let detected = providers.map(|items| items.iter().filter(|p| p.get("detected").and_then(Value::as_bool).unwrap_or(false)).count()).unwrap_or(0);
+        let connected = providers.map(|items| items.iter().filter(|p| p.get("connected").and_then(Value::as_bool).unwrap_or(false)).count()).unwrap_or(0);
+        (detected, connected)
+    }
+
+    fn next_action(&self) -> String {
+        if self.ready_status() == "READY" {
+            return "GREMLIN is ready. Open a connected AI client and use GREMLIN through MCP.".to_owned();
+        }
+        if !self.license_active() {
+            return "Activate your GREMLIN license to unlock provider connection controls.".to_owned();
+        }
+        if self.product_status() != "LICENSED" {
+            return if self.profile_required() {
+                "Import and verify the customer profile required by this license.".to_owned()
+            } else {
+                "Complete the remaining product entitlement step.".to_owned()
+            };
+        }
+        let (detected, connected) = self.provider_counts();
+        if connected == 0 {
+            return if detected > 0 {
+                "Choose a detected AI client and press Connect & Test.".to_owned()
+            } else {
+                "Open or install a supported AI client, then refresh detection.".to_owned()
+            };
+        }
+        if let Some(action) = self.readiness.as_ref()
+            .and_then(|v| v.get("actions"))
+            .and_then(Value::as_array)
+            .and_then(|items| items.iter().find_map(Value::as_str))
+        {
+            return action.to_owned();
+        }
+        "Run the readiness check to identify the remaining action.".to_owned()
+    }
+
+    fn readiness_strip(&self, ui: &mut egui::Ui) {
+        let (detected, connected) = self.provider_counts();
+        ui.horizontal_wrapped(|ui| {
+            ui.strong("License");
+            Self::status_label(ui, if self.license_active() { "ACTIVE" } else { "ACTION_REQUIRED" });
+            ui.separator();
+            ui.strong("Product");
+            Self::status_label(ui, self.product_status());
+            ui.separator();
+            ui.strong("AI client");
+            Self::status_label(ui, if connected > 0 { "CONNECTED" } else if detected > 0 { "DETECTED" } else { "ACTION_REQUIRED" });
+            ui.separator();
+            ui.strong("Readiness");
+            Self::status_label(ui, self.ready_status());
+        });
+    }
+
     fn refresh_all(&mut self) {
         self.refresh_license();
         self.refresh_profile();
@@ -387,14 +482,21 @@ impl GremlinControlCenter {
     }
 
     fn nav(&mut self, ui: &mut egui::Ui) {
-        ui.horizontal(|ui| {
-            ui.selectable_value(&mut self.tab, Tab::Setup, "Setup");
+        ui.vertical(|ui| {
             ui.selectable_value(&mut self.tab, Tab::Overview, "Overview");
-            ui.selectable_value(&mut self.tab, Tab::License, "License");
+            ui.selectable_value(&mut self.tab, Tab::Setup, "Setup");
             ui.selectable_value(&mut self.tab, Tab::Integrations, "AI Providers");
-            ui.selectable_value(&mut self.tab, Tab::Settings, "Settings");
+            ui.selectable_value(&mut self.tab, Tab::License, "License");
             ui.selectable_value(&mut self.tab, Tab::Diagnostics, "Diagnostics");
+            ui.selectable_value(&mut self.tab, Tab::Settings, "Settings");
         });
+        ui.add_space(12.0);
+        ui.separator();
+        ui.add_space(8.0);
+        ui.small("18-role Bestiary");
+        ui.small("PhaseNav 36D");
+        ui.small("fail-closed receipts");
+        ui.small("local MCP control plane");
     }
 
     fn profile_import_controls(&mut self, ui: &mut egui::Ui) {
@@ -485,9 +587,16 @@ impl GremlinControlCenter {
     }
 
     fn setup(&mut self, ui: &mut egui::Ui) {
-        ui.heading("Get GREMLIN ready");
-        ui.label("Three steps. No terminal and no manual MCP configuration required for supported clients.");
-        ui.add_space(14.0);
+        ui.heading("Set up GREMLIN");
+        ui.label("Three guided steps. No terminal and no manual MCP editing for supported clients.");
+        ui.add_space(8.0);
+        self.readiness_strip(ui);
+        ui.add_space(8.0);
+        ui.colored_label(
+            Self::status_color(self.ready_status()),
+            egui::RichText::new(self.next_action()).strong(),
+        );
+        ui.add_space(16.0);
 
         egui::Frame::group(ui.style()).show(ui, |ui| {
             ui.heading("1. Activate");
@@ -556,29 +665,84 @@ impl GremlinControlCenter {
     }
 
     fn overview(&mut self, ui: &mut egui::Ui) {
-        ui.heading("GREMLIN AI Research Orchestrator");
-        ui.label(format!("{} edition", self.platform_name()));
-        ui.add_space(8.0);
-        egui::Grid::new("overview_status").num_columns(2).spacing([24.0, 12.0]).show(ui, |ui| {
-            ui.label("Ready"); ui.strong(self.ready_status()); ui.end_row();
-            ui.label("System"); ui.strong(self.overall_status()); ui.end_row();
-            ui.label("Platform"); ui.strong(self.platform_name()); ui.end_row();
-            ui.label("License"); ui.strong(self.license_status()); ui.end_row();
-            ui.label("Profile"); ui.strong(self.profile_status()); ui.end_row();
-            ui.label("Product"); ui.strong(self.product_status()); ui.end_row();
-            ui.label("MCP transport"); ui.strong(self.runtime_transport()); ui.end_row();
+        ui.horizontal_wrapped(|ui| {
+            ui.heading("GREMLIN");
+            ui.separator();
+            Self::status_label(ui, self.ready_status());
         });
+        ui.label("Local AI orchestration control plane — connect your existing AI client, keep lineage visible, and fail closed when evidence is incomplete.");
+        ui.add_space(12.0);
+
+        egui::Frame::group(ui.style()).show(ui, |ui| {
+            ui.strong("Next action");
+            ui.add_space(4.0);
+            ui.label(self.next_action());
+            if self.ready_status() != "READY" {
+                ui.add_space(6.0);
+                if ui.button("Resume setup").clicked() {
+                    self.tab = Tab::Setup;
+                }
+            }
+        });
+
+        ui.add_space(12.0);
+        self.readiness_strip(ui);
         ui.add_space(16.0);
-        ui.horizontal(|ui| {
+
+        let (detected, connected) = self.provider_counts();
+        egui::Grid::new("overview_status_v2")
+            .num_columns(3)
+            .spacing([20.0, 12.0])
+            .striped(true)
+            .show(ui, |ui| {
+                ui.strong("System");
+                Self::status_label(ui, self.overall_status());
+                ui.label(self.platform_name());
+                ui.end_row();
+
+                ui.strong("License");
+                Self::status_label(ui, self.license_status());
+                ui.label(self.product_status());
+                ui.end_row();
+
+                ui.strong("AI providers");
+                Self::status_label(ui, if connected > 0 { "CONNECTED" } else if detected > 0 { "DETECTED" } else { "ACTION_REQUIRED" });
+                ui.label(format!("{connected} connected / {detected} detected"));
+                ui.end_row();
+
+                ui.strong("MCP transport");
+                Self::status_label(ui, "ACTIVE");
+                ui.label(self.runtime_transport());
+                ui.end_row();
+
+                ui.strong("Customer profile");
+                Self::status_label(ui, self.profile_status());
+                ui.label(if self.profile_required() { "required by entitlement" } else { "optional unless licensed profile requires it" });
+                ui.end_row();
+
+                ui.strong("Device identity");
+                Self::status_label(ui, self.device_status());
+                ui.label("local identity / license binding");
+                ui.end_row();
+            });
+
+        ui.add_space(18.0);
+        ui.horizontal_wrapped(|ui| {
             if ui.button("AI Providers").clicked() {
                 self.tab = Tab::Integrations;
             }
             if ui.button("Run readiness check").clicked() {
                 self.refresh_all();
             }
-            if self.ready_status() != "READY" && ui.button("Resume setup").clicked() {
-                self.tab = Tab::Setup;
+            if ui.button("Diagnostics").clicked() {
+                self.tab = Tab::Diagnostics;
             }
+        });
+
+        ui.add_space(18.0);
+        egui::Frame::group(ui.style()).show(ui, |ui| {
+            ui.strong("What GREMLIN adds");
+            ui.label("18-role Bestiary • geometry/phase/state scheduling • durable worker state • fail-closed lineage • local-first MCP integration");
         });
     }
 
@@ -607,24 +771,33 @@ impl GremlinControlCenter {
         let name = provider.get("display_name").and_then(Value::as_str).unwrap_or(id);
         let detected = provider.get("detected").and_then(Value::as_bool).unwrap_or(false);
         let connected = provider.get("connected").and_then(Value::as_bool).unwrap_or(false);
-        let status = provider.get("connection_status").and_then(Value::as_str).unwrap_or("UNKNOWN");
+        let raw_status = provider.get("connection_status").and_then(Value::as_str).unwrap_or("UNKNOWN");
+        let status = if connected { "CONNECTED" } else if detected && raw_status == "UNKNOWN" { "DETECTED" } else { raw_status };
         let executable = provider.get("executable").and_then(Value::as_str).unwrap_or("Not found");
         let config = provider.get("config_path").and_then(Value::as_str).unwrap_or("Managed by client");
         let mode = provider.get("integration_mode").and_then(Value::as_str).unwrap_or("MCP");
 
         egui::Frame::group(ui.style()).show(ui, |ui| {
-            ui.horizontal(|ui| {
+            ui.horizontal_wrapped(|ui| {
                 ui.heading(name);
                 ui.separator();
-                ui.strong(status);
+                Self::status_label(ui, status);
+                if detected {
+                    ui.small("detected locally");
+                }
             });
-            ui.label(format!("Integration: {}", if mode == "NATIVE_CLI" { "Native client MCP interface" } else { "Safe config merge" }));
-            ui.label(format!("Client detected: {}", if detected { "yes" } else { "no" }));
-            if detected { ui.label(format!("Executable: {executable}")); }
-            ui.label(format!("Config: {config}"));
+
+            ui.label(if connected {
+                "GREMLIN is configured for this client. Test MCP to verify the live client/runtime path."
+            } else if detected {
+                "Client detected. GREMLIN can connect it without manual MCP editing."
+            } else {
+                "Client not detected on this machine."
+            });
+
             ui.add_space(8.0);
             let product_ready = self.product_status() == "LICENSED";
-            ui.horizontal(|ui| {
+            ui.horizontal_wrapped(|ui| {
                 if ui.add_enabled(product_ready && detected && !connected, egui::Button::new("Connect & Test")).clicked() {
                     self.provider_action("connect", id);
                 }
@@ -635,28 +808,45 @@ impl GremlinControlCenter {
                     self.provider_action("disconnect", id);
                 }
             });
-            if let Some(detail) = provider.get("detail").and_then(Value::as_str) {
-                if !detail.is_empty() { ui.add_space(6.0); ui.small(detail); }
-            }
+
+            egui::CollapsingHeader::new("Technical details")
+                .default_open(false)
+                .show(ui, |ui| {
+                    ui.label(format!("Integration mode: {}", if mode == "NATIVE_CLI" { "Native client MCP interface" } else { "Safe config merge" }));
+                    if detected { ui.label(format!("Executable: {executable}")); }
+                    ui.label(format!("Config: {config}"));
+                    if let Some(detail) = provider.get("detail").and_then(Value::as_str) {
+                        if !detail.is_empty() { ui.small(detail); }
+                    }
+                });
         });
     }
 
     fn integrations(&mut self, ui: &mut egui::Ui) {
-        ui.horizontal(|ui| {
-            ui.heading(format!("AI Providers — {}", self.platform_name()));
-            if ui.button("Refresh detection").clicked() {
+        let (detected_count, connected_count) = self.provider_counts();
+        ui.horizontal_wrapped(|ui| {
+            ui.heading("AI Providers");
+            ui.separator();
+            ui.label(format!("{connected_count} connected • {detected_count} detected • {}", self.platform_name()));
+            if ui.button("Refresh").clicked() {
                 self.refresh_providers();
                 self.refresh_readiness();
             }
         });
-        ui.label("Select your client and press Connect & Test. GREMLIN uses the client's native MCP interface where available and an atomic backed-up config merge otherwise.");
+        ui.label("Connect the AI tools you already use. GREMLIN prefers each client's native MCP interface and uses an atomic backed-up config merge only where necessary.");
         ui.add_space(12.0);
 
-        let providers_owned: Vec<Value> = self.providers.as_ref()
+        let mut providers_owned: Vec<Value> = self.providers.as_ref()
             .and_then(|v| v.get("providers"))
             .and_then(Value::as_array)
             .cloned()
             .unwrap_or_default();
+        providers_owned.sort_by_key(|p| {
+            let connected = p.get("connected").and_then(Value::as_bool).unwrap_or(false);
+            let detected = p.get("detected").and_then(Value::as_bool).unwrap_or(false);
+            if connected { 0 } else if detected { 1 } else { 2 }
+        });
+
         if providers_owned.is_empty() {
             ui.label("No supported AI clients are available for this platform.");
         } else {
@@ -665,21 +855,29 @@ impl GremlinControlCenter {
                 ui.add_space(10.0);
             }
         }
-        if let Some(err) = &self.provider_error { ui.label(err); }
+
+        if let Some(err) = &self.provider_error {
+            ui.colored_label(egui::Color32::from_rgb(255, 110, 135), err);
+        }
         if let Some(result) = &self.provider_result {
             ui.add_space(6.0);
             let status = result.get("status").and_then(Value::as_str).unwrap_or("DONE");
-            ui.strong(format!("Last connection check: {status}"));
-            if let Some(detail) = result.get("detail").and_then(Value::as_str) { if !detail.is_empty() { ui.label(detail); } }
+            ui.horizontal_wrapped(|ui| {
+                ui.strong("Last connection check");
+                Self::status_label(ui, status);
+            });
+            if let Some(detail) = result.get("detail").and_then(Value::as_str) {
+                if !detail.is_empty() { ui.label(detail); }
+            }
         }
 
         ui.add_space(12.0);
         egui::CollapsingHeader::new("Advanced: Custom MCP client")
             .default_open(false)
             .show(ui, |ui| {
-                ui.label("Use this only for clients that expose a standard JSON mcpServers configuration.");
+                ui.label("For unsupported clients that expose a standard JSON mcpServers configuration.");
                 ui.horizontal(|ui| { ui.label("Config file"); ui.text_edit_singleline(&mut self.integration_path); });
-                ui.horizontal(|ui| {
+                ui.horizontal_wrapped(|ui| {
                     if ui.button("Inspect").clicked() { self.integration_action("inspect"); }
                     if ui.add_enabled(self.product_status() == "LICENSED", egui::Button::new("Connect")).clicked() { self.integration_action("install"); }
                     if ui.button("Remove").clicked() { self.integration_action("remove"); }
@@ -694,51 +892,109 @@ impl GremlinControlCenter {
 
     fn settings(&mut self, ui: &mut egui::Ui) {
         ui.heading("Settings");
-        ui.label(format!("Platform package: {}", self.platform_name()));
-        ui.label(format!("Effective transport: {}", self.runtime_transport()));
-        ui.label("Default local integration uses stdio. Provider connections, licensing, customer profile policy and optional device binding remain separate security layers.");
+        ui.label("GREMLIN is local-first by default. Normal desktop integrations use stdio and do not require a listening network port.");
+        ui.add_space(12.0);
+        egui::Grid::new("settings_summary").num_columns(2).spacing([24.0, 12.0]).show(ui, |ui| {
+            ui.label("Platform package"); ui.strong(self.platform_name()); ui.end_row();
+            ui.label("Effective MCP transport"); ui.strong(self.runtime_transport()); ui.end_row();
+            ui.label("Product status"); Self::status_label(ui, self.product_status()); ui.end_row();
+            ui.label("Device identity"); Self::status_label(ui, self.device_status()); ui.end_row();
+        });
+        ui.add_space(14.0);
+        ui.label("Provider connections, licensing, customer-profile policy and device binding remain separate security layers. A configured provider is not presented as a verified live MCP connection until the test succeeds.");
     }
 
     fn diagnostics(&mut self, ui: &mut egui::Ui) {
-        ui.horizontal(|ui| {
+        ui.horizontal_wrapped(|ui| {
             ui.heading("Diagnostics");
             if ui.button("Refresh").clicked() { self.refresh_all(); }
         });
-        ui.separator();
-        if let Some(value) = &self.readiness {
-            ui.heading("Customer readiness");
-            let mut text = serde_json::to_string_pretty(value).unwrap_or_else(|_| "{}".to_owned());
-            ui.add(egui::TextEdit::multiline(&mut text).font(egui::TextStyle::Monospace).desired_rows(12).interactive(false));
-        }
+        ui.label("Start with the human-readable action below. Raw receipts are available only when you need support-level detail.");
         ui.add_space(10.0);
-        if let Some(value) = &self.doctor {
-            ui.heading("Doctor");
-            let mut text = serde_json::to_string_pretty(value).unwrap_or_else(|_| "{}".to_owned());
-            ui.add(egui::TextEdit::multiline(&mut text).font(egui::TextStyle::Monospace).desired_rows(18).interactive(false));
-        } else if let Some(err) = &self.doctor_error { ui.label(err); } else { ui.label("Diagnostics unavailable."); }
+
+        egui::Frame::group(ui.style()).show(ui, |ui| {
+            ui.strong("Recommended action");
+            ui.add_space(4.0);
+            ui.label(self.next_action());
+            ui.add_space(8.0);
+            self.readiness_strip(ui);
+        });
+
+        ui.add_space(12.0);
+        egui::CollapsingHeader::new("Customer readiness receipt (JSON)")
+            .default_open(false)
+            .show(ui, |ui| {
+                if let Some(value) = &self.readiness {
+                    let mut text = serde_json::to_string_pretty(value).unwrap_or_else(|_| "{}".to_owned());
+                    ui.add(egui::TextEdit::multiline(&mut text).font(egui::TextStyle::Monospace).desired_rows(14).interactive(false));
+                } else if let Some(err) = &self.readiness_error {
+                    ui.label(err);
+                } else {
+                    ui.label("Readiness receipt unavailable.");
+                }
+            });
+
+        egui::CollapsingHeader::new("Doctor report (JSON)")
+            .default_open(false)
+            .show(ui, |ui| {
+                if let Some(value) = &self.doctor {
+                    let mut text = serde_json::to_string_pretty(value).unwrap_or_else(|_| "{}".to_owned());
+                    ui.add(egui::TextEdit::multiline(&mut text).font(egui::TextStyle::Monospace).desired_rows(18).interactive(false));
+                } else if let Some(err) = &self.doctor_error {
+                    ui.label(err);
+                } else {
+                    ui.label("Diagnostics unavailable.");
+                }
+            });
     }
+}
+
 }
 
 impl eframe::App for GremlinControlCenter {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        Self::configure_style(ctx);
         self.handle_dropped_files(ctx);
+
         egui::TopBottomPanel::top("top_bar").show(ctx, |ui| {
-            ui.horizontal(|ui| {
-                ui.strong("GREMLIN Control Center");
+            ui.add_space(4.0);
+            ui.horizontal_wrapped(|ui| {
+                ui.strong(egui::RichText::new("GREMLIN").size(20.0));
+                ui.label("AI Research Orchestrator");
                 ui.separator();
                 ui.label(self.platform_name());
                 ui.separator();
-                ui.strong(self.ready_status());
+                Self::status_label(ui, self.ready_status());
             });
-            self.nav(ui);
+            ui.add_space(4.0);
         });
-        egui::CentralPanel::default().show(ctx, |ui| match self.tab {
-            Tab::Setup => self.setup(ui),
-            Tab::Overview => self.overview(ui),
-            Tab::License => self.license(ui),
-            Tab::Integrations => self.integrations(ui),
-            Tab::Settings => self.settings(ui),
-            Tab::Diagnostics => self.diagnostics(ui),
+
+        egui::SidePanel::left("navigation")
+            .resizable(false)
+            .default_width(180.0)
+            .show(ctx, |ui| {
+                ui.add_space(10.0);
+                ui.strong("CONTROL CENTER");
+                ui.add_space(10.0);
+                self.nav(ui);
+            });
+
+        egui::CentralPanel::default().show(ctx, |ui| {
+            egui::ScrollArea::vertical()
+                .auto_shrink([false, false])
+                .show(ui, |ui| {
+                    ui.set_max_width(1100.0);
+                    ui.add_space(8.0);
+                    match self.tab {
+                        Tab::Setup => self.setup(ui),
+                        Tab::Overview => self.overview(ui),
+                        Tab::License => self.license(ui),
+                        Tab::Integrations => self.integrations(ui),
+                        Tab::Settings => self.settings(ui),
+                        Tab::Diagnostics => self.diagnostics(ui),
+                    }
+                    ui.add_space(24.0);
+                });
         });
     }
 }
@@ -746,8 +1002,8 @@ impl eframe::App for GremlinControlCenter {
 fn main() -> eframe::Result<()> {
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
-            .with_inner_size([1000.0, 760.0])
-            .with_min_inner_size([780.0, 560.0]),
+            .with_inner_size([1180.0, 820.0])
+            .with_min_inner_size([900.0, 640.0]),
         ..Default::default()
     };
     eframe::run_native(
