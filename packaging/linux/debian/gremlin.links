@@ -1,2 +1,3 @@
 usr/lib/gremlin/runtime/gremlinctl usr/bin/gremlinctl
 usr/lib/gremlin/runtime/gremlin-product-mcp usr/bin/gremlin-product-mcp
+usr/lib/gremlin/runtime/gremlin-mcp usr/bin/gremlin-mcp
