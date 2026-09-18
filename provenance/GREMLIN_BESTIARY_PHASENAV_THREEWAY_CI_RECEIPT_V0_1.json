@@ -1,0 +1,96 @@
+{
+  "schema": "GREMLIN_BESTIARY_PHASENAV_THREEWAY_CI_RECEIPT_V0_1",
+  "status": "PASS_EXACT_HEAD_CANDIDATE",
+  "repository": "AdrianLipa90/GREMLIN",
+  "branch": "feat/bestiary-phasenav-phase-gates-v0.1",
+  "source_head_sha": "87e7043ad41c6c2924c85d93ad8407ce5f2b3792",
+  "base_main_sha": "b33d8c3fec014db4686856958c17e0e948192742",
+  "pull_request": 62,
+  "phase_gate_workflow": {
+    "run_id": 35291358763,
+    "job_id": 105434694837,
+    "conclusion": "success",
+    "targeted_tests": {
+      "passed": 131,
+      "failed": 0,
+      "duration_s": 5.94
+    }
+  },
+  "repository_fail_loud_audit": {
+    "run_id": 35291358759,
+    "job_id": 105434693638,
+    "conclusion": "success",
+    "passed": 1303,
+    "skipped": 1,
+    "failed": 0,
+    "duration_s": 15.47
+  },
+  "numpy_batch_gate": {
+    "max_scalar_vector_torus_error": 0.0,
+    "min_measured_speedup": 3.020201100654329,
+    "median_measured_speedup": 3.2188133915637596,
+    "max_measured_speedup": 3.240177722615021,
+    "all_species_scalar_vector_equivalent_1e_12": true,
+    "all_phase_kernels_continuity_candidates": true
+  },
+  "threeway_gate": {
+    "species_count": 18,
+    "all_species_pass": true,
+    "failures": [],
+    "analog_core_numerical_pass_count": 9,
+    "analog_core_numerical_pass_species": [
+      "BAT",
+      "BEAVER",
+      "CANARY",
+      "FOX",
+      "HOUND",
+      "MOLE",
+      "RAVEN",
+      "SERPENT",
+      "SPIDER"
+    ],
+    "hybrid_pass_count": 9,
+    "hybrid_pass_species": [
+      "ANT",
+      "BELZEBUB",
+      "CHAMELEON",
+      "FERRET",
+      "GREMLIN",
+      "HUMMINGBIRD",
+      "MANTIS",
+      "OCTOPUS",
+      "OWL"
+    ],
+    "max_scalar_vector_error": 0.0,
+    "max_fine_continuous_error_radians_rms": 0.0008214511194856206,
+    "max_fine_to_coarse_error_ratio": 0.12290964222812932,
+    "fully_analog_physical_pass_count": 0
+  },
+  "artifact": {
+    "artifact_id": 10527050191,
+    "name": "gremlin-bestiary-phasenav-numpy-v01",
+    "size_bytes": 4458,
+    "zip_sha256": "295368070189d869fbb5eb9ec51d42d5a1e82ea1a36f3e67aec83ac204023fe6",
+    "contains": [
+      "GREMLIN_BESTIARY_PHASENAV_NUMPY_BENCHMARK_V0_1.json",
+      "GREMLIN_BESTIARY_PHASENAV_THREEWAY_BENCHMARK_V0_1.json"
+    ]
+  },
+  "authority": {
+    "canon_allowed": false,
+    "production_runtime_write": false,
+    "external_effects": false,
+    "physical_analog_claim": false,
+    "hardware_analog_witness": false,
+    "semantic_axis_assignment": false,
+    "silent_scalar_fallback": false
+  },
+  "interpretation": {
+    "computational_vectorization_verified": true,
+    "continuous_phase_field_numerical_reference_verified": true,
+    "all_18_species_have_a_passing_hybrid_or_analog_core_numerical_realization": true,
+    "nine_species_support_analog_core_numerical_classification_with_hybrid_control": true,
+    "nine_species_remain_hybrid_by_declared_semantics_or_authority_boundary": true,
+    "fully_analog_hardware_realization_not_established": true
+  }
+}
