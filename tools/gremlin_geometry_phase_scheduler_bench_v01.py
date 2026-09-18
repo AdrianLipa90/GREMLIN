@@ -8,6 +8,7 @@ import re
 
 from gremlin_mcp.workers import WorkerBroker
 from tools.gremlin_bestiary_phasenav_phase_gates_v01 import TAU
+from tools.gremlin_geometry_context_pack_v01 import pack_context
 from tools.gremlin_geometry_phase_scheduler_v01 import SCHEDULER_KEY
 
 OUT = Path("provenance/GREMLIN_GEOMETRY_PHASE_SCHEDULER_BENCHMARK_V0_1.json")
@@ -122,6 +123,7 @@ def run_benchmark(*, items_per_topic: int = 24) -> dict[str, object]:
 
     topic_by_id: dict[str, str] = {}
     tokens_by_id: dict[str, set[str]] = {}
+    payload_by_id: dict[str, dict[str, object]] = {}
 
     # Round-robin enqueue deliberately makes FIFO context alternate across topics.
     for item_index in range(items_per_topic):
@@ -131,6 +133,7 @@ def run_benchmark(*, items_per_topic: int = 24) -> dict[str, object]:
             broker.enqueue("SERPENT", payload, task_id=task_id)
             topic_by_id[task_id] = topic
             tokens_by_id[task_id] = _tokens(payload)
+            payload_by_id[task_id] = payload
 
     selected_transition = 0.0
     fifo_transition = 0.0
@@ -142,6 +145,10 @@ def run_benchmark(*, items_per_topic: int = 24) -> dict[str, object]:
     fifo_purity_weighted = 0.0
     task_weight = 0
     batch_sizes: list[int] = []
+    selected_raw_context_bytes = 0
+    selected_packed_context_bytes = 0
+    fifo_raw_context_bytes = 0
+    fifo_packed_context_bytes = 0
 
     while True:
         lease = broker.claim("geometry-bench", species="SERPENT", limit=64)
@@ -164,6 +171,16 @@ def run_benchmark(*, items_per_topic: int = 24) -> dict[str, object]:
         fifo_overlap_weighted += n * _pairwise_jaccard(fifo_ids, tokens_by_id)
         selected_purity_weighted += n * _topic_purity(selected_ids, topic_by_id)
         fifo_purity_weighted += n * _topic_purity(fifo_ids, topic_by_id)
+
+        selected_pack = lease["context_pack"]
+        fifo_pack = pack_context([
+            {"task_id": task_id, "payload": payload_by_id[task_id]}
+            for task_id in fifo_ids
+        ])
+        selected_raw_context_bytes += int(selected_pack["raw_semantic_bytes"])
+        selected_packed_context_bytes += int(selected_pack["packed_context_bytes"])
+        fifo_raw_context_bytes += int(fifo_pack["raw_semantic_bytes"])
+        fifo_packed_context_bytes += int(fifo_pack["packed_context_bytes"])
 
         broker.submit(
             "geometry-bench",
@@ -202,6 +219,22 @@ def run_benchmark(*, items_per_topic: int = 24) -> dict[str, object]:
         "selected_topic_purity": selected_purity,
         "fifo_topic_purity_proxy": fifo_purity,
         "topic_purity_gain": selected_purity - fifo_purity,
+        "selected_raw_context_bytes": selected_raw_context_bytes,
+        "selected_packed_context_bytes": selected_packed_context_bytes,
+        "selected_context_byte_saving_fraction": (
+            0.0 if selected_raw_context_bytes <= 0
+            else 1.0 - selected_packed_context_bytes / selected_raw_context_bytes
+        ),
+        "fifo_raw_context_bytes_proxy": fifo_raw_context_bytes,
+        "fifo_packed_context_bytes_proxy": fifo_packed_context_bytes,
+        "fifo_context_byte_saving_fraction_proxy": (
+            0.0 if fifo_raw_context_bytes <= 0
+            else 1.0 - fifo_packed_context_bytes / fifo_raw_context_bytes
+        ),
+        "context_pack_advantage_vs_fifo_proxy": (
+            (0.0 if selected_raw_context_bytes <= 0 else 1.0 - selected_packed_context_bytes / selected_raw_context_bytes)
+            - (0.0 if fifo_raw_context_bytes <= 0 else 1.0 - fifo_packed_context_bytes / fifo_raw_context_bytes)
+        ),
         "actual_model_token_accounting": False,
         "token_saving_claim": False,
         "external_effects": False,
