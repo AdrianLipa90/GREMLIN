@@ -7,6 +7,7 @@ from typing import Any
 import uuid
 
 from gremlin_mcp.workers import WorkerBroker
+from tools.gremlin_geometry_phase_scheduler_v01 import SCHEDULER_KEY
 
 PIPELINE_SCHEMA = "GREMLIN_MCP_BESTIARY_PIPELINE_V0_4"
 SPECIALISTS = ("SPIDER", "RAVEN", "HOUND", "MOLE", "OWL", "ANT", "MANTIS")
@@ -76,6 +77,8 @@ def fanout(
         raise ValueError("payload must be a mapping")
     body = dict(payload)
     _canonical(body)
+    scheduler_meta = body.get(SCHEDULER_KEY)
+    semantic_body = {key: value for key, value in body.items() if key != SCHEDULER_KEY}
     roles = _normalize_species(species)
     rid = _request_id(request_id)
 
@@ -94,7 +97,9 @@ def fanout(
     rows: list[dict[str, Any]] = []
     for name in roles:
         task_id = f"{rid[:48]}-{name.lower()}-{digest[:12]}"
-        task_payload: dict[str, Any] = {"schema": PIPELINE_SCHEMA, "request_id": rid, "route_species": name, "payload": body}
+        task_payload: dict[str, Any] = {"schema": PIPELINE_SCHEMA, "request_id": rid, "route_species": name, "payload": semantic_body}
+        if scheduler_meta is not None:
+            task_payload[SCHEDULER_KEY] = scheduler_meta
         if route_meta is not None:
             task_payload["route_context"] = route_meta
         task = broker.enqueue(name, task_payload, task_id=task_id)
