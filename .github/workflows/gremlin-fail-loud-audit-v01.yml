@@ -43,3 +43,41 @@ jobs:
         run: python -m compileall -q gremlin_mcp tools client examples benchmarks
       - name: Run repository-wide test suite
         run: python -m pytest -q tests
+      - name: Build standalone wheel
+        run: |
+          python -m pip install --disable-pip-version-check build
+          python -m build --wheel
+      - name: Smoke-test standalone wheel outside source tree
+        run: |
+          python -m venv /tmp/gremlin-wheel-runtime
+          /tmp/gremlin-wheel-runtime/bin/python -m pip install --disable-pip-version-check dist/*.whl
+          cd /tmp
+          /tmp/gremlin-wheel-runtime/bin/python - <<'PY'
+          from gremlin_mcp.core import bestiary_manifest
+          from gremlin_mcp.phasenav_runtime import status, reference_sweep
+          from gremlin_mcp.server_with_hive import mcp
+          from tools.gremlin_bestiary_phasenav_threeway_v01 import run_threeway_suite
+
+          manifest = bestiary_manifest()
+          names = {item["name"] for item in manifest["species"]}
+          assert len(names) == 18
+          assert {"FOX", "BEAVER", "BAT", "CANARY", "SERPENT", "CHAMELEON"} <= names
+
+          s = status()
+          assert s["standalone"] is True
+          assert s["species_count"] == 18
+          assert s["live_noema_required_for_core"] is False
+          assert s["vector_backend_available"] is True
+
+          sweep = reference_sweep()
+          assert sweep["species_count"] == 18
+          assert sweep["external_effects"] is False
+
+          tri = run_threeway_suite(batch_size=4, horizon=0.2, coarse_steps=4, fine_steps=16, rk4_substeps=64)
+          assert tri["summary"]["all_species_pass"] is True
+          assert tri["summary"]["physical_analog_claim"] is False
+
+          assert mcp is not None
+          print("STANDALONE_WHEEL_IMPORT_SURFACE_PASS")
+          PY
+          /tmp/gremlin-wheel-runtime/bin/gremlin-mcp --help >/dev/null
