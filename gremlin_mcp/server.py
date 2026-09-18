@@ -17,6 +17,13 @@ from gremlin_mcp.core import (
 from gremlin_mcp.guarded_research import execute_guarded_research
 from gremlin_mcp.hound_research import execute_research_with_hound_provenance
 from gremlin_mcp.pipeline import collect, enqueue_synthesis, fanout
+from gremlin_mcp.phasenav_runtime import (
+    analog_invariants as phasenav_analog_invariants,
+    live_replay as phasenav_live_replay,
+    reference_sweep as phasenav_reference_sweep,
+    status as phasenav_status,
+    threeway as phasenav_threeway,
+)
 from gremlin_mcp.relational_cases import extract_relations, operator_signature
 from gremlin_mcp.relational_research import execute_relational_research
 from gremlin_mcp.research_executor import execute_research
@@ -324,6 +331,51 @@ def gremlin_synthesize(
 def gremlin_prototype(request: dict[str, Any]) -> dict[str, Any]:
     """Run GREMLIN's existing reference candidate -> PhaseNav IR -> prototype -> test pipeline."""
     return run_prototype(request)
+
+
+@mcp.tool()
+def gremlin_phasenav_status() -> dict[str, Any]:
+    """Return the standalone 36D PhaseNav Bestiary runtime/import surface."""
+    return phasenav_status()
+
+
+@mcp.tool()
+def gremlin_phasenav_reference_sweep() -> dict[str, Any]:
+    """Run all current Bestiary species through the standalone reference phase layer."""
+    return phasenav_reference_sweep()
+
+
+@mcp.tool()
+def gremlin_phasenav_threeway(
+    batch_size: int = 12,
+    horizon: float = 0.8,
+    coarse_steps: int = 8,
+    fine_steps: int = 64,
+    rk4_substeps: int = 256,
+) -> dict[str, Any]:
+    """Compare scalar, NumPy-vector and continuous T^36 realizations."""
+    return phasenav_threeway(
+        batch_size=batch_size,
+        horizon=horizon,
+        coarse_steps=coarse_steps,
+        fine_steps=fine_steps,
+        rk4_substeps=rk4_substeps,
+    )
+
+
+@mcp.tool()
+def gremlin_phasenav_analog_invariants() -> dict[str, Any]:
+    """Run specialist invariants for all current analog-core Bestiary candidates."""
+    return phasenav_analog_invariants()
+
+
+@mcp.tool()
+def gremlin_phasenav_live_replay(
+    surface_root: str = "/dev/shm/ciel_noema",
+    steps: int = 1,
+) -> dict[str, Any]:
+    """Replay all species against an explicit live PhaseNav surface; no fallback."""
+    return phasenav_live_replay(surface_root=surface_root, steps=steps)
 
 
 @mcp.tool()
