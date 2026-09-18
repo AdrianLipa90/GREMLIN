@@ -1,0 +1,41 @@
+{
+  "schema": "GREMLIN_DOCUMENTATION_MONOGRAPH_REFRESH_V0_1",
+  "date": "2026-09-18",
+  "repository": "AdrianLipa90/GREMLIN",
+  "branch": "docs/bestiary-main-monograph-20260918",
+  "source_main_sha": "aaa4db7d268bcd50b70e417137c595c2fa677f5a",
+  "validated_pr": 62,
+  "validated_head_sha": "072ed5435a8f6f12cc3afe113a8d7e6bc75b83d0",
+  "premerge_base_sha": "b33d8c3fec014db4686856958c17e0e948192742",
+  "merged_at": "2026-09-18T14:25:01Z",
+  "exact_head_workflows": {
+    "required": 9,
+    "success": 9,
+    "failure": 0
+  },
+  "files": [
+    "README.md",
+    "docs/monograph/GREMLIN_MONOGRAPH_V0_2.md",
+    "docs/reports/GREMLIN_MAIN_STATE_2026-09-18.md",
+    "docs/roadmap/GREMLIN_DEVELOPMENT_ROADMAP_V0_2.md",
+    "docs/reports/GREMLIN_BESTIARY_PHASENAV_STANDALONE_VALIDATION_REPORT_V0_1.md",
+    "spec/GREMLIN_BESTIARY_PHASENAV_PHASE_GATES_V0_1.md",
+    "spec/GREMLIN_BESTIARY_V0_1.md",
+    "spec/GREMLIN_BESTIARY_VECTOR_LIVE_V0_4.md"
+  ],
+  "preservation": {
+    "frozen_provenance_json_rewritten": false,
+    "historical_claim_scope_widened": false,
+    "old_reports_silently_rebased": false
+  },
+  "authority": {
+    "physical_analog_claim": false,
+    "hardware_analog_witness": false,
+    "universal_model_performance_claim": false
+  },
+  "tether_preflight": {
+    "schema": "noema.aux-tether-guard/v2",
+    "tether_status": "ACTIVE",
+    "failures": []
+  }
+}
