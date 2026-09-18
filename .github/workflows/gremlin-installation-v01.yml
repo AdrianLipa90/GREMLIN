@@ -87,6 +87,7 @@ jobs:
           print("ISOLATED_LINUX_WHEEL_RUNTIME_PASS")
           PY
           "$RUNNER_TEMP/gremlin-wheel-runtime/bin/gremlin-mcp" --help >/dev/null
+          "$RUNNER_TEMP/gremlin-wheel-runtime/bin/gremlin-mcp" --self-test-phasenav
 
   native-control-center:
     runs-on: ubuntu-latest
@@ -169,6 +170,7 @@ jobs:
           try {
             & $py $smoke
             & $mcp --help | Out-Null
+            & $mcp --self-test-phasenav
           } finally {
             Pop-Location
           }
