@@ -3,6 +3,7 @@ name: GREMLIN Bestiary PhaseNav Phase Gates v0.1
 on:
   push:
     branches:
+      - main
       - 'feat/bestiary-phasenav-phase-gates-v0.1'
     paths:
       - 'tools/gremlin_bestiary_phasenav_phase_gates_v01.py'
@@ -26,9 +27,14 @@ on:
       - 'tools/gremlin_bestiary_phasenav_numpy_v01.py'
       - 'tools/gremlin_bestiary_phasenav_numpy_bench_v01.py'
       - 'tools/gremlin_bestiary_phasenav_live_binding_v01.py'
+      - 'tools/gremlin_bestiary_phasenav_threeway_v01.py'
+      - 'tools/gremlin_bestiary_phasenav_threeway_bench_v01.py'
+      - 'tools/gremlin_bestiary_phasenav_analog_invariants_v01.py'
       - 'tests/test_gremlin_bestiary_phasenav_phase_gates_v01.py'
       - 'tests/test_gremlin_bestiary_phasenav_numpy_v01.py'
       - 'tests/test_gremlin_bestiary_phasenav_live_binding_v01.py'
+      - 'tests/test_gremlin_bestiary_phasenav_threeway_v01.py'
+      - 'tests/test_gremlin_bestiary_phasenav_analog_invariants_v01.py'
       - 'spec/GREMLIN_BESTIARY_PHASENAV_PHASE_GATES_V0_1.md'
       - 'native/GREMLIN_BESTIARY_PHASENAV_PHASE_GATES_V0_1.pnv'
       - '.github/workflows/gremlin-bestiary-phasenav-phase-gates-v01.yml'
