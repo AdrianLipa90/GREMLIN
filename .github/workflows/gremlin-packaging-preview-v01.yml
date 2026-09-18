@@ -1,6 +1,17 @@
 name: GREMLIN Packaging Preview v0.1
 
 on:
+  pull_request:
+    paths:
+      - 'gremlin_mcp/**'
+      - 'control_center/**'
+      - 'packaging/**'
+      - 'tools/build_gremlin_standalone_v01.py'
+      - 'tools/build_gremlin_deb_v01.py'
+      - 'tools/prepare_installer_resources_v01.py'
+      - 'tools/smoke_installed_customer_flow_v01.py'
+      - 'pyproject.toml'
+      - '.github/workflows/gremlin-packaging-preview-v01.yml'
   push:
     branches:
       - main
