@@ -1,0 +1,125 @@
+{
+  "schema": "GREMLIN_BESTIARY_PHASENAV_STANDALONE_VALIDATION_REPORT_V0_1",
+  "status": "PASS_CANDIDATE",
+  "report_path": "docs/reports/GREMLIN_BESTIARY_PHASENAV_STANDALONE_VALIDATION_REPORT_V0_1.md",
+  "repository": "AdrianLipa90/GREMLIN",
+  "pull_request": 62,
+  "branch": "feat/bestiary-phasenav-phase-gates-v0.1",
+  "base_main_sha": "b33d8c3fec014db4686856958c17e0e948192742",
+  "evidence_source_head_sha": "005a7888289183e2c3ad56012db0725f4d560006",
+  "evidence_date": "2026-09-18",
+  "workflow_evidence": {
+    "product_licensing": {
+      "run_id": 35323817579,
+      "job_id": 105532145714,
+      "conclusion": "success"
+    },
+    "phasenav_phase_gates": {
+      "run_id": 35323817621,
+      "job_id": 105532146418,
+      "conclusion": "success",
+      "targeted_tests_passed": 136,
+      "targeted_tests_failed": 0
+    },
+    "repository_fail_loud": {
+      "run_id": 35323817593,
+      "job_id": 105532145830,
+      "conclusion": "success",
+      "passed": 1312,
+      "skipped": 1,
+      "failed": 0
+    },
+    "mcp_contract": {
+      "run_id": 35323817616,
+      "job_id": 105532145743,
+      "conclusion": "success",
+      "passed": 86,
+      "failed": 0
+    },
+    "installation_architecture": {
+      "run_id": 35323817580,
+      "conclusion": "success",
+      "linux_job_id": 105532145648,
+      "windows_job_id": 105532145930,
+      "native_control_center_job_id": 105532145888,
+      "isolated_linux_wheel_runtime": "PASS",
+      "isolated_windows_wheel_runtime": "PASS"
+    },
+    "standalone_runtime": {
+      "run_id": 35323817592,
+      "conclusion": "success",
+      "linux_job_id": 105532145605,
+      "windows_job_id": 105532145771,
+      "linux_compiled_runtime_self_test": "PASS",
+      "windows_compiled_runtime_self_test": "PASS"
+    }
+  },
+  "phasenav_metrics": {
+    "species_count": 18,
+    "max_scalar_vector_torus_error": 0.0,
+    "min_measured_numpy_speedup": 2.9100866102357243,
+    "median_measured_numpy_speedup": 3.03133825193712,
+    "max_measured_numpy_speedup": 3.1244465760713713,
+    "max_fine_continuous_error_radians_rms": 0.0008214511194856206,
+    "max_fine_to_coarse_error_ratio": 0.12290964222812932,
+    "analog_core_numerical_pass_count": 9,
+    "hybrid_pass_count": 9,
+    "fully_analog_physical_pass_count": 0
+  },
+  "analog_core_species": [
+    "BAT",
+    "BEAVER",
+    "CANARY",
+    "FOX",
+    "HOUND",
+    "MOLE",
+    "RAVEN",
+    "SERPENT",
+    "SPIDER"
+  ],
+  "hybrid_species": [
+    "ANT",
+    "BELZEBUB",
+    "CHAMELEON",
+    "FERRET",
+    "GREMLIN",
+    "HUMMINGBIRD",
+    "MANTIS",
+    "OCTOPUS",
+    "OWL"
+  ],
+  "specialist_invariants": {
+    "passed": 9,
+    "failed": 0,
+    "fully_analog_specialist_semantics_claim": false
+  },
+  "standalone_self_test_contract": {
+    "schema": "GREMLIN_STANDALONE_PHASENAV_SELF_TEST_V0_1",
+    "linux_status": "PASS",
+    "windows_status": "PASS",
+    "species_count": 18,
+    "vector_backend_available": true,
+    "threeway_all_species_pass": true,
+    "analog_core_invariants_pass": true,
+    "live_noema_required": false,
+    "external_effects": false,
+    "canon_allowed": false,
+    "physical_analog_claim": false
+  },
+  "packaging_status": {
+    "isolated_linux_wheel": "VERIFIED",
+    "isolated_windows_wheel": "VERIFIED",
+    "compiled_linux_standalone": "VERIFIED",
+    "compiled_windows_standalone": "VERIFIED",
+    "preview_installer_with_new_self_test": "CONFIGURED_NOT_EXECUTED_ON_FEATURE_BRANCH",
+    "early_access_release_with_new_self_test": "CONFIGURED_NOT_EXECUTED_ON_FEATURE_BRANCH"
+  },
+  "authority": {
+    "canon_allowed": false,
+    "external_effects": false,
+    "physical_analog_claim": false,
+    "hardware_analog_witness": false,
+    "silent_scalar_fallback": false
+  },
+  "next_gate": "HYDRODYNAMIC_QHTRI_END_TO_END_SPECIALIST_INVARIANT_REPLAY"
+}
