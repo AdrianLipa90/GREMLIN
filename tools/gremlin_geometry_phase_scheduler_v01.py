@@ -445,6 +445,7 @@ def select_batch(
         "schema": SCHEMA,
         "mode": MODE,
         "selected_task_ids": [s.task_id for s in chosen],
+        "fifo_task_ids_proxy": [s.task_id for s in fifo],
         "phase_sources": phase_sources,
         "mean_priority": sum(priority[s.task_id] for s in chosen) / len(chosen),
         "transition_cost_selected": selected_transition,
