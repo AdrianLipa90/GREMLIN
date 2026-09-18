@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 from typing import Any
 
@@ -456,6 +457,44 @@ def gremlin_worker_queue() -> dict[str, Any]:
     return broker.queue_status()
 
 
+def standalone_phasenav_self_test() -> dict[str, Any]:
+    """Run a bounded no-NOEMA self-test of the packaged PhaseNav Bestiary surface."""
+    runtime = phasenav_status()
+    reference = phasenav_reference_sweep()
+    threeway = phasenav_threeway(
+        batch_size=4,
+        horizon=0.2,
+        coarse_steps=4,
+        fine_steps=16,
+        rk4_substeps=64,
+    )
+    invariants = phasenav_analog_invariants()
+    passed = (
+        runtime["standalone"] is True
+        and runtime["live_noema_required_for_core"] is False
+        and runtime["species_count"] == 18
+        and runtime["vector_backend_available"] is True
+        and reference["species_count"] == 18
+        and reference["external_effects"] is False
+        and threeway["summary"]["all_species_pass"] is True
+        and invariants["summary"]["all_analog_core_specialist_invariants_pass"] is True
+    )
+    if not passed:
+        raise RuntimeError("standalone PhaseNav Bestiary self-test failed")
+    return {
+        "schema": "GREMLIN_STANDALONE_PHASENAV_SELF_TEST_V0_1",
+        "status": "PASS",
+        "species_count": 18,
+        "vector_backend_available": True,
+        "threeway_all_species_pass": True,
+        "analog_core_invariants_pass": True,
+        "live_noema_required": False,
+        "external_effects": False,
+        "canon_allowed": False,
+        "physical_analog_claim": False,
+    }
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="GREMLIN Bestiary MCP server")
     parser.add_argument(
@@ -467,6 +506,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--host", default="127.0.0.1", help="HTTP bind host")
     parser.add_argument("--port", default=8766, type=int, help="HTTP bind port")
     parser.add_argument("--path", default="/mcp", help="Streamable HTTP MCP path")
+    parser.add_argument(
+        "--self-test-phasenav",
+        action="store_true",
+        help="run the bounded standalone PhaseNav/Bestiary import and conformance self-test, then exit",
+    )
     parser.add_argument(
         "--state-path",
         default=os.environ.get("GREMLIN_MCP_STATE_PATH"),
@@ -481,6 +525,9 @@ def build_parser() -> argparse.ArgumentParser:
 def main() -> None:
     args = build_parser().parse_args()
     configure_state(args.state_path)
+    if args.self_test_phasenav:
+        print(json.dumps(standalone_phasenav_self_test(), sort_keys=True))
+        return
     if args.transport == "stdio":
         mcp.run("stdio")
         return
