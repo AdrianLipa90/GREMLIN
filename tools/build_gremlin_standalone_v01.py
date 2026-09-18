@@ -56,6 +56,7 @@ def _nuitka_command(*, entry: Path, work: Path, exe_name: str) -> list[str]:
         "--include-module=tools.gremlin_bestiary_phasenav_threeway_v01",
         "--include-module=tools.gremlin_bestiary_phasenav_analog_invariants_v01",
         "--include-module=tools.gremlin_bestiary_phasenav_live_binding_v01",
+        "--include-module=tools.gremlin_geometry_phase_scheduler_v01",
         f"--output-dir={work}",
         f"--output-filename={exe_name}",
         str(entry),
