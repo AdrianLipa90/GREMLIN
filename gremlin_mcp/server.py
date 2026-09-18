@@ -495,6 +495,9 @@ def standalone_phasenav_self_test() -> dict[str, Any]:
         and lease["batch_size"] == 2
         and lease["scheduler"]["mode"] == "GEOMETRY_PHASE_STATE_CLUSTERED_V0_1"
         and lease["scheduler"]["fifo_primary"] is False
+        and lease["context_pack"]["lossless_semantic_payload_core"] is True
+        and lease["context_pack"]["scheduler_metadata_included"] is False
+        and lease["context_pack"]["token_saving_claim"] is False
     )
 
     passed = (
@@ -520,6 +523,7 @@ def standalone_phasenav_self_test() -> dict[str, Any]:
         "threeway_all_species_pass": True,
         "analog_core_invariants_pass": True,
         "geometry_phase_scheduler_pass": True,
+        "geometry_context_pack_pass": True,
         "fifo_primary": False,
         "live_noema_required": False,
         "external_effects": False,
