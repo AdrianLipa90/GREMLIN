@@ -9,6 +9,7 @@ from tools.gremlin_bestiary_vector_species_v03 import (
     dispatch_compression,
     validate_plan,
 )
+from tools.gremlin_geometry_phase_scheduler_v01 import scheduler_manifest
 
 SCHEMA = "GREMLIN_MCP_V0_5"
 VERSION = "0.5.0"
@@ -79,8 +80,9 @@ def status() -> dict[str, Any]:
             "no_evidence_policy": "NO_CONFIDENT_ROUTE_NOT_QUEUED",
         },
         "worker_abi": {
-            "version": "0.2.0", "model": "PULL_LEASE_SUBMIT", "callback_networking": False,
+            "version": "0.2.1", "model": "PULL_LEASE_SUBMIT", "callback_networking": False,
             "same_species_batches": True, "orbit_lane_bounded": True,
+            "scheduler": scheduler_manifest(),
             "state_persistence": "PROCESS_MEMORY_OR_SQLITE_WAL",
         },
         "tools": list(MCP_TOOLS), "topology": list(TOPOLOGY), "authority": authority_state(),
