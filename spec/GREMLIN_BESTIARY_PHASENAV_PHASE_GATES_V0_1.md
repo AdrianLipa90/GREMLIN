@@ -138,6 +138,45 @@ Workflow artifact `10527050191` contains both frozen benchmark JSON files and is
 
 Coverage includes exact 36D fail-closed shape/bounds, deterministic identities, all 18 species operators, scalar/vector trajectory equivalence, continuous-field convergence, injected BAT harmonic detection, CANARY drift detection, SERPENT temperature/novelty response, CHAMELEON reversible roundtrip, defensive synthesis, FERRET fail-closed authority, no silent scalar fallback, and repository-wide PNV contract compatibility.
 
+### Analog-core specialist invariant gate
+
+The shared continuous phase-field result was followed by a specialist-specific
+signal-preservation gate for every species currently classified as
+`ANALOG_CORE_HYBRID_CONTROL`.
+
+Exact invariant-code evidence head:
+`eb9fa0b9ac4dc375e5e240d626e70a20e6347a23`.
+
+Dedicated workflow `35291684002`: `136/136 PASS`.
+
+Repository-wide fail-loud audit `35291683992`:
+`1308 PASS / 1 SKIP / 0 FAIL`.
+
+All nine analog-core species preserved their preregistered specialist invariant
+after continuous phase preconditioning:
+
+```text
+SPIDER   close relation edge preserved
+RAVEN    exact memory remains top recall
+HOUND    larger anomaly remains larger
+MOLE     target distance decreases
+FOX      continuous plan progress remains monotone
+BEAVER   constructed candidate remains between close parts
+BAT      injected weak harmonic remains dominant
+CANARY   sudden drift remains blocking
+SERPENT  hotter/novel object remains hotter and more novel
+
+passed = 9 / 9
+failed = 0
+```
+
+Pinned receipt:
+`provenance/GREMLIN_BESTIARY_PHASENAV_ANALOG_INVARIANTS_CI_RECEIPT_V0_1.json`.
+
+This gate still uses the existing specialist operator after continuous phase
+preconditioning. It therefore strengthens analog-core compatibility evidence,
+but it does **not** establish fully analog specialist semantics.
+
 ## Live T^36 operator-binding replay
 
 A current-session replay was executed against the canonical live NOEMA surface
@@ -189,9 +228,10 @@ FERRET may return an `ADMITTED` authority verdict only when explicit authorizati
 
 ## Next gate
 
-The computational scalar/vector/continuous-field gate is closed for this candidate branch.
+The computational scalar/vector/continuous-field gate and the analog-core
+specialist-invariant gate are closed for this candidate branch.
 
-1. test specialist-specific invariants through the continuous phase path, not merely convergence of the shared phase field;
-2. bind the continuous phase path to the current hydrodynamic/QHTRI substrate and compare identical specialist workloads end-to-end;
-3. isolate which hybrid roles can move additional decision sub-operators into continuous phase dynamics without weakening provenance or authority;
+1. bind the continuous phase path to the current hydrodynamic/QHTRI substrate and compare identical specialist workloads end-to-end;
+2. isolate which hybrid roles can move additional decision sub-operators into continuous phase dynamics without weakening provenance or authority;
+3. replace selected digital post-operators with explicit continuous candidates one at a time and require invariant equivalence before promotion;
 4. test hardware/analog realization candidates separately with measured electrical/physical witnesses. No fully-analog claim is permitted from numerical continuity alone.
