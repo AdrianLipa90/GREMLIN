@@ -1,6 +1,6 @@
 # GREMLIN Bestiary PhaseNav Phase Gates v0.1
 
-Status: CANDIDATE / COMPUTATIONAL VECTOR GATE PASS / EXACT 36D / NO PHYSICAL ANALOG CLAIM / NO EXTERNAL EFFECTS
+Status: CANDIDATE / THREE-WAY COMPUTATIONAL REALIZATION PASS / EXACT 36D / NO PHYSICAL ANALOG CLAIM / NO EXTERNAL EFFECTS
 
 ## Objective
 
@@ -65,11 +65,11 @@ No species is declared physically analog by this v0.1 gate.
 
 ## Validation
 
-Exact functional-code evidence head: `82a87f6f4bd075eeb896ac88e008e1ecaf344409`.
+Exact three-way functional-code evidence head: `87e7043ad41c6c2924c85d93ad8407ce5f2b3792`.
 
-Dedicated PhaseNav phase-gate workflow `35288746397`: `91/91 PASS`.
+Dedicated PhaseNav phase-gate workflow `35291358763`: `131/131 PASS`.
 
-Repository-wide fail-loud audit `35288746390`: `1263 PASS / 1 SKIP / 0 FAIL`.
+Repository-wide fail-loud audit `35291358759`: `1303 PASS / 1 SKIP / 0 FAIL`.
 
 Frozen NumPy batch workload: 512 states x 36 coordinates, 7 repeats per species, all 18 species.
 
@@ -78,18 +78,65 @@ Observed batch-vector equivalence and performance on the hosted CI fixture:
 ```text
 max scalar/vector torus error = 0.0
 equivalence tolerance          = 1e-12
-all 18 species equivalent     = PASS
-all continuity probes finite  = PASS
-min measured speedup           = 2.809500x
-median measured speedup        = 2.957516x
-max measured speedup           = 2.984762x
+all 18 species equivalent      = PASS
+all continuity probes finite   = PASS
+min measured speedup           = 3.020201x
+median measured speedup        = 3.218813x
+max measured speedup           = 3.240178x
 ```
 
-The speedup is an environment-specific Python/NumPy batch result, not a hardware-independent throughput claim. The continuity probes establish numerical continuity of the implemented phase kernels on the frozen fixture; they do not establish physical analog realization.
+The speedup is an environment-specific Python/NumPy batch result, not a hardware-independent throughput claim.
 
-Pinned CI receipt: `provenance/GREMLIN_BESTIARY_PHASENAV_NUMPY_CI_RECEIPT_V0_1.json`.
+### Scalar / vector / continuous phase-flow gate
 
-Coverage includes exact 36D fail-closed shape/bounds, scalar/vector-batch equivalence, deterministic identities, all 18 species operators, injected BAT harmonic detection, CANARY drift detection, SERPENT temperature/novelty response, CHAMELEON reversible roundtrip, defensive synthesis, FERRET fail-closed authority, no silent scalar fallback, and repository-wide PNV contract compatibility.
+The same frozen phase workload was evaluated through three numerical realizations of the same phase field:
+
+```text
+scalar digital     = forward-Euler PhaseGate36
+vector digital     = NumPy batch forward-Euler of the same field
+continuous ref.    = RK4 integration of the exact continuous T^36 field
+```
+
+Predeclared gates:
+
+```text
+scalar/vector max coordinate error <= 1e-12
+fine Euler vs continuous max RMS   <= 1e-2 rad
+fine/coarse continuous-error ratio <= 0.50
+```
+
+Observed exact-head result:
+
+```text
+species tested                         = 18 / 18
+all species pass                       = true
+scalar/vector max coordinate error     = 0.0
+max fine-vs-continuous RMS error       = 0.0008214511194856206 rad
+max fine/coarse convergence ratio      = 0.12290964222812932
+analog-core numerical pass             = 9
+hybrid / authority-boundary pass       = 9
+fully analog physical pass             = 0
+hardware analog witness                = false
+```
+
+Analog-core numerical pass with hybrid control:
+
+`BAT, BEAVER, CANARY, FOX, HOUND, MOLE, RAVEN, SERPENT, SPIDER`.
+
+Hybrid or hybrid-authority-boundary pass:
+
+`ANT, BELZEBUB, CHAMELEON, FERRET, GREMLIN, HUMMINGBIRD, MANTIS, OCTOPUS, OWL`.
+
+This classification is deliberately narrower than a physical analog claim. For the nine analog-core species it establishes that the implemented digital phase gate converges toward the corresponding continuous phase-field dynamics on the frozen workload while preserving exact scalar/vector equivalence. The remaining nine retain hybrid semantics because discrete routing, epistemic judgment, construction, aggregation, cryptographic/profile handling, or authority remains part of the role.
+
+Pinned receipts:
+
+- `provenance/GREMLIN_BESTIARY_PHASENAV_NUMPY_CI_RECEIPT_V0_1.json`
+- `provenance/GREMLIN_BESTIARY_PHASENAV_THREEWAY_CI_RECEIPT_V0_1.json`
+
+Workflow artifact `10527050191` contains both frozen benchmark JSON files and is pinned by ZIP SHA-256 `295368070189d869fbb5eb9ec51d42d5a1e82ea1a36f3e67aec83ac204023fe6`.
+
+Coverage includes exact 36D fail-closed shape/bounds, deterministic identities, all 18 species operators, scalar/vector trajectory equivalence, continuous-field convergence, injected BAT harmonic detection, CANARY drift detection, SERPENT temperature/novelty response, CHAMELEON reversible roundtrip, defensive synthesis, FERRET fail-closed authority, no silent scalar fallback, and repository-wide PNV contract compatibility.
 
 ## Live T^36 operator-binding replay
 
@@ -142,9 +189,9 @@ FERRET may return an `ADMITTED` authority verdict only when explicit authorizati
 
 ## Next gate
 
-The pure computational/vector gate and frozen benchmark gate are now closed for this candidate branch.
+The computational scalar/vector/continuous-field gate is closed for this candidate branch.
 
-1. compare digital scalar, digital batch-vector and phase-flow/hydrodynamic realizations on the same frozen semantic workload;
-2. test whether each candidate operator composition preserves the specialist-specific invariants, not merely phase convergence;
-3. classify each species only from evidence as `HYBRID`, `ANALOG_CORE_HYBRID_CONTROL`, or a later hardware-witnessed analog class;
-4. test hardware/analog realization candidates separately. No fully-analog claim is permitted from numerical continuity alone.
+1. test specialist-specific invariants through the continuous phase path, not merely convergence of the shared phase field;
+2. bind the continuous phase path to the current hydrodynamic/QHTRI substrate and compare identical specialist workloads end-to-end;
+3. isolate which hybrid roles can move additional decision sub-operators into continuous phase dynamics without weakening provenance or authority;
+4. test hardware/analog realization candidates separately with measured electrical/physical witnesses. No fully-analog claim is permitted from numerical continuity alone.
