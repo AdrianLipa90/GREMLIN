@@ -23,6 +23,12 @@ BESTIARY_ROLES: dict[str, dict[str, str]] = {
     "OWL": {"stage": "specialist", "role": "epistemic audit"},
     "ANT": {"stage": "specialist", "role": "bounded combinatorial scan"},
     "MANTIS": {"stage": "specialist", "role": "duplicate and dead-branch pruning"},
+    "FOX": {"stage": "specialist", "role": "strategic planning and decomposition"},
+    "BEAVER": {"stage": "specialist", "role": "candidate construction and prototyping"},
+    "BAT": {"stage": "specialist", "role": "weak-signal, harmonic and phase-pattern detection"},
+    "CANARY": {"stage": "sentinel", "role": "runtime drift and early-warning sentinel"},
+    "SERPENT": {"stage": "sensor", "role": "latent-field temperature, taste and novelty sensing"},
+    "CHAMELEON": {"stage": "transform", "role": "reversible representation/profile transformation"},
     "BELZEBUB": {"stage": "synthesis", "role": "defensive candidate synthesis"},
     "FERRET": {"stage": "actuation", "role": "explicitly authorized interactive web actuator"},
     "GREMLIN": {"stage": "aggregate", "role": "aggregate verified heads and emit research candidates"},
@@ -36,6 +42,8 @@ MCP_TOOLS = [
     "gremlin_auto_fanout", "gremlin_fanout", "gremlin_collect", "gremlin_synthesize", "gremlin_prototype",
     "gremlin_worker_register", "gremlin_worker_heartbeat", "gremlin_worker_list", "gremlin_worker_enqueue",
     "gremlin_worker_claim", "gremlin_worker_submit", "gremlin_worker_result", "gremlin_worker_queue",
+    "gremlin_phasenav_status", "gremlin_phasenav_reference_sweep", "gremlin_phasenav_threeway",
+    "gremlin_phasenav_analog_invariants", "gremlin_phasenav_live_replay",
 ]
 
 
