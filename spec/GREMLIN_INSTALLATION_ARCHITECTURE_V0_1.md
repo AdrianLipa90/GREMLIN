@@ -23,6 +23,7 @@ Default per-user installation requires no administrator elevation:
 
 ```text
 %LOCALAPPDATA%\Programs\GREMLIN\
+    gremlin-mcp.exe
     gremlin-product-mcp.exe
     gremlinctl.exe
     gremlin-control-center.exe
@@ -63,6 +64,7 @@ Optional machine policy:
 Program files installed by the `.deb` package:
 
 ```text
+/usr/bin/gremlin-mcp
 /usr/bin/gremlin-product-mcp
 /usr/bin/gremlinctl
 /usr/bin/gremlin-control-center

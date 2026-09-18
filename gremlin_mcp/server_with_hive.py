@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict
+import json
 import os
 from typing import Any
 
@@ -8,7 +9,7 @@ from .hive_authority import HiveAuthorityRuntime
 from .hive_ingest import ingest_research_execution
 from .research_executor import execute_research
 from .server import build_parser as build_base_parser
-from .server import configure_state, mcp
+from .server import configure_state, mcp, standalone_phasenav_self_test
 
 hive_runtime = HiveAuthorityRuntime()
 
@@ -178,6 +179,9 @@ def main() -> None:
     args = build_parser().parse_args()
     configure_state(args.state_path)
     configure_hive_state(args.hive_state_path)
+    if args.self_test_phasenav:
+        print(json.dumps(standalone_phasenav_self_test(), sort_keys=True))
+        return
     if args.transport == "stdio":
         mcp.run("stdio")
         return

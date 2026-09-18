@@ -104,14 +104,24 @@ def smoke(*, ctl: Path, platform: str, license_key: str) -> dict[str, Any]:
         connected = run_json(
             [str(ctl), "integrations", "connect", "cursor", "--platform", platform, "--json"]
         )
-        if connected.get("status") != "CONNECTED_CONFIGURED":
-            raise RuntimeError(f"Cursor integration did not configure: {connected}")
+        if connected.get("status") != "CONFIGURED_UNVERIFIED":
+            raise RuntimeError(
+                "Cursor JSON integration must configure without claiming live connectivity: "
+                f"{connected}"
+            )
 
+        # JSON-config providers intentionally do not claim a live MCP session from
+        # configuration presence alone. The CLI therefore returns exit code 1 for
+        # the unverified test state while still emitting the structured receipt.
         tested = run_json(
-            [str(ctl), "integrations", "test", "cursor", "--platform", platform, "--json"]
+            [str(ctl), "integrations", "test", "cursor", "--platform", platform, "--json"],
+            allowed_codes={1},
         )
-        if tested.get("status") != "PASS":
-            raise RuntimeError(f"Cursor integration test failed: {tested}")
+        if tested.get("status") != "REGISTERED_UNVERIFIED":
+            raise RuntimeError(
+                "Cursor registration test must remain fail-loud until the real client "
+                f"proves a live MCP runtime: {tested}"
+            )
 
         merged = json.loads(cursor_config.read_text(encoding="utf-8"))
         if merged.get("customerSetting") != {"must_survive": True}:
@@ -120,16 +130,33 @@ def smoke(*, ctl: Path, platform: str, license_key: str) -> dict[str, Any]:
         if "customer-existing-server" not in servers or "gremlin" not in servers:
             raise RuntimeError("MCP merge lost the existing server or failed to add GREMLIN")
 
-        ready = run_json([str(ctl), "ready", "--platform", platform, "--json"])
-        if ready.get("status") != "READY":
-            raise RuntimeError(f"installed customer flow did not reach READY: {ready}")
+        # ACTION_REQUIRED is an intentional fail-loud readiness state and the
+        # gremlinctl CLI represents it with exit code 1 while still returning
+        # the structured readiness receipt.
+        ready = run_json(
+            [str(ctl), "ready", "--platform", platform, "--json"],
+            allowed_codes={1},
+        )
+        if ready.get("status") != "ACTION_REQUIRED":
+            raise RuntimeError(
+                "readiness must stay ACTION_REQUIRED until a real client verifies "
+                f"the live MCP session: {ready}"
+            )
         if (ready.get("product") or {}).get("status") != "LICENSED":
-            raise RuntimeError("READY reported without LICENSED product state")
+            raise RuntimeError("readiness lost the LICENSED product state")
         if not bool((ready.get("runtime") or {}).get("available")):
-            raise RuntimeError("READY reported without installed runtime")
-        connected_ids = set((ready.get("providers") or {}).get("connected_ids") or [])
-        if "cursor" not in connected_ids:
-            raise RuntimeError("READY did not record Cursor as connected")
+            raise RuntimeError("readiness did not detect the installed runtime")
+        providers = ready.get("providers") or {}
+        connected_ids = set(providers.get("connected_ids") or [])
+        unverified_ids = set(providers.get("unverified_ids") or [])
+        if "cursor" in connected_ids:
+            raise RuntimeError("readiness falsely promoted Cursor configuration to CONNECTED")
+        if "cursor" not in unverified_ids:
+            raise RuntimeError("readiness did not retain Cursor as registered/unverified")
+        actions = set(ready.get("actions") or [])
+        expected_action = "Verify a live GREMLIN MCP connection in one detected AI client"
+        if expected_action not in actions:
+            raise RuntimeError(f"readiness did not request live MCP verification: {ready}")
 
         disconnected = run_json(
             [str(ctl), "integrations", "disconnect", "cursor", "--platform", platform, "--json"]
@@ -150,7 +177,10 @@ def smoke(*, ctl: Path, platform: str, license_key: str) -> dict[str, Any]:
             "platform": platform,
             "license_id": activation.get("license_id"),
             "provider": "cursor",
-            "ready_before_disconnect": True,
+            "provider_connect_status": "CONFIGURED_UNVERIFIED",
+            "provider_test_status": "REGISTERED_UNVERIFIED",
+            "readiness_status_before_disconnect": "ACTION_REQUIRED",
+            "live_connection_claim": False,
             "existing_config_preserved": True,
         }
     finally:

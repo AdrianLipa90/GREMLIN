@@ -1,6 +1,17 @@
 name: GREMLIN Packaging Preview v0.1
 
 on:
+  pull_request:
+    paths:
+      - 'gremlin_mcp/**'
+      - 'control_center/**'
+      - 'packaging/**'
+      - 'tools/build_gremlin_standalone_v01.py'
+      - 'tools/build_gremlin_deb_v01.py'
+      - 'tools/prepare_installer_resources_v01.py'
+      - 'tools/smoke_installed_customer_flow_v01.py'
+      - 'pyproject.toml'
+      - '.github/workflows/gremlin-packaging-preview-v01.yml'
   push:
     branches:
       - main
@@ -93,6 +104,8 @@ jobs:
           assert 'claude-desktop' not in ids
           PY
           dist/linux/runtime/gremlin-product-mcp --help >/dev/null
+          dist/linux/runtime/gremlin-mcp --help >/dev/null
+          dist/linux/runtime/gremlin-mcp --self-test-phasenav
       - name: Build Debian preview package
         run: >-
           python tools/build_gremlin_deb_v01.py
@@ -106,6 +119,8 @@ jobs:
         run: |
           /usr/bin/gremlinctl paths --platform linux --json
           /usr/bin/gremlinctl doctor --platform linux --json
+          /usr/bin/gremlin-mcp --help >/dev/null
+          /usr/bin/gremlin-mcp --self-test-phasenav
           cat "$RUNNER_TEMP/preview-license.key" | /usr/bin/gremlinctl license activate --stdin --platform linux --json
           /usr/bin/gremlinctl license status --platform linux --json | tee "$RUNNER_TEMP/license-installed-linux.json"
           /usr/bin/gremlinctl profile status --platform linux --json | tee "$RUNNER_TEMP/profile-installed-linux.json"
@@ -122,7 +137,7 @@ jobs:
           test -f /usr/share/gremlin/README-FIRST.txt
           test -f /usr/share/gremlin/MCP-SETUP.md
           test -f /usr/share/gremlin/PREVIEW_BUILD.txt
-      - name: Customer Connect-Test-READY-Disconnect gate
+      - name: Customer Connect-Test-Readiness-Disconnect gate
         run: >-
           python tools/smoke_installed_customer_flow_v01.py
           --ctl /usr/bin/gremlinctl
@@ -179,6 +194,8 @@ jobs:
             if ($ids -notcontains $required) { throw "Missing Windows provider: $required" }
           }
           & .\dist\windows\runtime\gremlin-product-mcp.exe --help | Out-Null
+          & .\dist\windows\runtime\gremlin-mcp.exe --help | Out-Null
+          & .\dist\windows\runtime\gremlin-mcp.exe --self-test-phasenav
       - name: Install Inno Setup
         shell: pwsh
         run: choco install innosetup --yes --no-progress
@@ -202,6 +219,10 @@ jobs:
         run: |
           $root = Join-Path $env:LOCALAPPDATA 'Programs\GREMLIN'
           $ctl = Join-Path $root 'gremlinctl.exe'
+          $fullMcp = Join-Path $root 'gremlin-mcp.exe'
+          if (-not (Test-Path $fullMcp)) { throw 'Full GREMLIN MCP executable missing' }
+          & $fullMcp --help | Out-Null
+          & $fullMcp --self-test-phasenav
           & $ctl paths --platform windows --json
           & $ctl doctor --platform windows --json
           Get-Content (Join-Path $env:RUNNER_TEMP 'preview-license.key') -Raw | & $ctl license activate --stdin --platform windows --json
@@ -215,7 +236,7 @@ jobs:
           if (-not (Test-Path (Join-Path $root 'resources\README-FIRST.txt'))) { throw 'README-FIRST missing' }
           if (-not (Test-Path (Join-Path $root 'resources\MCP-SETUP.md'))) { throw 'MCP-SETUP missing' }
           if (-not (Test-Path (Join-Path $root 'resources\PREVIEW_BUILD.txt'))) { throw 'Preview marker missing' }
-      - name: Customer Connect-Test-READY-Disconnect gate
+      - name: Customer Connect-Test-Readiness-Disconnect gate
         shell: pwsh
         run: |
           $ctl = Join-Path $env:LOCALAPPDATA 'Programs\GREMLIN\gremlinctl.exe'

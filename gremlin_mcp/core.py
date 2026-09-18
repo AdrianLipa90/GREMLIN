@@ -9,6 +9,7 @@ from tools.gremlin_bestiary_vector_species_v03 import (
     dispatch_compression,
     validate_plan,
 )
+from tools.gremlin_geometry_phase_scheduler_v01 import scheduler_manifest
 
 SCHEMA = "GREMLIN_MCP_V0_5"
 VERSION = "0.5.0"
@@ -23,6 +24,12 @@ BESTIARY_ROLES: dict[str, dict[str, str]] = {
     "OWL": {"stage": "specialist", "role": "epistemic audit"},
     "ANT": {"stage": "specialist", "role": "bounded combinatorial scan"},
     "MANTIS": {"stage": "specialist", "role": "duplicate and dead-branch pruning"},
+    "FOX": {"stage": "specialist", "role": "strategic planning and decomposition"},
+    "BEAVER": {"stage": "specialist", "role": "candidate construction and prototyping"},
+    "BAT": {"stage": "specialist", "role": "weak-signal, harmonic and phase-pattern detection"},
+    "CANARY": {"stage": "sentinel", "role": "runtime drift and early-warning sentinel"},
+    "SERPENT": {"stage": "sensor", "role": "latent-field temperature, taste and novelty sensing"},
+    "CHAMELEON": {"stage": "transform", "role": "reversible representation/profile transformation"},
     "BELZEBUB": {"stage": "synthesis", "role": "defensive candidate synthesis"},
     "FERRET": {"stage": "actuation", "role": "explicitly authorized interactive web actuator"},
     "GREMLIN": {"stage": "aggregate", "role": "aggregate verified heads and emit research candidates"},
@@ -36,6 +43,8 @@ MCP_TOOLS = [
     "gremlin_auto_fanout", "gremlin_fanout", "gremlin_collect", "gremlin_synthesize", "gremlin_prototype",
     "gremlin_worker_register", "gremlin_worker_heartbeat", "gremlin_worker_list", "gremlin_worker_enqueue",
     "gremlin_worker_claim", "gremlin_worker_submit", "gremlin_worker_result", "gremlin_worker_queue",
+    "gremlin_phasenav_status", "gremlin_phasenav_reference_sweep", "gremlin_phasenav_threeway",
+    "gremlin_phasenav_analog_invariants", "gremlin_phasenav_live_replay",
 ]
 
 
@@ -71,8 +80,9 @@ def status() -> dict[str, Any]:
             "no_evidence_policy": "NO_CONFIDENT_ROUTE_NOT_QUEUED",
         },
         "worker_abi": {
-            "version": "0.2.0", "model": "PULL_LEASE_SUBMIT", "callback_networking": False,
+            "version": "0.2.1", "model": "PULL_LEASE_SUBMIT", "callback_networking": False,
             "same_species_batches": True, "orbit_lane_bounded": True,
+            "scheduler": scheduler_manifest(),
             "state_persistence": "PROCESS_MEMORY_OR_SQLITE_WAL",
         },
         "tools": list(MCP_TOOLS), "topology": list(TOPOLOGY), "authority": authority_state(),

@@ -159,9 +159,13 @@ Worker tools:
 - `gremlin_worker_result`
 - `gremlin_worker_queue`
 
-External worker roles are `SPIDER`, `RAVEN`, `HOUND`, `MOLE`, `OWL`, `ANT`, `MANTIS`, and `BELZEBUB`. Capture remains owned by HUMMINGBIRD and semantic routing remains owned by OCTOPUS.
+External worker roles are `SPIDER`, `RAVEN`, `HOUND`, `MOLE`, `OWL`, `ANT`, `MANTIS`, `FOX`, `BEAVER`, `BAT`, `CANARY`, `SERPENT`, `CHAMELEON`, and `BELZEBUB`. `HUMMINGBIRD` remains capture, `OCTOPUS` remains routing, `GREMLIN` remains the aggregate root, and `FERRET` remains the explicit actuation boundary.
 
-Claims are same-species batches bounded by both the worker-declared maximum and the existing mass-orbit/vector-lane scheduler. Results are bound to task lineage by BLAKE2b commitments and remain candidate-only.
+Worker claims are no longer FIFO-primary. GREMLIN scores non-empty queues by PhaseNav T^36 geometry, phase-cluster coherence and committed task state (readiness, temperature, urgency, noise), then constructs same-species batches by phase/state proximity. Coherent queues may use wider vector batches; noisy queues contract under the worker maximum and any legacy orbital ceiling. FIFO order is emitted only as a comparison proxy in scheduler receipts. Results remain bound to task lineage by BLAKE2b commitments and remain candidate-only.
+
+Optional scheduling metadata can be attached inside the committed task payload under `_gremlin_scheduler`, including an exact 36D phase state. Without one, the standalone runtime derives a deterministic locality-oriented scheduling fingerprint from canonical payload tokens. This fallback is a scheduling coordinate only, not a semantic-truth claim.
+
+Every geometry-scheduled lease also includes `GREMLIN_GEOMETRY_CONTEXT_PACK_V0_1`: a lossless batch representation that factors shared semantic fields and shared string context while keeping scheduler metadata out of the model-facing pack. Full task payloads remain present for exact lineage. Model workers can therefore consume common context once plus per-task residuals instead of blindly repeating identical context. Token reduction is reported only for explicitly named tokenizer/fixture benchmarks; no universal billing-token claim is implied.
 
 For a worker running as a separate process, use one shared Streamable HTTP GREMLIN server. A stdio server belongs to the process launched by its MCP host, so launching a second stdio GREMLIN process creates a different broker unless both are intentionally pointed at the same durable state file.
 
@@ -217,6 +221,7 @@ Specifications:
 - `spec/GREMLIN_MCP_PERSISTENCE_V0_3.md`
 - `spec/GREMLIN_MCP_PIPELINE_V0_4.md`
 - `spec/GREMLIN_MCP_OCTOPUS_ROUTER_V0_5.md`
+- `spec/GREMLIN_GEOMETRY_PHASE_STATE_SCHEDULER_V0_1.md`
 
 ## Visual research client v0.1
 

@@ -9,6 +9,7 @@ from typing import Any, Iterable, Mapping
 
 from gremlin_mcp.pipeline import SPECIALISTS, fanout
 from gremlin_mcp.workers import WorkerBroker
+from tools.gremlin_geometry_phase_scheduler_v01 import SCHEDULER_KEY
 
 ROUTER_SCHEMA = "GREMLIN_MCP_OCTOPUS_ROUTER_V0_6"
 ROUTER_VERSION = "0.6.0"
@@ -219,6 +220,7 @@ def route(
         raise ValueError("payload must be a non-empty mapping")
     body = dict(payload)
     _canonical(body)
+    semantic_body = {key: value for key, value in body.items() if key != SCHEDULER_KEY}
 
     limit = int(max_species)
     if limit <= 0 or limit > len(SPECIALISTS):
@@ -233,7 +235,7 @@ def route(
     strings: list[str] = []
     keys: list[str] = []
     stats = {"mapping_count": 0, "sequence_count": 0, "sequence_items": 0, "numeric_count": 0}
-    _walk(body, strings=strings, keys=keys, stats=stats)
+    _walk(semantic_body, strings=strings, keys=keys, stats=stats)
     text = " \n ".join(strings)
     tokens = _tokenize(text)
     token_set = frozenset(tokens)

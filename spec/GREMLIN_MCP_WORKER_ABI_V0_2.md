@@ -1,6 +1,6 @@
 # GREMLIN MCP Worker ABI v0.2
 
-Status: CANDIDATE / standalone MCP worker contract.
+Status: CANDIDATE / standalone MCP worker contract / geometry-phase-state scheduling extension active.
 
 ## Goal
 
@@ -22,16 +22,22 @@ GREMLIN never calls a worker-supplied URL. This avoids callback trust, SSRF and 
 
 ## External worker species
 
-The external Worker ABI accepts scheduler-backed specialist and synthesis roles:
+The external Worker ABI accepts scheduler-backed specialist, sensor, transform and synthesis roles:
 
 ```text
-MANTIS
-ANT
+SPIDER
 RAVEN
 HOUND
-OWL
-SPIDER
 MOLE
+OWL
+ANT
+MANTIS
+FOX
+BEAVER
+BAT
+CANARY
+SERPENT
+CHAMELEON
 BELZEBUB
 ```
 
@@ -93,9 +99,29 @@ min(requested_limit, worker.max_batch, orbital_lane_width, queued_count)
 
 where `orbital_lane_width` is derived by the existing Bestiary vector-lane planner from the registered worker `vector_width` and the species mass/orbit cadence.
 
-When no species is explicitly requested, registered species are considered in descending scheduler cadence.
+Task selection is no longer FIFO-primary.
+
+When no species is explicitly requested, registered non-empty species queues are scored by the candidate geometry/phase/state scheduler defined in `GREMLIN_GEOMETRY_PHASE_STATE_SCHEDULER_V0_1`. Queue selection uses current T^36 cluster coherence, readiness, noise, urgency, bounded backlog and explicit-phase evidence. Legacy orbital cadence is only a secondary tie-break where a legacy cadence profile exists.
+
+Within a selected species, the lease batch is constructed by phase/state proximity rather than task creation order. FIFO order is retained only as a comparison proxy in the scheduler receipt.
+
+The maximum claim size is additionally geometry-adaptive: coherent queues may use a wider vector lane while noisy queues contract, always under worker `max_batch` and the legacy orbital ceiling when one exists.
 
 Lease duration defaults to 30 seconds and is bounded to 1..300 seconds. Expired leases are returned to `QUEUED` state.
+
+## Geometry / phase / state scheduling metadata
+
+A task may carry committed scheduler metadata inside its payload under:
+
+```text
+_gremlin_scheduler
+```
+
+with optional exact `phase36`, readiness, temperature, urgency and noise fields. If no exact phase is supplied, GREMLIN derives a deterministic locality-oriented scheduling fingerprint from canonical payload tokens. This fallback is a scheduling coordinate only and is not promoted as semantic truth.
+
+A `ready=false` task remains queued but is not lease-eligible until its committed task content/state is replaced through a new task identifier/content commitment. The Worker ABI does not mutate an existing task commitment in place.
+
+Every successful lease contains a scheduler receipt with `fifo_primary=false`, selected geometry metrics, transition/noise proxies and lane width.
 
 ## Submission
 

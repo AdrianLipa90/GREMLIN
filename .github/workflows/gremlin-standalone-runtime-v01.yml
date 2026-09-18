@@ -1,0 +1,75 @@
+name: GREMLIN Standalone Runtime v0.1
+
+on:
+  pull_request:
+    paths:
+      - 'gremlin_mcp/**'
+      - 'tools/gremlin_bestiary_phasenav_*.py'
+      - 'tools/gremlin_geometry_phase_scheduler_v01.py'
+      - 'tools/gremlin_geometry_context_pack_v01.py'
+      - 'tools/build_gremlin_standalone_v01.py'
+      - 'pyproject.toml'
+      - '.github/workflows/gremlin-standalone-runtime-v01.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'gremlin_mcp/**'
+      - 'tools/gremlin_bestiary_phasenav_*.py'
+      - 'tools/build_gremlin_standalone_v01.py'
+      - 'pyproject.toml'
+      - '.github/workflows/gremlin-standalone-runtime-v01.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  linux-standalone:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install standalone build dependencies
+        run: python -m pip install --disable-pip-version-check -e . nuitka zstandard
+      - name: Build isolated standalone runtime
+        run: python tools/build_gremlin_standalone_v01.py --clean
+      - name: Verify runtime aliases
+        run: |
+          test -x dist/linux/runtime/gremlin-runtime
+          test -x dist/linux/runtime/gremlinctl
+          test -x dist/linux/runtime/gremlin-product-mcp
+          test -x dist/linux/runtime/gremlin-mcp
+          dist/linux/runtime/gremlinctl --help >/dev/null
+          dist/linux/runtime/gremlin-product-mcp --help >/dev/null
+          dist/linux/runtime/gremlin-mcp --help >/dev/null
+      - name: Execute packaged PhaseNav Bestiary self-test
+        run: dist/linux/runtime/gremlin-mcp --self-test-phasenav
+
+  windows-standalone:
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install standalone build dependencies
+        run: python -m pip install --disable-pip-version-check -e . nuitka zstandard
+      - name: Build isolated standalone runtime
+        run: python tools/build_gremlin_standalone_v01.py --clean
+      - name: Verify runtime aliases and PhaseNav self-test
+        shell: pwsh
+        run: |
+          $root = Resolve-Path 'dist\windows\runtime'
+          foreach ($name in @('gremlin-runtime.exe','gremlinctl.exe','gremlin-product-mcp.exe','gremlin-mcp.exe')) {
+            $path = Join-Path $root $name
+            if (-not (Test-Path $path)) { throw "Missing standalone executable: $name" }
+          }
+          & (Join-Path $root 'gremlinctl.exe') --help | Out-Null
+          & (Join-Path $root 'gremlin-product-mcp.exe') --help | Out-Null
+          & (Join-Path $root 'gremlin-mcp.exe') --help | Out-Null
+          & (Join-Path $root 'gremlin-mcp.exe') --self-test-phasenav

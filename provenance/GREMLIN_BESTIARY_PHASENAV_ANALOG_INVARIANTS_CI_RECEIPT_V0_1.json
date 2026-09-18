@@ -1,0 +1,68 @@
+{
+  "schema": "GREMLIN_BESTIARY_PHASENAV_ANALOG_INVARIANTS_CI_RECEIPT_V0_1",
+  "status": "PASS_EXACT_HEAD_CANDIDATE",
+  "repository": "AdrianLipa90/GREMLIN",
+  "branch": "feat/bestiary-phasenav-phase-gates-v0.1",
+  "source_head_sha": "eb9fa0b9ac4dc375e5e240d626e70a20e6347a23",
+  "base_main_sha": "b33d8c3fec014db4686856958c17e0e948192742",
+  "pull_request": 62,
+  "phase_gate_workflow": {
+    "run_id": 35291684002,
+    "job_id": 105435680326,
+    "conclusion": "success",
+    "targeted_tests": {
+      "passed": 136,
+      "failed": 0,
+      "duration_s": 6.04
+    }
+  },
+  "repository_fail_loud_audit": {
+    "run_id": 35291683992,
+    "job_id": 105435679934,
+    "conclusion": "success",
+    "passed": 1308,
+    "skipped": 1,
+    "failed": 0,
+    "duration_s": 16.08
+  },
+  "specialist_invariant_gate": {
+    "scope": "CONTINUOUS_PHASE_PRECONDITIONING_PLUS_EXISTING_SPECIALIST_OPERATOR",
+    "analog_core_species_count": 9,
+    "passed": 9,
+    "failed": 0,
+    "failed_species": [],
+    "species": [
+      "BAT",
+      "BEAVER",
+      "CANARY",
+      "FOX",
+      "HOUND",
+      "MOLE",
+      "RAVEN",
+      "SERPENT",
+      "SPIDER"
+    ],
+    "all_analog_core_specialist_invariants_pass": true
+  },
+  "threeway_regression": {
+    "species_count": 18,
+    "all_species_pass": true,
+    "analog_core_numerical_pass_count": 9,
+    "hybrid_pass_count": 9,
+    "max_scalar_vector_error": 0.0,
+    "max_fine_continuous_error_radians_rms": 0.0008214511194856206,
+    "max_fine_to_coarse_error_ratio": 0.12290964222812932
+  },
+  "authority": {
+    "canon_allowed": false,
+    "external_effects": false,
+    "physical_analog_claim": false,
+    "hardware_analog_witness": false,
+    "fully_analog_specialist_semantics_claim": false
+  },
+  "interpretation": {
+    "continuous_phase_signal_preservation_verified_for_all_9_analog_core_species": true,
+    "specialist_semantics_still_use_existing_digital_operator_after_continuous_phase_preconditioning": true,
+    "fully_analog_specialist_execution_not_established": true
+  }
+}

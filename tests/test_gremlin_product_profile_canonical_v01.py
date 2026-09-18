@@ -73,3 +73,10 @@ def test_duplicate_json_keys_are_rejected_when_loading_profile(tmp_path) -> None
     path.write_text(text, encoding="utf-8")
     with pytest.raises(ClientProfileError, match="duplicate JSON key"):
         load_client_profile(path, _license())
+
+
+def test_geometry_scheduler_species_are_valid_profile_species() -> None:
+    profile = _profile()
+    profile["species"] = ["FOX", "BEAVER", "BAT", "CANARY", "SERPENT", "CHAMELEON"]
+    normalized = normalize_client_profile(profile)
+    assert normalized["species"] == ["FOX", "BEAVER", "BAT", "CANARY", "SERPENT", "CHAMELEON"]
