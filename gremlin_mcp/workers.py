@@ -10,14 +10,23 @@ import uuid
 
 from tools.gremlin_bestiary_orbital_scheduler_v02 import PROFILES, service_omega
 from tools.gremlin_bestiary_vector_species_v03 import lane_width
+from tools.gremlin_geometry_phase_scheduler_v01 import (
+    MODE as GEOMETRY_SCHEDULER_MODE,
+    SCHEDULER_SPECIES,
+    choose_species,
+    geometry_lane_width,
+    queue_metrics,
+    scheduler_manifest,
+    select_batch,
+)
 
 WORKER_SCHEMA = "GREMLIN_MCP_WORKER_ABI_V0_2"
-WORKER_ABI_VERSION = "0.2.0"
+WORKER_ABI_VERSION = "0.2.1"
 COMMITMENT_DOMAIN = b"GREMLIN-MCP-WORKER-ABI/v0.2\x00"
 
-# Capture and routing remain GREMLIN-core stages. Scheduler-backed specialist and
-# synthesis roles may be supplied by external MCP workers.
-WORKER_SPECIES = tuple(name for name in PROFILES if name != "HUMMINGBIRD")
+# Capture/routing/root/actuation remain GREMLIN-core boundaries. All remaining
+# Bestiary roles may participate in the geometry/phase/state worker scheduler.
+WORKER_SPECIES = tuple(SCHEDULER_SPECIES)
 
 
 def _authority_state() -> dict[str, bool]:
@@ -229,36 +238,49 @@ class WorkerBroker:
         limit: int | None = None,
         lease_seconds: int | None = None,
     ) -> dict[str, Any]:
+        """Claim a bounded same-species batch by geometry, phase and task state.
+
+        FIFO is retained only as a comparison proxy in the scheduler receipt.
+        Operational selection is based on T^36 cluster coherence, task state,
+        readiness/noise/urgency, and a cadence hint only as a secondary tie-break.
+        """
         wid = _normalize_id(worker_id, field="worker_id")
         now = time.time_ns()
         with self._lock:
             self._reap_expired(now)
             worker = self._require_worker(wid)
             worker.last_seen_ns = now
+
             if species is None:
-                candidates = tuple(
-                    sorted(worker.species, key=lambda name: (-service_omega(PROFILES[name]), name))
-                )
+                candidate_names = tuple(worker.species)
             else:
                 if not isinstance(species, str):
                     raise ValueError("species must be a string")
                 requested = species.strip().upper()
                 if requested not in worker.species:
                     raise ValueError("worker is not registered for requested species")
-                candidates = (requested,)
+                candidate_names = (requested,)
 
-            selected_species: str | None = None
-            pending: list[TaskRecord] = []
-            for name in candidates:
+            queue_rows: dict[str, list[dict[str, Any]]] = {}
+            for name in candidate_names:
                 rows = [
-                    task
+                    self._scheduler_task_view(task)
                     for task in self._tasks.values()
                     if task.species == name and task.state == "QUEUED"
                 ]
                 if rows:
-                    selected_species = name
-                    pending = sorted(rows, key=lambda task: (task.created_ns, task.task_id))
-                    break
+                    queue_rows[name] = rows
+
+            cadence_hint = {
+                name: service_omega(PROFILES[name])
+                for name in candidate_names
+                if name in PROFILES
+            }
+            selected_species, species_scheduler = choose_species(
+                queue_rows,
+                now_ns=now,
+                cadence_hint=cadence_hint,
+            )
 
             if selected_species is None:
                 return {
@@ -267,20 +289,55 @@ class WorkerBroker:
                     "lease_id": None,
                     "species": None,
                     "tasks": [],
+                    "scheduler": species_scheduler,
                     "authority": _authority_state(),
                 }
 
-            lane = lane_width(selected_species, vector_width=worker.vector_width)
+            rows = queue_rows[selected_species]
+            metrics = queue_metrics(rows, now_ns=now)
+            legacy_cap = (
+                lane_width(selected_species, vector_width=worker.vector_width)
+                if selected_species in PROFILES
+                else min(128, max(1, worker.vector_width * 4))
+            )
+            lane = geometry_lane_width(
+                vector_width=worker.vector_width,
+                max_batch=worker.max_batch,
+                cluster_coherence=float(metrics["cluster_coherence"]),
+                legacy_cap=legacy_cap,
+            )
             requested_limit = worker.max_batch if limit is None else _strict_int(
                 limit, field="limit", minimum=1
             )
-            batch_size = min(requested_limit, worker.max_batch, lane, len(pending))
+            batch_limit = min(requested_limit, worker.max_batch, lane, int(metrics["eligible_count"]))
+            selected_ids, batch_scheduler = select_batch(rows, limit=batch_limit, now_ns=now)
+            if not selected_ids:
+                return {
+                    "schema": WORKER_SCHEMA,
+                    "worker_id": wid,
+                    "lease_id": None,
+                    "species": selected_species,
+                    "tasks": [],
+                    "scheduler": {
+                        "mode": GEOMETRY_SCHEDULER_MODE,
+                        "species_selection": species_scheduler,
+                        "batch_selection": batch_scheduler,
+                    },
+                    "authority": _authority_state(),
+                }
+
+            by_id = {
+                task.task_id: task
+                for task in self._tasks.values()
+                if task.species == selected_species and task.state == "QUEUED"
+            }
+            chosen = [by_id[task_id] for task_id in selected_ids]
+            batch_size = len(chosen)
             ttl = self._lease_seconds if lease_seconds is None else _strict_int(
                 lease_seconds, field="lease_seconds", minimum=1, maximum=300
             )
             lease_id = uuid.uuid4().hex
             expires = now + ttl * 1_000_000_000
-            chosen = pending[:batch_size]
             for task in chosen:
                 task.state = "LEASED"
                 task.lease_id = lease_id
@@ -295,6 +352,7 @@ class WorkerBroker:
                 expires,
             )
             self._leases[lease_id] = lease
+            omega = service_omega(PROFILES[selected_species]) if selected_species in PROFILES else None
             return {
                 "schema": WORKER_SCHEMA,
                 "worker_id": wid,
@@ -304,8 +362,16 @@ class WorkerBroker:
                 "expires_ns": expires,
                 "lane_width": lane,
                 "batch_size": batch_size,
-                "omega": service_omega(PROFILES[selected_species]),
+                "omega": omega,
                 "tasks": [self._task_view(task, include_payload=True) for task in chosen],
+                "scheduler": {
+                    "mode": GEOMETRY_SCHEDULER_MODE,
+                    "species_selection": species_scheduler,
+                    "batch_selection": batch_scheduler,
+                    "legacy_orbit_lane_cap": legacy_cap,
+                    "geometry_lane_width": lane,
+                    "fifo_primary": False,
+                },
                 "authority": _authority_state(),
             }
 
@@ -411,6 +477,7 @@ class WorkerBroker:
                 "registered_workers": len(self._workers),
                 "active_leases": len(self._leases),
                 "tasks": counts,
+                "scheduler": scheduler_manifest(),
                 "authority": _authority_state(),
             }
 
@@ -439,6 +506,16 @@ class WorkerBroker:
                 task.lease_id = None
                 task.leased_to = None
                 task.lease_expires_ns = None
+
+    @staticmethod
+    def _scheduler_task_view(record: TaskRecord) -> dict[str, Any]:
+        return {
+            "task_id": record.task_id,
+            "species": record.species,
+            "payload": record.payload,
+            "task_commitment": record.task_commitment,
+            "created_ns": record.created_ns,
+        }
 
     @staticmethod
     def _worker_view(record: WorkerRecord) -> dict[str, Any]:
