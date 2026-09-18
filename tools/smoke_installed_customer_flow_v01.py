@@ -130,7 +130,13 @@ def smoke(*, ctl: Path, platform: str, license_key: str) -> dict[str, Any]:
         if "customer-existing-server" not in servers or "gremlin" not in servers:
             raise RuntimeError("MCP merge lost the existing server or failed to add GREMLIN")
 
-        ready = run_json([str(ctl), "ready", "--platform", platform, "--json"])
+        # ACTION_REQUIRED is an intentional fail-loud readiness state and the
+        # gremlinctl CLI represents it with exit code 1 while still returning
+        # the structured readiness receipt.
+        ready = run_json(
+            [str(ctl), "ready", "--platform", platform, "--json"],
+            allowed_codes={1},
+        )
         if ready.get("status") != "ACTION_REQUIRED":
             raise RuntimeError(
                 "readiness must stay ACTION_REQUIRED until a real client verifies "
