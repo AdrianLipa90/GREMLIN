@@ -10,6 +10,7 @@ import uuid
 
 from tools.gremlin_bestiary_orbital_scheduler_v02 import PROFILES, service_omega
 from tools.gremlin_bestiary_vector_species_v03 import lane_width
+from tools.gremlin_geometry_context_pack_v01 import pack_context
 from tools.gremlin_geometry_phase_scheduler_v01 import (
     MODE as GEOMETRY_SCHEDULER_MODE,
     SCHEDULER_SPECIES,
@@ -353,6 +354,8 @@ class WorkerBroker:
             )
             self._leases[lease_id] = lease
             omega = service_omega(PROFILES[selected_species]) if selected_species in PROFILES else None
+            task_views = [self._task_view(task, include_payload=True) for task in chosen]
+            context_pack = pack_context(task_views)
             return {
                 "schema": WORKER_SCHEMA,
                 "worker_id": wid,
@@ -363,7 +366,8 @@ class WorkerBroker:
                 "lane_width": lane,
                 "batch_size": batch_size,
                 "omega": omega,
-                "tasks": [self._task_view(task, include_payload=True) for task in chosen],
+                "tasks": task_views,
+                "context_pack": context_pack,
                 "scheduler": {
                     "mode": GEOMETRY_SCHEDULER_MODE,
                     "species_selection": species_scheduler,
