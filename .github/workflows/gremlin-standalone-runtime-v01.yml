@@ -5,6 +5,7 @@ on:
     paths:
       - 'gremlin_mcp/**'
       - 'tools/gremlin_bestiary_phasenav_*.py'
+      - 'tools/gremlin_geometry_phase_scheduler_v01.py'
       - 'tools/build_gremlin_standalone_v01.py'
       - 'pyproject.toml'
       - '.github/workflows/gremlin-standalone-runtime-v01.yml'
