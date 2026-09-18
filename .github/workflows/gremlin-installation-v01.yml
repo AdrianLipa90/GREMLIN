@@ -48,6 +48,7 @@ jobs:
         run: python -m pytest -q tests/test_gremlin_install_*.py tests/test_gremlin_provider_*.py tests/test_gremlin_product_*.py
       - name: Verify installed CLIs
         run: |
+          gremlin-mcp --help >/dev/null
           gremlinctl --help >/dev/null
           gremlinctl paths --json >/dev/null
           gremlinctl doctor --json >/dev/null
@@ -58,6 +59,34 @@ jobs:
           gremlin-product-mcp --help >/dev/null
           gremlin-license --help >/dev/null
           gremlin-bundle --help >/dev/null
+      - name: Verify isolated Linux wheel runtime
+        run: |
+          python -m pip install --disable-pip-version-check build
+          rm -rf dist/wheel-isolation
+          python -m build --wheel --outdir dist/wheel-isolation
+          python -m venv "$RUNNER_TEMP/gremlin-wheel-runtime"
+          "$RUNNER_TEMP/gremlin-wheel-runtime/bin/python" -m pip install --disable-pip-version-check dist/wheel-isolation/*.whl
+          cd "$RUNNER_TEMP"
+          "$RUNNER_TEMP/gremlin-wheel-runtime/bin/python" - <<'PY'
+          from gremlin_mcp.core import bestiary_manifest
+          from gremlin_mcp.phasenav_runtime import status, reference_sweep
+          from gremlin_mcp.server_with_hive import mcp
+
+          names = {item["name"] for item in bestiary_manifest()["species"]}
+          assert len(names) == 18
+          assert {"FOX","BEAVER","BAT","CANARY","SERPENT","CHAMELEON"} <= names
+          s = status()
+          assert s["standalone"] is True
+          assert s["species_count"] == 18
+          assert s["live_noema_required_for_core"] is False
+          assert s["vector_backend_available"] is True
+          sweep = reference_sweep()
+          assert sweep["species_count"] == 18
+          assert sweep["external_effects"] is False
+          assert mcp is not None
+          print("ISOLATED_LINUX_WHEEL_RUNTIME_PASS")
+          PY
+          "$RUNNER_TEMP/gremlin-wheel-runtime/bin/gremlin-mcp" --help >/dev/null
 
   native-control-center:
     runs-on: ubuntu-latest
@@ -94,6 +123,7 @@ jobs:
       - name: Verify Windows CLI path, provider, profile and device surfaces
         shell: pwsh
         run: |
+          gremlin-mcp --help | Out-Null
           gremlinctl --help | Out-Null
           gremlinctl paths --platform windows --json | Out-Null
           gremlinctl doctor --platform windows --json | Out-Null
@@ -103,6 +133,45 @@ jobs:
           gremlinctl integrations providers --platform windows --json | Out-Null
           gremlinctl device status --platform windows --json | Out-Null
           gremlinctl device init --platform windows --json | Out-Null
+      - name: Verify isolated Windows wheel runtime
+        shell: pwsh
+        run: |
+          python -m pip install --disable-pip-version-check build
+          if (Test-Path dist\wheel-isolation) { Remove-Item dist\wheel-isolation -Recurse -Force }
+          python -m build --wheel --outdir dist\wheel-isolation
+          $venv = Join-Path $env:RUNNER_TEMP 'gremlin-wheel-runtime'
+          python -m venv $venv
+          $py = Join-Path $venv 'Scripts\python.exe'
+          $mcp = Join-Path $venv 'Scripts\gremlin-mcp.exe'
+          $wheel = (Get-ChildItem dist\wheel-isolation\*.whl | Select-Object -First 1).FullName
+          & $py -m pip install --disable-pip-version-check $wheel
+          $smoke = Join-Path $env:RUNNER_TEMP 'gremlin-wheel-smoke.py'
+          @'
+          from gremlin_mcp.core import bestiary_manifest
+          from gremlin_mcp.phasenav_runtime import status, reference_sweep
+          from gremlin_mcp.server_with_hive import mcp
+
+          names = {item["name"] for item in bestiary_manifest()["species"]}
+          assert len(names) == 18
+          assert {"FOX","BEAVER","BAT","CANARY","SERPENT","CHAMELEON"} <= names
+          s = status()
+          assert s["standalone"] is True
+          assert s["species_count"] == 18
+          assert s["live_noema_required_for_core"] is False
+          assert s["vector_backend_available"] is True
+          sweep = reference_sweep()
+          assert sweep["species_count"] == 18
+          assert sweep["external_effects"] is False
+          assert mcp is not None
+          print("ISOLATED_WINDOWS_WHEEL_RUNTIME_PASS")
+          '@ | Set-Content -Path $smoke -Encoding UTF8
+          Push-Location $env:RUNNER_TEMP
+          try {
+            & $py $smoke
+            & $mcp --help | Out-Null
+          } finally {
+            Pop-Location
+          }
       - uses: dtolnay/rust-toolchain@stable
       - name: Check native Control Center on Windows
         run: cargo check --manifest-path control_center/Cargo.toml
