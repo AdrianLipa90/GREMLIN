@@ -949,8 +949,6 @@ impl GremlinControlCenter {
     }
 }
 
-}
-
 impl eframe::App for GremlinControlCenter {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         Self::configure_style(ctx);
