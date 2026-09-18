@@ -33,8 +33,9 @@ def _write_entry_wrapper(work: Path) -> Path:
 def _nuitka_command(*, entry: Path, work: Path, exe_name: str) -> list[str]:
     """Build only the shipped runtime import graph, not every GREMLIN module.
 
-    The product executable exposes two entry surfaces: the installation CLI and
-    the licensed MCP product server. Nuitka follows their static imports and the
+    The standalone executable exposes three entry surfaces: the installation CLI,
+    the licensed product MCP server, and the full GREMLIN MCP server with Hive and
+    PhaseNav Bestiary runtime. Nuitka follows their static imports and the
     imports reachable from those modules. Do not use ``--include-package`` for the
     whole ``gremlin_mcp`` tree here: that also drags development/audit-only modules
     (notably SymPy and PyMuPDF) into the native C backend and can exhaust MSVC heap
@@ -48,6 +49,13 @@ def _nuitka_command(*, entry: Path, work: Path, exe_name: str) -> list[str]:
         "--assume-yes-for-downloads",
         "--include-module=gremlin_mcp.install.cli",
         "--include-module=gremlin_mcp.product_server",
+        "--include-module=gremlin_mcp.server_with_hive",
+        "--include-module=gremlin_mcp.phasenav_runtime",
+        "--include-module=tools.gremlin_bestiary_phasenav_phase_gates_v01",
+        "--include-module=tools.gremlin_bestiary_phasenav_numpy_v01",
+        "--include-module=tools.gremlin_bestiary_phasenav_threeway_v01",
+        "--include-module=tools.gremlin_bestiary_phasenav_analog_invariants_v01",
+        "--include-module=tools.gremlin_bestiary_phasenav_live_binding_v01",
         f"--output-dir={work}",
         f"--output-filename={exe_name}",
         str(entry),
@@ -84,7 +92,11 @@ def build(*, output_root: Path, clean: bool) -> Path:
             raise RuntimeError("Nuitka runtime executable was not found after build")
         runtime = matching[0]
 
-    aliases = ["gremlinctl.exe", "gremlin-product-mcp.exe"] if platform == "windows" else ["gremlinctl", "gremlin-product-mcp"]
+    aliases = (
+        ["gremlinctl.exe", "gremlin-product-mcp.exe", "gremlin-mcp.exe"]
+        if platform == "windows"
+        else ["gremlinctl", "gremlin-product-mcp", "gremlin-mcp"]
+    )
     for alias in aliases:
         destination = final / alias
         shutil.copy2(runtime, destination)
@@ -94,7 +106,7 @@ def build(*, output_root: Path, clean: bool) -> Path:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Build one standalone GREMLIN runtime and expose product/ctl aliases")
+    parser = argparse.ArgumentParser(description="Build one standalone GREMLIN runtime and expose ctl/product/full-MCP aliases")
     parser.add_argument("--output-root", default="dist", type=Path)
     parser.add_argument("--clean", action="store_true")
     args = parser.parse_args()
