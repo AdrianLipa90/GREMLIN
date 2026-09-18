@@ -9,9 +9,12 @@ on:
       - 'tools/gremlin_bestiary_phasenav_numpy_v01.py'
       - 'tools/gremlin_bestiary_phasenav_numpy_bench_v01.py'
       - 'tools/gremlin_bestiary_phasenav_live_binding_v01.py'
+      - 'tools/gremlin_bestiary_phasenav_threeway_v01.py'
+      - 'tools/gremlin_bestiary_phasenav_threeway_bench_v01.py'
       - 'tests/test_gremlin_bestiary_phasenav_phase_gates_v01.py'
       - 'tests/test_gremlin_bestiary_phasenav_numpy_v01.py'
       - 'tests/test_gremlin_bestiary_phasenav_live_binding_v01.py'
+      - 'tests/test_gremlin_bestiary_phasenav_threeway_v01.py'
       - 'spec/GREMLIN_BESTIARY_PHASENAV_PHASE_GATES_V0_1.md'
       - 'native/GREMLIN_BESTIARY_PHASENAV_PHASE_GATES_V0_1.pnv'
       - '.github/workflows/gremlin-bestiary-phasenav-phase-gates-v01.yml'
@@ -46,12 +49,15 @@ jobs:
           python -m py_compile tools/gremlin_bestiary_phasenav_numpy_v01.py
           python -m py_compile tools/gremlin_bestiary_phasenav_numpy_bench_v01.py
           python -m py_compile tools/gremlin_bestiary_phasenav_live_binding_v01.py
+          python -m py_compile tools/gremlin_bestiary_phasenav_threeway_v01.py
+          python -m py_compile tools/gremlin_bestiary_phasenav_threeway_bench_v01.py
       - name: Run 36D phase-gate Bestiary conformance
         run: |
           python -m pytest -q \
             tests/test_gremlin_bestiary_phasenav_phase_gates_v01.py \
             tests/test_gremlin_bestiary_phasenav_numpy_v01.py \
-            tests/test_gremlin_bestiary_phasenav_live_binding_v01.py
+            tests/test_gremlin_bestiary_phasenav_live_binding_v01.py \
+            tests/test_gremlin_bestiary_phasenav_threeway_v01.py
       - name: Run frozen NumPy batch benchmark
         run: python -m tools.gremlin_bestiary_phasenav_numpy_bench_v01
       - name: Verify benchmark equivalence gate
@@ -68,6 +74,25 @@ jobs:
           assert s["external_effects"] is False
           print(s)
           PY
+      - name: Run scalar-vector-continuous three-way benchmark
+        run: python -m tools.gremlin_bestiary_phasenav_threeway_bench_v01
+      - name: Verify three-way realization gate
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path("provenance/GREMLIN_BESTIARY_PHASENAV_THREEWAY_BENCHMARK_V0_1.json")
+          d = json.loads(p.read_text())
+          s = d["summary"]
+          assert s["all_species_pass"] is True
+          assert s["failures"] == []
+          assert s["analog_core_numerical_pass_count"] > 0
+          assert s["hybrid_pass_count"] > 0
+          assert s["fully_analog_physical_pass_count"] == 0
+          assert s["physical_analog_claim"] is False
+          assert s["hardware_analog_witness"] is False
+          print(s)
+          PY
       - name: Verify native contract has no external authority
         run: |
           grep -q '^PNV 1$' native/GREMLIN_BESTIARY_PHASENAV_PHASE_GATES_V0_1.pnv
@@ -79,5 +104,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: gremlin-bestiary-phasenav-numpy-v01
-          path: provenance/GREMLIN_BESTIARY_PHASENAV_NUMPY_BENCHMARK_V0_1.json
+          path: |
+            provenance/GREMLIN_BESTIARY_PHASENAV_NUMPY_BENCHMARK_V0_1.json
+            provenance/GREMLIN_BESTIARY_PHASENAV_THREEWAY_BENCHMARK_V0_1.json
           if-no-files-found: error
