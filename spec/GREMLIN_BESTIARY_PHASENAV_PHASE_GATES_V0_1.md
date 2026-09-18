@@ -235,3 +235,21 @@ specialist-invariant gate are closed for this candidate branch.
 2. isolate which hybrid roles can move additional decision sub-operators into continuous phase dynamics without weakening provenance or authority;
 3. replace selected digital post-operators with explicit continuous candidates one at a time and require invariant equivalence before promotion;
 4. test hardware/analog realization candidates separately with measured electrical/physical witnesses. No fully-analog claim is permitted from numerical continuity alone.
+
+## Repository promotion addendum — 2026-09-18
+
+The implementation covered by this candidate specification was subsequently revalidated on exact head
+`072ed5435a8f6f12cc3afe113a8d7e6bc75b83d0`.
+
+All nine required workflows completed successfully and PR #62 was merged to `main` as
+`aaa4db7d268bcd50b70e417137c595c2fa677f5a`.
+
+Repository promotion changes the code location, not the scientific/authority scope of this specification. The following remain unchanged:
+
+```text
+physical_analog_claim   = false
+hardware_analog_witness = false
+canon_allowed           = false
+```
+
+See `docs/reports/GREMLIN_MAIN_STATE_2026-09-18.md` for the post-merge state.
