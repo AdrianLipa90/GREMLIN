@@ -31,6 +31,7 @@ from gremlin_mcp.research_executor import execute_research
 from gremlin_mcp.router import auto_fanout, route
 from gremlin_mcp.web import fetch_url, research, search_web
 from gremlin_mcp.workers import WorkerBroker, broker as memory_broker
+from tools.gremlin_geometry_phase_scheduler_v01 import scheduler_manifest
 
 broker: WorkerBroker = memory_broker
 
@@ -41,7 +42,8 @@ mcp = MCPServer(
     instructions=(
         "GREMLIN MCP is a research/candidate interface. Use gremlin_bestiary to inspect "
         "the animal topology, gremlin_species for one role, gremlin_plan to build a "
-        "mass-orbit/vector lane plan, gremlin_route for an auditable OCTOPUS semantic route, "
+        "mass-orbit/vector lane plan, worker claims use geometry/phase/state clustered scheduling rather than FIFO, "
+        "gremlin_route for an auditable OCTOPUS semantic route, "
         "gremlin_relation_parse for deterministic Polish case-typed relation frames, "
         "gremlin_relation_signature to inspect an operator's grammatical ports, "
         "gremlin_web_search for bounded internet evidence acquisition, gremlin_web_fetch for "
@@ -458,7 +460,7 @@ def gremlin_worker_queue() -> dict[str, Any]:
 
 
 def standalone_phasenav_self_test() -> dict[str, Any]:
-    """Run a bounded no-NOEMA self-test of the packaged PhaseNav Bestiary surface."""
+    """Run a bounded no-NOEMA self-test of the packaged PhaseNav/Bestiary runtime."""
     runtime = phasenav_status()
     reference = phasenav_reference_sweep()
     threeway = phasenav_threeway(
@@ -469,6 +471,32 @@ def standalone_phasenav_self_test() -> dict[str, Any]:
         rk4_substeps=64,
     )
     invariants = phasenav_analog_invariants()
+    scheduler = scheduler_manifest()
+
+    # Exercise the actual worker broker path rather than only importing the
+    # scheduler module. This stays local/candidate-only and has no external effect.
+    probe = WorkerBroker()
+    probe.register_worker("standalone-probe", ["SERPENT"], vector_width=4, max_batch=4)
+    p0 = [0.10] * 36
+    p1 = [0.12] * 36
+    probe.enqueue(
+        "SERPENT",
+        {"text": "phase scheduler probe a", "_gremlin_scheduler": {"phase36": p0}},
+        task_id="probe-a",
+    )
+    probe.enqueue(
+        "SERPENT",
+        {"text": "phase scheduler probe b", "_gremlin_scheduler": {"phase36": p1}},
+        task_id="probe-b",
+    )
+    lease = probe.claim("standalone-probe", species="SERPENT", limit=2)
+    scheduler_probe_pass = (
+        lease["lease_id"] is not None
+        and lease["batch_size"] == 2
+        and lease["scheduler"]["mode"] == "GEOMETRY_PHASE_STATE_CLUSTERED_V0_1"
+        and lease["scheduler"]["fifo_primary"] is False
+    )
+
     passed = (
         runtime["standalone"] is True
         and runtime["live_noema_required_for_core"] is False
@@ -478,16 +506,21 @@ def standalone_phasenav_self_test() -> dict[str, Any]:
         and reference["external_effects"] is False
         and threeway["summary"]["all_species_pass"] is True
         and invariants["summary"]["all_analog_core_specialist_invariants_pass"] is True
+        and scheduler["fifo_primary"] is False
+        and "SERPENT" in scheduler["species"]
+        and scheduler_probe_pass
     )
     if not passed:
         raise RuntimeError("standalone PhaseNav Bestiary self-test failed")
     return {
-        "schema": "GREMLIN_STANDALONE_PHASENAV_SELF_TEST_V0_1",
+        "schema": "GREMLIN_STANDALONE_PHASENAV_SELF_TEST_V0_2",
         "status": "PASS",
         "species_count": 18,
         "vector_backend_available": True,
         "threeway_all_species_pass": True,
         "analog_core_invariants_pass": True,
+        "geometry_phase_scheduler_pass": True,
+        "fifo_primary": False,
         "live_noema_required": False,
         "external_effects": False,
         "canon_allowed": False,
