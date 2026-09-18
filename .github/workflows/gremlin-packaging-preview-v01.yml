@@ -137,7 +137,7 @@ jobs:
           test -f /usr/share/gremlin/README-FIRST.txt
           test -f /usr/share/gremlin/MCP-SETUP.md
           test -f /usr/share/gremlin/PREVIEW_BUILD.txt
-      - name: Customer Connect-Test-READY-Disconnect gate
+      - name: Customer Connect-Test-Readiness-Disconnect gate
         run: >-
           python tools/smoke_installed_customer_flow_v01.py
           --ctl /usr/bin/gremlinctl
@@ -236,7 +236,7 @@ jobs:
           if (-not (Test-Path (Join-Path $root 'resources\README-FIRST.txt'))) { throw 'README-FIRST missing' }
           if (-not (Test-Path (Join-Path $root 'resources\MCP-SETUP.md'))) { throw 'MCP-SETUP missing' }
           if (-not (Test-Path (Join-Path $root 'resources\PREVIEW_BUILD.txt'))) { throw 'Preview marker missing' }
-      - name: Customer Connect-Test-READY-Disconnect gate
+      - name: Customer Connect-Test-Readiness-Disconnect gate
         shell: pwsh
         run: |
           $ctl = Join-Path $env:LOCALAPPDATA 'Programs\GREMLIN\gremlinctl.exe'
