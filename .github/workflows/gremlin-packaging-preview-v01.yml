@@ -93,6 +93,7 @@ jobs:
           assert 'claude-desktop' not in ids
           PY
           dist/linux/runtime/gremlin-product-mcp --help >/dev/null
+          dist/linux/runtime/gremlin-mcp --help >/dev/null
       - name: Build Debian preview package
         run: >-
           python tools/build_gremlin_deb_v01.py
@@ -106,6 +107,7 @@ jobs:
         run: |
           /usr/bin/gremlinctl paths --platform linux --json
           /usr/bin/gremlinctl doctor --platform linux --json
+          /usr/bin/gremlin-mcp --help >/dev/null
           cat "$RUNNER_TEMP/preview-license.key" | /usr/bin/gremlinctl license activate --stdin --platform linux --json
           /usr/bin/gremlinctl license status --platform linux --json | tee "$RUNNER_TEMP/license-installed-linux.json"
           /usr/bin/gremlinctl profile status --platform linux --json | tee "$RUNNER_TEMP/profile-installed-linux.json"
@@ -179,6 +181,7 @@ jobs:
             if ($ids -notcontains $required) { throw "Missing Windows provider: $required" }
           }
           & .\dist\windows\runtime\gremlin-product-mcp.exe --help | Out-Null
+          & .\dist\windows\runtime\gremlin-mcp.exe --help | Out-Null
       - name: Install Inno Setup
         shell: pwsh
         run: choco install innosetup --yes --no-progress
@@ -202,6 +205,9 @@ jobs:
         run: |
           $root = Join-Path $env:LOCALAPPDATA 'Programs\GREMLIN'
           $ctl = Join-Path $root 'gremlinctl.exe'
+          $fullMcp = Join-Path $root 'gremlin-mcp.exe'
+          if (-not (Test-Path $fullMcp)) { throw 'Full GREMLIN MCP executable missing' }
+          & $fullMcp --help | Out-Null
           & $ctl paths --platform windows --json
           & $ctl doctor --platform windows --json
           Get-Content (Join-Path $env:RUNNER_TEMP 'preview-license.key') -Raw | & $ctl license activate --stdin --platform windows --json
