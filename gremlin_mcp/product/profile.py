@@ -5,9 +5,11 @@ import json
 from pathlib import Path
 from typing import Any, Mapping
 
+from tools.gremlin_geometry_phase_scheduler_v01 import SCHEDULER_SPECIES
+
 CLIENT_PROFILE_SCHEMA = "GREMLIN_CLIENT_PROFILE_V0_1"
 PROFILE_DOMAIN = b"GREMLIN-CLIENT-PROFILE/v0.1\0"
-KNOWN_SPECIES = frozenset({"SPIDER", "RAVEN", "HOUND", "MOLE", "OWL", "ANT", "MANTIS", "BELZEBUB"})
+KNOWN_SPECIES = frozenset(SCHEDULER_SPECIES)
 _PROFILE_KEYS = frozenset(
     {
         "schema", "client_id", "label", "tools", "species", "providers", "languages",
