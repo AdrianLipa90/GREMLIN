@@ -136,6 +136,41 @@ GREMLIN      aggregation/root
 FERRET       explicit actuation boundary
 ```
 
+## Geometry-cluster context packing
+
+Every successful geometry-scheduled lease also carries a model-facing,
+lossless context pack:
+
+```text
+GREMLIN_GEOMETRY_CONTEXT_PACK_V0_1
+```
+
+The pack removes scheduler-only metadata from the model-facing representation
+while retaining it in the committed task envelope. Across the selected batch it
+factors:
+
+- top-level values that are exactly identical;
+- common prefixes and suffixes of string fields when the shared span is large
+  enough to justify factoring;
+- per-task residual fields and string middles.
+
+The pack round-trips exactly to every semantic payload core. It therefore gives
+a worker two representations of the same committed workload:
+
+```text
+full task payloads -> provenance / exact lineage
+context pack       -> compact batch-facing model context
+```
+
+Workers are not required to use the compact representation. A model-backed
+worker can consume the shared context once and then process per-task residuals,
+while deterministic/non-model workers may continue to read the full payloads.
+
+The scheduler records byte-level packing metrics directly. A separate benchmark
+uses an explicitly named tokenizer to measure token counts. Such measurements
+are tokenizer- and fixture-specific and are not promoted to universal model or
+billing claims.
+
 ## Receipts
 
 Every lease returns a `scheduler` receipt containing:
@@ -188,5 +223,7 @@ v0.1 requires:
 - queue-geometry selection across registered species;
 - geometry-adaptive lane contraction/expansion;
 - transition/noise proxy comparison against FIFO;
+- lossless context-pack roundtrip;
+- tokenizer-specific naive-vs-packed context measurement with explicit claim scope;
 - persistence and worker-ABI regression;
 - standalone wheel and compiled-runtime import/self-test gates.
