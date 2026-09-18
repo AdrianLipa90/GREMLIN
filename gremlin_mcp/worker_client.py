@@ -160,6 +160,7 @@ class GremlinWorkerClient:
             "species": claim.get("species"),
             "lane_width": claim.get("lane_width"),
             "omega": claim.get("omega"),
+            "scheduler": claim.get("scheduler"),
             "tasks": tasks,
         }
         produced = self.handler(envelope)
