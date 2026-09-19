@@ -189,6 +189,25 @@ def _normalize_operation(operation: Mapping[str, Any], index: int) -> dict[str, 
     if kind not in _ALLOWED_OPERATIONS:
         raise ValueError(f"unsupported RAPHAEL operation: {kind}")
 
+    exact_fields = {
+        "CREATE_FILE": {"operation", "path", "content"},
+        "UPDATE_FILE": {"operation", "path", "expected_blob_sha", "content"},
+        "DELETE_FILE": {"operation", "path", "expected_blob_sha"},
+        "MOVE_FILE": {
+            "operation", "source_path", "destination_path", "expected_blob_sha"
+        },
+        "MERGE_BRANCH": {
+            "operation", "source_ref", "target_ref", "expected_head_sha"
+        },
+    }[kind]
+    supplied_fields = set(operation)
+    if supplied_fields != exact_fields:
+        missing = sorted(exact_fields - supplied_fields)
+        unknown = sorted(supplied_fields - exact_fields)
+        raise ValueError(
+            f"operations[{index}] exact field mismatch: missing={missing}, unknown={unknown}"
+        )
+
     out: dict[str, Any] = {"operation": kind}
     if kind in {"CREATE_FILE", "UPDATE_FILE", "DELETE_FILE"}:
         out["path"] = _path(operation.get("path"), f"operations[{index}].path")
@@ -211,7 +230,7 @@ def _normalize_operation(operation: Mapping[str, Any], index: int) -> dict[str, 
         out["content"] = content
         out["content_commitment"] = _commit(b"GREMLIN-RAPHAEL-CONTENT/v0.1", content)
 
-    if kind in {"UPDATE_FILE", "DELETE_FILE", "MOVE_FILE"} and operation.get("expected_blob_sha") is not None:
+    if kind in {"UPDATE_FILE", "DELETE_FILE", "MOVE_FILE"}:
         out["expected_blob_sha"] = _hash40_64(
             operation.get("expected_blob_sha"), f"operations[{index}].expected_blob_sha"
         )
@@ -387,6 +406,10 @@ def judge(
         raise RaphaelWisdomError(
             "ACCEPT is forbidden while required evidence is missing, blocked or unknown"
         )
+    if selected == ACCEPT and not tests:
+        raise RaphaelWisdomError("ACCEPT requires at least one decree-bound test")
+    if selected == ACCEPT and not conditions:
+        raise RaphaelWisdomError("ACCEPT requires at least one decree-bound postcondition")
 
     core = {
         "schema": DECISION_SCHEMA,
