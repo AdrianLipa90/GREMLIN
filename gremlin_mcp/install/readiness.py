@@ -9,14 +9,22 @@ from gremlin_mcp.product import ProductRuntime
 
 from .integrations import gremlin_stdio_entry
 from .license_activation import installed_license_status, resolve_public_key_path
+from .mcp_probe import probe_product_mcp
 from .paths import GremlinPaths
 from .provider_integrations import list_providers
 
 
-READINESS_SCHEMA = "GREMLIN_CUSTOMER_READINESS_V0_2"
-_UNVERIFIED_PROVIDER_STATES = frozenset(
-    {"REGISTERED", "REGISTERED_UNVERIFIED", "REGISTERED_RUNTIME_NOT_READY", "CONFIGURED_UNVERIFIED"}
-)
+READINESS_SCHEMA = "GREMLIN_CUSTOMER_READINESS_V0_3"
+_CONFIGURED_PROVIDER_STATES = frozenset({
+    "CONNECTED",
+    "REGISTERED",
+    "REGISTERED_UNVERIFIED",
+    "REGISTERED_RUNTIME_NOT_READY",
+    "REGISTERED_RESTART_REQUIRED",
+    "CONFIGURED_UNVERIFIED",
+})
+_UNVERIFIED_PROVIDER_STATES = _CONFIGURED_PROVIDER_STATES - {"CONNECTED"}
+_INVALID_PROVIDER_STATES = frozenset({"CONFIG_INVALID"})
 
 
 def _provider_rows(payload: Any) -> list[Mapping[str, Any]]:
@@ -83,15 +91,24 @@ def evaluate_readiness(paths: GremlinPaths) -> dict[str, Any]:
     product = runtime.status()
     provider_rows = _provider_rows(list_providers(paths))
     detected = [row for row in provider_rows if row.get("detected") is True]
+    configured = [
+        row for row in detected
+        if row.get("connection_status") in _CONFIGURED_PROVIDER_STATES
+    ]
     connected = [
         row
-        for row in provider_rows
+        for row in configured
         if row.get("connected") is True and row.get("connection_status") == "CONNECTED"
     ]
     unverified = [
         row
-        for row in detected
+        for row in configured
         if row.get("connection_status") in _UNVERIFIED_PROVIDER_STATES
+    ]
+    invalid = [
+        row
+        for row in detected
+        if row.get("connection_status") in _INVALID_PROVIDER_STATES
     ]
 
     entry = gremlin_stdio_entry(paths)
@@ -101,7 +118,28 @@ def evaluate_readiness(paths: GremlinPaths) -> dict[str, Any]:
     command = command.strip()
     runtime_available = _runtime_command_available(command, paths.platform)
 
+    handshake: dict[str, Any] = {
+        "schema": "GREMLIN_MCP_RUNTIME_PROBE_V0_1",
+        "status": "NOT_RUN",
+        "transport": "stdio",
+        "registry_exact": False,
+        "detail": "product/license/runtime prerequisites are not satisfied",
+    }
+    if (
+        license_state.get("status") == "ACTIVE"
+        and product.get("status") == "LICENSED"
+        and runtime_available
+    ):
+        raw_probe = probe_product_mcp(paths)
+        if not isinstance(raw_probe, Mapping):
+            raise RuntimeError("GREMLIN MCP runtime probe returned a non-object payload")
+        handshake = dict(raw_probe)
+        probe_status = handshake.get("status")
+        if probe_status not in {"PASS", "FAIL"}:
+            raise RuntimeError("GREMLIN MCP runtime probe returned an invalid status")
+
     actions: list[str] = []
+    notices: list[str] = []
     if license_state.get("status") != "ACTIVE":
         actions.append("Activate your GREMLIN license")
     if product.get("status") != "LICENSED":
@@ -112,13 +150,21 @@ def evaluate_readiness(paths: GremlinPaths) -> dict[str, Any]:
             actions.append("Resolve the product entitlement configuration")
     if not runtime_available:
         actions.append("Repair the GREMLIN runtime installation")
+    elif product.get("status") == "LICENSED" and handshake.get("status") != "PASS":
+        actions.append("Repair or retry the GREMLIN MCP runtime handshake")
+
     if not detected:
         actions.append("Install or open a supported MCP-compatible AI client")
-    elif not connected:
-        if unverified:
-            actions.append("Verify a live GREMLIN MCP connection in one detected AI client")
+    elif not configured:
+        if invalid:
+            actions.append("Repair the invalid GREMLIN MCP configuration in one detected AI client")
         else:
             actions.append("Connect GREMLIN to one detected AI client")
+    elif not connected:
+        notices.append(
+            "GREMLIN is configured in an AI client and the product MCP runtime is verified; "
+            "the client has not independently reported a live GREMLIN session."
+        )
 
     status = "READY" if not actions else "ACTION_REQUIRED"
     return {
@@ -131,17 +177,27 @@ def evaluate_readiness(paths: GremlinPaths) -> dict[str, Any]:
             "available": runtime_available,
             "command": command,
             "transport": "stdio",
+            "handshake": handshake,
         },
         "providers": {
             "detected": len(detected),
+            "configured": len(configured),
+            "configured_ids": [row["provider_id"] for row in configured],
+            # Backward-compatible field: connected means provider-reported live state only.
             "connected": len(connected),
             "connected_ids": [row["provider_id"] for row in connected],
+            "live_connected": len(connected),
+            "live_connected_ids": [row["provider_id"] for row in connected],
             "unverified": len(unverified),
             "unverified_ids": [row["provider_id"] for row in unverified],
+            "invalid": len(invalid),
+            "invalid_ids": [row["provider_id"] for row in invalid],
         },
         "profile": {
             "configured": profile_path.is_file(),
             "path": str(profile_path),
         },
+        "notices": notices,
         "actions": actions,
     }
+
