@@ -131,6 +131,32 @@ function setTechnicalMode(enabled) {
   }
 }
 
+class WorkspaceHttpError extends Error {
+  constructor(message, { status, payload, url }) {
+    super(message);
+    this.name = "WorkspaceHttpError";
+    this.status = status;
+    this.payload = payload;
+    this.url = url;
+  }
+
+  get contract() {
+    return this.payload?.error_contract || null;
+  }
+
+  get errorCode() {
+    return this.contract?.error_code || null;
+  }
+
+  get userAction() {
+    return this.contract?.user_action || null;
+  }
+
+  get retryable() {
+    return this.contract?.retryable === true;
+  }
+}
+
 async function fetchJson(url, options = {}) {
   const response = await fetch(url, {
     cache: "no-store",
@@ -140,10 +166,23 @@ async function fetchJson(url, options = {}) {
   try {
     payload = await response.json();
   } catch (_) {
-    throw new Error(`Invalid JSON response from ${url} (HTTP ${response.status})`);
+    throw new WorkspaceHttpError(
+      `Invalid JSON response from ${url} (HTTP ${response.status})`,
+      { status: response.status, payload: null, url },
+    );
   }
   if (!response.ok) {
-    throw new Error(payload?.error || payload?.reason || `HTTP ${response.status}`);
+    const contract = payload?.error_contract || null;
+    const message =
+      contract?.detail_code ||
+      payload?.error ||
+      payload?.reason ||
+      `HTTP ${response.status}`;
+    throw new WorkspaceHttpError(message, {
+      status: response.status,
+      payload,
+      url,
+    });
   }
   return payload;
 }
@@ -473,7 +512,32 @@ function renderTestGrid(receipt) {
   });
 }
 
+function clearErrorGuidance() {
+  const guidance = $("#error-guidance");
+  guidance.hidden = true;
+  $("#error-code").textContent = "ERROR";
+  $("#error-action").textContent = "Inspect GREMLIN Diagnostics before retrying.";
+  $("#error-retry").textContent = "";
+}
+
+function showErrorGuidance(error) {
+  const guidance = $("#error-guidance");
+  const contract = error instanceof WorkspaceHttpError ? error.contract : null;
+  if (!contract) {
+    guidance.hidden = true;
+    return null;
+  }
+
+  $("#error-code").textContent = contract.error_code || "ERROR";
+  $("#error-action").textContent =
+    contract.user_action || "Inspect GREMLIN Diagnostics before retrying.";
+  $("#error-retry").textContent = contract.retryable ? "retryable" : "manual action";
+  guidance.hidden = false;
+  return contract;
+}
+
 function renderResponse(wrapper, candidate) {
+  clearErrorGuidance();
   const response = wrapper.response;
   const artifacts = response.artifacts || {};
   const ir = artifacts.phasenav_ir || {};
@@ -522,12 +586,22 @@ function renderResponse(wrapper, candidate) {
 function renderError(error) {
   setPipeline([]);
   setVerdict("ERROR");
-  $("#prototype-source").textContent = String(error.message || error);
-  $("#audit-view").textContent = "The candidate or request failed before a validated prototype receipt was produced.";
+  const contract = showErrorGuidance(error);
+  const message = String(error.message || error);
+  const userAction = contract?.user_action || null;
+  const display = userAction ? `${message}\n\nNext action: ${userAction}` : message;
+
+  $("#prototype-source").textContent = display;
+  $("#audit-view").textContent =
+    "The candidate or request failed before a validated prototype receipt was produced.";
   $("#test-grid").replaceChildren();
-  $("#test-detail").textContent = String(error.message || error);
-  $("#receipt-view").textContent = "No receipt produced.";
-  setRunState("fail", String(error.message || error));
+  $("#test-detail").textContent = userAction || message;
+  $("#receipt-view").textContent = contract ? pretty(contract) : "No machine-readable error receipt produced.";
+
+  const stateMessage = contract?.error_code
+    ? `${contract.error_code}: ${userAction || message}`
+    : message;
+  setRunState("fail", stateMessage);
 }
 
 async function runCandidate() {
@@ -555,9 +629,10 @@ async function runCandidate() {
   } catch (error) {
     markCandidate(false);
     renderError(error);
+    const contract = error instanceof WorkspaceHttpError ? error.contract : null;
     recordActivity(
       "fail",
-      `${candidate?.candidate_id || "candidate"}: ${error.message || error}`,
+      `${candidate?.candidate_id || "candidate"}: ${contract?.error_code || error.message || error}${contract?.user_action ? ` — ${contract.user_action}` : ""}`,
     );
   } finally {
     runButton.disabled = false;
