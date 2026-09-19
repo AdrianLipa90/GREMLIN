@@ -333,9 +333,57 @@ def test_target_sha_accepts_only_exact_sha1_or_sha256_lengths():
             target_repository="AdrianLipa90/GREMLIN",
             target_branch="feat/test",
             target_sha="a" * 41,
-            operations=_operations(),
+            operations=[{"operation": "CREATE_FILE", "path": "x.txt", "content": "x"}],
             evidence_receipts=_evidence(),
         )
+
+
+def test_required_wisdom_quorum_cannot_be_weakened_by_caller():
+    with pytest.raises(RaphaelWisdomError, match="cannot remove mandatory wisdom producers"):
+        observe(
+            objective="attempt quorum downgrade",
+            target_repository="AdrianLipa90/GREMLIN",
+            target_branch="feat/test",
+            target_sha="a" * 40,
+            operations=[{"operation": "CREATE_FILE", "path": "x.txt", "content": "x"}],
+            evidence_receipts=[],
+            required_producers=[],
+        )
+
+
+def test_string_fail_is_not_truthy_test_pass():
+    decree = _decree()
+    auth = authorize(decree, actor="USER007", approved=True, observed_target_sha="a" * 40, authority_receipt_commitment=_h("external-authority"))
+    backend = FakeBackend()
+    with pytest.raises(RaphaelExecutionError) as caught:
+        execute(
+            decree,
+            auth,
+            backend=backend,
+            ledger=InMemoryMutationLedger(),
+            test_runner=lambda _: "FAIL",
+            postcondition_checker=lambda _: True,
+        )
+    assert caught.value.receipt["failure_code"] == "MALFORMED_TEST_RESULT"
+    assert caught.value.receipt["status"] == "ROLLED_BACK"
+    assert backend.rolled_back is True
+
+
+def test_consumed_decree_cannot_be_cancelled_after_mutation():
+    decree = _decree()
+    auth = authorize(decree, actor="USER007", approved=True, observed_target_sha="a" * 40, authority_receipt_commitment=_h("external-authority"))
+    ledger = InMemoryMutationLedger()
+    receipt = execute(
+        decree,
+        auth,
+        backend=FakeBackend(),
+        ledger=ledger,
+        test_runner=lambda _: True,
+        postcondition_checker=lambda _: True,
+    )
+    assert receipt["status"] == "PASS"
+    with pytest.raises(RaphaelAuthorizationError, match="already consumed"):
+        cancel_decree(decree, reason_codes=["TOO_LATE"], ledger=ledger)
 
 
 def test_raphael_cannot_self_authorize():
