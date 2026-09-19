@@ -570,7 +570,7 @@ def gremlin_worker_list() -> dict[str, Any]:
     annotations=tool_annotations("gremlin_worker_enqueue"),
 )
 @mcp_error_boundary("gremlin_worker_enqueue")
-def gremlin_worker_enqueue(species: str, payload: dict[str, Any], task_id: str | None = None) -> dict[str, Any]:
+def gremlin_worker_enqueue(species: str, payload: dict[str, Any], task_id: WorkerIdentifier | None = None) -> dict[str, Any]:
     product_runtime.authorize(tool="gremlin_worker_enqueue", feature="CUSTOM_WORKERS", species=species)
     return broker.enqueue(species, payload, task_id=task_id)
 
@@ -597,7 +597,7 @@ def gremlin_worker_claim(
     annotations=tool_annotations("gremlin_worker_submit"),
 )
 @mcp_error_boundary("gremlin_worker_submit")
-def gremlin_worker_submit(worker_id: str, lease_id: str, results: list[dict[str, Any]]) -> dict[str, Any]:
+def gremlin_worker_submit(worker_id: WorkerIdentifier, lease_id: WorkerIdentifier, results: list[dict[str, Any]]) -> dict[str, Any]:
     product_runtime.authorize(tool="gremlin_worker_submit", feature="CUSTOM_WORKERS")
     return broker.submit(worker_id, lease_id, results)
 
