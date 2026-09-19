@@ -11,6 +11,26 @@ from gremlin_mcp import __version__
 from gremlin_mcp.core import bestiary_manifest, plan_bestiary, run_prototype, species_profile, status
 from gremlin_mcp.error_contract import mcp_error_boundary
 from gremlin_mcp.tool_metadata import tool_annotations
+from gremlin_mcp.tool_catalog import tool_description, tool_title
+from gremlin_mcp.tool_types import (
+    NonEmptyStringList,
+    NonNegativeRouteCount,
+    PlanVectorWidth,
+    ProviderLimit,
+    RequestId,
+    ResearchMaxSources,
+    RouteMaxSpecies,
+    RouteMinScore,
+    RouteRelativeCutoff,
+    WebMaxBytes,
+    WebTimeoutSeconds,
+    WorkerClaimLimit,
+    WorkerIdentifier,
+    WorkerIdentifierList,
+    WorkerLeaseSeconds,
+    WorkerMaxBatch,
+    WorkerVectorWidth,
+)
 from gremlin_mcp.guarded_research import execute_guarded_research
 from gremlin_mcp.hound_research import execute_research_with_hound_provenance
 from gremlin_mcp.pipeline import collect, enqueue_synthesis, fanout
@@ -114,7 +134,11 @@ def _authorize_research_plan(
     return plan
 
 
-@mcp.tool(annotations=tool_annotations("gremlin_product_status"))
+@mcp.tool(
+    title=tool_title("gremlin_product_status"),
+    description=tool_description("gremlin_product_status"),
+    annotations=tool_annotations("gremlin_product_status"),
+)
 @mcp_error_boundary("gremlin_product_status")
 def gremlin_product_status() -> dict[str, Any]:
     """Return sanitized product/license/profile state without customer secrets."""
@@ -123,14 +147,22 @@ def gremlin_product_status() -> dict[str, Any]:
     return out
 
 
-@mcp.tool(annotations=tool_annotations("gremlin_license_status"))
+@mcp.tool(
+    title=tool_title("gremlin_license_status"),
+    description=tool_description("gremlin_license_status"),
+    annotations=tool_annotations("gremlin_license_status"),
+)
 @mcp_error_boundary("gremlin_license_status")
 def gremlin_license_status() -> dict[str, Any]:
     """Alias for the sanitized licensed-product state."""
     return product_runtime.status()
 
 
-@mcp.tool(annotations=tool_annotations("gremlin_status"))
+@mcp.tool(
+    title=tool_title("gremlin_status"),
+    description=tool_description("gremlin_status"),
+    annotations=tool_annotations("gremlin_status"),
+)
 @mcp_error_boundary("gremlin_status")
 def gremlin_status() -> dict[str, Any]:
     product_runtime.authorize(tool="gremlin_status")
@@ -140,23 +172,35 @@ def gremlin_status() -> dict[str, Any]:
     return out
 
 
-@mcp.tool(annotations=tool_annotations("gremlin_bestiary"))
+@mcp.tool(
+    title=tool_title("gremlin_bestiary"),
+    description=tool_description("gremlin_bestiary"),
+    annotations=tool_annotations("gremlin_bestiary"),
+)
 @mcp_error_boundary("gremlin_bestiary")
 def gremlin_bestiary() -> dict[str, Any]:
     product_runtime.authorize(tool="gremlin_bestiary")
     return bestiary_manifest()
 
 
-@mcp.tool(annotations=tool_annotations("gremlin_species"))
+@mcp.tool(
+    title=tool_title("gremlin_species"),
+    description=tool_description("gremlin_species"),
+    annotations=tool_annotations("gremlin_species"),
+)
 @mcp_error_boundary("gremlin_species")
 def gremlin_species(species: str) -> dict[str, Any]:
     product_runtime.authorize(tool="gremlin_species", species=species)
     return species_profile(species)
 
 
-@mcp.tool(annotations=tool_annotations("gremlin_plan"))
+@mcp.tool(
+    title=tool_title("gremlin_plan"),
+    description=tool_description("gremlin_plan"),
+    annotations=tool_annotations("gremlin_plan"),
+)
 @mcp_error_boundary("gremlin_plan")
-def gremlin_plan(route_counts: dict[str, int], vector_width: int = 8) -> dict[str, Any]:
+def gremlin_plan(route_counts: dict[str, NonNegativeRouteCount], vector_width: PlanVectorWidth = 8) -> dict[str, Any]:
     product_runtime.authorize(
         tool="gremlin_plan",
         feature="WORKER_ORCHESTRATION",
@@ -167,13 +211,17 @@ def gremlin_plan(route_counts: dict[str, int], vector_width: int = 8) -> dict[st
     return plan_bestiary(route_counts, vector_width=vector_width)
 
 
-@mcp.tool(annotations=tool_annotations("gremlin_route"))
+@mcp.tool(
+    title=tool_title("gremlin_route"),
+    description=tool_description("gremlin_route"),
+    annotations=tool_annotations("gremlin_route"),
+)
 @mcp_error_boundary("gremlin_route")
 def gremlin_route(
     payload: dict[str, Any],
-    max_species: int = 4,
-    min_score: float = 2.0,
-    relative_cutoff: float = 0.45,
+    max_species: RouteMaxSpecies = 4,
+    min_score: RouteMinScore = 2.0,
+    relative_cutoff: RouteRelativeCutoff = 0.45,
 ) -> dict[str, Any]:
     product_runtime.authorize(tool="gremlin_route", requested_workers=max_species)
     decision = route(payload, max_species=max_species, min_score=min_score, relative_cutoff=relative_cutoff)
@@ -182,38 +230,54 @@ def gremlin_route(
     return decision
 
 
-@mcp.tool(annotations=tool_annotations("gremlin_relation_parse"))
+@mcp.tool(
+    title=tool_title("gremlin_relation_parse"),
+    description=tool_description("gremlin_relation_parse"),
+    annotations=tool_annotations("gremlin_relation_parse"),
+)
 @mcp_error_boundary("gremlin_relation_parse")
 def gremlin_relation_parse(text: str, language: str = "pl") -> dict[str, Any]:
     product_runtime.authorize(tool="gremlin_relation_parse")
     return extract_relations(text, language=language)
 
 
-@mcp.tool(annotations=tool_annotations("gremlin_relation_signature"))
+@mcp.tool(
+    title=tool_title("gremlin_relation_signature"),
+    description=tool_description("gremlin_relation_signature"),
+    annotations=tool_annotations("gremlin_relation_signature"),
+)
 @mcp_error_boundary("gremlin_relation_signature")
 def gremlin_relation_signature(operator: str) -> dict[str, Any]:
     product_runtime.authorize(tool="gremlin_relation_signature")
     return operator_signature(operator)
 
 
-@mcp.tool(annotations=tool_annotations("gremlin_web_fetch"))
+@mcp.tool(
+    title=tool_title("gremlin_web_fetch"),
+    description=tool_description("gremlin_web_fetch"),
+    annotations=tool_annotations("gremlin_web_fetch"),
+)
 @mcp_error_boundary("gremlin_web_fetch")
 def gremlin_web_fetch(
     url: str,
-    timeout_s: float = 10.0,
-    max_bytes: int = 1_000_000,
+    timeout_s: WebTimeoutSeconds = 10.0,
+    max_bytes: WebMaxBytes = 1_000_000,
     max_chars: int = 120_000,
 ) -> dict[str, Any]:
     product_runtime.authorize(tool="gremlin_web_fetch", feature="INTERNET_RESEARCH", requested_sources=1)
     return fetch_url(url, timeout_s=timeout_s, max_bytes=max_bytes, max_chars=max_chars)
 
 
-@mcp.tool(annotations=tool_annotations("gremlin_web_search"))
+@mcp.tool(
+    title=tool_title("gremlin_web_search"),
+    description=tool_description("gremlin_web_search"),
+    annotations=tool_annotations("gremlin_web_search"),
+)
 @mcp_error_boundary("gremlin_web_search")
 def gremlin_web_search(
     query: str,
     providers: list[str] | None = None,
-    limit_per_provider: int = 6,
+    limit_per_provider: ProviderLimit = 6,
 ) -> dict[str, Any]:
     selected = _providers(
         "gremlin_web_search",
@@ -223,12 +287,16 @@ def gremlin_web_search(
     return search_web(query, providers=selected, limit_per_provider=limit_per_provider)
 
 
-@mcp.tool(annotations=tool_annotations("gremlin_research"))
+@mcp.tool(
+    title=tool_title("gremlin_research"),
+    description=tool_description("gremlin_research"),
+    annotations=tool_annotations("gremlin_research"),
+)
 @mcp_error_boundary("gremlin_research")
 def gremlin_research(
     query: str,
     providers: list[str] | None = None,
-    limit_per_provider: int = 6,
+    limit_per_provider: ProviderLimit = 6,
     max_species: int = 4,
 ) -> dict[str, Any]:
     _authorize_research_plan("gremlin_research", query, max_species=max_species, synthesis=False)
@@ -240,14 +308,18 @@ def gremlin_research(
     return research(query, providers=selected, limit_per_provider=limit_per_provider, max_species=max_species)
 
 
-@mcp.tool(annotations=tool_annotations("gremlin_research_execute"))
+@mcp.tool(
+    title=tool_title("gremlin_research_execute"),
+    description=tool_description("gremlin_research_execute"),
+    annotations=tool_annotations("gremlin_research_execute"),
+)
 @mcp_error_boundary("gremlin_research_execute")
 def gremlin_research_execute(
     query: str,
     providers: list[str] | None = None,
-    limit_per_provider: int = 6,
+    limit_per_provider: ProviderLimit = 6,
     max_species: int = 4,
-    max_sources: int = 12,
+    max_sources: ResearchMaxSources = 12,
 ) -> dict[str, Any]:
     product_runtime.authorize(tool="gremlin_research_execute", feature="RESEARCH_EXECUTE")
     _authorize_research_plan("gremlin_research_execute", query, max_species=max_species, synthesis=True)
@@ -261,14 +333,18 @@ def gremlin_research_execute(
     )
 
 
-@mcp.tool(annotations=tool_annotations("gremlin_research_hound_provenance"))
+@mcp.tool(
+    title=tool_title("gremlin_research_hound_provenance"),
+    description=tool_description("gremlin_research_hound_provenance"),
+    annotations=tool_annotations("gremlin_research_hound_provenance"),
+)
 @mcp_error_boundary("gremlin_research_hound_provenance")
 def gremlin_research_hound_provenance(
     query: str,
     providers: list[str] | None = None,
-    limit_per_provider: int = 6,
+    limit_per_provider: ProviderLimit = 6,
     max_species: int = 4,
-    max_sources: int = 12,
+    max_sources: ResearchMaxSources = 12,
 ) -> dict[str, Any]:
     product_runtime.authorize(tool="gremlin_research_hound_provenance", feature="RESEARCH_EXECUTE")
     _authorize_research_plan(
@@ -288,7 +364,11 @@ def gremlin_research_hound_provenance(
     )
 
 
-@mcp.tool(annotations=tool_annotations("gremlin_research_guarded"))
+@mcp.tool(
+    title=tool_title("gremlin_research_guarded"),
+    description=tool_description("gremlin_research_guarded"),
+    annotations=tool_annotations("gremlin_research_guarded"),
+)
 @mcp_error_boundary("gremlin_research_guarded")
 def gremlin_research_guarded(
     query: str,
@@ -296,9 +376,9 @@ def gremlin_research_guarded(
     claim_evidence: list[dict[str, Any]] | None = None,
     hound_receipt: dict[str, Any] | None = None,
     providers: list[str] | None = None,
-    limit_per_provider: int = 6,
+    limit_per_provider: ProviderLimit = 6,
     max_species: int = 4,
-    max_sources: int = 12,
+    max_sources: ResearchMaxSources = 12,
 ) -> dict[str, Any]:
     product_runtime.authorize(tool="gremlin_research_guarded", feature="RESEARCH_EXECUTE")
     product_runtime.authorize(tool="gremlin_research_guarded", feature="GUARDED_RESEARCH")
@@ -316,16 +396,20 @@ def gremlin_research_guarded(
     )
 
 
-@mcp.tool(annotations=tool_annotations("gremlin_research_relational"))
+@mcp.tool(
+    title=tool_title("gremlin_research_relational"),
+    description=tool_description("gremlin_research_relational"),
+    annotations=tool_annotations("gremlin_research_relational"),
+)
 @mcp_error_boundary("gremlin_research_relational")
 def gremlin_research_relational(
     query: str,
     relation_text: str | None = None,
     language: str = "pl",
     providers: list[str] | None = None,
-    limit_per_provider: int = 6,
+    limit_per_provider: ProviderLimit = 6,
     max_species: int = 4,
-    max_sources: int = 12,
+    max_sources: ResearchMaxSources = 12,
 ) -> dict[str, Any]:
     product_runtime.authorize(tool="gremlin_research_relational", feature="RESEARCH_EXECUTE")
     product_runtime.authorize(tool="gremlin_research_relational", feature="RELATIONAL_RESEARCH")
@@ -348,14 +432,18 @@ def gremlin_research_relational(
     )
 
 
-@mcp.tool(annotations=tool_annotations("gremlin_auto_fanout"))
+@mcp.tool(
+    title=tool_title("gremlin_auto_fanout"),
+    description=tool_description("gremlin_auto_fanout"),
+    annotations=tool_annotations("gremlin_auto_fanout"),
+)
 @mcp_error_boundary("gremlin_auto_fanout")
 def gremlin_auto_fanout(
     payload: dict[str, Any],
-    request_id: str | None = None,
-    max_species: int = 4,
-    min_score: float = 2.0,
-    relative_cutoff: float = 0.45,
+    request_id: RequestId | None = None,
+    max_species: RouteMaxSpecies = 4,
+    min_score: RouteMinScore = 2.0,
+    relative_cutoff: RouteRelativeCutoff = 0.45,
 ) -> dict[str, Any]:
     product_runtime.authorize(
         tool="gremlin_auto_fanout",
@@ -375,12 +463,16 @@ def gremlin_auto_fanout(
     )
 
 
-@mcp.tool(annotations=tool_annotations("gremlin_fanout"))
+@mcp.tool(
+    title=tool_title("gremlin_fanout"),
+    description=tool_description("gremlin_fanout"),
+    annotations=tool_annotations("gremlin_fanout"),
+)
 @mcp_error_boundary("gremlin_fanout")
 def gremlin_fanout(
     payload: dict[str, Any],
     species: list[str],
-    request_id: str | None = None,
+    request_id: RequestId | None = None,
 ) -> dict[str, Any]:
     product_runtime.authorize(
         tool="gremlin_fanout",
@@ -392,35 +484,51 @@ def gremlin_fanout(
     return fanout(broker, payload, species, request_id=request_id)
 
 
-@mcp.tool(annotations=tool_annotations("gremlin_collect"))
+@mcp.tool(
+    title=tool_title("gremlin_collect"),
+    description=tool_description("gremlin_collect"),
+    annotations=tool_annotations("gremlin_collect"),
+)
 @mcp_error_boundary("gremlin_collect")
-def gremlin_collect(task_ids: list[str]) -> dict[str, Any]:
+def gremlin_collect(task_ids: WorkerIdentifierList) -> dict[str, Any]:
     product_runtime.authorize(tool="gremlin_collect", feature="WORKER_ORCHESTRATION")
     return collect(broker, task_ids)
 
 
-@mcp.tool(annotations=tool_annotations("gremlin_synthesize"))
+@mcp.tool(
+    title=tool_title("gremlin_synthesize"),
+    description=tool_description("gremlin_synthesize"),
+    annotations=tool_annotations("gremlin_synthesize"),
+)
 @mcp_error_boundary("gremlin_synthesize")
-def gremlin_synthesize(specialist_task_ids: list[str], request_id: str | None = None) -> dict[str, Any]:
+def gremlin_synthesize(specialist_task_ids: WorkerIdentifierList, request_id: str | None = None) -> dict[str, Any]:
     product_runtime.authorize(tool="gremlin_synthesize", feature="WORKER_ORCHESTRATION", species="BELZEBUB")
     return enqueue_synthesis(broker, specialist_task_ids, request_id=request_id)
 
 
-@mcp.tool(annotations=tool_annotations("gremlin_prototype"))
+@mcp.tool(
+    title=tool_title("gremlin_prototype"),
+    description=tool_description("gremlin_prototype"),
+    annotations=tool_annotations("gremlin_prototype"),
+)
 @mcp_error_boundary("gremlin_prototype")
 def gremlin_prototype(request: dict[str, Any]) -> dict[str, Any]:
     product_runtime.authorize(tool="gremlin_prototype", feature="PROTOTYPE_PIPELINE")
     return run_prototype(request)
 
 
-@mcp.tool(annotations=tool_annotations("gremlin_worker_register"))
+@mcp.tool(
+    title=tool_title("gremlin_worker_register"),
+    description=tool_description("gremlin_worker_register"),
+    annotations=tool_annotations("gremlin_worker_register"),
+)
 @mcp_error_boundary("gremlin_worker_register")
 def gremlin_worker_register(
-    worker_id: str,
-    species: list[str],
+    worker_id: WorkerIdentifier,
+    species: NonEmptyStringList,
     capabilities: list[str] | None = None,
-    vector_width: int = 8,
-    max_batch: int = 128,
+    vector_width: WorkerVectorWidth = 8,
+    max_batch: WorkerMaxBatch = 128,
 ) -> dict[str, Any]:
     product_runtime.authorize(tool="gremlin_worker_register", feature="CUSTOM_WORKERS", requested_workers=1)
     for name in species:
@@ -434,54 +542,82 @@ def gremlin_worker_register(
     )
 
 
-@mcp.tool(annotations=tool_annotations("gremlin_worker_heartbeat"))
+@mcp.tool(
+    title=tool_title("gremlin_worker_heartbeat"),
+    description=tool_description("gremlin_worker_heartbeat"),
+    annotations=tool_annotations("gremlin_worker_heartbeat"),
+)
 @mcp_error_boundary("gremlin_worker_heartbeat")
-def gremlin_worker_heartbeat(worker_id: str) -> dict[str, Any]:
+def gremlin_worker_heartbeat(worker_id: WorkerIdentifier) -> dict[str, Any]:
     product_runtime.authorize(tool="gremlin_worker_heartbeat", feature="CUSTOM_WORKERS")
     return broker.heartbeat(worker_id)
 
 
-@mcp.tool(annotations=tool_annotations("gremlin_worker_list"))
+@mcp.tool(
+    title=tool_title("gremlin_worker_list"),
+    description=tool_description("gremlin_worker_list"),
+    annotations=tool_annotations("gremlin_worker_list"),
+)
 @mcp_error_boundary("gremlin_worker_list")
 def gremlin_worker_list() -> dict[str, Any]:
     product_runtime.authorize(tool="gremlin_worker_list", feature="CUSTOM_WORKERS")
     return broker.list_workers()
 
 
-@mcp.tool(annotations=tool_annotations("gremlin_worker_enqueue"))
+@mcp.tool(
+    title=tool_title("gremlin_worker_enqueue"),
+    description=tool_description("gremlin_worker_enqueue"),
+    annotations=tool_annotations("gremlin_worker_enqueue"),
+)
 @mcp_error_boundary("gremlin_worker_enqueue")
 def gremlin_worker_enqueue(species: str, payload: dict[str, Any], task_id: str | None = None) -> dict[str, Any]:
     product_runtime.authorize(tool="gremlin_worker_enqueue", feature="CUSTOM_WORKERS", species=species)
     return broker.enqueue(species, payload, task_id=task_id)
 
 
-@mcp.tool(annotations=tool_annotations("gremlin_worker_claim"))
+@mcp.tool(
+    title=tool_title("gremlin_worker_claim"),
+    description=tool_description("gremlin_worker_claim"),
+    annotations=tool_annotations("gremlin_worker_claim"),
+)
 @mcp_error_boundary("gremlin_worker_claim")
 def gremlin_worker_claim(
-    worker_id: str,
+    worker_id: WorkerIdentifier,
     species: str | None = None,
-    limit: int | None = None,
-    lease_seconds: int | None = None,
+    limit: WorkerClaimLimit | None = None,
+    lease_seconds: WorkerLeaseSeconds | None = None,
 ) -> dict[str, Any]:
     product_runtime.authorize(tool="gremlin_worker_claim", feature="CUSTOM_WORKERS", species=species)
     return broker.claim(worker_id, species=species, limit=limit, lease_seconds=lease_seconds)
 
 
-@mcp.tool(annotations=tool_annotations("gremlin_worker_submit"))
+@mcp.tool(
+    title=tool_title("gremlin_worker_submit"),
+    description=tool_description("gremlin_worker_submit"),
+    annotations=tool_annotations("gremlin_worker_submit"),
+)
 @mcp_error_boundary("gremlin_worker_submit")
 def gremlin_worker_submit(worker_id: str, lease_id: str, results: list[dict[str, Any]]) -> dict[str, Any]:
     product_runtime.authorize(tool="gremlin_worker_submit", feature="CUSTOM_WORKERS")
     return broker.submit(worker_id, lease_id, results)
 
 
-@mcp.tool(annotations=tool_annotations("gremlin_worker_result"))
+@mcp.tool(
+    title=tool_title("gremlin_worker_result"),
+    description=tool_description("gremlin_worker_result"),
+    annotations=tool_annotations("gremlin_worker_result"),
+)
 @mcp_error_boundary("gremlin_worker_result")
-def gremlin_worker_result(task_id: str) -> dict[str, Any]:
+def gremlin_worker_result(task_id: WorkerIdentifier) -> dict[str, Any]:
     product_runtime.authorize(tool="gremlin_worker_result", feature="CUSTOM_WORKERS")
     return broker.task_result(task_id)
 
 
-@mcp.tool(annotations=tool_annotations("gremlin_worker_queue"))
+@mcp.tool(
+    title=tool_title("gremlin_worker_queue"),
+    description=tool_description("gremlin_worker_queue"),
+    annotations=tool_annotations("gremlin_worker_queue"),
+)
 @mcp_error_boundary("gremlin_worker_queue")
 def gremlin_worker_queue() -> dict[str, Any]:
     product_runtime.authorize(tool="gremlin_worker_queue", feature="CUSTOM_WORKERS")

@@ -106,8 +106,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Install Python test runner
-        run: python -m pip install pytest
+      - name: Install GREMLIN and Python test runner
+        run: python -m pip install --disable-pip-version-check -e . pytest
       - name: Check browser JavaScript syntax
         run: node --check client/web/app.js
       - name: Run cross-repo RSI-PMNS, Hermitian-exchange, oriented-coupling, dual-channel, coupling-energy, joint-state, MaxSym spin-geometry, Hamiltonian, connection-path, Lambda-holonomy, valuation, epistemic, affect, acquisition-bound PhaseNav, scalar, admission, client and native tests

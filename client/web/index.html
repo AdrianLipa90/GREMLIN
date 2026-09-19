@@ -16,12 +16,54 @@
         <div class="brand-subtitle">candidate → PhaseNav IR → prototype → falsification receipt</div>
       </div>
     </div>
-    <div class="top-status" aria-label="authority status">
+    <div class="top-status" aria-label="system status">
       <span class="badge badge-muted">v0.1</span>
-      <span class="badge badge-safe">reference validation</span>
+      <span id="product-badge" class="badge badge-muted">product: loading</span>
+      <span id="mcp-badge" class="badge badge-muted">MCP: loading</span>
       <span class="badge badge-lock">execution admission: off</span>
     </div>
   </header>
+
+  <section class="system-dashboard" aria-labelledby="system-title">
+    <div class="system-heading">
+      <div>
+        <div class="eyebrow">SYSTEM</div>
+        <h2 id="system-title">GREMLIN at a glance</h2>
+      </div>
+      <span id="system-load-state" class="run-status running">loading system…</span>
+    </div>
+
+    <div class="system-cards">
+      <article class="system-card">
+        <span class="system-label">Product</span>
+        <strong id="system-product-status">—</strong>
+        <small id="system-edition">edition —</small>
+      </article>
+      <article class="system-card">
+        <span class="system-label">MCP surface</span>
+        <strong id="system-tool-count">—</strong>
+        <small id="system-contract">contract —</small>
+      </article>
+      <article class="system-card">
+        <span class="system-label">Bestiary</span>
+        <strong id="system-species-count">—</strong>
+        <small>typed orchestration roles</small>
+      </article>
+      <article class="system-card">
+        <span class="system-label">Authority</span>
+        <strong id="system-authority">CLOSED</strong>
+        <small>no canon / no execution admission</small>
+      </article>
+    </div>
+
+    <details class="bestiary-panel">
+      <summary>
+        <span>Bestiary map</span>
+        <span id="bestiary-topology" class="mono subtle">loading topology…</span>
+      </summary>
+      <div id="bestiary-grid" class="bestiary-grid" aria-live="polite"></div>
+    </details>
+  </section>
 
   <main class="workspace">
     <section class="panel panel-input" aria-labelledby="input-title">

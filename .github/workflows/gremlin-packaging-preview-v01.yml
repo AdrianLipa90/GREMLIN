@@ -152,6 +152,42 @@ jobs:
           assert p['product_status']=='LICENSED'
           assert p['authority']['execution_admitted'] is False
           PY
+          cleanup_workspace() {
+            /usr/bin/gremlin-workspace --stop --platform linux --json >/dev/null 2>&1 || true
+          }
+          trap cleanup_workspace EXIT
+          /usr/bin/gremlin-workspace --platform linux --no-browser >"$RUNNER_TEMP/workspace-linux.log" 2>&1 &
+          workspace_pid=$!
+          workspace_ready=0
+          for _ in $(seq 1 50); do
+            /usr/bin/gremlin-workspace --status --platform linux --json >"$RUNNER_TEMP/workspace-status-linux.json"
+            python - <<'PY' && workspace_ready=1 && break || true
+          import json, os
+          p=json.load(open(os.environ['RUNNER_TEMP']+'/workspace-status-linux.json'))
+          raise SystemExit(0 if p['status']=='RUNNING' and p['can_stop'] is True else 1)
+          PY
+            sleep 0.1
+          done
+          if [ "$workspace_ready" -ne 1 ]; then
+            cat "$RUNNER_TEMP/workspace-linux.log"
+            echo "Installed Linux Workspace did not become RUNNING" >&2
+            exit 1
+          fi
+          /usr/bin/gremlin-workspace --stop --platform linux --json | tee "$RUNNER_TEMP/workspace-stop-linux.json"
+          python - <<'PY'
+          import json, os
+          p=json.load(open(os.environ['RUNNER_TEMP']+'/workspace-stop-linux.json'))
+          assert p['status']=='STOPPED'
+          assert p['can_stop'] is False
+          PY
+          wait "$workspace_pid"
+          /usr/bin/gremlin-workspace --status --platform linux --json | tee "$RUNNER_TEMP/workspace-after-stop-linux.json"
+          python - <<'PY'
+          import json, os
+          p=json.load(open(os.environ['RUNNER_TEMP']+'/workspace-after-stop-linux.json'))
+          assert p['status']=='NOT_RUNNING'
+          PY
+          trap - EXIT
       - name: Customer Connect-Test-Readiness-Disconnect gate
         run: >-
           python tools/smoke_installed_customer_flow_v01.py
@@ -262,6 +298,26 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Installed Windows Workspace check failed' }
           if ($workspaceCheck.status -ne 'READY' -or $workspaceCheck.assets.mode -ne 'INSTALLED_RESOURCES') { throw 'Installed Windows Workspace is not ready' }
           if ($workspaceCheck.authority.execution_admitted) { throw 'Workspace authority boundary opened unexpectedly' }
+          $workspaceProcess = Start-Process -FilePath $workspace -ArgumentList '--platform','windows','--no-browser' -PassThru -WindowStyle Hidden
+          try {
+            $running = $false
+            for ($i = 0; $i -lt 50; $i++) {
+              Start-Sleep -Milliseconds 100
+              $workspaceStatus = & $workspace --status --platform windows --json | ConvertFrom-Json
+              if ($workspaceStatus.status -eq 'RUNNING' -and $workspaceStatus.can_stop) {
+                $running = $true
+                break
+              }
+            }
+            if (-not $running) { throw 'Installed Windows Workspace did not become RUNNING' }
+            $workspaceStop = & $workspace --stop --platform windows --json | ConvertFrom-Json
+            if ($LASTEXITCODE -ne 0 -or $workspaceStop.status -ne 'STOPPED') { throw 'Installed Windows Workspace stop failed' }
+            if (-not $workspaceProcess.WaitForExit(5000)) { throw 'Installed Windows Workspace process did not exit after stop' }
+            $workspaceAfterStop = & $workspace --status --platform windows --json | ConvertFrom-Json
+            if ($workspaceAfterStop.status -ne 'NOT_RUNNING') { throw 'Installed Windows Workspace remained active after stop' }
+          } finally {
+            if (-not $workspaceProcess.HasExited) { Stop-Process -Id $workspaceProcess.Id -Force -ErrorAction SilentlyContinue }
+          }
       - name: Customer Connect-Test-Readiness-Disconnect gate
         shell: pwsh
         run: |

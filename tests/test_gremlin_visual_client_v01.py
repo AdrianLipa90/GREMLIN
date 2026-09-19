@@ -1,5 +1,6 @@
 import unittest
 
+from gremlin_mcp.workspace import system_payload
 from client.gremlin_web_server_v01 import (
     STATIC_FILES,
     WEB_ROOT,
@@ -32,6 +33,13 @@ class GremlinVisualClientV01Tests(unittest.TestCase):
         self.assertFalse(health["execution_admitted"])
         self.assertFalse(health["canon_allowed"])
 
+    def test_reference_dashboard_contract_matches_shared_workspace_surface(self):
+        dashboard = system_payload(surface="reference")
+        self.assertEqual(dashboard["surface"], "reference")
+        self.assertEqual(dashboard["mcp"]["tool_count"], 32)
+        self.assertEqual(dashboard["bestiary"]["species_count"], 18)
+        self.assertFalse(dashboard["authority"]["execution_admitted"])
+
     def test_static_surface_is_exact_whitelist(self):
         self.assertEqual(set(STATIC_FILES), {"/", "/index.html", "/app.js", "/styles.css"})
         for _, (name, _) in STATIC_FILES.items():
@@ -45,6 +53,10 @@ class GremlinVisualClientV01Tests(unittest.TestCase):
         for tab in ("Prototype", "BELZEBUB", "Tests", "Receipt"):
             self.assertIn(f">{tab}<", html)
         self.assertIn("execution admission: off", html)
+        self.assertIn("GREMLIN at a glance", html)
+        self.assertIn("Bestiary map", html)
+        self.assertIn('id="bestiary-grid"', html)
+        self.assertIn('id="system-tool-count"', html)
 
     def test_browser_surface_uses_text_content_not_html_injection(self):
         script = (WEB_ROOT / "app.js").read_text(encoding="utf-8")
@@ -52,7 +64,9 @@ class GremlinVisualClientV01Tests(unittest.TestCase):
         self.assertNotIn("eval(", script)
         self.assertIn("textContent", script)
         self.assertIn('fetch("/api/prototype"', script)
+        self.assertIn('fetch("/api/system"', script)
         self.assertIn("createElementNS", script)
+        self.assertIn("bestiaryGrid", script)
 
     def test_visual_client_does_not_add_external_frontend_dependencies(self):
         html = (WEB_ROOT / "index.html").read_text(encoding="utf-8")
