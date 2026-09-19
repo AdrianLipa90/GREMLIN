@@ -46,6 +46,10 @@ class GremlinVisualClientV01Tests(unittest.TestCase):
         self.assertIn("Active vocabulary", html)
         self.assertIn("Activity", html)
         self.assertIn("Technical view", html)
+        self.assertIn("<title>GREMLIN Workspace v0.2</title>", html)
+        self.assertIn('id="refresh-cockpit"', html)
+        self.assertIn('id="retry-error"', html)
+        self.assertIn('title="Ctrl/Cmd+Enter"', html)
         self.assertIn('id="error-guidance"', html)
         self.assertIn('aria-live="polite"', html)
         self.assertIn("Problem & candidate", html)
@@ -65,8 +69,28 @@ class GremlinVisualClientV01Tests(unittest.TestCase):
         self.assertIn("WorkspaceHttpError", script)
         self.assertIn("error_contract", script)
         self.assertIn("user_action", script)
+        self.assertIn("sessionStorage", script)
+        self.assertIn("TECHNICAL_MODE_STORAGE_KEY", script)
+        self.assertNotIn("localStorage", script)
+        self.assertIn('document.addEventListener("keydown"', script)
+        self.assertIn('event.key === "Enter"', script)
+        self.assertIn("event.ctrlKey || event.metaKey", script)
+        self.assertIn("refreshCockpit", script)
+        self.assertIn("retryErrorButton.hidden = contract.retryable !== true", script)
         self.assertIn("textContent", script)
         self.assertIn("createElementNS", script)
+
+    def test_workspace_session_storage_is_preference_only(self):
+        script = (WEB_ROOT / "app.js").read_text(encoding="utf-8")
+        self.assertIn(
+            'window.sessionStorage.setItem(TECHNICAL_MODE_STORAGE_KEY, enabled ? "true" : "false")',
+            script,
+        )
+        self.assertNotIn('sessionStorage.setItem("candidate', script)
+        self.assertNotIn('sessionStorage.setItem("problem', script)
+        self.assertNotIn("candidateEditor.value,", script)
+        self.assertNotIn("problemBrief.value,", script)
+
 
     def test_reference_server_exposes_cockpit_status_and_bestiary_without_product_claims(self):
         status = status_payload()
