@@ -34,7 +34,7 @@ _ALLOWED_OPERATIONS = frozenset({
     "CREATE_FILE", "UPDATE_FILE", "DELETE_FILE", "MOVE_FILE", "MERGE_BRANCH"
 })
 
-_HEX40_64 = re.compile(r"^[0-9a-f]{40,64}$")
+_HEX40_64 = re.compile(r"^(?:[0-9a-f]{40}|[0-9a-f]{64})$")
 _HEX64 = re.compile(r"^[0-9a-f]{64}$")
 
 
@@ -591,7 +591,25 @@ def execute(
 
     before_sha = _state_sha(backend.current_state())
     if before_sha != body["target_sha"]:
-        raise RaphaelExecutionError("STATE_DRIFT: backend target SHA differs from decree")
+        if not ledger.consume(decree["decree_commitment"], authorization["authorization_commitment"]):
+            raise RaphaelAuthorizationError("decree or authorization is cancelled/already consumed")
+        receipt = _receipt(
+            decree=decree,
+            authorization=authorization,
+            before_sha=before_sha,
+            after_sha=before_sha,
+            applied_results=[],
+            tests={},
+            postconditions={},
+            status="ABORTED",
+            rollback=None,
+            failure_code="STATE_DRIFT",
+            mutation_started=False,
+        )
+        raise RaphaelExecutionError(
+            "STATE_DRIFT: backend target SHA differs from decree",
+            receipt=receipt,
+        )
 
     try:
         rollback_state = backend.prepare(body)
@@ -613,8 +631,9 @@ def execute(
 
     def fail(code: str, message: str) -> None:
         rollback_result: Mapping[str, Any] | None = None
-        status = "QUARANTINED"
+        status = "ABORTED"
         if mutation_started:
+            status = "QUARANTINED"
             try:
                 rollback_result = backend.rollback(rollback_state, applied)
                 if isinstance(rollback_result, Mapping) and rollback_result.get("status") == "ROLLED_BACK":
