@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import asdict
 from typing import Any, Mapping
 
+from gremlin_mcp.error_contract import SCHEMA as MCP_ERROR_SCHEMA
+
 from tools.gremlin_bestiary_orbital_scheduler_v02 import PROFILES, service_omega, service_period
 from tools.gremlin_bestiary_vector_species_v03 import (
     build_species_plan,
@@ -155,6 +157,11 @@ def status(*, surface: str = "reference") -> dict[str, Any]:
         "tool_count": len(tools),
         "tool_groups": {name: list(items) for name, items in groups.items()},
         "capability_contract": contract,
+        "error_contract": {
+            "schema": MCP_ERROR_SCHEMA,
+            "protocol_semantics": "MCP_TOOL_ERROR_IS_ERROR_TRUE",
+            "fields": ["error_code", "detail_code", "category", "retryable", "user_action", "request_id"],
+        },
         "topology": list(TOPOLOGY), "authority": authority_state(),
     }
 
