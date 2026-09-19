@@ -40,6 +40,18 @@ def prepare(*, public_key: Path, output: Path, version: str, preview: bool) -> P
             raise ValueError(f"customer onboarding resource is required: {source}")
         shutil.copy2(source, output / name)
 
+    workspace = output / "workspace"
+    workspace.mkdir(exist_ok=True)
+    for name in ("index.html", "app.js", "styles.css"):
+        source = Path("client/web") / name
+        if not source.is_file():
+            raise ValueError(f"workspace asset is required: {source}")
+        shutil.copy2(source, workspace / name)
+    example = Path("examples/client_request_v01.json")
+    if not example.is_file():
+        raise ValueError(f"workspace example request is required: {example}")
+    shutil.copy2(example, workspace / "example-request.json")
+
     metadata = {
         "schema": "GREMLIN_INSTALLER_RESOURCES_V0_2",
         "version": str(version),
@@ -51,6 +63,7 @@ def prepare(*, public_key: Path, output: Path, version: str, preview: bool) -> P
             "license_activation": "GRM1_OR_SIGNED_JSON",
             "provider_autodetect": True,
             "ready_gate": True,
+            "workspace": True,
         },
     }
     (output / "build-metadata.json").write_text(
