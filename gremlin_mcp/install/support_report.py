@@ -18,9 +18,7 @@ from .readiness import evaluate_readiness
 SCHEMA = "GREMLIN_SUPPORT_REPORT_V0_1"
 DOMAIN = b"GREMLIN-SUPPORT-REPORT/v0.1\x00"
 _WINDOWS_ABSOLUTE_PATH_RE = re.compile(r"(?i)(?<![A-Za-z0-9_])[A-Z]:[\\/][^\s\"'<>|]+")
-_POSIX_ABSOLUTE_PATH_RE = re.compile(r"(?<![A-Za-z0-9_:])/(?:[^\s\"'<>|]+)")
-
-
+_POSIX_ABSOLUTE_PATH_RE = re.compile(r"(?<![A-Za-z0-9_:/])/(?:[^\s\"'<>|]+)")
 
 
 def _canonical(value: Mapping[str, Any]) -> bytes:
