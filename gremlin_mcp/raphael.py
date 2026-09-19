@@ -5,6 +5,7 @@ import json
 import re
 import secrets
 import time
+from threading import Lock
 from typing import Any, Callable, Mapping, Protocol, Sequence
 
 RAPHAEL_SCHEMA = "GREMLIN_RAPHAEL_WISDOM_MUTATION_V0_1"
@@ -80,25 +81,30 @@ class InMemoryMutationLedger:
         self._cancelled: set[str] = set()
         self._decrees: set[str] = set()
         self._authorizations: set[str] = set()
+        self._lock = Lock()
 
     def cancel(self, decree_commitment: str) -> bool:
         decree = _hash64(decree_commitment, "decree_commitment")
-        if decree in self._decrees:
-            return False
-        self._cancelled.add(decree)
-        return True
+        with self._lock:
+            if decree in self._decrees:
+                return False
+            self._cancelled.add(decree)
+            return True
 
     def is_cancelled(self, decree_commitment: str) -> bool:
-        return _hash64(decree_commitment, "decree_commitment") in self._cancelled
+        decree = _hash64(decree_commitment, "decree_commitment")
+        with self._lock:
+            return decree in self._cancelled
 
     def consume(self, decree_commitment: str, authorization_commitment: str) -> bool:
         decree = _hash64(decree_commitment, "decree_commitment")
         authorization = _hash64(authorization_commitment, "authorization_commitment")
-        if decree in self._cancelled or decree in self._decrees or authorization in self._authorizations:
-            return False
-        self._decrees.add(decree)
-        self._authorizations.add(authorization)
-        return True
+        with self._lock:
+            if decree in self._cancelled or decree in self._decrees or authorization in self._authorizations:
+                return False
+            self._decrees.add(decree)
+            self._authorizations.add(authorization)
+            return True
 
 
 def _canonical(value: Any) -> bytes:
@@ -654,8 +660,13 @@ def execute(
         if mutation_started:
             status = "QUARANTINED"
             try:
-                rollback_result = backend.rollback(rollback_state, applied)
-                if isinstance(rollback_result, Mapping) and rollback_result.get("status") == "ROLLED_BACK":
+                raw_rollback_result = backend.rollback(rollback_state, applied)
+                if not isinstance(raw_rollback_result, Mapping):
+                    raise ValueError("rollback result must be an object")
+                rollback_result = json.loads(
+                    _canonical(dict(raw_rollback_result)).decode("utf-8")
+                )
+                if rollback_result.get("status") == "ROLLED_BACK":
                     status = "ROLLED_BACK"
             except Exception as exc:
                 rollback_result = {
@@ -696,9 +707,16 @@ def execute(
             fail("MUTATION_OPERATION_FAILED", f"operation {index} failed: {type(exc).__name__}: {exc}")
         if not isinstance(result, Mapping):
             fail("MALFORMED_MUTATION_RESULT", f"operation {index} returned non-object result")
-        if result.get("operation_commitment") != operation["operation_commitment"]:
+        try:
+            normalized_result = json.loads(_canonical(dict(result)).decode("utf-8"))
+        except ValueError as exc:
+            fail(
+                "MALFORMED_MUTATION_RESULT",
+                f"operation {index} returned non-finite/non-JSON receipt: {exc}",
+            )
+        if normalized_result.get("operation_commitment") != operation["operation_commitment"]:
             fail("OPERATION_RECEIPT_MISMATCH", f"operation {index} receipt does not bind exact decree operation")
-        applied.append(dict(result))
+        applied.append(normalized_result)
 
     if body["required_tests"] and test_runner is None:
         fail("TEST_RUNNER_MISSING", "required tests exist but no test runner was supplied")
