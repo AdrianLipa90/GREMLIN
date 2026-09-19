@@ -30,7 +30,11 @@
         <div class="eyebrow">SYSTEM</div>
         <h2 id="system-title">GREMLIN at a glance</h2>
       </div>
-      <span id="system-load-state" class="run-status running">loading system…</span>
+      <div class="header-actions">
+        <span id="system-load-state" class="run-status running">loading system…</span>
+        <button id="refresh-system" class="text-button" type="button">Refresh</button>
+        <button id="technical-toggle" class="mode-toggle" type="button" aria-pressed="false">Technical view</button>
+      </div>
     </div>
 
     <div class="system-cards">
@@ -63,6 +67,19 @@
       </summary>
       <div id="bestiary-grid" class="bestiary-grid" aria-live="polite"></div>
     </details>
+
+    <article class="session-activity">
+      <div class="session-activity-head">
+        <div>
+          <div class="eyebrow">SESSION</div>
+          <h2>Activity</h2>
+        </div>
+        <button id="clear-activity" class="text-button" type="button">Clear</button>
+      </div>
+      <ol id="activity-list" class="activity-list" aria-live="polite">
+        <li class="activity-empty">No activity yet.</li>
+      </ol>
+    </article>
   </section>
 
   <main class="workspace">
@@ -85,13 +102,13 @@
 
       <div class="editor-heading">
         <label for="candidate-editor">Audited relation candidate</label>
-        <span class="schema-tag">GREMLIN_RELATION_CANDIDATE_V0_1</span>
+        <span class="schema-tag technical-only">GREMLIN_RELATION_CANDIDATE_V0_1</span>
       </div>
       <textarea id="candidate-editor" class="json-editor" spellcheck="false" aria-label="candidate JSON"></textarea>
 
       <div class="button-row">
         <button id="load-example" class="button button-secondary" type="button">Load example</button>
-        <button id="run-candidate" class="button button-primary" type="button">Compile & test</button>
+        <button id="run-candidate" class="button button-primary" type="button" title="Ctrl/Cmd+Enter">Compile & test</button>
       </div>
 
       <div class="boundary-card">
@@ -106,7 +123,7 @@
           <div class="eyebrow">02 / PHASENAV</div>
           <h2 id="graph-title">Operator graph</h2>
         </div>
-        <div id="run-status" class="run-status">idle</div>
+        <div id="run-status" class="run-status" aria-live="polite">idle</div>
       </div>
 
       <div id="pipeline" class="pipeline" aria-label="pipeline stages">
@@ -128,8 +145,8 @@
       <dl class="ir-summary">
         <div><dt>Operator</dt><dd id="ir-operator">—</dd></div>
         <div><dt>Terms</dt><dd id="ir-terms">—</dd></div>
-        <div><dt>IR commitment</dt><dd id="ir-commitment" class="mono ellipsis">—</dd></div>
-        <div><dt>Response commitment</dt><dd id="response-commitment" class="mono ellipsis">—</dd></div>
+        <div class="technical-only"><dt>IR commitment</dt><dd id="ir-commitment" class="mono ellipsis">—</dd></div>
+        <div class="technical-only"><dt>Response commitment</dt><dd id="response-commitment" class="mono ellipsis">—</dd></div>
       </dl>
     </section>
 
@@ -142,18 +159,29 @@
         <span id="verdict" class="verdict verdict-idle">NO RUN</span>
       </div>
 
+      <div id="error-guidance" class="error-guidance" role="alert" aria-live="polite" tabindex="-1" hidden>
+        <div class="error-guidance-head">
+          <strong id="error-code">ERROR</strong>
+          <span id="error-retry" class="error-retry"></span>
+        </div>
+        <span id="error-action">Inspect GREMLIN Diagnostics before retrying.</span>
+        <div class="error-guidance-actions">
+          <button id="retry-error" class="text-button" type="button" hidden>Retry</button>
+        </div>
+      </div>
+
       <nav class="tabs" aria-label="result views">
         <button class="tab active" data-tab="prototype" type="button">Prototype</button>
-        <button class="tab" data-tab="audit" type="button">BELZEBUB</button>
+        <button class="tab technical-only" data-tab="audit" type="button">BELZEBUB</button>
         <button class="tab" data-tab="tests" type="button">Tests</button>
-        <button class="tab" data-tab="receipt" type="button">Receipt</button>
+        <button class="tab technical-only" data-tab="receipt" type="button">Receipt</button>
       </nav>
 
       <div class="tab-panels">
         <section id="tab-prototype" class="tab-panel active" aria-label="prototype source">
           <div class="artifact-meta">
             <span id="prototype-status" class="artifact-chip">UNTRUSTED_PROTOTYPE</span>
-            <span id="prototype-commitment" class="mono subtle">—</span>
+            <span id="prototype-commitment" class="mono subtle technical-only">—</span>
           </div>
           <pre id="prototype-source" class="artifact-view">No prototype generated yet.</pre>
         </section>
@@ -177,7 +205,7 @@
   <footer class="footer">
     <span>GREMLIN Workspace v0.1</span>
     <span>PhaseNav space: T<sup>36</sup> · dual lattice: Z<sup>36</sup></span>
-    <span id="footer-message">Ready.</span>
+    <span id="footer-message" aria-live="polite">Ready.</span>
   </footer>
 
   <script src="/app.js" defer></script>
