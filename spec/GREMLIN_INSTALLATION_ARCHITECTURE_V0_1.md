@@ -420,3 +420,39 @@ gremlinctl support report --write --json
 ```
 
 The persisted `GREMLIN_SUPPORT_REPORT_V0_1` is commitment-bound, excludes license keys/config contents/provider command output, redacts canonical personal paths from diagnostic details, and is stored under the canonical per-user diagnostics directory.
+
+
+## 14. Signed update verification addendum
+
+The earlier future-update requirement is now implemented at the offline verification layer by `GREMLIN_SIGNED_UPDATE_MANIFEST_V0_1`.
+
+The release contract binds:
+
+```text
+platform
+architecture
+version
+release_sequence
+channel
+artifact basename
+artifact SHA-256
+artifact byte size
+release date
+Ed25519 issuer key ID/signature
+```
+
+Customer verification is exposed through:
+
+```text
+gremlinctl update verify --manifest <signed.json> [--artifact <package>] --json
+```
+
+Issuer-side creation is exposed through:
+
+```text
+gremlin-license update-issue ...
+```
+
+The customer verifier also evaluates the active license `updates_until` window separately from cryptographic validity.
+
+This addendum does not implement network discovery, download, installation, privilege escalation, runtime replacement or restart. Those remain gated behind a later update-transport/install design.
