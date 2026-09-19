@@ -95,6 +95,22 @@ PlanVectorWidth = Annotated[
     ),
 ]
 
+NonNegativeRouteCount = Annotated[
+    int,
+    Field(
+        ge=0,
+        description="Non-negative routed work count for one scheduler-backed species.",
+    ),
+]
+
+NonEmptyStringList = Annotated[
+    list[str],
+    Field(
+        min_length=1,
+        description="Non-empty list required by the corresponding GREMLIN runtime contract.",
+    ),
+]
+
 RequestId = Annotated[
     str,
     Field(
@@ -110,6 +126,14 @@ WorkerIdentifier = Annotated[
         min_length=1,
         max_length=MAX_IDENTIFIER_CHARS,
         description="GREMLIN worker/task/lease identifier.",
+    ),
+]
+
+WorkerIdentifierList = Annotated[
+    list[WorkerIdentifier],
+    Field(
+        min_length=1,
+        description="Non-empty list of GREMLIN task identifiers.",
     ),
 ]
 
