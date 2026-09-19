@@ -96,6 +96,13 @@ button { cursor: pointer; }
 }
 .cockpit-card-header h2 { margin-bottom: 0; }
 
+.header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: .4rem;
+}
+
 .mode-toggle, .text-button {
   color: var(--accent-2);
   border: 1px solid rgba(116,192,252,.28);
@@ -380,6 +387,16 @@ textarea:focus, input:focus { border-color: rgba(99,230,190,.7); box-shadow: 0 0
   font: .68rem ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 .error-guidance > span { color: #d7b7b7; font-size: .68rem; line-height: 1.4; }
+.error-guidance:focus {
+  outline: 2px solid rgba(255,135,135,.5);
+  outline-offset: 2px;
+}
+.error-guidance-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: .1rem;
+}
+
 .error-retry {
   color: var(--muted);
   font: .58rem ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
