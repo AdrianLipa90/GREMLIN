@@ -18,9 +18,16 @@ from tools.gremlin_client_protocol_v01 import REQUEST_SCHEMA
 
 
 class FakeRuntime:
-    def __init__(self, *, licensed: bool = True, prototype_allowed: bool = True) -> None:
+    def __init__(
+        self,
+        *,
+        licensed: bool = True,
+        prototype_allowed: bool = True,
+        denied_tools: set[str] | None = None,
+    ) -> None:
         self.licensed = licensed
         self.prototype_allowed = prototype_allowed
+        self.denied_tools = set(denied_tools or set())
         self.calls: list[dict[str, object]] = []
 
     def status(self) -> dict[str, object]:
@@ -44,7 +51,10 @@ class FakeRuntime:
 
     def authorize(self, **kwargs) -> None:
         self.calls.append(dict(kwargs))
-        if not self.prototype_allowed:
+        tool = kwargs.get("tool")
+        if isinstance(tool, str) and tool in self.denied_tools:
+            raise ProductAuthorizationError(f"TOOL_NOT_ALLOWED_BY_PROFILE:{tool}")
+        if not self.prototype_allowed and kwargs.get("feature") == "PROTOTYPE_PIPELINE":
             raise ProductAuthorizationError("FEATURE_NOT_ENTITLED:PROTOTYPE_PIPELINE")
 
 
@@ -211,6 +221,69 @@ def test_workspace_system_payload_is_safe_exact_product_dashboard() -> None:
     assert payload["authority"]["canon_allowed"] is False
 
 
+
+def test_workspace_status_and_bestiary_reauthorize_read_only_surfaces() -> None:
+    runtime = FakeRuntime()
+
+    status = workspace.workspace_status_payload(runtime)  # type: ignore[arg-type]
+    bestiary = workspace.workspace_bestiary_payload(runtime)  # type: ignore[arg-type]
+
+    assert status["status"] == "READY"
+    assert status["product"]["status"] == "LICENSED"
+    assert status["capabilities"]["surface"] == "product"
+    assert status["capabilities"]["tool_count"] == 29
+    assert bestiary["status"] == "READY"
+    assert bestiary["species_count"] == 18
+    assert len(bestiary["species"]) == 18
+    serialized = json.dumps(status, sort_keys=True)
+    assert "TEST-SECRET-ID" not in serialized
+    assert "test-client-secret-id" not in serialized
+    assert runtime.calls == [
+        {"tool": "gremlin_status"},
+        {"tool": "gremlin_bestiary"},
+    ]
+
+
+def test_workspace_read_only_introspection_respects_profile_denial() -> None:
+    runtime = FakeRuntime(denied_tools={"gremlin_bestiary"})
+    with pytest.raises(ProductAuthorizationError, match="TOOL_NOT_ALLOWED_BY_PROFILE:gremlin_bestiary"):
+        workspace.workspace_bestiary_payload(runtime)  # type: ignore[arg-type]
+
+
+def test_workspace_error_payload_reuses_shared_mcp_contract() -> None:
+    payload = workspace.workspace_error_payload(
+        ProductAuthorizationError("FEATURE_NOT_ENTITLED:PROTOTYPE_PIPELINE"),
+        tool="gremlin_prototype",
+        request_id="workspace-req-1",
+    )
+    contract = payload["error_contract"]
+    assert payload["schema"] == workspace.WORKSPACE_SCHEMA
+    assert payload["status"] == "ERROR"
+    assert payload["request_id"] == "workspace-req-1"
+    assert contract["schema"] == "GREMLIN_MCP_ERROR_V0_1"
+    assert contract["tool"] == "gremlin_prototype"
+    assert contract["error_code"] == "FEATURE_NOT_ENTITLED"
+    assert contract["retryable"] is False
+    assert contract["request_id"] == "workspace-req-1"
+    assert contract["request_id_source"] == "caller"
+    assert "entitled" in contract["user_action"]
+
+
+def test_workspace_internal_error_generates_correlation_id() -> None:
+    payload = workspace.workspace_error_payload(
+        RuntimeError("WORKSPACE_INTERNAL_ERROR"),
+        tool="gremlin_status",
+    )
+    contract = payload["error_contract"]
+    assert contract["error_code"] == "WORKSPACE_INTERNAL_ERROR"
+    assert contract["category"] == "RUNTIME"
+    assert contract["request_id_source"] == "generated"
+    assert isinstance(contract["request_id"], str)
+    assert contract["request_id"].startswith("err-")
+    assert payload["request_id"] == contract["request_id"]
+    assert "support report" in contract["user_action"]
+
+
 def test_reference_dashboard_uses_reference_registry_without_product_identity() -> None:
     payload = workspace.system_payload(surface="reference")
     assert payload["surface"] == "reference"
@@ -270,6 +343,19 @@ def test_workspace_http_surface_has_security_headers_and_blocks_cross_origin(tmp
             assert payload["bestiary"]["species_count"] == 18
             assert "TEST-SECRET-ID" not in json.dumps(payload)
 
+        with urlopen(f"{base}/api/status", timeout=2.0) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+            assert response.status == 200
+            assert payload["capabilities"]["surface"] == "product"
+            assert payload["capabilities"]["tool_count"] == 29
+            assert "TEST-SECRET-ID" not in json.dumps(payload)
+
+        with urlopen(f"{base}/api/bestiary", timeout=2.0) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+            assert response.status == 200
+            assert payload["species_count"] == 18
+            assert len(payload["species"]) == 18
+
         body = json.dumps({
             "schema": REQUEST_SCHEMA,
             "request_id": "http-1",
@@ -287,6 +373,16 @@ def test_workspace_http_surface_has_security_headers_and_blocks_cross_origin(tmp
         with pytest.raises(HTTPError) as denied:
             urlopen(hostile, timeout=2.0)
         assert denied.value.code == 403
+        denied_payload = json.loads(denied.value.read().decode("utf-8"))
+        denied_contract = denied_payload["error_contract"]
+        assert denied_contract["schema"] == "GREMLIN_MCP_ERROR_V0_1"
+        assert denied_contract["tool"] == "gremlin_prototype"
+        assert denied_contract["error_code"] == "CROSS_ORIGIN_WORKSPACE_REQUEST"
+        assert denied_contract["category"] == "AUTHORIZATION"
+        assert denied_contract["retryable"] is False
+        assert denied_contract["request_id_source"] == "generated"
+        assert denied_contract["request_id"].startswith("err-")
+        assert "local GREMLIN Workspace origin" in denied_contract["user_action"]
 
         allowed = Request(
             f"{base}/api/prototype",
