@@ -9,7 +9,9 @@ import pytest
 from gremlin_mcp.hive_authority import HiveAuthorityRuntime
 from gremlin_mcp.memory_exchange import (
     build_exchange_ack,
+    ingest_exchange_bundle,
     ingest_exchange_envelope,
+    validate_exchange_bundle,
     validate_exchange_envelope,
 )
 
@@ -87,6 +89,72 @@ def _packet(
             "canon_promoted": False,
         },
     }
+
+
+def _bundle(envelopes: list[dict], acks: list[dict], *, target_id: str) -> dict:
+    core = {
+        "schema": "PHASENAV_MEMORY_INFORMATION_EXCHANGE_BUNDLE_V0_1",
+        "version": "0.1.0",
+        "target_envelope_id": target_id,
+        "envelopes": envelopes,
+        "acks": acks,
+        "epistemic": "CHYBA",
+        "authority": "SHARED_COGNITION_ONLY",
+        "canon_allowed": False,
+    }
+    return {
+        **core,
+        "bundle_sha256": _sha(core),
+        "claims": {
+            "causal_lineage_bundle": True,
+            "physical_nonlocal_signalling": False,
+            "physical_channel_identified": False,
+            "canon_promoted": False,
+        },
+    }
+
+
+def _promotion_chain() -> tuple[dict, dict, dict, list[dict]]:
+    episodic = _packet(
+        sequence=0,
+        source_layer="WORKING",
+        target_layer="EPISODIC",
+        parents=(),
+        hop_count=0,
+    )
+    semantic = _packet(
+        producer_id="RAVEN",
+        sequence=1,
+        source_layer="EPISODIC",
+        target_layer="SEMANTIC",
+        parents=(episodic["envelope_id"],),
+        route=(0.3,),
+        hop_count=1,
+    )
+    relational = _packet(
+        producer_id="SPIDER",
+        sequence=2,
+        source_layer="SEMANTIC",
+        target_layer="RELATIONAL",
+        parents=(semantic["envelope_id"],),
+        route=(0.4, -0.1),
+        hop_count=2,
+    )
+    acks = [
+        build_exchange_ack(
+            episodic,
+            consumer_id="EPISODIC-STORE",
+            outcome="ACCEPTED",
+            reason_code="EPISODIC_INGESTED",
+        ),
+        build_exchange_ack(
+            semantic,
+            consumer_id="SEMANTIC-STORE",
+            outcome="ACCEPTED",
+            reason_code="SEMANTIC_INGESTED",
+        ),
+    ]
+    return episodic, semantic, relational, acks
 
 
 def test_validator_recomputes_payload_envelope_and_transport() -> None:
@@ -218,3 +286,79 @@ def test_durable_restart_preserves_idempotent_exchange_ingest(tmp_path) -> None:
     assert second["created"] is False
     assert first["hive_record_id"] == second["hive_record_id"]
     assert first["ack"] == second["ack"]
+
+
+
+def test_lineage_bundle_allows_cross_layer_parent_witnesses_without_hive_pollution() -> None:
+    episodic, semantic, relational, acks = _promotion_chain()
+    bundle = _bundle(
+        [episodic, semantic, relational],
+        acks,
+        target_id=relational["envelope_id"],
+    )
+
+    validated = validate_exchange_bundle(bundle)
+    assert validated["target_envelope"]["target_layer"] == "RELATIONAL"
+    assert len(validated["accepted_ancestor_ack_ids"]) == 2
+
+    runtime = HiveAuthorityRuntime()
+    result = ingest_exchange_bundle(runtime, bundle)
+    assert result["created"] is True
+    assert result["mode"] == "LINEAGE_BUNDLE"
+    assert result["ack"]["outcome"] == "ACCEPTED"
+    assert result["ack"]["reason_code"] == "HIVE_LINEAGE_BUNDLE_INGESTED"
+    assert len(runtime.table()) == 1
+
+    record = runtime.head(f"exchange:{relational['envelope_id']}")
+    assert record.payload["envelope_id"] == relational["envelope_id"]
+    assert record.payload["lineage_witness_envelope_ids"] == [
+        episodic["envelope_id"],
+        semantic["envelope_id"],
+    ]
+    assert f"lineage:{episodic['envelope_id']}" in record.dependencies
+    assert f"lineage:{semantic['envelope_id']}" in record.dependencies
+
+
+def test_lineage_bundle_replay_is_idempotent() -> None:
+    episodic, semantic, relational, acks = _promotion_chain()
+    bundle = _bundle(
+        [episodic, semantic, relational],
+        acks,
+        target_id=relational["envelope_id"],
+    )
+    runtime = HiveAuthorityRuntime()
+    first = ingest_exchange_bundle(runtime, bundle)
+    second = ingest_exchange_bundle(runtime, bundle)
+    assert first["created"] is True
+    assert second["created"] is False
+    assert first["hive_record_id"] == second["hive_record_id"]
+    assert first["ack"] == second["ack"]
+
+
+def test_lineage_bundle_requires_accepted_ack_for_every_ancestor() -> None:
+    episodic, semantic, relational, acks = _promotion_chain()
+    bundle = _bundle(
+        [episodic, semantic, relational],
+        acks[:1],
+        target_id=relational["envelope_id"],
+    )
+    with pytest.raises(ValueError, match="requires an ACCEPTED ACK"):
+        validate_exchange_bundle(bundle)
+
+
+def test_lineage_bundle_rejects_extraneous_non_ancestor_envelope() -> None:
+    episodic, semantic, relational, acks = _promotion_chain()
+    unrelated = _packet(
+        subject_id="other",
+        generation_id="gen-other",
+        sequence=0,
+        source_layer="WORKING",
+        target_layer="EPISODIC",
+    )
+    bundle = _bundle(
+        [episodic, unrelated, semantic, relational],
+        acks,
+        target_id=relational["envelope_id"],
+    )
+    with pytest.raises(ValueError, match="outside target ancestry"):
+        validate_exchange_bundle(bundle)
