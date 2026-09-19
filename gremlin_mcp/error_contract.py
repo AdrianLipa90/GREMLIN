@@ -5,13 +5,15 @@ import json
 import re
 from typing import Any, Callable, TypeVar, cast
 
+from mcp.server.mcpserver.exceptions import ToolError
+
 SCHEMA = "GREMLIN_MCP_ERROR_V0_1"
 _CODE_RE = re.compile(r"^[A-Z][A-Z0-9_]*(?::[^\\s]+)?$")
 F = TypeVar("F", bound=Callable[..., Any])
 
 
-class GremlinMCPToolError(RuntimeError):
-    """Machine-readable fail-loud MCP tool boundary error."""
+class GremlinMCPToolError(ToolError):
+    """Expected MCP tool error carrying the GREMLIN machine-readable envelope."""
 
 
 def _raw_code(message: str, default: str) -> tuple[str, str]:
