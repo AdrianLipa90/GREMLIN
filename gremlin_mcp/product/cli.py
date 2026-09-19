@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 from datetime import date
 import json
 import os
@@ -9,6 +10,7 @@ from typing import Sequence
 
 from .keycodec import encode_license_key
 from .license import generate_keypair, issue_license, load_private_key
+from gremlin_mcp.install.update_manifest import issue_update_manifest
 
 
 def _split_csv(value: str) -> list[str]:
@@ -113,6 +115,63 @@ def _issue(args: argparse.Namespace) -> int:
     return 0
 
 
+def _file_sha256_and_size(path: Path) -> tuple[str, int]:
+    if not path.is_file():
+        raise SystemExit(f"artifact is missing or not a regular file: {path}")
+    digest = hashlib.sha256()
+    size = 0
+    with path.open("rb") as handle:
+        while True:
+            chunk = handle.read(1024 * 1024)
+            if not chunk:
+                break
+            size += len(chunk)
+            digest.update(chunk)
+    if size < 1:
+        raise SystemExit("refusing to issue an update manifest for an empty artifact")
+    return digest.hexdigest(), size
+
+
+def _issue_update(args: argparse.Namespace) -> int:
+    artifact = Path(args.artifact)
+    digest, size = _file_sha256_and_size(artifact)
+    manifest = {
+        "schema": "GREMLIN_UPDATE_MANIFEST_V0_1",
+        "product": "GREMLIN",
+        "version": args.version,
+        "release_sequence": args.release_sequence,
+        "channel": args.channel,
+        "platform": args.platform,
+        "architecture": args.architecture,
+        "artifact_name": artifact.name,
+        "artifact_sha256": digest,
+        "artifact_size": size,
+        "released_on": args.released_on or date.today().isoformat(),
+    }
+    envelope = issue_update_manifest(manifest, load_private_key(args.private))
+    out = Path(args.out)
+    if out.exists() and not args.force:
+        raise SystemExit("output update manifest already exists; pass --force to replace it")
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(
+        json.dumps(envelope, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    print(json.dumps({
+        "status": "ISSUED",
+        "out": str(out),
+        "version": manifest["version"],
+        "release_sequence": manifest["release_sequence"],
+        "platform": manifest["platform"],
+        "architecture": manifest["architecture"],
+        "artifact_name": manifest["artifact_name"],
+        "artifact_sha256": digest,
+        "artifact_size": size,
+        "key_id": envelope["signature"]["key_id"],
+    }, sort_keys=True))
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="GREMLIN product license issuer")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -145,6 +204,19 @@ def build_parser() -> argparse.ArgumentParser:
     issue.add_argument("--issuer", default="Adrian Lipa / Intention Lab")
     issue.add_argument("--force", action="store_true")
     issue.set_defaults(func=_issue)
+
+    update_issue = sub.add_parser("update-issue", help="issue one signed offline GREMLIN update manifest")
+    update_issue.add_argument("--private", required=True, help="issuer private key PEM path")
+    update_issue.add_argument("--artifact", required=True, help="release artifact to hash and bind")
+    update_issue.add_argument("--out", required=True, help="signed update manifest JSON output path")
+    update_issue.add_argument("--version", required=True)
+    update_issue.add_argument("--release-sequence", required=True, type=int)
+    update_issue.add_argument("--channel", required=True, choices=("PREVIEW", "EARLY_ACCESS", "STABLE"))
+    update_issue.add_argument("--platform", required=True, choices=("windows", "linux"))
+    update_issue.add_argument("--architecture", default="amd64", choices=("amd64",))
+    update_issue.add_argument("--released-on")
+    update_issue.add_argument("--force", action="store_true")
+    update_issue.set_defaults(func=_issue_update)
     return parser
 
 
