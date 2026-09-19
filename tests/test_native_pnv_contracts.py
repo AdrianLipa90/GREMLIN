@@ -163,7 +163,13 @@ def test_raphael_wisdom_mutation_native_contract():
     assert "# REQUIRED_WISDOM_PRODUCERS GREMLIN,OWL,HOUND" in text
     assert "# EPISTEMIC CHYBA" in text
     assert "# EXTERNAL_AUTHORIZATION REQUIRED" in text
-    assert "# OPERATOR_GATE_RECEIPT REQUIRED" in text\n    assert "# LIVE_TETHER_STATUS ACTIVE" in text\n    assert "# GREMLIN_TRIPLE_PULSE_ATTESTATION REQUIRED" in text\n    assert "# SAME_GENERATION_IDENTITY_DOMAIN_AUTHORITY REQUIRED" in text\n    assert "# LIVE_ADMISSION_REPROBE_BEFORE_HAND REQUIRED" in text\n    assert "# EXACT_STATE_RESERVATION REQUIRED" in text\n    assert "# SINGLE_USE TRUE" in text
+    assert "# OPERATOR_GATE_RECEIPT REQUIRED" in text
+    assert "# LIVE_TETHER_STATUS ACTIVE" in text
+    assert "# GREMLIN_TRIPLE_PULSE_ATTESTATION REQUIRED" in text
+    assert "# SAME_GENERATION_IDENTITY_DOMAIN_AUTHORITY REQUIRED" in text
+    assert "# LIVE_ADMISSION_REPROBE_BEFORE_HAND REQUIRED" in text
+    assert "# EXACT_STATE_RESERVATION REQUIRED" in text
+    assert "# SINGLE_USE TRUE" in text
     assert "# STATE_DRIFT FAIL_CLOSED" in text
     assert "# NO_SILENT_RECOVERY TRUE" in text
     assert "# MUTATION_AUTHORITY_EXPIRES_AFTER_RECEIPT TRUE" in text
