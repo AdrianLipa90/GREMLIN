@@ -18,12 +18,14 @@ from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 import webbrowser
 
+from gremlin_mcp.core import bestiary_manifest, status as core_status
 from gremlin_mcp.install.license_activation import resolve_public_key_path
 from gremlin_mcp.install.paths import GremlinPaths, resolve_paths
 from gremlin_mcp.product import ProductAuthorizationError, ProductRuntime
 from tools.gremlin_client_protocol_v01 import REQUEST_SCHEMA, run_client_request
 
 WORKSPACE_SCHEMA = "GREMLIN_WORKSPACE_V0_1"
+SYSTEM_SCHEMA = "GREMLIN_WORKSPACE_SYSTEM_V0_1"
 INSTANCE_SCHEMA = "GREMLIN_WORKSPACE_INSTANCE_V0_1"
 MAX_REQUEST_BYTES = 1024 * 1024
 DEFAULT_HOST = "127.0.0.1"
@@ -145,6 +147,58 @@ def health_payload(runtime: ProductRuntime, *, instance_id: str | None = None) -
         "api": "/api/prototype",
         "instance_id": instance_id,
         "product_status": product.get("status"),
+        "authority": _authority(),
+    }
+
+
+def system_payload(runtime: ProductRuntime) -> dict[str, Any]:
+    product = runtime.status()
+    license_info = product.get("license")
+    profile = product.get("profile")
+    mcp = core_status(surface="product")
+    bestiary = bestiary_manifest()
+
+    safe_license = {
+        "edition": license_info.get("edition") if isinstance(license_info, Mapping) else None,
+        "expires_at": license_info.get("expires_at") if isinstance(license_info, Mapping) else None,
+        "features": list(license_info.get("features") or []) if isinstance(license_info, Mapping) else [],
+        "limits": dict(license_info.get("limits") or {}) if isinstance(license_info, Mapping) else {},
+    }
+    safe_profile = {
+        "configured": isinstance(profile, Mapping),
+        "label": profile.get("label") if isinstance(profile, Mapping) else None,
+    }
+    species = []
+    for row in bestiary.get("species", []):
+        if not isinstance(row, Mapping):
+            raise GremlinWorkspaceError("Bestiary manifest contains a non-object species row")
+        name = row.get("name")
+        stage = row.get("stage")
+        role = row.get("role")
+        if not all(isinstance(value, str) and value for value in (name, stage, role)):
+            raise GremlinWorkspaceError("Bestiary manifest species row is incomplete")
+        species.append({"name": name, "stage": stage, "role": role})
+
+    return {
+        "schema": SYSTEM_SCHEMA,
+        "product": {
+            "status": product.get("status"),
+            "reason": product.get("reason"),
+            "license": safe_license,
+            "profile": safe_profile,
+        },
+        "mcp": {
+            "version": mcp.get("version"),
+            "tool_count": mcp.get("tool_count"),
+            "tool_groups": mcp.get("tool_groups"),
+            "capability_contract": mcp.get("capability_contract"),
+            "error_contract": mcp.get("error_contract"),
+        },
+        "bestiary": {
+            "species_count": len(species),
+            "topology": list(bestiary.get("topology") or []),
+            "species": species,
+        },
         "authority": _authority(),
     }
 
@@ -520,6 +574,12 @@ class GremlinWorkspaceHandler(BaseHTTPRequestHandler):
                 200,
                 health_payload(self.workspace.runtime, instance_id=self.workspace.instance_id),
             )
+            return
+        if path == "/api/system":
+            try:
+                self._send_json(200, system_payload(self.workspace.runtime))
+            except (ValueError, TypeError, GremlinWorkspaceError) as exc:
+                self._send_error(500, str(exc))
             return
         if path == "/api/example":
             try:
