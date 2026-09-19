@@ -122,6 +122,55 @@ def test_eye_binds_exact_target_scope_and_required_wisdom_receipts():
     assert len(observation["observation_commitment"]) == 64
 
 
+def test_operation_schema_is_exact_and_update_requires_blob_binding():
+    with pytest.raises(ValueError, match="exact field mismatch"):
+        observe(
+            objective="reject silent operation fields",
+            target_repository="AdrianLipa90/GREMLIN",
+            target_branch="feat/test",
+            target_sha="a" * 40,
+            operations=[{
+                "operation": "CREATE_FILE",
+                "path": "x.txt",
+                "content": "x",
+                "force": True,
+            }],
+            evidence_receipts=_evidence(),
+        )
+
+    with pytest.raises(ValueError, match="exact field mismatch"):
+        observe(
+            objective="require exact update source",
+            target_repository="AdrianLipa90/GREMLIN",
+            target_branch="feat/test",
+            target_sha="a" * 40,
+            operations=[{
+                "operation": "UPDATE_FILE",
+                "path": "x.txt",
+                "content": "x",
+            }],
+            evidence_receipts=_evidence(),
+        )
+
+
+def test_accept_requires_real_post_audit_gates():
+    observation = _observation()
+    with pytest.raises(RaphaelWisdomError, match="at least one decree-bound test"):
+        judge(
+            observation,
+            decision=ACCEPT,
+            rationale_codes=["EVIDENCE_CLOSED"],
+            postconditions=["authority.canon_allowed=false"],
+        )
+    with pytest.raises(RaphaelWisdomError, match="at least one decree-bound postcondition"):
+        judge(
+            observation,
+            decision=ACCEPT,
+            rationale_codes=["EVIDENCE_CLOSED"],
+            required_tests=["pytest:raphael"],
+        )
+
+
 def test_unknown_or_blocking_evidence_fails_closed():
     observation = observe(
         objective="test",
