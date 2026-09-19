@@ -9,6 +9,7 @@ from mcp.server import MCPServer
 
 from gremlin_mcp import __version__
 from gremlin_mcp.hive_authority import HiveAuthorityRuntime
+from gremlin_mcp.memory_exchange import ingest_exchange_envelope
 
 runtime = HiveAuthorityRuntime()
 
@@ -37,6 +38,20 @@ def configure_state(state_path: str | None) -> HiveAuthorityRuntime:
 @mcp.tool()
 def gremlin_hive_status() -> dict[str, Any]:
     return runtime.status()
+
+
+@mcp.tool()
+def gremlin_hive_exchange_ingest(
+    envelope: dict[str, Any],
+    priority: float = 0.82,
+) -> dict[str, Any]:
+    """Ingest a typed PhaseNav envelope into RELATIONAL Hive memory."""
+    return ingest_exchange_envelope(
+        runtime,
+        envelope,
+        priority=priority,
+        consumer_id="GREMLIN-HIVE",
+    )
 
 
 @mcp.tool()
