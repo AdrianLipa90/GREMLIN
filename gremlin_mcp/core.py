@@ -38,14 +38,40 @@ BESTIARY_ROLES: dict[str, dict[str, str]] = {
 TOPOLOGY = ("RAW", "HUMMINGBIRD", "OCTOPUS", "SPECIALISTS", "BELZEBUB", "GREMLIN")
 
 MCP_TOOLS = [
-    "gremlin_status", "gremlin_bestiary", "gremlin_species", "gremlin_plan", "gremlin_route",
+    "gremlin_status", "gremlin_bestiary", "gremlin_species",
+    "gremlin_plan", "gremlin_route", "gremlin_relation_parse", "gremlin_relation_signature",
     "gremlin_web_fetch", "gremlin_web_search", "gremlin_research", "gremlin_research_execute",
+    "gremlin_research_hound_provenance", "gremlin_research_guarded", "gremlin_research_relational",
     "gremlin_auto_fanout", "gremlin_fanout", "gremlin_collect", "gremlin_synthesize", "gremlin_prototype",
-    "gremlin_worker_register", "gremlin_worker_heartbeat", "gremlin_worker_list", "gremlin_worker_enqueue",
-    "gremlin_worker_claim", "gremlin_worker_submit", "gremlin_worker_result", "gremlin_worker_queue",
     "gremlin_phasenav_status", "gremlin_phasenav_reference_sweep", "gremlin_phasenav_threeway",
     "gremlin_phasenav_analog_invariants", "gremlin_phasenav_live_replay",
+    "gremlin_worker_register", "gremlin_worker_heartbeat", "gremlin_worker_list", "gremlin_worker_enqueue",
+    "gremlin_worker_claim", "gremlin_worker_submit", "gremlin_worker_result", "gremlin_worker_queue",
 ]
+
+MCP_TOOL_GROUPS: dict[str, tuple[str, ...]] = {
+    "introspection": (
+        "gremlin_status", "gremlin_bestiary", "gremlin_species",
+    ),
+    "planning": (
+        "gremlin_plan", "gremlin_route", "gremlin_relation_parse", "gremlin_relation_signature",
+    ),
+    "research": (
+        "gremlin_web_fetch", "gremlin_web_search", "gremlin_research", "gremlin_research_execute",
+        "gremlin_research_hound_provenance", "gremlin_research_guarded", "gremlin_research_relational",
+    ),
+    "orchestration": (
+        "gremlin_auto_fanout", "gremlin_fanout", "gremlin_collect", "gremlin_synthesize", "gremlin_prototype",
+    ),
+    "phasenav": (
+        "gremlin_phasenav_status", "gremlin_phasenav_reference_sweep", "gremlin_phasenav_threeway",
+        "gremlin_phasenav_analog_invariants", "gremlin_phasenav_live_replay",
+    ),
+    "workers": (
+        "gremlin_worker_register", "gremlin_worker_heartbeat", "gremlin_worker_list", "gremlin_worker_enqueue",
+        "gremlin_worker_claim", "gremlin_worker_submit", "gremlin_worker_result", "gremlin_worker_queue",
+    ),
+}
 
 
 def _strict_text(value: Any, field: str) -> str:
@@ -85,7 +111,11 @@ def status() -> dict[str, Any]:
             "scheduler": scheduler_manifest(),
             "state_persistence": "PROCESS_MEMORY_OR_SQLITE_WAL",
         },
-        "tools": list(MCP_TOOLS), "topology": list(TOPOLOGY), "authority": authority_state(),
+        "tools": list(MCP_TOOLS),
+        "tool_count": len(MCP_TOOLS),
+        "tool_groups": {name: list(items) for name, items in MCP_TOOL_GROUPS.items()},
+        "capability_contract": "EXACT_REFERENCE_REGISTRY_V0_1",
+        "topology": list(TOPOLOGY), "authority": authority_state(),
     }
 
 
