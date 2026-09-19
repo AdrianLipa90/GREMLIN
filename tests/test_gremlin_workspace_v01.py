@@ -190,6 +190,38 @@ def test_workspace_read_only_introspection_respects_profile_denial() -> None:
         workspace.workspace_bestiary_payload(runtime)  # type: ignore[arg-type]
 
 
+def test_workspace_error_payload_reuses_shared_mcp_contract() -> None:
+    payload = workspace.workspace_error_payload(
+        ProductAuthorizationError("FEATURE_NOT_ENTITLED:PROTOTYPE_PIPELINE"),
+        tool="gremlin_prototype",
+        request_id="workspace-req-1",
+    )
+    contract = payload["error_contract"]
+    assert payload["schema"] == workspace.WORKSPACE_SCHEMA
+    assert payload["status"] == "ERROR"
+    assert payload["request_id"] == "workspace-req-1"
+    assert contract["schema"] == "GREMLIN_MCP_ERROR_V0_1"
+    assert contract["tool"] == "gremlin_prototype"
+    assert contract["error_code"] == "FEATURE_NOT_ENTITLED"
+    assert contract["category"] == "AUTHORIZATION"
+    assert contract["retryable"] is False
+    assert contract["request_id"] == "workspace-req-1"
+    assert "entitled" in contract["user_action"]
+    assert contract["authority"]["execution_admitted"] is False
+
+
+def test_workspace_internal_error_payload_is_sanitized_and_actionable() -> None:
+    payload = workspace.workspace_error_payload(
+        RuntimeError("WORKSPACE_INTERNAL_ERROR"),
+        tool="gremlin_status",
+    )
+    contract = payload["error_contract"]
+    assert contract["error_code"] == "WORKSPACE_INTERNAL_ERROR"
+    assert contract["category"] == "RUNTIME"
+    assert "support report" in contract["user_action"]
+    assert contract["retryable"] is False
+
+
 def test_workspace_http_surface_has_security_headers_and_blocks_cross_origin(tmp_path, monkeypatch) -> None:
     paths = _paths(tmp_path)
     web_root, example = _stage_assets(paths)
@@ -256,6 +288,14 @@ def test_workspace_http_surface_has_security_headers_and_blocks_cross_origin(tmp
         with pytest.raises(HTTPError) as denied:
             urlopen(hostile, timeout=2.0)
         assert denied.value.code == 403
+        denied_payload = json.loads(denied.value.read().decode("utf-8"))
+        denied_contract = denied_payload["error_contract"]
+        assert denied_contract["schema"] == "GREMLIN_MCP_ERROR_V0_1"
+        assert denied_contract["tool"] == "gremlin_prototype"
+        assert denied_contract["error_code"] == "CROSS_ORIGIN_WORKSPACE_REQUEST"
+        assert denied_contract["category"] == "AUTHORIZATION"
+        assert denied_contract["retryable"] is False
+        assert "local GREMLIN Workspace origin" in denied_contract["user_action"]
 
         allowed = Request(
             f"{base}/api/prototype",
