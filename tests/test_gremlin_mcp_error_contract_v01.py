@@ -34,10 +34,18 @@ def test_authorization_error_envelope_is_actionable_and_fail_closed() -> None:
     assert payload["category"] == "AUTHORIZATION"
     assert payload["retryable"] is False
     assert payload["request_id"] == "req-1"
+    assert payload["request_id_source"] == "caller"
     assert "Activate" in payload["user_action"]
     assert payload["authority"]["production_runtime_write"] is False
     assert payload["authority"]["execution_admitted"] is False
     assert payload["authority"]["canon_allowed"] is False
+
+
+def test_error_without_caller_id_gets_generated_correlation_id() -> None:
+    payload = error_envelope(ValueError("bad input"), tool="gremlin_species")
+    assert payload["request_id"].startswith("err-")
+    assert len(payload["request_id"]) == 28
+    assert payload["request_id_source"] == "generated"
 
 
 def test_error_code_prefix_survives_human_detail_with_spaces() -> None:
@@ -64,6 +72,8 @@ def test_reference_mcp_error_remains_protocol_error_with_machine_readable_body()
             assert payload["error_code"] == "INVALID_REQUEST"
             assert payload["category"] == "REQUEST"
             assert payload["retryable"] is False
+            assert payload["request_id"].startswith("err-")
+            assert payload["request_id_source"] == "generated"
             assert payload["authority"]["execution_admitted"] is False
 
     asyncio.run(exercise())
