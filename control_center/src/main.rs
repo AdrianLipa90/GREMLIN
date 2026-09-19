@@ -2,12 +2,12 @@
 
 use eframe::egui;
 use serde_json::Value;
-use std::io::Write;
+use std::io::{Read, Write};
 use std::path::PathBuf;
-use std::process::{Command, Stdio};
+use std::process::{Child, Command, Output, Stdio};
 use std::sync::mpsc::{self, Receiver, Sender, TryRecvError};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Tab {
@@ -103,6 +103,47 @@ fn ctl_program() -> PathBuf {
     PathBuf::from(if cfg!(windows) { "gremlinctl.exe" } else { "gremlinctl" })
 }
 
+const CTL_TIMEOUT_SECS: u64 = 30;
+const CTL_POLL_MILLIS: u64 = 50;
+
+fn collect_child_output(child: &mut Child, status: std::process::ExitStatus) -> Result<Output, String> {
+    let mut stdout = Vec::new();
+    let mut stderr = Vec::new();
+    if let Some(mut pipe) = child.stdout.take() {
+        pipe.read_to_end(&mut stdout)
+            .map_err(|err| format!("Could not read gremlinctl stdout: {err}"))?;
+    }
+    if let Some(mut pipe) = child.stderr.take() {
+        pipe.read_to_end(&mut stderr)
+            .map_err(|err| format!("Could not read gremlinctl stderr: {err}"))?;
+    }
+    Ok(Output { status, stdout, stderr })
+}
+
+fn wait_ctl_output(mut child: Child) -> Result<Output, String> {
+    let started = Instant::now();
+    let timeout = Duration::from_secs(CTL_TIMEOUT_SECS);
+    loop {
+        match child.try_wait() {
+            Ok(Some(status)) => return collect_child_output(&mut child, status),
+            Ok(None) => {
+                if started.elapsed() >= timeout {
+                    let kill_error = child.kill().err();
+                    let _ = child.wait();
+                    return Err(match kill_error {
+                        Some(err) => format!(
+                            "gremlinctl timed out after {CTL_TIMEOUT_SECS} seconds and termination failed: {err}"
+                        ),
+                        None => format!("gremlinctl timed out after {CTL_TIMEOUT_SECS} seconds"),
+                    });
+                }
+                thread::sleep(Duration::from_millis(CTL_POLL_MILLIS));
+            }
+            Err(err) => return Err(format!("Could not poll gremlinctl process: {err}")),
+        }
+    }
+}
+
 fn decode_ctl_output(output: std::process::Output) -> Result<Value, String> {
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr).trim().to_owned();
@@ -121,11 +162,13 @@ fn decode_ctl_output(output: std::process::Output) -> Result<Value, String> {
 }
 
 fn run_ctl_json(args: &[String]) -> Result<Value, String> {
-    let output = Command::new(ctl_program())
+    let child = Command::new(ctl_program())
         .args(args)
-        .output()
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
         .map_err(|err| format!("Could not launch gremlinctl: {err}"))?;
-    decode_ctl_output(output)
+    decode_ctl_output(wait_ctl_output(child)?)
 }
 
 fn run_ctl_json_input(args: &[String], input: &str) -> Result<Value, String> {
@@ -141,9 +184,7 @@ fn run_ctl_json_input(args: &[String], input: &str) -> Result<Value, String> {
             .write_all(input.as_bytes())
             .map_err(|err| format!("Could not pass license to gremlinctl: {err}"))?;
     }
-    let output = child
-        .wait_with_output()
-        .map_err(|err| format!("Could not wait for gremlinctl: {err}"))?;
+    let output = wait_ctl_output(child)?;
     decode_ctl_output(output)
 }
 
