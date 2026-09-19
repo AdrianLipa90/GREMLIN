@@ -25,7 +25,21 @@ class FakeRuntime:
 
     def status(self) -> dict[str, object]:
         if self.licensed:
-            return {"status": "LICENSED"}
+            return {
+                "status": "LICENSED",
+                "license": {
+                    "license_id": "TEST-SECRET-ID",
+                    "edition": "RESEARCH",
+                    "expires_at": "2030-12-31",
+                    "features": ["MCP_STDIO", "PROTOTYPE_PIPELINE"],
+                    "limits": {"max_workers": 4, "max_sources": 24},
+                },
+                "profile": {
+                    "client_id": "test-client-secret-id",
+                    "label": "Test Customer Profile",
+                    "profile_commitment": "a" * 64,
+                },
+            }
         return {"status": "BLOCKED", "reason": "LICENSE_REQUIRED"}
 
     def authorize(self, **kwargs) -> None:
@@ -172,6 +186,41 @@ def test_prototype_endpoint_reauthorizes_every_request(monkeypatch) -> None:
     }
 
 
+def test_workspace_system_payload_is_safe_exact_product_dashboard() -> None:
+    payload = workspace.system_payload(FakeRuntime())  # type: ignore[arg-type]
+    assert payload["schema"] == workspace.SYSTEM_SCHEMA
+    assert payload["surface"] == "product"
+    assert payload["product"]["status"] == "LICENSED"
+    assert payload["product"]["license"]["edition"] == "RESEARCH"
+    assert payload["product"]["profile"] == {
+        "configured": True,
+        "label": "Test Customer Profile",
+    }
+    assert payload["mcp"]["tool_count"] == 29
+    assert payload["mcp"]["capability_contract"] == "EXACT_PRODUCT_REGISTRY_V0_1"
+    assert payload["bestiary"]["species_count"] == 18
+    assert len(payload["bestiary"]["species"]) == 18
+    assert {row["name"] for row in payload["bestiary"]["species"]} >= {
+        "HUMMINGBIRD", "OCTOPUS", "SPIDER", "BELZEBUB", "FERRET", "GREMLIN"
+    }
+    serialized = json.dumps(payload, sort_keys=True)
+    assert "TEST-SECRET-ID" not in serialized
+    assert "test-client-secret-id" not in serialized
+    assert payload["authority"]["production_runtime_write"] is False
+    assert payload["authority"]["execution_admitted"] is False
+    assert payload["authority"]["canon_allowed"] is False
+
+
+def test_reference_dashboard_uses_reference_registry_without_product_identity() -> None:
+    payload = workspace.system_payload(surface="reference")
+    assert payload["surface"] == "reference"
+    assert payload["product"]["status"] == "UNLICENSED_RESEARCH"
+    assert payload["mcp"]["tool_count"] == 32
+    assert payload["mcp"]["capability_contract"] == "EXACT_REFERENCE_REGISTRY_V0_1"
+    assert payload["bestiary"]["species_count"] == 18
+    assert payload["product"]["license"]["edition"] is None
+
+
 def test_workspace_http_surface_has_security_headers_and_blocks_cross_origin(tmp_path, monkeypatch) -> None:
     paths = _paths(tmp_path)
     web_root, example = _stage_assets(paths)
@@ -211,6 +260,15 @@ def test_workspace_http_surface_has_security_headers_and_blocks_cross_origin(tmp
             assert response.headers["X-Frame-Options"] == "DENY"
             assert response.headers["Referrer-Policy"] == "no-referrer"
             assert "default-src 'self'" in response.headers["Content-Security-Policy"]
+
+        with urlopen(f"{base}/api/system", timeout=2.0) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+            assert response.status == 200
+            assert payload["schema"] == workspace.SYSTEM_SCHEMA
+            assert payload["surface"] == "product"
+            assert payload["mcp"]["tool_count"] == 29
+            assert payload["bestiary"]["species_count"] == 18
+            assert "TEST-SECRET-ID" not in json.dumps(payload)
 
         body = json.dumps({
             "schema": REQUEST_SCHEMA,
