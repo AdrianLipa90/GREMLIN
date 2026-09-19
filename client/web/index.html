@@ -147,6 +147,14 @@
         <span id="verdict" class="verdict verdict-idle">NO RUN</span>
       </div>
 
+      <div id="error-guidance" class="error-guidance" role="alert" aria-live="polite" hidden>
+        <div class="error-guidance-head">
+          <strong id="error-code">ERROR</strong>
+          <span id="error-retry" class="error-retry"></span>
+        </div>
+        <span id="error-action">Inspect GREMLIN Diagnostics before retrying.</span>
+      </div>
+
       <nav class="tabs" aria-label="result views">
         <button class="tab active" data-tab="prototype" type="button">Prototype</button>
         <button class="tab technical-only" data-tab="audit" type="button">BELZEBUB</button>
