@@ -18,6 +18,25 @@ from gremlin_mcp.core import (
 from gremlin_mcp.error_contract import mcp_error_boundary
 from gremlin_mcp.tool_metadata import tool_annotations
 from gremlin_mcp.tool_catalog import tool_description, tool_title
+from gremlin_mcp.tool_types import (
+    NonEmptyStringList,
+    NonNegativeRouteCount,
+    PlanVectorWidth,
+    ProviderLimit,
+    RequestId,
+    ResearchMaxSources,
+    RouteMaxSpecies,
+    RouteMinScore,
+    RouteRelativeCutoff,
+    WebMaxBytes,
+    WebTimeoutSeconds,
+    WorkerClaimLimit,
+    WorkerIdentifier,
+    WorkerIdentifierList,
+    WorkerLeaseSeconds,
+    WorkerMaxBatch,
+    WorkerVectorWidth,
+)
 from gremlin_mcp.guarded_research import execute_guarded_research
 from gremlin_mcp.hound_research import execute_research_with_hound_provenance
 from gremlin_mcp.pipeline import collect, enqueue_synthesis, fanout
@@ -148,7 +167,7 @@ def gremlin_species(species: str) -> dict[str, Any]:
     annotations=tool_annotations("gremlin_plan"),
 )
 @mcp_error_boundary("gremlin_plan")
-def gremlin_plan(route_counts: dict[str, int], vector_width: int = 8) -> dict[str, Any]:
+def gremlin_plan(route_counts: dict[str, NonNegativeRouteCount], vector_width: PlanVectorWidth = 8) -> dict[str, Any]:
     """Build a deterministic mass-orbit/vector-lane execution plan for routed work."""
     return plan_bestiary(route_counts, vector_width=vector_width)
 
@@ -161,9 +180,9 @@ def gremlin_plan(route_counts: dict[str, int], vector_width: int = 8) -> dict[st
 @mcp_error_boundary("gremlin_route")
 def gremlin_route(
     payload: dict[str, Any],
-    max_species: int = 4,
-    min_score: float = 2.0,
-    relative_cutoff: float = 0.45,
+    max_species: RouteMaxSpecies = 4,
+    min_score: RouteMinScore = 2.0,
+    relative_cutoff: RouteRelativeCutoff = 0.45,
 ) -> dict[str, Any]:
     """Ask OCTOPUS for an auditable deterministic semantic specialist route mask."""
     return route(
@@ -204,8 +223,8 @@ def gremlin_relation_signature(operator: str) -> dict[str, Any]:
 @mcp_error_boundary("gremlin_web_fetch")
 def gremlin_web_fetch(
     url: str,
-    timeout_s: float = 10.0,
-    max_bytes: int = 1_000_000,
+    timeout_s: WebTimeoutSeconds = 10.0,
+    max_bytes: WebMaxBytes = 1_000_000,
     max_chars: int = 120_000,
 ) -> dict[str, Any]:
     """Fetch one public HTTPS text/JSON/XML resource with SSRF firewall and provenance receipt."""
@@ -226,7 +245,7 @@ def gremlin_web_fetch(
 def gremlin_web_search(
     query: str,
     providers: list[str] | None = None,
-    limit_per_provider: int = 6,
+    limit_per_provider: ProviderLimit = 6,
 ) -> dict[str, Any]:
     """Search bounded public internet providers and return deduplicated candidate evidence."""
     return search_web(
@@ -245,7 +264,7 @@ def gremlin_web_search(
 def gremlin_research(
     query: str,
     providers: list[str] | None = None,
-    limit_per_provider: int = 6,
+    limit_per_provider: ProviderLimit = 6,
     max_species: int = 4,
 ) -> dict[str, Any]:
     """Run OCTOPUS routing plus bounded internet evidence acquisition for a research query."""
@@ -266,9 +285,9 @@ def gremlin_research(
 def gremlin_research_execute(
     query: str,
     providers: list[str] | None = None,
-    limit_per_provider: int = 6,
+    limit_per_provider: ProviderLimit = 6,
     max_species: int = 4,
-    max_sources: int = 12,
+    max_sources: ResearchMaxSources = 12,
 ) -> dict[str, Any]:
     """Acquire internet evidence, execute staged Bestiary reference workers and synthesize a candidate."""
     return execute_research(
@@ -289,9 +308,9 @@ def gremlin_research_execute(
 def gremlin_research_hound_provenance(
     query: str,
     providers: list[str] | None = None,
-    limit_per_provider: int = 6,
+    limit_per_provider: ProviderLimit = 6,
     max_species: int = 4,
-    max_sources: int = 12,
+    max_sources: ResearchMaxSources = 12,
 ) -> dict[str, Any]:
     """Execute research and bind HOUND duplicate/version auditing to canonical source-family provenance."""
     return execute_research_with_hound_provenance(
@@ -315,9 +334,9 @@ def gremlin_research_guarded(
     claim_evidence: list[dict[str, Any]] | None = None,
     hound_receipt: dict[str, Any] | None = None,
     providers: list[str] | None = None,
-    limit_per_provider: int = 6,
+    limit_per_provider: ProviderLimit = 6,
     max_species: int = 4,
-    max_sources: int = 12,
+    max_sources: ResearchMaxSources = 12,
 ) -> dict[str, Any]:
     """Execute research and quarantine synthesis when explicit typed claim evidence conflicts."""
     return execute_guarded_research(
@@ -343,9 +362,9 @@ def gremlin_research_relational(
     relation_text: str | None = None,
     language: str = "pl",
     providers: list[str] | None = None,
-    limit_per_provider: int = 6,
+    limit_per_provider: ProviderLimit = 6,
     max_species: int = 4,
-    max_sources: int = 12,
+    max_sources: ResearchMaxSources = 12,
 ) -> dict[str, Any]:
     """Execute internet research and propagate case-typed relation frames into Bestiary synthesis."""
     return execute_relational_research(
@@ -367,10 +386,10 @@ def gremlin_research_relational(
 @mcp_error_boundary("gremlin_auto_fanout")
 def gremlin_auto_fanout(
     payload: dict[str, Any],
-    request_id: str | None = None,
-    max_species: int = 4,
-    min_score: float = 2.0,
-    relative_cutoff: float = 0.45,
+    request_id: RequestId | None = None,
+    max_species: RouteMaxSpecies = 4,
+    min_score: RouteMinScore = 2.0,
+    relative_cutoff: RouteRelativeCutoff = 0.45,
 ) -> dict[str, Any]:
     """Route with OCTOPUS and queue work only when positive semantic evidence is present."""
     return auto_fanout(
@@ -392,7 +411,7 @@ def gremlin_auto_fanout(
 def gremlin_fanout(
     payload: dict[str, Any],
     species: list[str],
-    request_id: str | None = None,
+    request_id: RequestId | None = None,
 ) -> dict[str, Any]:
     """Queue one payload to an explicit caller-supplied specialist route mask."""
     return fanout(broker, payload, species, request_id=request_id)
@@ -404,7 +423,7 @@ def gremlin_fanout(
     annotations=tool_annotations("gremlin_collect"),
 )
 @mcp_error_boundary("gremlin_collect")
-def gremlin_collect(task_ids: list[str]) -> dict[str, Any]:
+def gremlin_collect(task_ids: WorkerIdentifierList) -> dict[str, Any]:
     """Collect current states and CANDIDATE outputs for a specialist fanout."""
     return collect(broker, task_ids)
 
@@ -416,8 +435,8 @@ def gremlin_collect(task_ids: list[str]) -> dict[str, Any]:
 )
 @mcp_error_boundary("gremlin_synthesize")
 def gremlin_synthesize(
-    specialist_task_ids: list[str],
-    request_id: str | None = None,
+    specialist_task_ids: WorkerIdentifierList,
+    request_id: RequestId | None = None,
 ) -> dict[str, Any]:
     """Queue BELZEBUB synthesis after every supplied specialist task is DONE."""
     return enqueue_synthesis(broker, specialist_task_ids, request_id=request_id)
@@ -511,11 +530,11 @@ def gremlin_phasenav_live_replay(
 )
 @mcp_error_boundary("gremlin_worker_register")
 def gremlin_worker_register(
-    worker_id: str,
-    species: list[str],
+    worker_id: WorkerIdentifier,
+    species: NonEmptyStringList,
     capabilities: list[str] | None = None,
-    vector_width: int = 8,
-    max_batch: int = 128,
+    vector_width: WorkerVectorWidth = 8,
+    max_batch: WorkerMaxBatch = 128,
 ) -> dict[str, Any]:
     """Register or refresh an external backend as one or more GREMLIN animal workers."""
     return broker.register_worker(
@@ -533,7 +552,7 @@ def gremlin_worker_register(
     annotations=tool_annotations("gremlin_worker_heartbeat"),
 )
 @mcp_error_boundary("gremlin_worker_heartbeat")
-def gremlin_worker_heartbeat(worker_id: str) -> dict[str, Any]:
+def gremlin_worker_heartbeat(worker_id: WorkerIdentifier) -> dict[str, Any]:
     """Refresh a registered GREMLIN worker heartbeat."""
     return broker.heartbeat(worker_id)
 
@@ -558,7 +577,7 @@ def gremlin_worker_list() -> dict[str, Any]:
 def gremlin_worker_enqueue(
     species: str,
     payload: dict[str, Any],
-    task_id: str | None = None,
+    task_id: WorkerIdentifier | None = None,
 ) -> dict[str, Any]:
     """Queue one JSON task for a scheduler-backed GREMLIN animal worker."""
     return broker.enqueue(species, payload, task_id=task_id)
@@ -571,10 +590,10 @@ def gremlin_worker_enqueue(
 )
 @mcp_error_boundary("gremlin_worker_claim")
 def gremlin_worker_claim(
-    worker_id: str,
+    worker_id: WorkerIdentifier,
     species: str | None = None,
-    limit: int | None = None,
-    lease_seconds: int | None = None,
+    limit: WorkerClaimLimit | None = None,
+    lease_seconds: WorkerLeaseSeconds | None = None,
 ) -> dict[str, Any]:
     """Claim one bounded same-species batch using GREMLIN orbit/vector lane limits."""
     return broker.claim(
@@ -592,8 +611,8 @@ def gremlin_worker_claim(
 )
 @mcp_error_boundary("gremlin_worker_submit")
 def gremlin_worker_submit(
-    worker_id: str,
-    lease_id: str,
+    worker_id: WorkerIdentifier,
+    lease_id: WorkerIdentifier,
     results: list[dict[str, Any]],
 ) -> dict[str, Any]:
     """Submit exact lease results; the MCP envelope remains CANDIDATE and fail-closed."""
@@ -606,7 +625,7 @@ def gremlin_worker_submit(
     annotations=tool_annotations("gremlin_worker_result"),
 )
 @mcp_error_boundary("gremlin_worker_result")
-def gremlin_worker_result(task_id: str) -> dict[str, Any]:
+def gremlin_worker_result(task_id: WorkerIdentifier) -> dict[str, Any]:
     """Read current state or candidate output for one GREMLIN worker task."""
     return broker.task_result(task_id)
 
