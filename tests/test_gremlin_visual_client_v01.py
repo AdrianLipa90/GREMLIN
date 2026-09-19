@@ -4,9 +4,11 @@ from client.gremlin_web_server_v01 import (
     STATIC_FILES,
     WEB_ROOT,
     WEB_SCHEMA,
+    bestiary_payload,
     health_payload,
     load_example_request,
     process_prototype_request,
+    status_payload,
 )
 
 
@@ -37,22 +39,44 @@ class GremlinVisualClientV01Tests(unittest.TestCase):
         for _, (name, _) in STATIC_FILES.items():
             self.assertTrue((WEB_ROOT / name).is_file())
 
-    def test_three_pane_workspace_and_evidence_tabs_are_present(self):
+    def test_workspace_cockpit_and_evidence_tabs_are_present(self):
         html = (WEB_ROOT / "index.html").read_text(encoding="utf-8")
+        self.assertIn("GREMLIN Workspace", html)
+        self.assertIn("Product state", html)
+        self.assertIn("Active vocabulary", html)
+        self.assertIn("Activity", html)
+        self.assertIn("Technical view", html)
         self.assertIn("Problem & candidate", html)
         self.assertIn("Operator graph", html)
         self.assertIn("Prototype & receipt", html)
         for tab in ("Prototype", "BELZEBUB", "Tests", "Receipt"):
             self.assertIn(f">{tab}<", html)
-        self.assertIn("execution admission: off", html)
 
     def test_browser_surface_uses_text_content_not_html_injection(self):
         script = (WEB_ROOT / "app.js").read_text(encoding="utf-8")
         self.assertNotIn("innerHTML", script)
         self.assertNotIn("eval(", script)
         self.assertIn("textContent", script)
-        self.assertIn('fetch("/api/prototype"', script)
+        self.assertIn('fetchJson("/api/prototype"', script)
+        self.assertIn('fetchJson("/api/status"', script)
+        self.assertIn('fetchJson("/api/bestiary"', script)
+        self.assertIn("textContent", script)
         self.assertIn("createElementNS", script)
+
+    def test_reference_server_exposes_cockpit_status_and_bestiary_without_product_claims(self):
+        status = status_payload()
+        self.assertEqual(status["status"], "READY")
+        self.assertEqual(status["product"]["status"], "REFERENCE_VALIDATION")
+        self.assertEqual(status["capabilities"]["surface"], "reference")
+        self.assertEqual(status["capabilities"]["tool_count"], 32)
+        self.assertFalse(status["authority"]["execution_admitted"])
+
+        bestiary = bestiary_payload()
+        self.assertEqual(bestiary["status"], "READY")
+        self.assertEqual(bestiary["species_count"], 18)
+        self.assertEqual(len(bestiary["species"]), 18)
+        self.assertFalse(bestiary["authority"]["canon_allowed"])
+
 
     def test_visual_client_does_not_add_external_frontend_dependencies(self):
         html = (WEB_ROOT / "index.html").read_text(encoding="utf-8")
