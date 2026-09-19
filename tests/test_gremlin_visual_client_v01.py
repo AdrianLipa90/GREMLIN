@@ -46,6 +46,8 @@ class GremlinVisualClientV01Tests(unittest.TestCase):
         self.assertIn("Active vocabulary", html)
         self.assertIn("Activity", html)
         self.assertIn("Technical view", html)
+        self.assertIn('id="error-guidance"', html)
+        self.assertIn('aria-live="polite"', html)
         self.assertIn("Problem & candidate", html)
         self.assertIn("Operator graph", html)
         self.assertIn("Prototype & receipt", html)
@@ -60,6 +62,9 @@ class GremlinVisualClientV01Tests(unittest.TestCase):
         self.assertIn('fetchJson("/api/prototype"', script)
         self.assertIn('fetchJson("/api/status"', script)
         self.assertIn('fetchJson("/api/bestiary"', script)
+        self.assertIn("WorkspaceHttpError", script)
+        self.assertIn("error_contract", script)
+        self.assertIn("user_action", script)
         self.assertIn("textContent", script)
         self.assertIn("createElementNS", script)
 
