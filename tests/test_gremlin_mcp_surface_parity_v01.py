@@ -84,6 +84,12 @@ def test_shared_reference_product_tool_contracts_are_exact() -> None:
         assert set(reference) == set(REFERENCE_MCP_TOOLS)
         assert set(product) == set(PRODUCT_MCP_TOOLS)
 
+        for surface in (reference, product):
+            for name, tool in sorted(surface.items()):
+                assert tool.title == tool_title(name), name
+                assert tool.description == tool_description(name), name
+                assert tool.annotations is not None, name
+
         shared = set(reference) & set(product)
         assert len(shared) == 27
         for name in sorted(shared):
