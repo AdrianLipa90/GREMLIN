@@ -44,6 +44,7 @@ from gremlin_mcp.phasenav_runtime import (
     analog_invariants as phasenav_analog_invariants,
     live_replay as phasenav_live_replay,
     reference_sweep as phasenav_reference_sweep,
+    spectroscopic_holonomy as phasenav_spectroscopic_holonomy,
     status as phasenav_status,
     threeway as phasenav_threeway,
 )
@@ -521,6 +522,20 @@ def gremlin_phasenav_live_replay(
 ) -> dict[str, Any]:
     """Replay all species against an explicit live PhaseNav surface; no fallback."""
     return phasenav_live_replay(surface_root=surface_root, steps=steps)
+
+
+@mcp.tool(
+    title=tool_title("gremlin_phasenav_spectroscopic_holonomy"),
+    description=tool_description("gremlin_phasenav_spectroscopic_holonomy"),
+    annotations=tool_annotations("gremlin_phasenav_spectroscopic_holonomy"),
+)
+@mcp_error_boundary("gremlin_phasenav_spectroscopic_holonomy")
+def gremlin_phasenav_spectroscopic_holonomy(
+    packet: dict[str, Any],
+    observables: NonEmptyStringList,
+) -> dict[str, Any]:
+    """Validate a PhaseNav holonomy packet and build a read-only inverse-spectroscopy plan."""
+    return phasenav_spectroscopic_holonomy(packet, list(observables))
 
 
 @mcp.tool(
