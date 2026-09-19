@@ -144,7 +144,7 @@ MERGE_BRANCH
 
 Every normalized operation carries a BLAKE2b-256 operation commitment. CREATE/UPDATE content also carries a content commitment.
 
-The mutation backend must return the exact `operation_commitment` for every applied operation. A mismatch fails loud as `OPERATION_RECEIPT_MISMATCH`.
+The mutation backend must return the exact `operation_commitment` for every applied operation. Backend and rollback receipts must also be finite canonical JSON before they can enter RAPHAEL lineage. A mismatch fails loud as `OPERATION_RECEIPT_MISMATCH`; malformed/non-finite backend receipts fail closed and trigger rollback.
 
 ### POST_AUDIT
 
@@ -184,7 +184,7 @@ A mutation ledger enforces:
 - failed mutation does not restore execution authority;
 - successful mutation expires execution authority after the receipt.
 
-The in-process reference ledger is `InMemoryMutationLedger`. Durable deployments must supply a durable ledger implementation.
+The in-process reference ledger is `InMemoryMutationLedger`; its cancel/consume transitions are lock-protected so single-use semantics are atomic inside one process. Durable deployments must supply an atomic durable ledger implementation.
 
 ## Twelve invariants
 
