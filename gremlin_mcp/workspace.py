@@ -151,11 +151,30 @@ def health_payload(runtime: ProductRuntime, *, instance_id: str | None = None) -
     }
 
 
-def system_payload(runtime: ProductRuntime) -> dict[str, Any]:
-    product = runtime.status()
-    license_info = product.get("license")
-    profile = product.get("profile")
-    mcp = core_status(surface="product")
+def system_payload(
+    runtime: ProductRuntime | None = None,
+    *,
+    surface: str = "product",
+) -> dict[str, Any]:
+    if surface not in {"product", "reference"}:
+        raise ValueError("workspace system surface must be product or reference")
+    if surface == "product":
+        if runtime is None:
+            raise ValueError("product workspace system payload requires ProductRuntime")
+        product = runtime.status()
+        license_info = product.get("license")
+        profile = product.get("profile")
+    else:
+        product = {
+            "status": "UNLICENSED_RESEARCH",
+            "reason": "DEVELOPMENT_REFERENCE_SURFACE",
+            "license": None,
+            "profile": None,
+        }
+        license_info = None
+        profile = None
+
+    mcp = core_status(surface=surface)
     bestiary = bestiary_manifest()
 
     safe_license = {
@@ -181,6 +200,7 @@ def system_payload(runtime: ProductRuntime) -> dict[str, Any]:
 
     return {
         "schema": SYSTEM_SCHEMA,
+        "surface": surface,
         "product": {
             "status": product.get("status"),
             "reason": product.get("reason"),
