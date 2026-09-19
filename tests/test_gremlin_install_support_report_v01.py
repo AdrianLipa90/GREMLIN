@@ -38,8 +38,9 @@ def test_support_report_redacts_paths_and_excludes_provider_command_details(tmp_
             "checks": [
                 {"check": "paths", "status": "PASS", "detail": f"resolved under {home}/.config/gremlin"},
                 {"check": "license", "status": "WARN", "detail": "no product license configured"},
+                {"check": "product_mcp_entrypoint", "status": "PASS", "detail": "/usr/bin/gremlin-product-mcp"},
             ],
-            "product": {"status": "BLOCKED", "reason": "LICENSE_REQUIRED", "license_id": "secret-license-id"},
+            "product": {"status": "BLOCKED", "reason": "failed at C:\\Program Files\\GREMLIN\\runtime", "license_id": "secret-license-id"},
             "secret_store": {"backend": "TEST", "available": True, "private_material": "never-share"},
         },
     )
@@ -94,6 +95,8 @@ def test_support_report_redacts_paths_and_excludes_provider_command_details(tmp_
     assert "secret-license-id" not in serialized
     assert "never-share" not in serialized
     assert "do-not-share" not in serialized
+    assert "/usr/bin/gremlin-product-mcp" not in serialized
+    assert "C:\\\\Program Files" not in serialized
     assert "<path>" in serialized
     assert len(report["report_commitment"]) == 64
 
