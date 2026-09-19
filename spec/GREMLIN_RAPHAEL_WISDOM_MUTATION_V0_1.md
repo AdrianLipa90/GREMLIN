@@ -54,6 +54,7 @@ Default evidence rule:
 GREMLIN receipt required
 OWL receipt required
 HOUND receipt required
+mandatory quorum cannot be weakened by caller
 blocking/unknown evidence -> evidence_ready=false
 ```
 
@@ -149,7 +150,7 @@ The mutation backend must return the exact `operation_commitment` for every appl
 
 After the declared operations, RAPHAEL runs all decree-bound tests and postconditions.
 
-Completion requires every gate to pass.
+Completion requires every gate to pass. Test and postcondition callbacks must return an exact boolean; truthy non-boolean values are rejected fail-closed.
 
 Failure after mutation begins causes:
 
@@ -179,6 +180,7 @@ A mutation ledger enforces:
 - cancelled decree cannot execute;
 - decree is single-use;
 - authorization is single-use;
+- a consumed decree cannot later be relabeled as cancelled-before-mutation;
 - failed mutation does not restore execution authority;
 - successful mutation expires execution authority after the receipt.
 
