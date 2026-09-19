@@ -15,6 +15,7 @@ PHASENAV_ACK_SCHEMA = "PHASENAV_MEMORY_INFORMATION_EXCHANGE_ACK_V0_1"
 PHASENAV_BUNDLE_SCHEMA = "PHASENAV_MEMORY_INFORMATION_EXCHANGE_BUNDLE_V0_1"
 EPISTEMIC = "CHYBA"
 AUTHORITY = "SHARED_COGNITION_ONLY"
+IDENTITY_AUTHENTICATION = "UNSIGNED_CONTENT_COMMITMENT"
 LAYERS = ("WORKING", "EPISODIC", "SEMANTIC", "RELATIONAL", "ARCHIVAL")
 TOL = 1.0e-9
 
@@ -162,6 +163,8 @@ def validate_exchange_envelope(packet: Mapping[str, Any]) -> dict[str, Any]:
         raise ValueError("causal_lineage claim must be true")
     if claims.get("computational_u1_route_phase") is not True:
         raise ValueError("computational_u1_route_phase claim must be true")
+    if claims.get("producer_identity_authenticated") is not False:
+        raise ValueError("producer identity must remain unauthenticated by this protocol")
     for key in ("physical_nonlocal_signalling", "physical_channel_identified", "canon_promoted"):
         if claims.get(key) is not False:
             raise ValueError(f"unsupported claim must remain false: {key}")
@@ -221,6 +224,7 @@ def validate_exchange_envelope(packet: Mapping[str, Any]) -> dict[str, Any]:
             "content_addressed_payload": True,
             "causal_lineage": True,
             "computational_u1_route_phase": True,
+            "producer_identity_authenticated": False,
             "physical_nonlocal_signalling": False,
             "physical_channel_identified": False,
             "canon_promoted": False,
@@ -249,6 +253,7 @@ def build_exchange_ack(
         "consumer_id": consumer,
         "outcome": status,
         "reason_code": reason,
+        "authentication": IDENTITY_AUTHENTICATION,
         "epistemic": EPISTEMIC,
         "authority": AUTHORITY,
         "canon_allowed": False,
@@ -379,6 +384,8 @@ def validate_exchange_ack(
         raise ValueError("unsupported memory-exchange ACK version")
     if row.get("epistemic") != EPISTEMIC or row.get("authority") != AUTHORITY:
         raise ValueError("memory-exchange ACK epistemic/authority mismatch")
+    if row.get("authentication") != IDENTITY_AUTHENTICATION:
+        raise ValueError("memory-exchange ACK authentication boundary mismatch")
     if row.get("canon_allowed") is not False:
         raise ValueError("memory-exchange ACK must remain canon_allowed=false")
 
@@ -402,6 +409,7 @@ def validate_exchange_ack(
         "consumer_id": consumer,
         "outcome": outcome,
         "reason_code": reason,
+        "authentication": IDENTITY_AUTHENTICATION,
         "epistemic": EPISTEMIC,
         "authority": AUTHORITY,
         "canon_allowed": False,
@@ -499,6 +507,8 @@ def validate_exchange_bundle(bundle: Mapping[str, Any]) -> dict[str, Any]:
     claims = row.get("claims")
     if not isinstance(claims, Mapping) or claims.get("causal_lineage_bundle") is not True:
         raise ValueError("causal_lineage_bundle claim must be true")
+    if claims.get("ack_origin_authenticated") is not False:
+        raise ValueError("ACK origin must remain unauthenticated by this protocol")
     for key in ("physical_nonlocal_signalling", "physical_channel_identified", "canon_promoted"):
         if claims.get(key) is not False:
             raise ValueError(f"unsupported bundle claim must remain false: {key}")
@@ -528,6 +538,7 @@ def validate_exchange_bundle(bundle: Mapping[str, Any]) -> dict[str, Any]:
         ),
         "claims": {
             "causal_lineage_bundle": True,
+            "ack_origin_authenticated": False,
             "physical_nonlocal_signalling": False,
             "physical_channel_identified": False,
             "canon_promoted": False,
@@ -638,6 +649,7 @@ def ingest_exchange_bundle(
 __all__ = [
     "AUTHORITY",
     "EPISTEMIC",
+    "IDENTITY_AUTHENTICATION",
     "LAYERS",
     "PHASENAV_ACK_SCHEMA",
     "PHASENAV_BUNDLE_SCHEMA",
