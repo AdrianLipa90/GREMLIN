@@ -9,6 +9,7 @@ For supported clients, use **GREMLIN Control Center → Setup / AI Providers →
 3. GREMLIN detects supported clients for the current operating system.
 4. Choose **Connect & Test**.
 5. A successful setup ends with the Control Center readiness state **READY**.
+6. Use **Launch Workspace** for the licensed loopback-only visual surface, or work through the connected MCP client.
 
 GREMLIN uses local `stdio` MCP by default. No listening network port is required for the normal desktop integration.
 
@@ -40,6 +41,8 @@ gremlinctl license status --json
 gremlinctl integrations providers --json
 gremlinctl ready --json
 gremlinctl doctor --json
+gremlinctl support report --json
+gremlinctl support report --write --json
 ```
 
-Customers normally do not need these commands; they exist for diagnostics and support.
+Customers normally do not need these commands; they exist for diagnostics and support. The persisted support report is commitment-bound and deliberately excludes customer secrets, configuration contents and provider command output.
