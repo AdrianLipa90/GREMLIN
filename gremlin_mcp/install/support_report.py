@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 import hashlib
 import json
 import os
+import re
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -16,6 +17,10 @@ from .readiness import evaluate_readiness
 
 SCHEMA = "GREMLIN_SUPPORT_REPORT_V0_1"
 DOMAIN = b"GREMLIN-SUPPORT-REPORT/v0.1\x00"
+_WINDOWS_ABSOLUTE_PATH_RE = re.compile(r"(?i)(?<![A-Za-z0-9_])[A-Z]:[\\/][^\s\"'<>|]+")
+_POSIX_ABSOLUTE_PATH_RE = re.compile(r"(?<![A-Za-z0-9_:])/(?:[^\s\"'<>|]+)")
+
+
 
 
 def _canonical(value: Mapping[str, Any]) -> bytes:
@@ -41,6 +46,8 @@ def _redact(text: Any, tokens: list[str]) -> str:
         alt = token.replace("\\", "/")
         if alt != token:
             value = value.replace(alt, "<path>")
+    value = _WINDOWS_ABSOLUTE_PATH_RE.sub("<path>", value)
+    value = _POSIX_ABSOLUTE_PATH_RE.sub("<path>", value)
     return value
 
 
@@ -66,7 +73,7 @@ def _sanitized_doctor(payload: Mapping[str, Any], tokens: list[str]) -> dict[str
     if isinstance(product, Mapping):
         product_summary = {
             "status": product.get("status"),
-            "reason": product.get("reason"),
+            "reason": _redact(product.get("reason") or "", tokens),
         }
 
     secret = payload.get("secret_store")
