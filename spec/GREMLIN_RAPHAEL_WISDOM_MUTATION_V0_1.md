@@ -102,13 +102,14 @@ GREMLIN_RAPHAEL_MUTATION_AUTHORIZATION_V0_1
 
 It binds:
 
-- one actor;
+- one actor external to RAPHAEL;
+- one external authority receipt commitment;
 - one exact decree commitment;
 - one exact target SHA;
 - one exact scope commitment;
 - one single-use authorization.
 
-A changed target SHA is `STATE_DRIFT` and fails closed before mutation.
+A changed target SHA is `STATE_DRIFT` and fails closed before mutation. `actor=RAPHAEL` is rejected: RAPHAEL cannot authorize its own HAND phase.
 
 Global authority remains closed:
 
