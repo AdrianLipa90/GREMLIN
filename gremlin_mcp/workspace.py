@@ -11,6 +11,7 @@ from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 import webbrowser
 
+from gremlin_mcp.core import bestiary_manifest, status as core_status
 from gremlin_mcp.install.license_activation import resolve_public_key_path
 from gremlin_mcp.install.paths import GremlinPaths, resolve_paths
 from gremlin_mcp.product import ProductAuthorizationError, ProductRuntime
@@ -123,6 +124,42 @@ def process_prototype_request(payload: Mapping[str, Any], runtime: ProductRuntim
         "ui_schema": WORKSPACE_SCHEMA,
         "authority": _authority(),
         "response": response,
+    }
+
+
+def workspace_status_payload(runtime: ProductRuntime) -> dict[str, Any]:
+    runtime.authorize(tool="gremlin_status")
+    product = runtime.status()
+    capabilities = core_status(surface="product")
+    return {
+        "schema": WORKSPACE_SCHEMA,
+        "status": "READY",
+        "product": product,
+        "capabilities": {
+            "surface": capabilities["surface"],
+            "mode": capabilities["mode"],
+            "tool_count": capabilities["tool_count"],
+            "tool_groups": capabilities["tool_groups"],
+            "capability_contract": capabilities["capability_contract"],
+            "error_contract": capabilities["error_contract"],
+        },
+        "authority": _authority(),
+    }
+
+
+def workspace_bestiary_payload(runtime: ProductRuntime) -> dict[str, Any]:
+    runtime.authorize(tool="gremlin_bestiary")
+    manifest = bestiary_manifest()
+    species = manifest.get("species")
+    if not isinstance(species, list):
+        raise GremlinWorkspaceError("GREMLIN Bestiary manifest is malformed")
+    return {
+        "schema": WORKSPACE_SCHEMA,
+        "status": "READY",
+        "topology": manifest.get("topology"),
+        "species": species,
+        "species_count": len(species),
+        "authority": _authority(),
     }
 
 
@@ -298,6 +335,22 @@ class GremlinWorkspaceHandler(BaseHTTPRequestHandler):
         path = urlparse(self.path).path
         if path == "/api/health":
             self._send_json(200, health_payload(self.workspace.runtime))
+            return
+        if path == "/api/status":
+            try:
+                self._send_json(200, workspace_status_payload(self.workspace.runtime))
+            except ProductAuthorizationError as exc:
+                self._send_error(403, str(exc))
+            except Exception:
+                self._send_error(500, "workspace status failed; inspect GREMLIN diagnostics")
+            return
+        if path == "/api/bestiary":
+            try:
+                self._send_json(200, workspace_bestiary_payload(self.workspace.runtime))
+            except ProductAuthorizationError as exc:
+                self._send_error(403, str(exc))
+            except Exception:
+                self._send_error(500, "workspace Bestiary failed; inspect GREMLIN diagnostics")
             return
         if path == "/api/example":
             try:
