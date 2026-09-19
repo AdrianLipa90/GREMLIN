@@ -544,9 +544,11 @@ def authorize(
     actor: str,
     approved: bool,
     observed_target_sha: str,
-    authority_receipt_commitment: str,
+    gate_receipt: str,
+    tether_status: str,
+    gremlin_attestation: Mapping[str, Any],
 ) -> dict[str, Any]:
-    """External authority binds one exact decree to one exact target state."""
+    """Bind external operator approval and live same-generation GREMLIN admission."""
 
     if type(approved) is not bool or not approved:
         raise RaphaelAuthorizationError("explicit mutation approval is required")
@@ -554,9 +556,10 @@ def authorize(
     actor_name = _text(actor, "actor")
     if actor_name.upper() == "RAPHAEL":
         raise RaphaelAuthorizationError("RAPHAEL cannot self-authorize mutation")
-    external_receipt = _hash64(
-        authority_receipt_commitment, "authority_receipt_commitment"
-    )
+    gate = _text(gate_receipt, "gate_receipt")
+    if tether_status != "ACTIVE":
+        raise RaphaelAuthorizationError("tether_status must be ACTIVE")
+    attestation = _normalize_triple_pulse(gremlin_attestation)
     observed = _hash40_64(observed_target_sha, "observed_target_sha")
     if observed != body["target_sha"]:
         raise RaphaelAuthorizationError("STATE_DRIFT: target SHA differs from decree")
@@ -568,15 +571,20 @@ def authorize(
         "authorization_id": secrets.token_hex(16),
         "authorized_unix_ns": time.time_ns(),
         "actor": actor_name,
-        "authority_receipt_commitment": external_receipt,
-        "authority_source": "EXTERNAL_TO_RAPHAEL",
+        "gate_receipt": gate,
+        "tether_status": "ACTIVE",
+        "generation": attestation["generation"],
+        "gremlin_attestation_commitment": attestation["attestation_commitment"],
+        "authority_source": "NOEMA_GREMLIN_TRIPLE_PULSE_EXTERNAL_TO_RAPHAEL",
         "decree_commitment": decree["decree_commitment"],
         "target_repository": body["target_repository"],
         "target_branch": body["target_branch"],
         "target_sha": body["target_sha"],
         "scope_commitment": body["scope_commitment"],
         "single_use": True,
-        "authorization_scope": "EXACT_DECREE_AND_EXACT_TARGET_STATE",
+        "authorization_scope": (
+            "EXACT_DECREE_EXACT_TARGET_ACTIVE_TETHER_SAME_GENERATION"
+        ),
         "authority": _authority(mutation_authorized=True),
     }
     return {
@@ -600,6 +608,16 @@ def _verify_authorization(
         raise RaphaelAuthorizationError("RAPHAEL authorization contract mismatch")
     if auth.get("decree_commitment") != decree["decree_commitment"]:
         raise RaphaelAuthorizationError("authorization belongs to another decree")
+    _text(auth.get("gate_receipt"), "authorization.gate_receipt")
+    if auth.get("tether_status") != "ACTIVE":
+        raise RaphaelAuthorizationError("authorization tether was not ACTIVE")
+    _text(auth.get("generation"), "authorization.generation")
+    _hash64(
+        auth.get("gremlin_attestation_commitment"),
+        "authorization.gremlin_attestation_commitment",
+    )
+    if auth.get("authority_source") != "NOEMA_GREMLIN_TRIPLE_PULSE_EXTERNAL_TO_RAPHAEL":
+        raise RaphaelAuthorizationError("authorization authority source mismatch")
     for field in ("target_repository", "target_branch", "target_sha", "scope_commitment"):
         if auth.get(field) != decree_body.get(field):
             raise RaphaelAuthorizationError(f"authorization {field} does not match decree")
