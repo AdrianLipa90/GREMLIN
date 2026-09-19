@@ -37,7 +37,15 @@ def configure_state(state_path: str | None) -> HiveAuthorityRuntime:
 
 @mcp.tool()
 def gremlin_hive_status() -> dict[str, Any]:
-    return runtime.status()
+    result = runtime.status()
+    result["memory_information_exchange"] = {
+        "status": "AVAILABLE",
+        "tool": "gremlin_hive_exchange_ingest",
+        "protocol_schema": "PHASENAV_MEMORY_INFORMATION_EXCHANGE_V0_1",
+        "target_layer": "RELATIONAL",
+        "automatic_latch": False,
+    }
+    return result
 
 
 @mcp.tool()
