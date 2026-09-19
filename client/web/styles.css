@@ -359,6 +359,32 @@ textarea:focus, input:focus { border-color: rgba(99,230,190,.7); box-shadow: 0 0
 .ellipsis { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .subtle { color: var(--muted); font-size: .65rem; }
 
+.error-guidance {
+  margin: .15rem 0 .75rem;
+  padding: .7rem .78rem;
+  border: 1px solid rgba(255,135,135,.34);
+  border-radius: .72rem;
+  background: rgba(255,135,135,.055);
+  display: grid;
+  gap: .35rem;
+}
+.error-guidance[hidden] { display: none; }
+.error-guidance-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .6rem;
+}
+.error-guidance strong {
+  color: var(--danger);
+  font: .68rem ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+.error-guidance > span { color: #d7b7b7; font-size: .68rem; line-height: 1.4; }
+.error-retry {
+  color: var(--muted);
+  font: .58rem ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
 .tabs { display: grid; grid-template-columns: repeat(4,1fr); gap: .35rem; margin: .2rem 0 .75rem; }
 .tab {
   color: var(--muted);
