@@ -19,6 +19,7 @@ from urllib.request import Request, urlopen
 import webbrowser
 
 from gremlin_mcp.core import bestiary_manifest, status as core_status
+from gremlin_mcp.error_contract import error_envelope
 from gremlin_mcp.install.license_activation import resolve_public_key_path
 from gremlin_mcp.install.paths import GremlinPaths, resolve_paths
 from gremlin_mcp.product import ProductAuthorizationError, ProductRuntime
@@ -219,6 +220,56 @@ def system_payload(
             "topology": list(bestiary.get("topology") or []),
             "species": species,
         },
+        "authority": _authority(),
+    }
+
+
+def workspace_status_payload(runtime: ProductRuntime) -> dict[str, Any]:
+    runtime.authorize(tool="gremlin_status")
+    system = system_payload(runtime)
+    capabilities = core_status(surface="product")
+    return {
+        "schema": WORKSPACE_SCHEMA,
+        "status": "READY",
+        "product": system["product"],
+        "capabilities": {
+            "surface": capabilities["surface"],
+            "mode": capabilities["mode"],
+            "tool_count": capabilities["tool_count"],
+            "tool_groups": capabilities["tool_groups"],
+            "capability_contract": capabilities["capability_contract"],
+            "error_contract": capabilities["error_contract"],
+        },
+        "authority": _authority(),
+    }
+
+
+def workspace_bestiary_payload(runtime: ProductRuntime) -> dict[str, Any]:
+    runtime.authorize(tool="gremlin_bestiary")
+    bestiary = system_payload(runtime)["bestiary"]
+    return {
+        "schema": WORKSPACE_SCHEMA,
+        "status": "READY",
+        "topology": bestiary["topology"],
+        "species": bestiary["species"],
+        "species_count": bestiary["species_count"],
+        "authority": _authority(),
+    }
+
+
+def workspace_error_payload(
+    exc: Exception,
+    *,
+    tool: str,
+    request_id: str | None = None,
+) -> dict[str, Any]:
+    contract = error_envelope(exc, tool=tool, request_id=request_id)
+    return {
+        "schema": WORKSPACE_SCHEMA,
+        "status": "ERROR",
+        "error": contract["detail_code"],
+        "error_contract": contract,
+        "request_id": contract["request_id"],
         "authority": _authority(),
     }
 
@@ -576,6 +627,19 @@ class GremlinWorkspaceHandler(BaseHTTPRequestHandler):
             "authority": _authority(),
         })
 
+    def _send_exception(
+        self,
+        status: int,
+        exc: Exception,
+        *,
+        tool: str,
+        request_id: str | None = None,
+    ) -> None:
+        self._send_json(
+            status,
+            workspace_error_payload(exc, tool=tool, request_id=request_id),
+        )
+
     def _same_origin(self) -> bool:
         origin = self.headers.get("Origin")
         if not origin:
@@ -601,11 +665,35 @@ class GremlinWorkspaceHandler(BaseHTTPRequestHandler):
             except (ValueError, TypeError, GremlinWorkspaceError) as exc:
                 self._send_error(500, str(exc))
             return
+        if path == "/api/status":
+            try:
+                self._send_json(200, workspace_status_payload(self.workspace.runtime))
+            except ProductAuthorizationError as exc:
+                self._send_exception(403, exc, tool="gremlin_status")
+            except Exception:
+                self._send_exception(
+                    500,
+                    RuntimeError("WORKSPACE_INTERNAL_ERROR"),
+                    tool="gremlin_status",
+                )
+            return
+        if path == "/api/bestiary":
+            try:
+                self._send_json(200, workspace_bestiary_payload(self.workspace.runtime))
+            except ProductAuthorizationError as exc:
+                self._send_exception(403, exc, tool="gremlin_bestiary")
+            except Exception:
+                self._send_exception(
+                    500,
+                    RuntimeError("WORKSPACE_INTERNAL_ERROR"),
+                    tool="gremlin_bestiary",
+                )
+            return
         if path == "/api/example":
             try:
                 self._send_json(200, load_example_request(self.workspace.example_path))
             except (OSError, ValueError, json.JSONDecodeError, GremlinWorkspaceError) as exc:
-                self._send_error(500, str(exc))
+                self._send_exception(500, exc, tool="workspace_example")
             return
 
         static = STATIC_FILES.get(path)
@@ -630,14 +718,24 @@ class GremlinWorkspaceHandler(BaseHTTPRequestHandler):
         return hmac.compare_digest(supplied, self.workspace.shutdown_token)
 
     def do_POST(self) -> None:  # noqa: N802
+        request_id: str | None = None
+        path = urlparse(self.path).path
         if not self._same_origin():
-            self._send_error(403, "cross-origin workspace requests are not allowed")
+            tool = "workspace_shutdown" if path == "/api/shutdown" else "gremlin_prototype"
+            self._send_exception(
+                403,
+                PermissionError("CROSS_ORIGIN_WORKSPACE_REQUEST"),
+                tool=tool,
+            )
             return
 
-        path = urlparse(self.path).path
         if path == "/api/shutdown":
             if not self._shutdown_authorized():
-                self._send_error(403, "workspace shutdown authorization failed")
+                self._send_exception(
+                    403,
+                    PermissionError("WORKSPACE_SHUTDOWN_AUTHORIZATION_FAILED"),
+                    tool="workspace_shutdown",
+                )
                 return
             self._send_json(200, {
                 "schema": WORKSPACE_SCHEMA,
@@ -653,32 +751,62 @@ class GremlinWorkspaceHandler(BaseHTTPRequestHandler):
             return
         content_type = self.headers.get("Content-Type", "")
         if not content_type.casefold().startswith("application/json"):
-            self._send_error(415, "application/json request body required")
+            self._send_exception(
+                415,
+                ValueError("INVALID_REQUEST:application/json request body required"),
+                tool="gremlin_prototype",
+            )
             return
         raw_length = self.headers.get("Content-Length", "")
         try:
             length = int(raw_length)
         except ValueError:
-            self._send_error(400, "valid Content-Length required")
+            self._send_exception(
+                400,
+                ValueError("INVALID_REQUEST:valid Content-Length required"),
+                tool="gremlin_prototype",
+            )
             return
         if length < 1 or length > MAX_REQUEST_BYTES:
-            self._send_error(413, "request body size outside workspace bound")
+            self._send_exception(
+                413,
+                ValueError("REQUEST_BODY_TOO_LARGE:request body size outside workspace bound"),
+                tool="gremlin_prototype",
+            )
             return
 
         try:
             body = self.rfile.read(length)
             payload = json.loads(body.decode("utf-8"))
             if not isinstance(payload, dict):
-                raise ValueError("request body must be a JSON object")
+                raise ValueError("INVALID_REQUEST:request body must be a JSON object")
+            raw_request_id = payload.get("request_id")
+            if isinstance(raw_request_id, str) and raw_request_id.strip():
+                request_id = raw_request_id.strip()
             result = process_prototype_request(payload, self.workspace.runtime)
         except ProductAuthorizationError as exc:
-            self._send_error(403, str(exc))
+            self._send_exception(
+                403,
+                exc,
+                tool="gremlin_prototype",
+                request_id=request_id,
+            )
             return
         except (UnicodeDecodeError, json.JSONDecodeError, ValueError, TypeError, KeyError) as exc:
-            self._send_error(400, str(exc))
+            self._send_exception(
+                400,
+                exc,
+                tool="gremlin_prototype",
+                request_id=request_id,
+            )
             return
         except Exception:
-            self._send_error(500, "workspace prototype execution failed; inspect GREMLIN diagnostics")
+            self._send_exception(
+                500,
+                RuntimeError("WORKSPACE_INTERNAL_ERROR"),
+                tool="gremlin_prototype",
+                request_id=request_id,
+            )
             return
         self._send_json(200, result)
 
