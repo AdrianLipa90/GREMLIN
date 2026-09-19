@@ -51,6 +51,8 @@ def _nuitka_command(*, entry: Path, work: Path, exe_name: str) -> list[str]:
         "--include-module=gremlin_mcp.product_server",
         "--include-module=gremlin_mcp.server_with_hive",
         "--include-module=gremlin_mcp.phasenav_runtime",
+        "--include-module=gremlin_mcp.workspace",
+        "--include-module=tools.gremlin_client_protocol_v01",
         "--include-module=tools.gremlin_bestiary_phasenav_phase_gates_v01",
         "--include-module=tools.gremlin_bestiary_phasenav_numpy_v01",
         "--include-module=tools.gremlin_bestiary_phasenav_threeway_v01",
@@ -95,9 +97,9 @@ def build(*, output_root: Path, clean: bool) -> Path:
         runtime = matching[0]
 
     aliases = (
-        ["gremlinctl.exe", "gremlin-product-mcp.exe", "gremlin-mcp.exe"]
+        ["gremlinctl.exe", "gremlin-product-mcp.exe", "gremlin-mcp.exe", "gremlin-workspace.exe"]
         if platform == "windows"
-        else ["gremlinctl", "gremlin-product-mcp", "gremlin-mcp"]
+        else ["gremlinctl", "gremlin-product-mcp", "gremlin-mcp", "gremlin-workspace"]
     )
     for alias in aliases:
         destination = final / alias
@@ -108,7 +110,7 @@ def build(*, output_root: Path, clean: bool) -> Path:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Build one standalone GREMLIN runtime and expose ctl/product/full-MCP aliases")
+    parser = argparse.ArgumentParser(description="Build one standalone GREMLIN runtime and expose ctl/product/full-MCP/workspace aliases")
     parser.add_argument("--output-root", default="dist", type=Path)
     parser.add_argument("--clean", action="store_true")
     args = parser.parse_args()
