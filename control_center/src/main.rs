@@ -744,7 +744,7 @@ impl GremlinControlCenter {
         self.start_task("Stopping GREMLIN Workspace", |tx| {
             let outcome = run_workspace_stop_json().and_then(|stopped| {
                 let status = stopped.get("status").and_then(Value::as_str).unwrap_or("");
-                if matches!(status, "STOPPED" | "NOT_RUNNING") {
+                if matches!(status, "STOPPED" | "NOT_RUNNING" | "STALE_CLEARED") {
                     Ok(stopped)
                 } else {
                     Err(format!("Unexpected Workspace stop status: {status}"))
