@@ -4,6 +4,7 @@ const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => Array.from(document.querySelectorAll(selector));
 const SVG_NS = "http://www.w3.org/2000/svg";
 const MAX_ACTIVITY = 12;
+const TECHNICAL_MODE_STORAGE_KEY = "gremlin.workspace.technical-mode";
 
 const candidateEditor = $("#candidate-editor");
 const problemBrief = $("#problem-brief");
@@ -15,6 +16,8 @@ const verdict = $("#verdict");
 const inputState = $("#input-state");
 const footerMessage = $("#footer-message");
 const technicalToggle = $("#technical-toggle");
+const refreshCockpitButton = $("#refresh-cockpit");
+const retryErrorButton = $("#retry-error");
 const activityList = $("#activity-list");
 const clearActivityButton = $("#clear-activity");
 
@@ -116,11 +119,28 @@ function renderActivity() {
   });
 }
 
-function setTechnicalMode(enabled) {
+function readTechnicalModePreference() {
+  try {
+    return window.sessionStorage.getItem(TECHNICAL_MODE_STORAGE_KEY) === "true";
+  } catch (_) {
+    return false;
+  }
+}
+
+function persistTechnicalModePreference(enabled) {
+  try {
+    window.sessionStorage.setItem(TECHNICAL_MODE_STORAGE_KEY, enabled ? "true" : "false");
+  } catch (_) {
+    // Preference storage is optional. Never block Workspace operation on it.
+  }
+}
+
+function setTechnicalMode(enabled, { persist = true } = {}) {
   sessionState.technical = Boolean(enabled);
   document.body.classList.toggle("technical-mode", sessionState.technical);
   technicalToggle.setAttribute("aria-pressed", sessionState.technical ? "true" : "false");
   technicalToggle.textContent = sessionState.technical ? "Reader view" : "Technical view";
+  if (persist) persistTechnicalModePreference(sessionState.technical);
 
   if (!sessionState.technical) {
     const active = $(".tab.active");
@@ -296,6 +316,15 @@ function renderBestiary(payload) {
 }
 
 async function loadCockpit() {
+  sessionState.health = null;
+  sessionState.product = null;
+  sessionState.capabilities = null;
+  sessionState.bestiary = null;
+  setMetric("#workspace-state", "CHECKING");
+  setMetric("#product-state", "CHECKING");
+  setMetric("#tool-count", "—");
+  setMetric("#species-count", "—");
+
   const healthResult = await Promise.allSettled([
     fetchJson("/api/health"),
     fetchJson("/api/status"),
@@ -329,6 +358,20 @@ async function loadCockpit() {
   }
 
   renderSystemCockpit();
+}
+
+async function refreshCockpit() {
+  if (refreshCockpitButton.disabled) return;
+  refreshCockpitButton.disabled = true;
+  const originalLabel = refreshCockpitButton.textContent;
+  refreshCockpitButton.textContent = "Refreshing…";
+  try {
+    await loadCockpit();
+    recordActivity("info", "Cockpit state refreshed.");
+  } finally {
+    refreshCockpitButton.disabled = false;
+    refreshCockpitButton.textContent = originalLabel || "Refresh";
+  }
 }
 
 function parseCandidate() {
@@ -518,6 +561,8 @@ function clearErrorGuidance() {
   $("#error-code").textContent = "ERROR";
   $("#error-action").textContent = "Inspect GREMLIN Diagnostics before retrying.";
   $("#error-retry").textContent = "";
+  retryErrorButton.hidden = true;
+  retryErrorButton.disabled = false;
 }
 
 function showErrorGuidance(error) {
@@ -532,7 +577,10 @@ function showErrorGuidance(error) {
   $("#error-action").textContent =
     contract.user_action || "Inspect GREMLIN Diagnostics before retrying.";
   $("#error-retry").textContent = contract.retryable ? "retryable" : "manual action";
+  retryErrorButton.hidden = contract.retryable !== true;
+  retryErrorButton.disabled = false;
   guidance.hidden = false;
+  guidance.focus();
   return contract;
 }
 
@@ -605,7 +653,10 @@ function renderError(error) {
 }
 
 async function runCandidate() {
+  if (runButton.disabled) return;
+  clearErrorGuidance();
   runButton.disabled = true;
+  retryErrorButton.disabled = true;
   markCandidate(true);
   setRunState("running", "compiling → prototyping → testing…");
   let candidate = null;
@@ -636,6 +687,7 @@ async function runCandidate() {
     );
   } finally {
     runButton.disabled = false;
+    retryErrorButton.disabled = false;
   }
 }
 
@@ -651,6 +703,16 @@ candidateEditor.addEventListener("input", () => {
 runButton.addEventListener("click", runCandidate);
 loadButton.addEventListener("click", loadExample);
 technicalToggle.addEventListener("click", () => setTechnicalMode(!sessionState.technical));
+refreshCockpitButton.addEventListener("click", refreshCockpit);
+retryErrorButton.addEventListener("click", runCandidate);
+
+document.addEventListener("keydown", (event) => {
+  if ((event.ctrlKey || event.metaKey) && event.key === "Enter" && !runButton.disabled) {
+    event.preventDefault();
+    runCandidate();
+  }
+});
+
 clearActivityButton.addEventListener("click", () => {
   sessionState.activity = [];
   renderActivity();
@@ -665,7 +727,7 @@ $$(".tab").forEach((button) => {
   });
 });
 
-setTechnicalMode(false);
+setTechnicalMode(readTechnicalModePreference(), { persist: false });
 renderActivity();
 Promise.allSettled([loadCockpit(), loadExample()]).then(() => {
   if (footerMessage.textContent === "Ready.") {
