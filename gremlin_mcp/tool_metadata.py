@@ -19,6 +19,7 @@ READ_ONLY_CLOSED = frozenset({
     "gremlin_phasenav_threeway",
     "gremlin_phasenav_analog_invariants",
     "gremlin_phasenav_live_replay",
+    "gremlin_phasenav_spectroscopic_holonomy",
     "gremlin_worker_list",
     "gremlin_worker_result",
     "gremlin_worker_queue",
