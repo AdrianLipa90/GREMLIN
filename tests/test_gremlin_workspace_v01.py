@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from dataclasses import replace
 import json
+import os
 from pathlib import Path
+import stat
 import threading
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
@@ -71,6 +73,21 @@ def _stage_assets(paths) -> tuple[Path, Path]:
     return root, example_path
 
 
+def _server(paths, *, token: str = "t" * 48, instance_id: str = "i" * 32):
+    web_root, example = _stage_assets(paths)
+    server = workspace.GremlinWorkspaceServer(
+        ("127.0.0.1", 0),
+        web_root=web_root,
+        example_path=example,
+        runtime=FakeRuntime(),  # type: ignore[arg-type]
+        instance_id=instance_id,
+        shutdown_token=token,
+    )
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    return server, thread, token, instance_id
+
+
 def test_workspace_prefers_installed_resources(tmp_path) -> None:
     paths = _paths(tmp_path)
     root, example = _stage_assets(paths)
@@ -114,7 +131,7 @@ def test_workspace_check_is_ready_only_after_assets_license_feature_and_port(tmp
     _stage_assets(paths)
     runtime = FakeRuntime()
     monkeypatch.setattr(workspace, "_runtime", lambda _paths: runtime)
-    monkeypatch.setattr(workspace, "_probe_existing_workspace", lambda _host, _port: False)
+    monkeypatch.setattr(workspace, "_probe_health", lambda _host, _port, timeout=0.35: None)
     monkeypatch.setattr(workspace, "_port_available", lambda _host, _port: True)
 
     check = workspace.workspace_check(paths=paths, host="127.0.0.1", port=8765)
@@ -176,6 +193,8 @@ def test_workspace_http_surface_has_security_headers_and_blocks_cross_origin(tmp
         web_root=web_root,
         example_path=example,
         runtime=runtime,  # type: ignore[arg-type]
+        instance_id="a" * 32,
+        shutdown_token="b" * 48,
     )
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
@@ -188,6 +207,7 @@ def test_workspace_http_surface_has_security_headers_and_blocks_cross_origin(tmp
             assert response.status == 200
             assert payload["schema"] == workspace.WORKSPACE_SCHEMA
             assert payload["status"] == "READY"
+            assert payload["instance_id"] == "a" * 32
             assert response.headers["X-Frame-Options"] == "DENY"
             assert response.headers["Referrer-Policy"] == "no-referrer"
             assert "default-src 'self'" in response.headers["Content-Security-Policy"]
@@ -224,7 +244,72 @@ def test_workspace_http_surface_has_security_headers_and_blocks_cross_origin(tmp
             assert response.status == 200
             assert payload["response"]["request_id"] == "http-1"
             assert payload["authority"]["execution_admitted"] is False
+
+        unauthorized_stop = Request(
+            f"{base}/api/shutdown",
+            data=b"{}",
+            method="POST",
+            headers={"Content-Type": "application/json"},
+        )
+        with pytest.raises(HTTPError) as denied_stop:
+            urlopen(unauthorized_stop, timeout=2.0)
+        assert denied_stop.value.code == 403
     finally:
         server.shutdown()
         server.server_close()
         thread.join(timeout=2.0)
+
+
+def test_workspace_managed_lifecycle_status_and_authenticated_stop(tmp_path) -> None:
+    paths = _paths(tmp_path)
+    server, thread, token, instance_id = _server(paths)
+    host, port = server.server_address[:2]
+    state = {
+        "schema": workspace.INSTANCE_SCHEMA,
+        "instance_id": instance_id,
+        "shutdown_token": token,
+        "pid": os.getpid(),
+        "host": host,
+        "port": port,
+        "url": f"http://{host}:{port}",
+        "started_at": "2026-09-19T00:00:00+00:00",
+    }
+    workspace._write_private_json(workspace._instance_path(paths), state)
+
+    try:
+        status = workspace.workspace_status(paths, host=host, port=port)
+        assert status["status"] == "RUNNING"
+        assert status["instance_id"] == instance_id
+        assert status["can_stop"] is True
+        if os.name != "nt":
+            mode = stat.S_IMODE(workspace._instance_path(paths).stat().st_mode)
+            assert mode & 0o077 == 0
+
+        stopped = workspace.workspace_stop(paths, timeout=2.0)
+        assert stopped["status"] == "STOPPED"
+        assert stopped["instance_id"] == instance_id
+        assert not workspace._instance_path(paths).exists()
+        thread.join(timeout=2.0)
+        assert not thread.is_alive()
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2.0)
+
+
+def test_workspace_status_marks_unreachable_instance_state_stale(tmp_path) -> None:
+    paths = _paths(tmp_path)
+    state = {
+        "schema": workspace.INSTANCE_SCHEMA,
+        "instance_id": "c" * 32,
+        "shutdown_token": "d" * 48,
+        "pid": 999999,
+        "host": "127.0.0.1",
+        "port": 65530,
+        "url": "http://127.0.0.1:65530",
+        "started_at": "2026-09-19T00:00:00+00:00",
+    }
+    workspace._write_private_json(workspace._instance_path(paths), state)
+    status = workspace.workspace_status(paths)
+    assert status["status"] == "STALE"
+    assert status["can_stop"] is False
