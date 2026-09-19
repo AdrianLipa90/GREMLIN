@@ -165,13 +165,23 @@ def build_support_report(
     return {**core, "report_commitment": commitment}
 
 
-def write_support_report(paths: GremlinPaths, report: Mapping[str, Any] | None = None) -> Path:
-    payload = build_support_report(paths) if report is None else dict(report)
+def _verified_report_commitment(payload: Mapping[str, Any]) -> str:
     if payload.get("schema") != SCHEMA:
         raise ValueError("unsupported support report schema")
-    commitment = payload.get("report_commitment")
-    if not isinstance(commitment, str) or len(commitment) != 64:
+    supplied = payload.get("report_commitment")
+    if not isinstance(supplied, str) or len(supplied) != 64:
         raise ValueError("support report commitment is required")
+    core = dict(payload)
+    core.pop("report_commitment", None)
+    expected = hashlib.blake2b(DOMAIN + _canonical(core), digest_size=32).hexdigest()
+    if supplied != expected:
+        raise ValueError("support report commitment mismatch")
+    return supplied
+
+
+def write_support_report(paths: GremlinPaths, report: Mapping[str, Any] | None = None) -> Path:
+    payload = build_support_report(paths) if report is None else dict(report)
+    commitment = _verified_report_commitment(payload)
 
     directory = Path(paths.diagnostics_dir)
     directory.mkdir(parents=True, exist_ok=True)
