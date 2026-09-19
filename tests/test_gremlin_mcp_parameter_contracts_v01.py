@@ -3,9 +3,15 @@ from __future__ import annotations
 import asyncio
 
 
+def _input_schema(tool) -> dict:
+    raw = tool.model_dump(by_alias=True, exclude_none=True)
+    schema = raw.get("inputSchema")
+    assert isinstance(schema, dict), (tool.name, raw)
+    return schema
+
+
 def _property(tool, name: str) -> dict:
-    schema = tool.inputSchema
-    assert isinstance(schema, dict)
+    schema = _input_schema(tool)
     properties = schema.get("properties")
     assert isinstance(properties, dict)
     value = properties.get(name)
@@ -109,6 +115,6 @@ def test_product_and_reference_parameter_schemas_remain_exact() -> None:
         shared = set(reference) & set(product)
         assert len(shared) == 27
         for name in sorted(shared):
-            assert reference[name].inputSchema == product[name].inputSchema, name
+            assert _input_schema(reference[name]) == _input_schema(product[name]), name
 
     asyncio.run(exercise())
