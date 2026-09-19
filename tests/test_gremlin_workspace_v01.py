@@ -313,3 +313,22 @@ def test_workspace_status_marks_unreachable_instance_state_stale(tmp_path) -> No
     status = workspace.workspace_status(paths)
     assert status["status"] == "STALE"
     assert status["can_stop"] is False
+
+
+def test_workspace_stop_clears_stale_instance_state(tmp_path) -> None:
+    paths = _paths(tmp_path)
+    state = {
+        "schema": workspace.INSTANCE_SCHEMA,
+        "instance_id": "e" * 32,
+        "shutdown_token": "f" * 48,
+        "pid": 999999,
+        "host": "127.0.0.1",
+        "port": 65529,
+        "url": "http://127.0.0.1:65529",
+        "started_at": "2026-09-19T00:00:00+00:00",
+    }
+    workspace._write_private_json(workspace._instance_path(paths), state)
+    stopped = workspace.workspace_stop(paths)
+    assert stopped["status"] == "STALE_CLEARED"
+    assert stopped["can_stop"] is False
+    assert not workspace._instance_path(paths).exists()
