@@ -1,0 +1,69 @@
+{
+  "schema": "GREMLIN_PHASENAV_MCP_VCS_CAPABILITY_RECEIPT_V0_1",
+  "status": "IMPLEMENTED_VALIDATED_WORKING_BRANCH",
+  "repository": "AdrianLipa90/GREMLIN",
+  "branch": "candidate/phasenav-mcp-vcs-gremlin-v0.1-20260915",
+  "base_ref": "main",
+  "base_head": "b33d8c3fec014db4686856958c17e0e948192742",
+  "implementation_head_before_receipt": "c0f58bfcdccef70ade82a6fb96460333b11ca5ad",
+  "ahead_by_before_receipt": 11,
+  "behind_by_before_receipt": 0,
+  "files": [
+    ".github/workflows/gremlin-phasenav-vcs-capability-v01.yml",
+    "gremlin_mcp/phasenav_vcs_capability.py",
+    "gremlin_mcp/phasenav_vcs_server.py",
+    "native/GREMLIN_PHASENAV_MCP_VCS_CAPABILITY_V0_1.pnv",
+    "pyproject.toml",
+    "spec/GREMLIN_PHASENAV_MCP_VCS_CAPABILITY_V0_1.md",
+    "tests/test_gremlin_phasenav_vcs_capability_v01.py",
+    "tests/test_gremlin_phasenav_vcs_server_v01.py"
+  ],
+  "mcp_entrypoint": "gremlin-phasenav-vcs-mcp = gremlin_mcp.phasenav_vcs_server:main",
+  "capabilities": [
+    "triple_pulse_preflight",
+    "action_packet_binding",
+    "checkpoint_prepare",
+    "candidate_branch_prepare",
+    "copy_only_write_prepare",
+    "logical_commit_prepare",
+    "checkpoint_tag_prepare",
+    "bundle_prepare",
+    "test_receipt_binding",
+    "execution_receipt_build"
+  ],
+  "firewalls": {
+    "active_tether_required": true,
+    "same_generation_identity_domain_authority_required": true,
+    "phasenav_action_packet_v1_required": true,
+    "gate_receipt_required": true,
+    "copy_only": true,
+    "direct_main_mutation": false,
+    "delete_move_rename": false,
+    "git_cli_allowed_in_capability": false,
+    "subprocess_allowed_in_capability": false,
+    "shell_used_by_capability": false,
+    "native_adapter_execution_evidence_required": true,
+    "production_runtime_write": false,
+    "canon_allowed": false
+  },
+  "hosted_validation": {
+    "workflow": "GREMLIN PhaseNav VCS MCP v0.1",
+    "run_id": 34973376728,
+    "job_id": 104394894936,
+    "head_sha": "c0f58bfcdccef70ade82a6fb96460333b11ca5ad",
+    "conclusion": "success",
+    "install": "PASS",
+    "capability_and_server_tests": "PASS",
+    "escape_surface_ast_audit": "PASS"
+  },
+  "previous_failure_disclosed": {
+    "run_id": 34973030040,
+    "cause": "pytest collected imported helper named test_receipt_bind as a test fixture target",
+    "fix": "alias helper import in contract test",
+    "scientific_or_runtime_claim_impact": "NONE"
+  },
+  "known_limitation": "PHASENAV_ACTION_PACKET_V1 is named by the PhaseNav contract but its canonical field schema was not found in the repository. v0.1 therefore binds the complete packet opaquely by deterministic commitment and never infers authority from unknown packet fields.",
+  "phase_nav_repository_write_performed": false,
+  "phase_nav_binding_status": "READY_FOR_CONTRACT_COMPLIANT_NATIVE_BINDING",
+  "main_mutated": false
+}
