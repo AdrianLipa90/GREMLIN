@@ -37,7 +37,7 @@ BESTIARY_ROLES: dict[str, dict[str, str]] = {
 
 TOPOLOGY = ("RAW", "HUMMINGBIRD", "OCTOPUS", "SPECIALISTS", "BELZEBUB", "GREMLIN")
 
-MCP_TOOLS = [
+REFERENCE_MCP_TOOLS = [
     "gremlin_status", "gremlin_bestiary", "gremlin_species",
     "gremlin_plan", "gremlin_route", "gremlin_relation_parse", "gremlin_relation_signature",
     "gremlin_web_fetch", "gremlin_web_search", "gremlin_research", "gremlin_research_execute",
@@ -49,13 +49,20 @@ MCP_TOOLS = [
     "gremlin_worker_claim", "gremlin_worker_submit", "gremlin_worker_result", "gremlin_worker_queue",
 ]
 
-MCP_TOOL_GROUPS: dict[str, tuple[str, ...]] = {
-    "introspection": (
-        "gremlin_status", "gremlin_bestiary", "gremlin_species",
-    ),
-    "planning": (
-        "gremlin_plan", "gremlin_route", "gremlin_relation_parse", "gremlin_relation_signature",
-    ),
+PRODUCT_MCP_TOOLS = [
+    "gremlin_product_status", "gremlin_license_status",
+    "gremlin_status", "gremlin_bestiary", "gremlin_species",
+    "gremlin_plan", "gremlin_route", "gremlin_relation_parse", "gremlin_relation_signature",
+    "gremlin_web_fetch", "gremlin_web_search", "gremlin_research", "gremlin_research_execute",
+    "gremlin_research_hound_provenance", "gremlin_research_guarded", "gremlin_research_relational",
+    "gremlin_auto_fanout", "gremlin_fanout", "gremlin_collect", "gremlin_synthesize", "gremlin_prototype",
+    "gremlin_worker_register", "gremlin_worker_heartbeat", "gremlin_worker_list", "gremlin_worker_enqueue",
+    "gremlin_worker_claim", "gremlin_worker_submit", "gremlin_worker_result", "gremlin_worker_queue",
+]
+
+REFERENCE_MCP_TOOL_GROUPS: dict[str, tuple[str, ...]] = {
+    "introspection": ("gremlin_status", "gremlin_bestiary", "gremlin_species"),
+    "planning": ("gremlin_plan", "gremlin_route", "gremlin_relation_parse", "gremlin_relation_signature"),
     "research": (
         "gremlin_web_fetch", "gremlin_web_search", "gremlin_research", "gremlin_research_execute",
         "gremlin_research_hound_provenance", "gremlin_research_guarded", "gremlin_research_relational",
@@ -72,6 +79,27 @@ MCP_TOOL_GROUPS: dict[str, tuple[str, ...]] = {
         "gremlin_worker_claim", "gremlin_worker_submit", "gremlin_worker_result", "gremlin_worker_queue",
     ),
 }
+
+PRODUCT_MCP_TOOL_GROUPS: dict[str, tuple[str, ...]] = {
+    "introspection": (
+        "gremlin_product_status", "gremlin_license_status", "gremlin_status", "gremlin_bestiary", "gremlin_species",
+    ),
+    "planning": ("gremlin_plan", "gremlin_route", "gremlin_relation_parse", "gremlin_relation_signature"),
+    "research": (
+        "gremlin_web_fetch", "gremlin_web_search", "gremlin_research", "gremlin_research_execute",
+        "gremlin_research_hound_provenance", "gremlin_research_guarded", "gremlin_research_relational",
+    ),
+    "orchestration": (
+        "gremlin_auto_fanout", "gremlin_fanout", "gremlin_collect", "gremlin_synthesize", "gremlin_prototype",
+    ),
+    "workers": (
+        "gremlin_worker_register", "gremlin_worker_heartbeat", "gremlin_worker_list", "gremlin_worker_enqueue",
+        "gremlin_worker_claim", "gremlin_worker_submit", "gremlin_worker_result", "gremlin_worker_queue",
+    ),
+}
+
+# Backward-compatible alias for callers that mean the reference MCP surface.
+MCP_TOOLS = REFERENCE_MCP_TOOLS
 
 
 def _strict_text(value: Any, field: str) -> str:
@@ -95,9 +123,21 @@ def authority_state() -> dict[str, bool]:
     return {"production_runtime_write": False, "execution_admitted": False, "canon_allowed": False}
 
 
-def status() -> dict[str, Any]:
+def status(*, surface: str = "reference") -> dict[str, Any]:
+    if surface == "reference":
+        tools = REFERENCE_MCP_TOOLS
+        groups = REFERENCE_MCP_TOOL_GROUPS
+        mode = "STANDALONE_REFERENCE_MCP"
+        contract = "EXACT_REFERENCE_REGISTRY_V0_1"
+    elif surface == "product":
+        tools = PRODUCT_MCP_TOOLS
+        groups = PRODUCT_MCP_TOOL_GROUPS
+        mode = "LICENSED_PRODUCT_MCP"
+        contract = "EXACT_PRODUCT_REGISTRY_V0_1"
+    else:
+        raise ValueError(f"unsupported MCP capability surface: {surface!r}")
     return {
-        "schema": SCHEMA, "version": VERSION, "mode": "STANDALONE_REFERENCE_MCP", "standalone": True,
+        "schema": SCHEMA, "version": VERSION, "surface": surface, "mode": mode, "standalone": True,
         "noema_required": False, "phasenav_native_authority_required": False,
         "transport_capabilities": ["stdio", "streamable-http"],
         "octopus_router": {
@@ -111,10 +151,10 @@ def status() -> dict[str, Any]:
             "scheduler": scheduler_manifest(),
             "state_persistence": "PROCESS_MEMORY_OR_SQLITE_WAL",
         },
-        "tools": list(MCP_TOOLS),
-        "tool_count": len(MCP_TOOLS),
-        "tool_groups": {name: list(items) for name, items in MCP_TOOL_GROUPS.items()},
-        "capability_contract": "EXACT_REFERENCE_REGISTRY_V0_1",
+        "tools": list(tools),
+        "tool_count": len(tools),
+        "tool_groups": {name: list(items) for name, items in groups.items()},
+        "capability_contract": contract,
         "topology": list(TOPOLOGY), "authority": authority_state(),
     }
 
