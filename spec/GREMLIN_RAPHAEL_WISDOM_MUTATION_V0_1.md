@@ -142,6 +142,8 @@ MOVE_FILE
 MERGE_BRANCH
 ```
 
+Each primitive has an exact field schema. Missing required fields or undeclared fields fail closed rather than being ignored. UPDATE/DELETE/MOVE bind an exact expected source blob SHA in addition to the decree's target-state SHA.
+
 Every normalized operation carries a BLAKE2b-256 operation commitment. CREATE/UPDATE content also carries a content commitment.
 
 The mutation backend must return the exact `operation_commitment` for every applied operation. Backend and rollback receipts must also be finite canonical JSON before they can enter RAPHAEL lineage. A mismatch fails loud as `OPERATION_RECEIPT_MISMATCH`; malformed/non-finite backend receipts fail closed and trigger rollback.
@@ -150,7 +152,7 @@ The mutation backend must return the exact `operation_commitment` for every appl
 
 After the declared operations, RAPHAEL runs all decree-bound tests and postconditions.
 
-Completion requires every gate to pass. Test and postcondition callbacks must return an exact boolean; truthy non-boolean values are rejected fail-closed.
+Completion requires every gate to pass. An ACCEPT decree requires at least one declared test and at least one declared postcondition, preventing vacuous post-audit success. Test and postcondition callbacks must return an exact boolean; truthy non-boolean values are rejected fail-closed.
 
 Failure after mutation begins causes:
 
