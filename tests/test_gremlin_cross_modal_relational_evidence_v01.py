@@ -9,6 +9,7 @@ from tools.gremlin_cross_modal_relational_evidence_v01 import (
     build_cross_modal_report,
     covariance_chi_square,
     packet_payload,
+    verify_packet_payload,
 )
 
 
@@ -142,6 +143,17 @@ def test_packet_hash_is_deterministic_and_no_physical_source_is_selected():
     assert p1["packet_sha256"] == p2["packet_sha256"]
     assert len(p1["packet_sha256"]) == 64
     assert p1["physical_source_selected"] is False
+    verify_packet_payload(p1)
+
+
+def test_packet_hash_rejects_tampering():
+    packet = packet_payload(
+        [_channel(observed=1.2, sigma=1.0)],
+        phase_identifiability=_phase(),
+    )
+    packet["channels"][0]["observed"] = 99.0
+    with pytest.raises(CrossModalEvidenceError, match="packet_sha256 mismatch"):
+        verify_packet_payload(packet)
 
 
 def test_zero_cycle_rank_does_not_require_phase_response_rank():
