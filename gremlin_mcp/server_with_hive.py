@@ -7,7 +7,7 @@ from typing import Any
 
 from .hive_authority import HiveAuthorityRuntime
 from .hive_ingest import ingest_research_execution
-from .memory_exchange import ingest_exchange_envelope
+from .memory_exchange import ingest_exchange_bundle, ingest_exchange_envelope
 from .research_executor import execute_research
 from .server import build_parser as build_base_parser
 from .server import configure_state, mcp, standalone_phasenav_self_test
@@ -30,7 +30,9 @@ def gremlin_hive_status() -> dict[str, Any]:
     result["memory_information_exchange"] = {
         "status": "AVAILABLE",
         "tool": "gremlin_hive_exchange_ingest",
+        "bundle_tool": "gremlin_hive_exchange_bundle_ingest",
         "protocol_schema": "PHASENAV_MEMORY_INFORMATION_EXCHANGE_V0_1",
+        "bundle_schema": "PHASENAV_MEMORY_INFORMATION_EXCHANGE_BUNDLE_V0_1",
         "target_layer": "RELATIONAL",
         "automatic_latch": False,
     }
@@ -155,6 +157,20 @@ def gremlin_hive_exchange_ingest(
     return ingest_exchange_envelope(
         hive_runtime,
         envelope,
+        priority=priority,
+        consumer_id="GREMLIN-HIVE",
+    )
+
+
+@mcp.tool()
+def gremlin_hive_exchange_bundle_ingest(
+    bundle: dict[str, Any],
+    priority: float = 0.82,
+) -> dict[str, Any]:
+    """Verify a portable lineage proof and ingest only its RELATIONAL target."""
+    return ingest_exchange_bundle(
+        hive_runtime,
+        bundle,
         priority=priority,
         consumer_id="GREMLIN-HIVE",
     )
