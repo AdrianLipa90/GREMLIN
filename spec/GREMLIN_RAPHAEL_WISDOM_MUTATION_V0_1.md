@@ -104,11 +104,16 @@ GREMLIN_RAPHAEL_MUTATION_AUTHORIZATION_V0_1
 It binds:
 
 - one actor external to RAPHAEL;
-- one external authority receipt commitment;
+- one explicit operator gate receipt;
+- `tether_status=ACTIVE`;
+- one `GREMLIN_TRIPLE_PULSE_ATTESTATION_V0_1`;
+- IDENTITY, DOMAIN and AUTHORITY receipts from the same runtime generation;
 - one exact decree commitment;
 - one exact target SHA;
 - one exact scope commitment;
 - one single-use authorization.
+
+The same triple-pulse generation is probed again immediately before HAND. An inactive tether, missing pulse, cross-generation pulse set, changed attestation or probe failure burns the stale authorization and terminates with a committed `ABORTED / LIVE_ADMISSION_FAILED` receipt.
 
 A changed target SHA is `STATE_DRIFT` and fails closed before mutation. A stale exact-state authorization is consumed and terminated with a committed `ABORTED` receipt; it cannot become valid again if the branch later returns to the old SHA. Target state digests are admitted only at exact SHA-1 (40 hex) or SHA-256 (64 hex) lengths. `actor=RAPHAEL` is rejected: RAPHAEL cannot authorize its own HAND phase.
 
@@ -131,6 +136,18 @@ for the exact decree/target pair.
 ### HAND — exact execution
 
 HAND receives no planning authority. It may execute only operations already frozen into WORD.
+
+Before the first mutation, the caller-supplied backend must atomically prepare the exact target/scope reservation and return:
+
+```text
+status=PREPARED
+target_sha=<exact decree target>
+scope_commitment=<exact decree scope>
+reservation_id=<non-empty backend reservation identity>
+rollback_state=<finite canonical JSON object>
+```
+
+RAPHAEL derives a BLAKE2b-256 `reservation_commitment` over that normalized record and binds it into every terminal mutation receipt. A malformed reservation or target/scope mismatch is quarantined before mutation. The single-use authorization is consumed before reservation preparation, so a failed or stale reservation cannot be replayed with the same authority.
 
 v0.1 admitted mutation primitives:
 
@@ -188,7 +205,7 @@ A mutation ledger enforces:
 
 The in-process reference ledger is `InMemoryMutationLedger`; its cancel/consume transitions are lock-protected so single-use semantics are atomic inside one process. Durable deployments must supply an atomic durable ledger implementation.
 
-## Twelve invariants
+## Core invariants
 
 ```text
 R1  NO_AUTHORIZATION_NO_MUTATION
@@ -199,10 +216,16 @@ R5  UNDECLARED_OPERATION_FORBIDDEN
 R6  TEST_FAILURE_NO_COMPLETION
 R7  POSTCONDITION_FAILURE_ROLLBACK_OR_QUARANTINE
 R8  NO_SILENT_RECOVERY
-R9  EVERY_MUTATION_EMITS_RECEIPT
+R9  EVERY_ADMITTED_MUTATION_PATH_EMITS_TERMINAL_RECEIPT
 R10 DECREE_MAY_BE_REJECTED_BEFORE_FIRST_WRITE
 R11 SCOPE_IMMUTABLE_AFTER_FIRST_WRITE
 R12 MUTATION_AUTHORITY_EXPIRES_AFTER_RECEIPT
+R13 SAME_GENERATION_TRIPLE_PULSE_REQUIRED
+R14 ACTIVE_TETHER_REPROBE_REQUIRED_BEFORE_HAND
+R15 EXACT_STATE_RESERVATION_REQUIRED
+R16 VACUOUS_POST_AUDIT_FORBIDDEN
+R17 MANDATORY_WISDOM_QUORUM_NOT_CALLER_WEAKENABLE
+R18 BACKEND_RECEIPTS_FINITE_CANONICAL_JSON
 ```
 
 ## Relation to existing formalism
