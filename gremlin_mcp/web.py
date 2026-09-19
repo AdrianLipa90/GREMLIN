@@ -20,6 +20,12 @@ USER_AGENT = "GREMLIN-Research/0.1 (+https://github.com/AdrianLipa90/GREMLIN)"
 DEFAULT_TIMEOUT_S = 10.0
 DEFAULT_MAX_BYTES = 1_000_000
 DEFAULT_RETRIES = 2
+MIN_TIMEOUT_S = 0.1
+MAX_TIMEOUT_S = 60.0
+MIN_RESPONSE_BYTES = 1
+MAX_RESPONSE_BYTES = 8_000_000
+MIN_RETRIES = 0
+MAX_RETRIES = 5
 MAX_LIMIT = 25
 RETRYABLE_HTTP = frozenset({408, 425, 429, 500, 502, 503, 504})
 
@@ -126,12 +132,12 @@ def _request_bytes(
     timeout = float(timeout_s)
     limit = int(max_bytes)
     retry_count = int(retries)
-    if not (0.1 <= timeout <= 60.0):
-        raise ValueError("timeout_s must be in [0.1, 60]")
-    if not (1 <= limit <= 8_000_000):
-        raise ValueError("max_bytes must be in [1, 8000000]")
-    if not (0 <= retry_count <= 5):
-        raise ValueError("retries must be in 0..5")
+    if not (MIN_TIMEOUT_S <= timeout <= MAX_TIMEOUT_S):
+        raise ValueError(f"timeout_s must be in [{MIN_TIMEOUT_S}, {MAX_TIMEOUT_S:g}]")
+    if not (MIN_RESPONSE_BYTES <= limit <= MAX_RESPONSE_BYTES):
+        raise ValueError(f"max_bytes must be in [{MIN_RESPONSE_BYTES}, {MAX_RESPONSE_BYTES}]")
+    if not (MIN_RETRIES <= retry_count <= MAX_RETRIES):
+        raise ValueError(f"retries must be in {MIN_RETRIES}..{MAX_RETRIES}")
 
     for attempt in range(retry_count + 1):
         request = urllib.request.Request(
