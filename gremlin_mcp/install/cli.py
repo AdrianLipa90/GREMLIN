@@ -12,6 +12,7 @@ from .device import build_activation_request, device_identity_status, ensure_dev
 from .doctor import run_doctor
 from .integrations import gremlin_stdio_entry, inspect_json_mcp, install_json_mcp, remove_json_mcp
 from .license_activation import activate_license_key, import_license_file, installed_license_status
+from .mcp_probe import probe_product_mcp
 from .paths import resolve_paths
 from .profile_activation import import_client_profile, installed_profile_status
 from .provider_integrations import connect_provider, disconnect_provider, list_providers, test_provider
@@ -73,6 +74,12 @@ def _ready(args: argparse.Namespace) -> int:
     payload = evaluate_readiness(resolve_paths(platform=args.platform))
     _emit(payload, as_json=args.json)
     return 0 if payload["status"] == "READY" else 1
+
+
+def _mcp_test(args: argparse.Namespace) -> int:
+    payload = probe_product_mcp(resolve_paths(platform=args.platform), timeout_seconds=args.timeout)
+    _emit(payload, as_json=args.json)
+    return 0 if payload["status"] == "PASS" else 1
 
 
 def _init(args: argparse.Namespace) -> int:
@@ -341,6 +348,14 @@ def build_parser() -> argparse.ArgumentParser:
     ready.add_argument("--platform", choices=("windows", "linux"))
     ready.add_argument("--json", action="store_true")
     ready.set_defaults(func=_ready)
+
+    mcp_cmd = sub.add_parser("mcp", help="verify the installed GREMLIN product MCP runtime")
+    mcp_sub = mcp_cmd.add_subparsers(dest="mcp_command", required=True)
+    mcp_test = mcp_sub.add_parser("test", help="perform a real stdio MCP handshake against gremlin-product-mcp")
+    mcp_test.add_argument("--platform", choices=("windows", "linux"))
+    mcp_test.add_argument("--timeout", type=float, default=10.0)
+    mcp_test.add_argument("--json", action="store_true")
+    mcp_test.set_defaults(func=_mcp_test)
 
     doctor = sub.add_parser("doctor", help="run sanitized installation/product diagnostics")
     doctor.add_argument("--platform", choices=("windows", "linux"))
