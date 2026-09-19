@@ -5,6 +5,9 @@ use serde_json::Value;
 use std::io::Write;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
+use std::sync::mpsc::{self, Receiver, Sender, TryRecvError};
+use std::thread;
+use std::time::Duration;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Tab {
@@ -14,6 +17,19 @@ enum Tab {
     Integrations,
     Settings,
     Diagnostics,
+}
+
+enum ControlEvent {
+    Doctor(Result<Value, String>),
+    Device(Result<Value, String>),
+    License(Result<Value, String>),
+    Profile(Result<Value, String>),
+    Readiness(Result<Value, String>),
+    Providers(Result<Value, String>),
+    ProviderOutcome(Result<Value, String>),
+    IntegrationOutcome(Result<Value, String>),
+    ClearLicenseKey,
+    Done,
 }
 
 struct GremlinControlCenter {
@@ -37,6 +53,9 @@ struct GremlinControlCenter {
     integration_path: String,
     integration_result: Option<Value>,
     integration_error: Option<String>,
+    task_rx: Option<Receiver<ControlEvent>>,
+    busy_label: Option<String>,
+    operation_error: Option<String>,
 }
 
 impl Default for GremlinControlCenter {
@@ -62,11 +81,11 @@ impl Default for GremlinControlCenter {
             integration_path: String::new(),
             integration_result: None,
             integration_error: None,
+            task_rx: None,
+            busy_label: None,
+            operation_error: None,
         };
         app.refresh_all();
-        if app.ready_status() == "READY" {
-            app.tab = Tab::Overview;
-        }
         app
     }
 }
@@ -126,6 +145,19 @@ fn run_ctl_json_input(args: &[String], input: &str) -> Result<Value, String> {
         .wait_with_output()
         .map_err(|err| format!("Could not wait for gremlinctl: {err}"))?;
     decode_ctl_output(output)
+}
+
+fn send_event(tx: &Sender<ControlEvent>, event: ControlEvent) -> bool {
+    tx.send(event).is_ok()
+}
+
+fn emit_snapshot(tx: &Sender<ControlEvent>) {
+    if !send_event(tx, ControlEvent::License(run_ctl_json(&["license".into(), "status".into(), "--json".into()]))) { return; }
+    if !send_event(tx, ControlEvent::Profile(run_ctl_json(&["profile".into(), "status".into(), "--json".into()]))) { return; }
+    if !send_event(tx, ControlEvent::Doctor(run_ctl_json(&["doctor".into(), "--json".into()]))) { return; }
+    if !send_event(tx, ControlEvent::Device(run_ctl_json(&["device".into(), "status".into(), "--json".into()]))) { return; }
+    if !send_event(tx, ControlEvent::Providers(run_ctl_json(&["integrations".into(), "providers".into(), "--json".into()]))) { return; }
+    let _ = send_event(tx, ControlEvent::Readiness(run_ctl_json(&["ready".into(), "--json".into()])));
 }
 
 impl GremlinControlCenter {
@@ -230,200 +262,257 @@ impl GremlinControlCenter {
         });
     }
 
+    fn is_busy(&self) -> bool {
+        self.task_rx.is_some()
+    }
+
+    fn start_task<F>(&mut self, label: &str, task: F)
+    where
+        F: FnOnce(Sender<ControlEvent>) + Send + 'static,
+    {
+        if self.is_busy() {
+            self.operation_error = Some("Another GREMLIN Control Center operation is already running.".to_owned());
+            return;
+        }
+        let (tx, rx) = mpsc::channel();
+        self.task_rx = Some(rx);
+        self.busy_label = Some(label.to_owned());
+        self.operation_error = None;
+        thread::spawn(move || {
+            task(tx);
+        });
+    }
+
+    fn apply_value(result: Result<Value, String>, target: &mut Option<Value>, error: &mut Option<String>) {
+        match result {
+            Ok(value) => {
+                *target = Some(value);
+                *error = None;
+            }
+            Err(err) => {
+                *target = None;
+                *error = Some(err);
+            }
+        }
+    }
+
+    fn apply_event(&mut self, event: ControlEvent) {
+        match event {
+            ControlEvent::Doctor(result) => Self::apply_value(result, &mut self.doctor, &mut self.doctor_error),
+            ControlEvent::Device(result) => Self::apply_value(result, &mut self.device, &mut self.device_error),
+            ControlEvent::License(result) => Self::apply_value(result, &mut self.license, &mut self.license_error),
+            ControlEvent::Profile(result) => Self::apply_value(result, &mut self.profile, &mut self.profile_error),
+            ControlEvent::Readiness(result) => Self::apply_value(result, &mut self.readiness, &mut self.readiness_error),
+            ControlEvent::Providers(result) => Self::apply_value(result, &mut self.providers, &mut self.provider_error),
+            ControlEvent::ProviderOutcome(result) => match result {
+                Ok(value) => {
+                    self.provider_result = Some(value);
+                    self.provider_error = None;
+                }
+                Err(err) => {
+                    self.provider_result = None;
+                    self.provider_error = Some(err);
+                }
+            },
+            ControlEvent::IntegrationOutcome(result) => match result {
+                Ok(value) => {
+                    self.integration_result = Some(value);
+                    self.integration_error = None;
+                }
+                Err(err) => {
+                    self.integration_result = None;
+                    self.integration_error = Some(err);
+                }
+            },
+            ControlEvent::ClearLicenseKey => self.license_key_input.clear(),
+            ControlEvent::Done => {}
+        }
+    }
+
+    fn poll_task(&mut self) {
+        let Some(rx) = self.task_rx.take() else { return; };
+        let mut keep_receiver = true;
+        loop {
+            match rx.try_recv() {
+                Ok(ControlEvent::Done) => {
+                    self.busy_label = None;
+                    keep_receiver = false;
+                    break;
+                }
+                Ok(event) => self.apply_event(event),
+                Err(TryRecvError::Empty) => break,
+                Err(TryRecvError::Disconnected) => {
+                    self.busy_label = None;
+                    self.operation_error = Some("Background GREMLIN operation terminated without a completion receipt.".to_owned());
+                    keep_receiver = false;
+                    break;
+                }
+            }
+        }
+        if keep_receiver {
+            self.task_rx = Some(rx);
+        }
+    }
+
     fn refresh_all(&mut self) {
-        self.refresh_license();
-        self.refresh_profile();
-        self.refresh_doctor();
-        self.refresh_device();
-        self.refresh_providers();
-        self.refresh_readiness();
-    }
-
-    fn refresh_doctor(&mut self) {
-        self.doctor = None;
-        self.doctor_error = None;
-        match run_ctl_json(&["doctor".into(), "--json".into()]) {
-            Ok(value) => self.doctor = Some(value),
-            Err(err) => self.doctor_error = Some(err),
-        }
-    }
-
-    fn refresh_device(&mut self) {
-        self.device = None;
-        self.device_error = None;
-        match run_ctl_json(&["device".into(), "status".into(), "--json".into()]) {
-            Ok(value) => self.device = Some(value),
-            Err(err) => self.device_error = Some(err),
-        }
-    }
-
-    fn refresh_license(&mut self) {
-        self.license = None;
-        self.license_error = None;
-        match run_ctl_json(&["license".into(), "status".into(), "--json".into()]) {
-            Ok(value) => self.license = Some(value),
-            Err(err) => self.license_error = Some(err),
-        }
-    }
-
-    fn refresh_profile(&mut self) {
-        self.profile = None;
-        self.profile_error = None;
-        match run_ctl_json(&["profile".into(), "status".into(), "--json".into()]) {
-            Ok(value) => self.profile = Some(value),
-            Err(err) => self.profile_error = Some(err),
-        }
-    }
-
-    fn refresh_readiness(&mut self) {
-        self.readiness = None;
-        self.readiness_error = None;
-        match run_ctl_json(&["ready".into(), "--json".into()]) {
-            Ok(value) => self.readiness = Some(value),
-            Err(err) => self.readiness_error = Some(err),
-        }
-    }
-
-    fn refresh_providers(&mut self) {
-        self.providers = None;
-        self.provider_error = None;
-        match run_ctl_json(&["integrations".into(), "providers".into(), "--json".into()]) {
-            Ok(value) => self.providers = Some(value),
-            Err(err) => self.provider_error = Some(err),
-        }
+        self.start_task("Refreshing GREMLIN state", |tx| {
+            emit_snapshot(&tx);
+            let _ = send_event(&tx, ControlEvent::Done);
+        });
     }
 
     fn initialize_device(&mut self) {
-        self.device_error = None;
-        match run_ctl_json(&["device".into(), "init".into(), "--json".into()]) {
-            Ok(_) => self.refresh_device(),
-            Err(err) => self.device_error = Some(err),
-        }
+        self.start_task("Initializing device identity", |tx| {
+            let init = run_ctl_json(&["device".into(), "init".into(), "--json".into()]);
+            match init {
+                Ok(_) => {
+                    let _ = send_event(&tx, ControlEvent::Device(run_ctl_json(&["device".into(), "status".into(), "--json".into()])));
+                }
+                Err(err) => {
+                    let _ = send_event(&tx, ControlEvent::Device(Err(err)));
+                }
+            }
+            let _ = send_event(&tx, ControlEvent::Done);
+        });
     }
 
     fn activate_license(&mut self) {
         self.license_error = None;
-        let key = self.license_key_input.trim();
+        let key = self.license_key_input.trim().to_owned();
         if !key.starts_with("GRM1-") {
             self.license_error = Some("Paste the GREMLIN customer key beginning with GRM1-.".to_owned());
             return;
         }
-        match run_ctl_json_input(
-            &["license".into(), "activate".into(), "--stdin".into(), "--json".into()],
-            key,
-        ) {
-            Ok(_) => {
-                self.license_key_input.clear();
-                self.initialize_device();
-                self.refresh_all();
+        self.start_task("Activating GREMLIN license", move |tx| {
+            match run_ctl_json_input(
+                &["license".into(), "activate".into(), "--stdin".into(), "--json".into()],
+                &key,
+            ) {
+                Ok(_) => {
+                    let _ = send_event(&tx, ControlEvent::ClearLicenseKey);
+                    let device_init = run_ctl_json(&["device".into(), "init".into(), "--json".into()]);
+                    emit_snapshot(&tx);
+                    if let Err(err) = device_init {
+                        let _ = send_event(&tx, ControlEvent::Device(Err(format!("License activated, but device identity initialization failed: {err}"))));
+                    }
+                }
+                Err(err) => {
+                    let _ = send_event(&tx, ControlEvent::License(Err(err)));
+                }
             }
-            Err(err) => self.license_error = Some(err),
-        }
+            let _ = send_event(&tx, ControlEvent::Done);
+        });
     }
 
     fn import_license(&mut self) {
         self.license_error = None;
-        let path = self.license_file_input.trim();
+        let path = self.license_file_input.trim().to_owned();
         if path.is_empty() {
             self.license_error = Some("Drop or enter the signed GREMLIN license.json file.".to_owned());
             return;
         }
-        let args = vec![
-            "license".to_owned(),
-            "import".to_owned(),
-            path.to_owned(),
-            "--json".to_owned(),
-        ];
-        match run_ctl_json(&args) {
-            Ok(_) => {
-                self.initialize_device();
-                self.refresh_all();
+        self.start_task("Importing GREMLIN license", move |tx| {
+            let args = vec![
+                "license".to_owned(),
+                "import".to_owned(),
+                path,
+                "--json".to_owned(),
+            ];
+            match run_ctl_json(&args) {
+                Ok(_) => {
+                    let device_init = run_ctl_json(&["device".into(), "init".into(), "--json".into()]);
+                    emit_snapshot(&tx);
+                    if let Err(err) = device_init {
+                        let _ = send_event(&tx, ControlEvent::Device(Err(format!("License imported, but device identity initialization failed: {err}"))));
+                    }
+                }
+                Err(err) => {
+                    let _ = send_event(&tx, ControlEvent::License(Err(err)));
+                }
             }
-            Err(err) => self.license_error = Some(err),
-        }
+            let _ = send_event(&tx, ControlEvent::Done);
+        });
     }
 
     fn import_profile(&mut self) {
         self.profile_error = None;
-        let path = self.profile_file_input.trim();
+        let path = self.profile_file_input.trim().to_owned();
         if path.is_empty() {
             self.profile_error = Some("Drop or enter the customer profile JSON file.".to_owned());
             return;
         }
-        let args = vec![
-            "profile".to_owned(),
-            "import".to_owned(),
-            path.to_owned(),
-            "--json".to_owned(),
-        ];
-        match run_ctl_json(&args) {
-            Ok(_) => self.refresh_all(),
-            Err(err) => self.profile_error = Some(err),
-        }
+        self.start_task("Importing customer profile", move |tx| {
+            let args = vec![
+                "profile".to_owned(),
+                "import".to_owned(),
+                path,
+                "--json".to_owned(),
+            ];
+            match run_ctl_json(&args) {
+                Ok(_) => emit_snapshot(&tx),
+                Err(err) => {
+                    let _ = send_event(&tx, ControlEvent::Profile(Err(err)));
+                }
+            }
+            let _ = send_event(&tx, ControlEvent::Done);
+        });
     }
 
     fn provider_action(&mut self, action: &str, provider: &str) {
         self.provider_result = None;
         self.provider_error = None;
-        let args = vec![
-            "integrations".to_owned(),
-            action.to_owned(),
-            provider.to_owned(),
-            "--json".to_owned(),
-        ];
-        match run_ctl_json(&args) {
-            Ok(value) => {
-                self.provider_result = Some(value);
-                let test_error = if action == "connect" {
+        let action_owned = action.to_owned();
+        let provider_owned = provider.to_owned();
+        self.start_task(&format!("{} {}", action, provider), move |tx| {
+            let args = vec![
+                "integrations".to_owned(),
+                action_owned.clone(),
+                provider_owned.clone(),
+                "--json".to_owned(),
+            ];
+            let outcome = match run_ctl_json(&args) {
+                Ok(value) if action_owned == "connect" => {
                     let test_args = vec![
                         "integrations".to_owned(),
                         "test".to_owned(),
-                        provider.to_owned(),
+                        provider_owned.clone(),
                         "--json".to_owned(),
                     ];
                     match run_ctl_json(&test_args) {
-                        Ok(test_value) => {
-                            self.provider_result = Some(test_value);
-                            None
-                        }
-                        Err(err) => Some(err),
+                        Ok(test_value) => Ok(test_value),
+                        Err(err) => Err(format!("Provider connected, but MCP test failed: {err}")),
                     }
-                } else {
-                    None
-                };
-                self.refresh_providers();
-                self.refresh_readiness();
-                if let Some(err) = test_error {
-                    let test_message = format!("Provider connected, but MCP test failed: {err}");
-                    self.provider_error = Some(match self.provider_error.take() {
-                        Some(existing) => format!("{existing}; {test_message}"),
-                        None => test_message,
-                    });
                 }
-            }
-            Err(err) => self.provider_error = Some(err),
-        }
+                other => other,
+            };
+            let _ = send_event(&tx, ControlEvent::ProviderOutcome(outcome));
+            let _ = send_event(&tx, ControlEvent::Providers(run_ctl_json(&["integrations".into(), "providers".into(), "--json".into()])));
+            let _ = send_event(&tx, ControlEvent::Readiness(run_ctl_json(&["ready".into(), "--json".into()])));
+            let _ = send_event(&tx, ControlEvent::Done);
+        });
     }
 
     fn integration_action(&mut self, action: &str) {
         self.integration_result = None;
         self.integration_error = None;
-        let path = self.integration_path.trim();
+        let path = self.integration_path.trim().to_owned();
         if path.is_empty() {
             self.integration_error = Some("Choose or enter an MCP client JSON config path.".to_owned());
             return;
         }
-        let args = vec![
-            "integrations".to_owned(), action.to_owned(), "--config".to_owned(),
-            path.to_owned(), "--json".to_owned(),
-        ];
-        match run_ctl_json(&args) {
-            Ok(value) => {
-                self.integration_result = Some(value);
-                self.refresh_readiness();
-            }
-            Err(err) => self.integration_error = Some(err),
-        }
+        let action_owned = action.to_owned();
+        self.start_task(&format!("{} custom MCP client", action), move |tx| {
+            let args = vec![
+                "integrations".to_owned(),
+                action_owned,
+                "--config".to_owned(),
+                path,
+                "--json".to_owned(),
+            ];
+            let _ = send_event(&tx, ControlEvent::IntegrationOutcome(run_ctl_json(&args)));
+            let _ = send_event(&tx, ControlEvent::Readiness(run_ctl_json(&["ready".into(), "--json".into()])));
+            let _ = send_event(&tx, ControlEvent::Done);
+        });
     }
 
     fn handle_dropped_files(&mut self, ctx: &egui::Context) {
@@ -521,7 +610,7 @@ impl GremlinControlCenter {
     fn profile_import_controls(&mut self, ui: &mut egui::Ui) {
         ui.label("Drop the customer profile JSON onto this window, or enter its file path:");
         ui.text_edit_singleline(&mut self.profile_file_input);
-        if ui.button("Import & verify customer profile").clicked() {
+        if ui.add_enabled(!self.is_busy(), egui::Button::new("Import & verify customer profile")).clicked() {
             self.import_profile();
         }
         if let Some(err) = &self.profile_error {
@@ -580,12 +669,11 @@ impl GremlinControlCenter {
                 .desired_width(f32::INFINITY),
         );
         ui.horizontal(|ui| {
-            if ui.button("Activate GREMLIN").clicked() {
+            if ui.add_enabled(!self.is_busy(), egui::Button::new("Activate GREMLIN")).clicked() {
                 self.activate_license();
             }
-            if ui.button("Refresh license").clicked() {
-                self.refresh_license();
-                self.refresh_readiness();
+            if ui.add_enabled(!self.is_busy(), egui::Button::new("Refresh license")).clicked() {
+                self.refresh_all();
             }
         });
         ui.small("Activation is verified locally against the issuer signature. The key is passed to the local GREMLIN process through stdin, not as a command-line argument.");
@@ -595,7 +683,7 @@ impl GremlinControlCenter {
             .show(ui, |ui| {
                 ui.label("Drop the file onto this window or enter the path:");
                 ui.text_edit_singleline(&mut self.license_file_input);
-                if ui.button("Import signed license file").clicked() {
+                if ui.add_enabled(!self.is_busy(), egui::Button::new("Import signed license file")).clicked() {
                     self.import_license();
                 }
             });
@@ -646,9 +734,8 @@ impl GremlinControlCenter {
                 if cfg!(windows) {
                     ui.label("Claude Desktop is also supported in the Windows build.");
                 }
-                if ui.button("Refresh detection").clicked() {
-                    self.refresh_providers();
-                    self.refresh_readiness();
+                if ui.add_enabled(!self.is_busy(), egui::Button::new("Refresh detection")).clicked() {
+                    self.refresh_all();
                 }
             } else {
                 for provider in &detected {
@@ -674,7 +761,7 @@ impl GremlinControlCenter {
                     }
                 }
             }
-            if ui.button("Check again").clicked() {
+            if ui.add_enabled(!self.is_busy(), egui::Button::new("Check again")).clicked() {
                 self.refresh_all();
             }
             if let Some(err) = &self.readiness_error {
@@ -750,7 +837,7 @@ impl GremlinControlCenter {
             if ui.button("AI Providers").clicked() {
                 self.tab = Tab::Integrations;
             }
-            if ui.button("Run readiness check").clicked() {
+            if ui.add_enabled(!self.is_busy(), egui::Button::new("Run readiness check")).clicked() {
                 self.refresh_all();
             }
             if ui.button("Diagnostics").clicked() {
@@ -776,7 +863,7 @@ impl GremlinControlCenter {
                 if let Some(device_id) = self.device.as_ref().and_then(|v| v.get("identity")).and_then(|v| v.get("device_id")).and_then(Value::as_str) {
                     ui.label(format!("Device ID: {device_id}"));
                 }
-                if ui.button("Repair / initialize device identity").clicked() {
+                if ui.add_enabled(!self.is_busy(), egui::Button::new("Repair / initialize device identity")).clicked() {
                     self.initialize_device();
                 }
                 if let Some(err) = &self.device_error {
@@ -817,13 +904,13 @@ impl GremlinControlCenter {
             ui.add_space(8.0);
             let product_ready = self.product_status() == "LICENSED";
             ui.horizontal_wrapped(|ui| {
-                if ui.add_enabled(product_ready && detected && !connected, egui::Button::new("Connect & Test")).clicked() {
+                if ui.add_enabled(!self.is_busy() && product_ready && detected && !connected, egui::Button::new("Connect & Test")).clicked() {
                     self.provider_action("connect", id);
                 }
-                if ui.add_enabled(product_ready && detected, egui::Button::new("Test MCP")).clicked() {
+                if ui.add_enabled(!self.is_busy() && product_ready && detected, egui::Button::new("Test MCP")).clicked() {
                     self.provider_action("test", id);
                 }
-                if ui.add_enabled(detected && connected, egui::Button::new("Disconnect")).clicked() {
+                if ui.add_enabled(!self.is_busy() && detected && connected, egui::Button::new("Disconnect")).clicked() {
                     self.provider_action("disconnect", id);
                 }
             });
@@ -847,9 +934,8 @@ impl GremlinControlCenter {
             ui.heading("AI Providers");
             ui.separator();
             ui.label(format!("{connected_count} connected • {detected_count} detected • {}", self.platform_name()));
-            if ui.button("Refresh").clicked() {
-                self.refresh_providers();
-                self.refresh_readiness();
+            if ui.add_enabled(!self.is_busy(), egui::Button::new("Refresh")).clicked() {
+                self.refresh_all();
             }
         });
         ui.label("Connect the AI tools you already use. GREMLIN prefers each client's native MCP interface and uses an atomic backed-up config merge only where necessary.");
@@ -897,9 +983,9 @@ impl GremlinControlCenter {
                 ui.label("For unsupported clients that expose a standard JSON mcpServers configuration.");
                 ui.horizontal(|ui| { ui.label("Config file"); ui.text_edit_singleline(&mut self.integration_path); });
                 ui.horizontal_wrapped(|ui| {
-                    if ui.button("Inspect").clicked() { self.integration_action("inspect"); }
-                    if ui.add_enabled(self.product_status() == "LICENSED", egui::Button::new("Connect")).clicked() { self.integration_action("install"); }
-                    if ui.button("Remove").clicked() { self.integration_action("remove"); }
+                    if ui.add_enabled(!self.is_busy(), egui::Button::new("Inspect")).clicked() { self.integration_action("inspect"); }
+                    if ui.add_enabled(!self.is_busy() && self.product_status() == "LICENSED", egui::Button::new("Connect")).clicked() { self.integration_action("install"); }
+                    if ui.add_enabled(!self.is_busy(), egui::Button::new("Remove")).clicked() { self.integration_action("remove"); }
                 });
                 if let Some(err) = &self.integration_error { ui.label(err); }
                 if let Some(result) = &self.integration_result {
@@ -926,7 +1012,7 @@ impl GremlinControlCenter {
     fn diagnostics(&mut self, ui: &mut egui::Ui) {
         ui.horizontal_wrapped(|ui| {
             ui.heading("Diagnostics");
-            if ui.button("Refresh").clicked() { self.refresh_all(); }
+            if ui.add_enabled(!self.is_busy(), egui::Button::new("Refresh")).clicked() { self.refresh_all(); }
         });
         ui.label("Start with the human-readable action below. Raw receipts are available only when you need support-level detail.");
         ui.add_space(10.0);
@@ -971,6 +1057,10 @@ impl GremlinControlCenter {
 impl eframe::App for GremlinControlCenter {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         Self::configure_style(ctx);
+        self.poll_task();
+        if self.is_busy() {
+            ctx.request_repaint_after(Duration::from_millis(100));
+        }
         self.handle_dropped_files(ctx);
 
         egui::TopBottomPanel::top("top_bar").show(ctx, |ui| {
@@ -982,6 +1072,15 @@ impl eframe::App for GremlinControlCenter {
                 ui.label(self.platform_name());
                 ui.separator();
                 Self::status_label(ui, self.ready_status());
+                if let Some(label) = &self.busy_label {
+                    ui.separator();
+                    ui.spinner();
+                    ui.label(label);
+                }
+                if let Some(err) = &self.operation_error {
+                    ui.separator();
+                    ui.colored_label(egui::Color32::from_rgb(255, 110, 135), err);
+                }
             });
             ui.add_space(4.0);
         });
