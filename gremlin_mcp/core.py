@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import asdict
 from typing import Any, Mapping
 
-from gremlin_mcp.error_contract import SCHEMA as MCP_ERROR_SCHEMA
+from gremlin_mcp.contracts import MCP_ERROR_SCHEMA
 
 from tools.gremlin_bestiary_orbital_scheduler_v02 import PROFILES, service_omega, service_period
 from tools.gremlin_bestiary_vector_species_v03 import (
