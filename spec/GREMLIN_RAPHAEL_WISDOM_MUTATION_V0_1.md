@@ -109,7 +109,7 @@ It binds:
 - one exact scope commitment;
 - one single-use authorization.
 
-A changed target SHA is `STATE_DRIFT` and fails closed before mutation. `actor=RAPHAEL` is rejected: RAPHAEL cannot authorize its own HAND phase.
+A changed target SHA is `STATE_DRIFT` and fails closed before mutation. A stale exact-state authorization is consumed and terminated with a committed `ABORTED` receipt; it cannot become valid again if the branch later returns to the old SHA. Target state digests are admitted only at exact SHA-1 (40 hex) or SHA-256 (64 hex) lengths. `actor=RAPHAEL` is rejected: RAPHAEL cannot authorize its own HAND phase.
 
 Global authority remains closed:
 
