@@ -130,7 +130,7 @@ def _text(value: Any, field: str) -> str:
 def _hash40_64(value: Any, field: str) -> str:
     value = _text(value, field).lower()
     if not _HEX40_64.fullmatch(value):
-        raise ValueError(f"{field} must be lowercase 40..64 hexadecimal")
+        raise ValueError(f"{field} must be exactly 40 or 64 lowercase hexadecimal characters")
     return value
 
 
