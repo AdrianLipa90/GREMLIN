@@ -12,6 +12,7 @@ SCHEMA = "GREMLIN_MEMORY_INFORMATION_EXCHANGE_V0_1"
 VERSION = "0.1.0"
 PHASENAV_SCHEMA = "PHASENAV_MEMORY_INFORMATION_EXCHANGE_V0_1"
 PHASENAV_ACK_SCHEMA = "PHASENAV_MEMORY_INFORMATION_EXCHANGE_ACK_V0_1"
+PHASENAV_BUNDLE_SCHEMA = "PHASENAV_MEMORY_INFORMATION_EXCHANGE_BUNDLE_V0_1"
 EPISTEMIC = "CHYBA"
 AUTHORITY = "SHARED_COGNITION_ONLY"
 LAYERS = ("WORKING", "EPISODIC", "SEMANTIC", "RELATIONAL", "ARCHIVAL")
@@ -362,15 +363,291 @@ def ingest_exchange_envelope(
     }
 
 
+
+
+def validate_exchange_ack(
+    packet: Mapping[str, Any],
+    envelopes: Mapping[str, Mapping[str, Any]],
+) -> dict[str, Any]:
+    """Validate one PhaseNav ACK against a validated envelope mapping."""
+    if not isinstance(packet, Mapping):
+        raise ValueError("ack packet must be a mapping")
+    row = dict(packet)
+    if row.get("schema") != PHASENAV_ACK_SCHEMA:
+        raise ValueError("unsupported memory-exchange ACK schema")
+    if row.get("version") != VERSION:
+        raise ValueError("unsupported memory-exchange ACK version")
+    if row.get("epistemic") != EPISTEMIC or row.get("authority") != AUTHORITY:
+        raise ValueError("memory-exchange ACK epistemic/authority mismatch")
+    if row.get("canon_allowed") is not False:
+        raise ValueError("memory-exchange ACK must remain canon_allowed=false")
+
+    envelope_id = _text(row.get("envelope_id"), "ack.envelope_id")
+    envelope = envelopes.get(envelope_id)
+    if envelope is None:
+        raise ValueError("ACK references envelope outside lineage bundle")
+    payload_sha = _text(row.get("payload_sha256"), "ack.payload_sha256")
+    if payload_sha != envelope["payload_sha256"]:
+        raise ValueError("ACK payload commitment mismatch")
+    consumer = _text(row.get("consumer_id"), "ack.consumer_id")
+    outcome = _text(row.get("outcome"), "ack.outcome").upper()
+    if outcome not in {"ACCEPTED", "DUPLICATE", "QUARANTINED", "REJECTED"}:
+        raise ValueError("unsupported ACK outcome")
+    reason = _text(row.get("reason_code"), "ack.reason_code")
+    core = {
+        "schema": PHASENAV_ACK_SCHEMA,
+        "version": VERSION,
+        "envelope_id": envelope_id,
+        "payload_sha256": payload_sha,
+        "consumer_id": consumer,
+        "outcome": outcome,
+        "reason_code": reason,
+        "epistemic": EPISTEMIC,
+        "authority": AUTHORITY,
+        "canon_allowed": False,
+    }
+    ack_id = "pxa:" + _sha256(core)
+    if row.get("ack_id") != ack_id:
+        raise ValueError("ACK commitment mismatch")
+    return {**core, "ack_id": ack_id}
+
+
+def validate_exchange_bundle(bundle: Mapping[str, Any]) -> dict[str, Any]:
+    """Validate a portable PhaseNav ancestry+ACK proof for a target envelope."""
+    if not isinstance(bundle, Mapping):
+        raise ValueError("bundle must be a mapping")
+    row = dict(bundle)
+    if row.get("schema") != PHASENAV_BUNDLE_SCHEMA:
+        raise ValueError("unsupported memory-exchange bundle schema")
+    if row.get("version") != VERSION:
+        raise ValueError("unsupported memory-exchange bundle version")
+    if row.get("epistemic") != EPISTEMIC or row.get("authority") != AUTHORITY:
+        raise ValueError("memory-exchange bundle epistemic/authority mismatch")
+    if row.get("canon_allowed") is not False:
+        raise ValueError("memory-exchange bundle must remain canon_allowed=false")
+
+    raw_envelopes = row.get("envelopes")
+    if not isinstance(raw_envelopes, Sequence) or isinstance(raw_envelopes, (str, bytes)) or not raw_envelopes:
+        raise ValueError("bundle.envelopes must be a non-empty sequence")
+    normalized_envelopes: list[dict[str, Any]] = []
+    by_id: dict[str, dict[str, Any]] = {}
+    positions: dict[str, int] = {}
+    for index, raw in enumerate(raw_envelopes):
+        if not isinstance(raw, Mapping):
+            raise ValueError("bundle envelope must be a mapping")
+        normalized = validate_exchange_envelope(raw)
+        envelope_id = normalized["envelope_id"]
+        if envelope_id in by_id:
+            raise ValueError("duplicate envelope in lineage bundle")
+        by_id[envelope_id] = normalized
+        positions[envelope_id] = index
+        normalized_envelopes.append(normalized)
+
+    target_id = _text(row.get("target_envelope_id"), "target_envelope_id")
+    target = by_id.get(target_id)
+    if target is None:
+        raise ValueError("target_envelope_id is not present in bundle")
+
+    for envelope in normalized_envelopes:
+        for parent_id in envelope["parent_envelope_ids"]:
+            parent = by_id.get(parent_id)
+            if parent is None:
+                raise ValueError("lineage bundle omits a declared parent")
+            if positions[parent_id] >= positions[envelope["envelope_id"]]:
+                raise ValueError("lineage bundle must be parent-first")
+            if parent["generation_id"] != envelope["generation_id"]:
+                raise ValueError("lineage generation mismatch")
+            if int(parent["sequence"]) >= int(envelope["sequence"]):
+                raise ValueError("lineage child sequence must exceed parent sequence")
+
+    reachable: set[str] = set()
+    def visit(envelope_id: str) -> None:
+        if envelope_id in reachable:
+            return
+        envelope = by_id[envelope_id]
+        for parent_id in envelope["parent_envelope_ids"]:
+            visit(parent_id)
+        reachable.add(envelope_id)
+    visit(target_id)
+    if reachable != set(by_id):
+        raise ValueError("bundle contains envelopes outside target ancestry")
+
+    raw_acks = row.get("acks")
+    if not isinstance(raw_acks, Sequence) or isinstance(raw_acks, (str, bytes)):
+        raise ValueError("bundle.acks must be a sequence")
+    normalized_acks: list[dict[str, Any]] = []
+    ack_keys: set[tuple[str, str]] = set()
+    for raw in raw_acks:
+        if not isinstance(raw, Mapping):
+            raise ValueError("bundle ACK must be a mapping")
+        ack = validate_exchange_ack(raw, by_id)
+        key = (ack["envelope_id"], ack["consumer_id"])
+        if key in ack_keys:
+            raise ValueError("duplicate consumer ACK in lineage bundle")
+        ack_keys.add(key)
+        normalized_acks.append(ack)
+
+    ancestors = reachable - {target_id}
+    accepted_by_ancestor: dict[str, list[str]] = {envelope_id: [] for envelope_id in ancestors}
+    for ack in normalized_acks:
+        if ack["envelope_id"] in ancestors and ack["outcome"] == "ACCEPTED":
+            accepted_by_ancestor[ack["envelope_id"]].append(ack["ack_id"])
+    missing = sorted(envelope_id for envelope_id, ack_ids in accepted_by_ancestor.items() if not ack_ids)
+    if missing:
+        raise ValueError("every upstream lineage envelope requires an ACCEPTED ACK")
+
+    claims = row.get("claims")
+    if not isinstance(claims, Mapping) or claims.get("causal_lineage_bundle") is not True:
+        raise ValueError("causal_lineage_bundle claim must be true")
+    for key in ("physical_nonlocal_signalling", "physical_channel_identified", "canon_promoted"):
+        if claims.get(key) is not False:
+            raise ValueError(f"unsupported bundle claim must remain false: {key}")
+
+    core = {
+        "schema": PHASENAV_BUNDLE_SCHEMA,
+        "version": VERSION,
+        "target_envelope_id": target_id,
+        "envelopes": list(raw_envelopes),
+        "acks": list(raw_acks),
+        "epistemic": EPISTEMIC,
+        "authority": AUTHORITY,
+        "canon_allowed": False,
+    }
+    bundle_sha = _sha256(core)
+    if row.get("bundle_sha256") != bundle_sha:
+        raise ValueError("memory-exchange bundle commitment mismatch")
+
+    return {
+        **core,
+        "bundle_sha256": bundle_sha,
+        "target_envelope": target,
+        "accepted_ancestor_ack_ids": sorted(
+            ack_id
+            for ack_ids in accepted_by_ancestor.values()
+            for ack_id in ack_ids
+        ),
+        "claims": {
+            "causal_lineage_bundle": True,
+            "physical_nonlocal_signalling": False,
+            "physical_channel_identified": False,
+            "canon_promoted": False,
+        },
+    }
+
+
+def ingest_exchange_bundle(
+    runtime: HiveAuthorityRuntime,
+    bundle: Mapping[str, Any],
+    *,
+    priority: float = 0.82,
+    consumer_id: str = "GREMLIN-HIVE",
+) -> dict[str, Any]:
+    """Verify upstream lineage witnesses and persist only the RELATIONAL target."""
+    normalized_bundle = validate_exchange_bundle(bundle)
+    target = normalized_bundle["target_envelope"]
+    if target["target_layer"] != "RELATIONAL":
+        raise ValueError("GREMLIN Hive bundle ingest requires target_layer=RELATIONAL")
+
+    p = _finite(priority, "priority")
+    if not 0.0 <= p <= 1.0:
+        raise ValueError("priority must be in [0,1]")
+
+    hive_subject = f"exchange:{target['envelope_id']}"
+    ancestor_ids = [
+        row["envelope_id"]
+        for row in normalized_bundle["envelopes"]
+        if row["envelope_id"] != target["envelope_id"]
+    ]
+    hive_payload = {
+        "kind": "PHASENAV_MEMORY_INFORMATION_EXCHANGE",
+        "envelope_id": target["envelope_id"],
+        "subject_id": target["subject_id"],
+        "producer_id": target["producer_id"],
+        "generation_id": target["generation_id"],
+        "sequence": target["sequence"],
+        "source_layer": target["source_layer"],
+        "target_layer": target["target_layer"],
+        "payload_sha256": target["payload_sha256"],
+        "payload": target["payload"],
+        "transport": target["transport"],
+        "hop_count": target["hop_count"],
+        "hop_limit": target["hop_limit"],
+        "lineage_bundle_sha256": normalized_bundle["bundle_sha256"],
+        "lineage_witness_envelope_ids": ancestor_ids,
+        "lineage_accepted_ack_ids": normalized_bundle["accepted_ancestor_ack_ids"],
+        "authority": AUTHORITY,
+        "epistemic": EPISTEMIC,
+        "canon_allowed": False,
+    }
+    provenance = tuple(sorted(set(
+        target["provenance"]
+        + [
+            f"envelope:{target['envelope_id']}",
+            f"payload:{target['payload_sha256']}",
+            f"bundle:{normalized_bundle['bundle_sha256']}",
+        ]
+    )))
+    dependencies = tuple(sorted(set(
+        target["dependencies"]
+        + [f"lineage:{envelope_id}" for envelope_id in ancestor_ids]
+        + [f"ack:{ack_id}" for ack_id in normalized_bundle["accepted_ancestor_ack_ids"]]
+    )))
+    record, created = runtime.place_idempotent(
+        subject_id=hive_subject,
+        payload=hive_payload,
+        priority=p,
+        semantic_key=f"memory-exchange/{target['subject_id']}",
+        relation_phase=float(target["transport"]["phase"]),
+        provenance=provenance,
+        dependencies=dependencies,
+    )
+    ack = build_exchange_ack(
+        target,
+        consumer_id=consumer_id,
+        outcome="ACCEPTED",
+        reason_code="HIVE_LINEAGE_BUNDLE_INGESTED",
+    )
+    return {
+        "schema": SCHEMA,
+        "version": VERSION,
+        "status": "INGESTED",
+        "mode": "LINEAGE_BUNDLE",
+        "created": created,
+        "bundle_sha256": normalized_bundle["bundle_sha256"],
+        "envelope_id": target["envelope_id"],
+        "payload_sha256": target["payload_sha256"],
+        "hive_subject_id": hive_subject,
+        "hive_record_id": record.record_id,
+        "hive_state": record.state,
+        "hive_gates": asdict(record.gates),
+        "ack": ack,
+        "automatic_latch": False,
+        "authority": AUTHORITY,
+        "production_runtime_write": False,
+        "execution_admitted": False,
+        "canon_allowed": False,
+        "claims": {
+            "shared_cognition_ingest": True,
+            "upstream_layers_used_as_lineage_witnesses_only": True,
+            "physical_nonlocal_signalling": False,
+            "physical_channel_identified": False,
+            "canon_promoted": False,
+        },
+    }
+
 __all__ = [
     "AUTHORITY",
     "EPISTEMIC",
     "LAYERS",
     "PHASENAV_ACK_SCHEMA",
+    "PHASENAV_BUNDLE_SCHEMA",
     "PHASENAV_SCHEMA",
     "SCHEMA",
     "VERSION",
     "build_exchange_ack",
+    "ingest_exchange_bundle",
     "ingest_exchange_envelope",
+    "validate_exchange_ack",
+    "validate_exchange_bundle",
     "validate_exchange_envelope",
 ]
