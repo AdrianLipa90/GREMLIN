@@ -43,9 +43,11 @@ jobs:
           test -x dist/linux/runtime/gremlinctl
           test -x dist/linux/runtime/gremlin-product-mcp
           test -x dist/linux/runtime/gremlin-mcp
+          test -x dist/linux/runtime/gremlin-workspace
           dist/linux/runtime/gremlinctl --help >/dev/null
           dist/linux/runtime/gremlin-product-mcp --help >/dev/null
           dist/linux/runtime/gremlin-mcp --help >/dev/null
+          dist/linux/runtime/gremlin-workspace --help >/dev/null
       - name: Execute packaged PhaseNav Bestiary self-test
         run: dist/linux/runtime/gremlin-mcp --self-test-phasenav
 
@@ -65,11 +67,12 @@ jobs:
         shell: pwsh
         run: |
           $root = Resolve-Path 'dist\windows\runtime'
-          foreach ($name in @('gremlin-runtime.exe','gremlinctl.exe','gremlin-product-mcp.exe','gremlin-mcp.exe')) {
+          foreach ($name in @('gremlin-runtime.exe','gremlinctl.exe','gremlin-product-mcp.exe','gremlin-mcp.exe','gremlin-workspace.exe')) {
             $path = Join-Path $root $name
             if (-not (Test-Path $path)) { throw "Missing standalone executable: $name" }
           }
           & (Join-Path $root 'gremlinctl.exe') --help | Out-Null
           & (Join-Path $root 'gremlin-product-mcp.exe') --help | Out-Null
           & (Join-Path $root 'gremlin-mcp.exe') --help | Out-Null
+          & (Join-Path $root 'gremlin-workspace.exe') --help | Out-Null
           & (Join-Path $root 'gremlin-mcp.exe') --self-test-phasenav
