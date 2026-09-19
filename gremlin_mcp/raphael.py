@@ -759,20 +759,26 @@ def execute(
     *,
     backend: MutationBackend,
     ledger: MutationLedger,
+    admission_probe: Callable[[], Mapping[str, Any]],
     test_runner: Callable[[str], bool] | None = None,
     postcondition_checker: Callable[[str], bool] | None = None,
 ) -> dict[str, Any]:
-    """RAPHAEL.HAND: exact mutation only; any failure rolls back or quarantines."""
+    """RAPHAEL.HAND: fresh admission + exact reservation + frozen mutation."""
 
     body = _verify_decree(decree)
-    _verify_authorization(decree, authorization)
+    auth = _verify_authorization(decree, authorization)
     if ledger.is_cancelled(decree["decree_commitment"]):
         raise RaphaelAuthorizationError("decree was cancelled before mutation")
 
     before_sha = _state_sha(backend.current_state())
-    if before_sha != body["target_sha"]:
-        if not ledger.consume(decree["decree_commitment"], authorization["authorization_commitment"]):
-            raise RaphaelAuthorizationError("decree or authorization is cancelled/already consumed")
+
+    def burn_and_abort(code: str, message: str) -> None:
+        if not ledger.consume(
+            decree["decree_commitment"], authorization["authorization_commitment"]
+        ):
+            raise RaphaelAuthorizationError(
+                "decree or authorization is cancelled/already consumed"
+            )
         receipt = _receipt(
             decree=decree,
             authorization=authorization,
@@ -783,26 +789,83 @@ def execute(
             postconditions={},
             status="ABORTED",
             rollback=None,
-            failure_code="STATE_DRIFT",
+            failure_code=code,
             mutation_started=False,
+            reservation_commitment=None,
         )
-        raise RaphaelExecutionError(
+        raise RaphaelExecutionError(message, receipt=receipt)
+
+    if before_sha != body["target_sha"]:
+        burn_and_abort(
+            "STATE_DRIFT",
             "STATE_DRIFT: backend target SHA differs from decree",
-            receipt=receipt,
         )
 
     try:
-        rollback_state = backend.prepare(body)
+        _probe_live_admission(auth, admission_probe)
+    except RaphaelAuthorizationError as exc:
+        burn_and_abort(
+            "LIVE_ADMISSION_FAILED",
+            f"LIVE_ADMISSION_FAILED: {exc}",
+        )
+
+    if not ledger.consume(
+        decree["decree_commitment"], authorization["authorization_commitment"]
+    ):
+        raise RaphaelAuthorizationError(
+            "decree or authorization is cancelled/already consumed"
+        )
+
+    try:
+        raw_reservation = backend.prepare(body)
     except Exception as exc:
+        receipt = _receipt(
+            decree=decree,
+            authorization=authorization,
+            before_sha=before_sha,
+            after_sha=before_sha,
+            applied_results=[],
+            tests={},
+            postconditions={},
+            status="ABORTED",
+            rollback=None,
+            failure_code="RESERVATION_PREPARATION_FAILED",
+            mutation_started=False,
+            reservation_commitment=None,
+        )
         raise RaphaelExecutionError(
-            f"ROLLBACK_PREPARATION_FAILED: {type(exc).__name__}: {exc}"
+            f"RESERVATION_PREPARATION_FAILED: {type(exc).__name__}: {exc}",
+            receipt=receipt,
         ) from exc
-    if not isinstance(rollback_state, Mapping):
-        raise RaphaelExecutionError("ROLLBACK_PREPARATION_FAILED: non-object rollback state")
 
-    if not ledger.consume(decree["decree_commitment"], authorization["authorization_commitment"]):
-        raise RaphaelAuthorizationError("decree or authorization is cancelled/already consumed")
+    try:
+        reservation = _normalize_reservation(
+            raw_reservation,
+            target_sha=before_sha,
+            scope_commitment=body["scope_commitment"],
+        )
+    except (RaphaelExecutionError, ValueError) as exc:
+        receipt = _receipt(
+            decree=decree,
+            authorization=authorization,
+            before_sha=before_sha,
+            after_sha=before_sha,
+            applied_results=[],
+            tests={},
+            postconditions={},
+            status="QUARANTINED",
+            rollback=None,
+            failure_code="RESERVATION_RECEIPT_INVALID",
+            mutation_started=False,
+            reservation_commitment=None,
+        )
+        raise RaphaelExecutionError(
+            f"RESERVATION_RECEIPT_INVALID: {exc}",
+            receipt=receipt,
+        ) from exc
 
+    rollback_state = reservation["rollback_state"]
+    reservation_commitment = reservation["reservation_commitment"]
     allowed_paths = set(body["allowed_paths"])
     applied: list[Mapping[str, Any]] = []
     tests: dict[str, str] = {}
@@ -811,23 +874,21 @@ def execute(
 
     def fail(code: str, message: str) -> None:
         rollback_result: Mapping[str, Any] | None = None
-        status = "ABORTED"
-        if mutation_started:
-            status = "QUARANTINED"
-            try:
-                raw_rollback_result = backend.rollback(rollback_state, applied)
-                if not isinstance(raw_rollback_result, Mapping):
-                    raise ValueError("rollback result must be an object")
-                rollback_result = json.loads(
-                    _canonical(dict(raw_rollback_result)).decode("utf-8")
-                )
-                if rollback_result.get("status") == "ROLLED_BACK":
-                    status = "ROLLED_BACK"
-            except Exception as exc:
-                rollback_result = {
-                    "status": "ROLLBACK_FAILED",
-                    "error": f"{type(exc).__name__}: {exc}",
-                }
+        status = "QUARANTINED"
+        try:
+            raw_rollback_result = backend.rollback(rollback_state, applied)
+            if not isinstance(raw_rollback_result, Mapping):
+                raise ValueError("rollback result must be an object")
+            rollback_result = json.loads(
+                _canonical(dict(raw_rollback_result)).decode("utf-8")
+            )
+            if rollback_result.get("status") == "ROLLED_BACK":
+                status = "ROLLED_BACK"
+        except Exception as exc:
+            rollback_result = {
+                "status": "ROLLBACK_FAILED",
+                "error": f"{type(exc).__name__}: {exc}",
+            }
         try:
             after_sha = _state_sha(backend.current_state())
         except RaphaelExecutionError:
@@ -844,8 +905,15 @@ def execute(
             rollback=rollback_result,
             failure_code=code,
             mutation_started=mutation_started,
+            reservation_commitment=reservation_commitment,
         )
         raise RaphaelExecutionError(message, receipt=receipt)
+
+    if _state_sha(backend.current_state()) != before_sha:
+        fail(
+            "RESERVATION_STATE_DRIFT",
+            "target state changed after exact-state reservation",
+        )
 
     for index, operation in enumerate(body["operations"]):
         if not _paths(operation) <= allowed_paths:
@@ -859,18 +927,31 @@ def execute(
         try:
             result = backend.apply_operation(operation)
         except Exception as exc:
-            fail("MUTATION_OPERATION_FAILED", f"operation {index} failed: {type(exc).__name__}: {exc}")
+            fail(
+                "MUTATION_OPERATION_FAILED",
+                f"operation {index} failed: {type(exc).__name__}: {exc}",
+            )
         if not isinstance(result, Mapping):
-            fail("MALFORMED_MUTATION_RESULT", f"operation {index} returned non-object result")
+            fail(
+                "MALFORMED_MUTATION_RESULT",
+                f"operation {index} returned non-object result",
+            )
         try:
-            normalized_result = json.loads(_canonical(dict(result)).decode("utf-8"))
+            normalized_result = json.loads(
+                _canonical(dict(result)).decode("utf-8")
+            )
         except ValueError as exc:
             fail(
                 "MALFORMED_MUTATION_RESULT",
                 f"operation {index} returned non-finite/non-JSON receipt: {exc}",
             )
-        if normalized_result.get("operation_commitment") != operation["operation_commitment"]:
-            fail("OPERATION_RECEIPT_MISMATCH", f"operation {index} receipt does not bind exact decree operation")
+        if normalized_result.get("operation_commitment") != operation[
+            "operation_commitment"
+        ]:
+            fail(
+                "OPERATION_RECEIPT_MISMATCH",
+                f"operation {index} receipt does not bind exact decree operation",
+            )
         applied.append(normalized_result)
 
     if body["required_tests"] and test_runner is None:
@@ -879,20 +960,30 @@ def execute(
         try:
             raw_test_result = test_runner(name) if test_runner is not None else None
         except Exception as exc:
-            fail("TEST_EXECUTION_FAILED", f"test {name!r} raised {type(exc).__name__}: {exc}")
+            fail(
+                "TEST_EXECUTION_FAILED",
+                f"test {name!r} raised {type(exc).__name__}: {exc}",
+            )
         if type(raw_test_result) is not bool:
-            fail("MALFORMED_TEST_RESULT", f"test {name!r} must return an exact boolean")
-        ok = raw_test_result
-        tests[name] = "PASS" if ok else "FAIL"
-        if not ok:
+            fail(
+                "MALFORMED_TEST_RESULT",
+                f"test {name!r} must return an exact boolean",
+            )
+        tests[name] = "PASS" if raw_test_result else "FAIL"
+        if not raw_test_result:
             fail("TEST_FAILURE", f"required test failed: {name}")
 
     if body["postconditions"] and postcondition_checker is None:
-        fail("POSTCONDITION_CHECKER_MISSING", "postconditions exist but no checker was supplied")
+        fail(
+            "POSTCONDITION_CHECKER_MISSING",
+            "postconditions exist but no checker was supplied",
+        )
     for condition in body["postconditions"]:
         try:
             raw_postcondition_result = (
-                postcondition_checker(condition) if postcondition_checker is not None else None
+                postcondition_checker(condition)
+                if postcondition_checker is not None
+                else None
             )
         except Exception as exc:
             fail(
@@ -904,15 +995,19 @@ def execute(
                 "MALFORMED_POSTCONDITION_RESULT",
                 f"postcondition {condition!r} must return an exact boolean",
             )
-        ok = raw_postcondition_result
-        postconditions[condition] = "PASS" if ok else "FAIL"
-        if not ok:
+        postconditions[condition] = (
+            "PASS" if raw_postcondition_result else "FAIL"
+        )
+        if not raw_postcondition_result:
             fail("POSTCONDITION_FAILURE", f"postcondition failed: {condition}")
 
     try:
         final_sha = _state_sha(backend.current_state())
     except RaphaelExecutionError as exc:
-        fail("FINAL_STATE_UNVERIFIABLE", f"final backend state is not verifiable: {exc}")
+        fail(
+            "FINAL_STATE_UNVERIFIABLE",
+            f"final backend state is not verifiable: {exc}",
+        )
 
     return _receipt(
         decree=decree,
@@ -926,4 +1021,5 @@ def execute(
         rollback=None,
         failure_code=None,
         mutation_started=mutation_started,
+        reservation_commitment=reservation_commitment,
     )
