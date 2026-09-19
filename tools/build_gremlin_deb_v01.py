@@ -101,7 +101,7 @@ def build(*, dist_root: Path, version: str, output: Path, architecture: str = "a
         _copy_tree(resources, resources_dst)
         shutil.copy2(desktop, applications_dst / "gremlin.desktop")
 
-        for name in ("gremlinctl", "gremlin-product-mcp", "gremlin-mcp"):
+        for name in ("gremlinctl", "gremlin-product-mcp", "gremlin-mcp", "gremlin-workspace"):
             target = Path("/usr/lib/gremlin/runtime") / name
             os.symlink(str(target), bin_dst / name)
 
