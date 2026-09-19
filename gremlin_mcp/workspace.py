@@ -329,6 +329,17 @@ def workspace_stop(paths: GremlinPaths, *, timeout: float = STOP_WAIT_SECONDS) -
             "authority": _authority(),
         }
 
+    health = _probe_health(str(state["host"]), int(state["port"]), timeout=0.25)
+    if health is None or health.get("instance_id") != state.get("instance_id"):
+        _remove_instance_state(paths, expected_instance_id=str(state["instance_id"]))
+        return {
+            "schema": WORKSPACE_SCHEMA,
+            "status": "STALE_CLEARED",
+            "instance_id": state["instance_id"],
+            "can_stop": False,
+            "authority": _authority(),
+        }
+
     url = str(state["url"]).rstrip("/")
     request = Request(
         f"{url}/api/shutdown",
