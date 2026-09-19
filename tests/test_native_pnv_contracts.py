@@ -152,3 +152,20 @@ def test_kaku_radical_writer_contract():
 def test_no_python_authority_claim_in_spec():
     text=(ROOT/"spec/GREMLIN_RUNTIME_HIERARCHY_V0_4.md").read_text()
     assert "Python code is reference/test harness only" in text
+
+
+def test_raphael_wisdom_mutation_native_contract():
+    text=(NATIVE/"GREMLIN_RAPHAEL_WISDOM_MUTATION_V0_1.pnv").read_text()
+    assert "# CLASS ANGELIC_FUNCTION" in text
+    assert "# TITLE LORD_OF_WISDOM" in text
+    assert "# PIPELINE EYE->WORD->HAND->POST_AUDIT" in text
+    assert "# BESTIARY_SPECIES FALSE" in text
+    assert "# REQUIRED_WISDOM_PRODUCERS GREMLIN,OWL,HOUND" in text
+    assert "# EPISTEMIC CHYBA" in text
+    assert "# EXTERNAL_AUTHORIZATION REQUIRED" in text
+    assert "# SINGLE_USE TRUE" in text
+    assert "# STATE_DRIFT FAIL_CLOSED" in text
+    assert "# NO_SILENT_RECOVERY TRUE" in text
+    assert "# MUTATION_AUTHORITY_EXPIRES_AFTER_RECEIPT TRUE" in text
+    assert "# CANON_ALLOWED FALSE" in text
+    assert "# NEW_PNV_OPCODES 0" in text
