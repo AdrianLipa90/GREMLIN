@@ -2,121 +2,119 @@
 
 Status: `IMPLEMENTED CANDIDATE / APPEND_ONLY HIVE INGEST / SHARED_COGNITION_ONLY / CHYBA`
 
-Date: 2026-09-19
+Date: 2026-09-20
 
 ## Purpose
 
 This layer connects the PhaseNav memory-exchange protocol to GREMLIN Orbital Hive
 Memory without duplicating PhaseNav memory semantics.
 
-The accepted upstream packet is:
+Accepted upstream schemas:
 
-`PHASENAV_MEMORY_INFORMATION_EXCHANGE_V0_1`.
+- `PHASENAV_MEMORY_INFORMATION_EXCHANGE_V0_1`;
+- `PHASENAV_MEMORY_INFORMATION_EXCHANGE_ACK_V0_1`;
+- `PHASENAV_MEMORY_INFORMATION_EXCHANGE_BUNDLE_V0_1`.
 
-GREMLIN independently recomputes:
+GREMLIN independently recomputes payload commitments, envelope identities,
+route-phase transport, ACK commitments and bundle commitments. No upstream hash
+is trusted merely because it is present.
 
-- canonical payload SHA-256;
-- exact envelope commitment;
-- memory-layer labels;
-- generation/sequence fields;
-- parent references;
-- route-edge U(1) phase;
-- transport unit modulus;
-- epistemic and authority boundaries.
-
-No upstream commitment is trusted merely because it is present in the packet.
-
-## Memory-role mapping
+## Memory-role firewall
 
 GREMLIN Hive is the `RELATIONAL` consumer.
 
-[
-	ext{PhaseNav WORKING/EPISODIC/SEMANTIC}
-	o
-	ext{exchange envelope}
-	o
-oxed{	ext{GREMLIN RELATIONAL Hive}}.
-]
+A direct envelope ingest therefore requires:
 
-The ingest endpoint rejects envelopes whose declared target layer is not
-`RELATIONAL`.
+`target_layer = RELATIONAL`.
 
-ARCHIVAL/LOCKED state is not created automatically. Hive closure gates and latch
-remain separate operations.
+ARCHIVAL/LOCKED state is not created automatically. Hive closure gates and
+`latch()` remain separate operations.
 
 ## Content versus route
 
-The payload commitment answers:
+Payload commitment answers: **what information is this?**
 
-[
-	ext{what information is this?}
-]
+Route metadata answers: **through what declared computational relational phase
+did this hop travel?**
 
-The route transporter answers:
+GREMLIN verifies:
 
-[
-	ext{through what declared relational phase did this hop travel?}
-]
+`W_route = exp(i * sum_e A_e)`
 
-GREMLIN verifies
+and
 
-[
-W_{m route}=expleft(isum_e A_eight),qquad |W_{m route}|=1.
-]
+`|W_route| = 1`.
 
-This remains computational relation metadata. No physical communication field or
-nonlocal signalling is claimed.
+This remains computational relation metadata. No physical communication field
+or nonlocal signalling is claimed.
 
-## Causal ingest
+## Direct RELATIONAL ingest
 
-Each envelope is stored under its own Hive subject:
+The direct path stores each envelope under:
 
-[
-	exttt{exchange:<envelope-id>}.
-]
+`exchange:<envelope-id>`.
 
-This avoids implicit last-writer-wins versioning when several hops carry the same
-logical subject.
+If a direct RELATIONAL child declares another RELATIONAL parent, that parent
+must already exist in the same authoritative Hive. Generation continuity and
+monotonic sequence are checked before append.
 
-For every declared parent:
+This path remains useful for chains that are already inside the RELATIONAL
+memory role.
 
-1. the parent envelope must already exist in the same authoritative Hive;
-2. parent and child generation ids must match;
-3. child sequence must exceed the parent sequence.
+## Cross-layer lineage bundle
 
-The child Hive dependency list contains explicit parent exchange references.
+A SEMANTIC -> RELATIONAL handoff must not require GREMLIN Hive to persist the
+upstream WORKING, EPISODIC or SEMANTIC memories as if they were native Hive
+records.
 
-Thus a causal child cannot enter shared relational memory before its declared
-history.
+For cross-layer transfer GREMLIN accepts a portable lineage bundle containing:
+
+- the RELATIONAL target envelope;
+- every causal ancestor envelope in parent-first order;
+- ACK packets recorded for upstream envelopes;
+- one SHA-256 commitment over the complete portable proof.
+
+GREMLIN then independently verifies:
+
+1. every envelope commitment;
+2. every parent edge;
+3. generation continuity;
+4. monotonic child sequence;
+5. that the bundle contains exactly the ancestry of the target, with no
+   unrelated envelopes;
+6. every ACK commitment and payload binding;
+7. at least one `ACCEPTED` ACK for every upstream ancestor;
+8. the complete bundle commitment;
+9. that the target is actually addressed to `RELATIONAL`.
+
+Only the target envelope is persisted as Hive shared cognition. Upstream
+envelopes are **lineage witnesses only**.
+
+This resolves the ownership boundary:
+
+`upstream memory proof != downstream native memory record`.
 
 ## Idempotency
 
-`HiveAuthorityRuntime.place_idempotent` is the only write path.
+`HiveAuthorityRuntime.place_idempotent` remains the only persistence path.
 
-Replaying the exact same envelope returns the already stored Hive record and does
-not append a second semantic version.
+Exact replay of the same envelope or same lineage bundle returns the existing
+Hive record instead of creating a second semantic version.
 
-The protocol ACK remains exactly:
-
-[
-	exttt{ACCEPTED / HIVE_INGESTED}
-]
-
-for both first delivery and exact retry, so network replay does not create a
-conflicting second ACK for the same consumer.
-
-The result separately reports:
+The protocol ACK remains stable across an exact retry. The result separately
+reports:
 
 - `created=true` for first ingest;
-- `created=false` for exact idempotent replay.
+- `created=false` for exact replay.
 
-## ACK
+A different lineage proof for an already stored envelope fails closed through
+the existing idempotent Hive content/lineage comparison instead of silently
+rewriting provenance.
 
-GREMLIN emits:
+## ACK return path
 
-`PHASENAV_MEMORY_INFORMATION_EXCHANGE_ACK_V0_1`
-
-bound to:
+GREMLIN emits
+`PHASENAV_MEMORY_INFORMATION_EXCHANGE_ACK_V0_1` bound to:
 
 - exact envelope id;
 - exact payload SHA-256;
@@ -125,12 +123,15 @@ bound to:
 - reason code;
 - CHYBA/shared-cognition authority state.
 
-The ACK therefore returns to the same protocol ledger that emitted the
-information packet.
+Direct ingest returns `HIVE_INGESTED`.
+
+Bundle ingest returns `HIVE_LINEAGE_BUNDLE_INGESTED`.
+
+The ACK can be recorded directly by the PhaseNav `MemoryExchangeLedger`.
 
 ## No automatic promotion
 
-Ingest does **not**:
+Ingest does not:
 
 - set `evidence_ready`;
 - set `dependencies_closed`;
@@ -141,27 +142,29 @@ Ingest does **not**:
 - grant mutation authority;
 - promote canon.
 
-The new record begins as ordinary OPEN shared cognition.
+The target begins as ordinary OPEN shared cognition.
 
 ## Surfaces
 
-The same exchange ingest is exposed through:
+Direct and bundle ingest are exposed through:
 
 - integrated `gremlin-mcp` / `server_with_hive`;
 - authoritative `gremlin-hive-mcp`;
-- legacy Hive server surface for compatibility.
+- legacy Hive compatibility server.
 
-All surfaces use `HiveAuthorityRuntime`.
+All three surfaces use `HiveAuthorityRuntime`.
 
 ## PASS
 
 The implementation establishes:
 
-- independent packet commitment verification;
+- independent envelope commitment verification;
 - independent U(1) route verification;
 - target-layer firewall;
-- parent-first causal ingest;
-- generation and sequence checks;
+- direct parent-first RELATIONAL ingest;
+- portable cross-layer ancestry verification;
+- upstream ACCEPTED-ACK gating;
+- target-only Hive persistence;
 - idempotent Hive persistence;
 - stable ACK across retries;
 - SQLite/WAL restart survival through existing Hive authority;
@@ -170,7 +173,7 @@ The implementation establishes:
 ## OPEN / NOT CLAIMED
 
 - live NOEMA memory synchronization;
-- automatic PhaseMemoryHypercrystal promotion;
+- automatic `PhaseMemoryHypercrystal` promotion;
 - physical nonlocal signalling;
 - physical communication-field identification;
 - proof of consciousness;
