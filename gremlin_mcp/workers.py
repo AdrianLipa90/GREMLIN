@@ -24,6 +24,10 @@ from tools.gremlin_geometry_phase_scheduler_v01 import (
 WORKER_SCHEMA = "GREMLIN_MCP_WORKER_ABI_V0_2"
 WORKER_ABI_VERSION = "0.2.1"
 COMMITMENT_DOMAIN = b"GREMLIN-MCP-WORKER-ABI/v0.2\x00"
+MAX_IDENTIFIER_CHARS = 128
+MAX_WORKER_VECTOR_WIDTH = 1024
+MAX_WORKER_BATCH = 128
+MAX_LEASE_SECONDS = 300
 
 # Capture/routing/root/actuation remain GREMLIN-core boundaries. All remaining
 # Bestiary roles may participate in the geometry/phase/state worker scheduler.
@@ -69,8 +73,8 @@ def _normalize_id(value: str, *, field: str) -> str:
     if not isinstance(value, str):
         raise ValueError(f"{field} must be a string")
     out = value.strip()
-    if not out or len(out) > 128:
-        raise ValueError(f"{field} must contain 1..128 characters")
+    if not out or len(out) > MAX_IDENTIFIER_CHARS:
+        raise ValueError(f"{field} must contain 1..{MAX_IDENTIFIER_CHARS} characters")
     return out
 
 
@@ -171,8 +175,8 @@ class WorkerBroker:
         wid = _normalize_id(worker_id, field="worker_id")
         names = _normalize_species(species)
         caps = _normalize_capabilities(capabilities)
-        vw = _strict_int(vector_width, field="vector_width", minimum=1, maximum=1024)
-        batch = _strict_int(max_batch, field="max_batch", minimum=1, maximum=128)
+        vw = _strict_int(vector_width, field="vector_width", minimum=1, maximum=MAX_WORKER_VECTOR_WIDTH)
+        batch = _strict_int(max_batch, field="max_batch", minimum=1, maximum=MAX_WORKER_BATCH)
         now = time.time_ns()
         with self._lock:
             old = self._workers.get(wid)
@@ -335,7 +339,7 @@ class WorkerBroker:
             chosen = [by_id[task_id] for task_id in selected_ids]
             batch_size = len(chosen)
             ttl = self._lease_seconds if lease_seconds is None else _strict_int(
-                lease_seconds, field="lease_seconds", minimum=1, maximum=300
+                lease_seconds, field="lease_seconds", minimum=1, maximum=MAX_LEASE_SECONDS
             )
             lease_id = uuid.uuid4().hex
             expires = now + ttl * 1_000_000_000

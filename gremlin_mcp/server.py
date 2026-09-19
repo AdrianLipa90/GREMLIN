@@ -17,6 +17,26 @@ from gremlin_mcp.core import (
 )
 from gremlin_mcp.error_contract import mcp_error_boundary
 from gremlin_mcp.tool_metadata import tool_annotations
+from gremlin_mcp.tool_catalog import tool_description, tool_title
+from gremlin_mcp.tool_types import (
+    NonEmptyStringList,
+    NonNegativeRouteCount,
+    PlanVectorWidth,
+    ProviderLimit,
+    RequestId,
+    ResearchMaxSources,
+    RouteMaxSpecies,
+    RouteMinScore,
+    RouteRelativeCutoff,
+    WebMaxBytes,
+    WebTimeoutSeconds,
+    WorkerClaimLimit,
+    WorkerIdentifier,
+    WorkerIdentifierList,
+    WorkerLeaseSeconds,
+    WorkerMaxBatch,
+    WorkerVectorWidth,
+)
 from gremlin_mcp.guarded_research import execute_guarded_research
 from gremlin_mcp.hound_research import execute_research_with_hound_provenance
 from gremlin_mcp.pipeline import collect, enqueue_synthesis, fanout
@@ -85,7 +105,11 @@ def configure_state(state_path: str | None) -> WorkerBroker:
     return broker
 
 
-@mcp.tool(annotations=tool_annotations("gremlin_status"))
+@mcp.tool(
+    title=tool_title("gremlin_status"),
+    description=tool_description("gremlin_status"),
+    annotations=tool_annotations("gremlin_status"),
+)
 @mcp_error_boundary("gremlin_status")
 def gremlin_status() -> dict[str, Any]:
     """Return MCP mode, capabilities, topology and fail-closed authority state."""
@@ -115,34 +139,50 @@ def gremlin_status() -> dict[str, Any]:
     return result
 
 
-@mcp.tool(annotations=tool_annotations("gremlin_bestiary"))
+@mcp.tool(
+    title=tool_title("gremlin_bestiary"),
+    description=tool_description("gremlin_bestiary"),
+    annotations=tool_annotations("gremlin_bestiary"),
+)
 @mcp_error_boundary("gremlin_bestiary")
 def gremlin_bestiary() -> dict[str, Any]:
     """List GREMLIN animals, their roles, scheduler mass/orbit and cadence data."""
     return bestiary_manifest()
 
 
-@mcp.tool(annotations=tool_annotations("gremlin_species"))
+@mcp.tool(
+    title=tool_title("gremlin_species"),
+    description=tool_description("gremlin_species"),
+    annotations=tool_annotations("gremlin_species"),
+)
 @mcp_error_boundary("gremlin_species")
 def gremlin_species(species: str) -> dict[str, Any]:
     """Inspect one GREMLIN animal by name, for example SPIDER, OWL or BELZEBUB."""
     return species_profile(species)
 
 
-@mcp.tool(annotations=tool_annotations("gremlin_plan"))
+@mcp.tool(
+    title=tool_title("gremlin_plan"),
+    description=tool_description("gremlin_plan"),
+    annotations=tool_annotations("gremlin_plan"),
+)
 @mcp_error_boundary("gremlin_plan")
-def gremlin_plan(route_counts: dict[str, int], vector_width: int = 8) -> dict[str, Any]:
+def gremlin_plan(route_counts: dict[str, NonNegativeRouteCount], vector_width: PlanVectorWidth = 8) -> dict[str, Any]:
     """Build a deterministic mass-orbit/vector-lane execution plan for routed work."""
     return plan_bestiary(route_counts, vector_width=vector_width)
 
 
-@mcp.tool(annotations=tool_annotations("gremlin_route"))
+@mcp.tool(
+    title=tool_title("gremlin_route"),
+    description=tool_description("gremlin_route"),
+    annotations=tool_annotations("gremlin_route"),
+)
 @mcp_error_boundary("gremlin_route")
 def gremlin_route(
     payload: dict[str, Any],
-    max_species: int = 4,
-    min_score: float = 2.0,
-    relative_cutoff: float = 0.45,
+    max_species: RouteMaxSpecies = 4,
+    min_score: RouteMinScore = 2.0,
+    relative_cutoff: RouteRelativeCutoff = 0.45,
 ) -> dict[str, Any]:
     """Ask OCTOPUS for an auditable deterministic semantic specialist route mask."""
     return route(
@@ -153,26 +193,38 @@ def gremlin_route(
     )
 
 
-@mcp.tool(annotations=tool_annotations("gremlin_relation_parse"))
+@mcp.tool(
+    title=tool_title("gremlin_relation_parse"),
+    description=tool_description("gremlin_relation_parse"),
+    annotations=tool_annotations("gremlin_relation_parse"),
+)
 @mcp_error_boundary("gremlin_relation_parse")
 def gremlin_relation_parse(text: str, language: str = "pl") -> dict[str, Any]:
     """Parse bounded Polish relation frames into grammatical case ports and operator-local roles."""
     return extract_relations(text, language=language)
 
 
-@mcp.tool(annotations=tool_annotations("gremlin_relation_signature"))
+@mcp.tool(
+    title=tool_title("gremlin_relation_signature"),
+    description=tool_description("gremlin_relation_signature"),
+    annotations=tool_annotations("gremlin_relation_signature"),
+)
 @mcp_error_boundary("gremlin_relation_signature")
 def gremlin_relation_signature(operator: str) -> dict[str, Any]:
     """Return required/optional grammatical ports and operator-local roles for a relation operator."""
     return operator_signature(operator)
 
 
-@mcp.tool(annotations=tool_annotations("gremlin_web_fetch"))
+@mcp.tool(
+    title=tool_title("gremlin_web_fetch"),
+    description=tool_description("gremlin_web_fetch"),
+    annotations=tool_annotations("gremlin_web_fetch"),
+)
 @mcp_error_boundary("gremlin_web_fetch")
 def gremlin_web_fetch(
     url: str,
-    timeout_s: float = 10.0,
-    max_bytes: int = 1_000_000,
+    timeout_s: WebTimeoutSeconds = 10.0,
+    max_bytes: WebMaxBytes = 1_000_000,
     max_chars: int = 120_000,
 ) -> dict[str, Any]:
     """Fetch one public HTTPS text/JSON/XML resource with SSRF firewall and provenance receipt."""
@@ -184,12 +236,16 @@ def gremlin_web_fetch(
     )
 
 
-@mcp.tool(annotations=tool_annotations("gremlin_web_search"))
+@mcp.tool(
+    title=tool_title("gremlin_web_search"),
+    description=tool_description("gremlin_web_search"),
+    annotations=tool_annotations("gremlin_web_search"),
+)
 @mcp_error_boundary("gremlin_web_search")
 def gremlin_web_search(
     query: str,
     providers: list[str] | None = None,
-    limit_per_provider: int = 6,
+    limit_per_provider: ProviderLimit = 6,
 ) -> dict[str, Any]:
     """Search bounded public internet providers and return deduplicated candidate evidence."""
     return search_web(
@@ -199,12 +255,16 @@ def gremlin_web_search(
     )
 
 
-@mcp.tool(annotations=tool_annotations("gremlin_research"))
+@mcp.tool(
+    title=tool_title("gremlin_research"),
+    description=tool_description("gremlin_research"),
+    annotations=tool_annotations("gremlin_research"),
+)
 @mcp_error_boundary("gremlin_research")
 def gremlin_research(
     query: str,
     providers: list[str] | None = None,
-    limit_per_provider: int = 6,
+    limit_per_provider: ProviderLimit = 6,
     max_species: int = 4,
 ) -> dict[str, Any]:
     """Run OCTOPUS routing plus bounded internet evidence acquisition for a research query."""
@@ -216,14 +276,18 @@ def gremlin_research(
     )
 
 
-@mcp.tool(annotations=tool_annotations("gremlin_research_execute"))
+@mcp.tool(
+    title=tool_title("gremlin_research_execute"),
+    description=tool_description("gremlin_research_execute"),
+    annotations=tool_annotations("gremlin_research_execute"),
+)
 @mcp_error_boundary("gremlin_research_execute")
 def gremlin_research_execute(
     query: str,
     providers: list[str] | None = None,
-    limit_per_provider: int = 6,
+    limit_per_provider: ProviderLimit = 6,
     max_species: int = 4,
-    max_sources: int = 12,
+    max_sources: ResearchMaxSources = 12,
 ) -> dict[str, Any]:
     """Acquire internet evidence, execute staged Bestiary reference workers and synthesize a candidate."""
     return execute_research(
@@ -235,14 +299,18 @@ def gremlin_research_execute(
     )
 
 
-@mcp.tool(annotations=tool_annotations("gremlin_research_hound_provenance"))
+@mcp.tool(
+    title=tool_title("gremlin_research_hound_provenance"),
+    description=tool_description("gremlin_research_hound_provenance"),
+    annotations=tool_annotations("gremlin_research_hound_provenance"),
+)
 @mcp_error_boundary("gremlin_research_hound_provenance")
 def gremlin_research_hound_provenance(
     query: str,
     providers: list[str] | None = None,
-    limit_per_provider: int = 6,
+    limit_per_provider: ProviderLimit = 6,
     max_species: int = 4,
-    max_sources: int = 12,
+    max_sources: ResearchMaxSources = 12,
 ) -> dict[str, Any]:
     """Execute research and bind HOUND duplicate/version auditing to canonical source-family provenance."""
     return execute_research_with_hound_provenance(
@@ -254,7 +322,11 @@ def gremlin_research_hound_provenance(
     )
 
 
-@mcp.tool(annotations=tool_annotations("gremlin_research_guarded"))
+@mcp.tool(
+    title=tool_title("gremlin_research_guarded"),
+    description=tool_description("gremlin_research_guarded"),
+    annotations=tool_annotations("gremlin_research_guarded"),
+)
 @mcp_error_boundary("gremlin_research_guarded")
 def gremlin_research_guarded(
     query: str,
@@ -262,9 +334,9 @@ def gremlin_research_guarded(
     claim_evidence: list[dict[str, Any]] | None = None,
     hound_receipt: dict[str, Any] | None = None,
     providers: list[str] | None = None,
-    limit_per_provider: int = 6,
+    limit_per_provider: ProviderLimit = 6,
     max_species: int = 4,
-    max_sources: int = 12,
+    max_sources: ResearchMaxSources = 12,
 ) -> dict[str, Any]:
     """Execute research and quarantine synthesis when explicit typed claim evidence conflicts."""
     return execute_guarded_research(
@@ -279,16 +351,20 @@ def gremlin_research_guarded(
     )
 
 
-@mcp.tool(annotations=tool_annotations("gremlin_research_relational"))
+@mcp.tool(
+    title=tool_title("gremlin_research_relational"),
+    description=tool_description("gremlin_research_relational"),
+    annotations=tool_annotations("gremlin_research_relational"),
+)
 @mcp_error_boundary("gremlin_research_relational")
 def gremlin_research_relational(
     query: str,
     relation_text: str | None = None,
     language: str = "pl",
     providers: list[str] | None = None,
-    limit_per_provider: int = 6,
+    limit_per_provider: ProviderLimit = 6,
     max_species: int = 4,
-    max_sources: int = 12,
+    max_sources: ResearchMaxSources = 12,
 ) -> dict[str, Any]:
     """Execute internet research and propagate case-typed relation frames into Bestiary synthesis."""
     return execute_relational_research(
@@ -302,14 +378,18 @@ def gremlin_research_relational(
     )
 
 
-@mcp.tool(annotations=tool_annotations("gremlin_auto_fanout"))
+@mcp.tool(
+    title=tool_title("gremlin_auto_fanout"),
+    description=tool_description("gremlin_auto_fanout"),
+    annotations=tool_annotations("gremlin_auto_fanout"),
+)
 @mcp_error_boundary("gremlin_auto_fanout")
 def gremlin_auto_fanout(
     payload: dict[str, Any],
-    request_id: str | None = None,
-    max_species: int = 4,
-    min_score: float = 2.0,
-    relative_cutoff: float = 0.45,
+    request_id: RequestId | None = None,
+    max_species: RouteMaxSpecies = 4,
+    min_score: RouteMinScore = 2.0,
+    relative_cutoff: RouteRelativeCutoff = 0.45,
 ) -> dict[str, Any]:
     """Route with OCTOPUS and queue work only when positive semantic evidence is present."""
     return auto_fanout(
@@ -322,56 +402,84 @@ def gremlin_auto_fanout(
     )
 
 
-@mcp.tool(annotations=tool_annotations("gremlin_fanout"))
+@mcp.tool(
+    title=tool_title("gremlin_fanout"),
+    description=tool_description("gremlin_fanout"),
+    annotations=tool_annotations("gremlin_fanout"),
+)
 @mcp_error_boundary("gremlin_fanout")
 def gremlin_fanout(
     payload: dict[str, Any],
     species: list[str],
-    request_id: str | None = None,
+    request_id: RequestId | None = None,
 ) -> dict[str, Any]:
     """Queue one payload to an explicit caller-supplied specialist route mask."""
     return fanout(broker, payload, species, request_id=request_id)
 
 
-@mcp.tool(annotations=tool_annotations("gremlin_collect"))
+@mcp.tool(
+    title=tool_title("gremlin_collect"),
+    description=tool_description("gremlin_collect"),
+    annotations=tool_annotations("gremlin_collect"),
+)
 @mcp_error_boundary("gremlin_collect")
-def gremlin_collect(task_ids: list[str]) -> dict[str, Any]:
+def gremlin_collect(task_ids: WorkerIdentifierList) -> dict[str, Any]:
     """Collect current states and CANDIDATE outputs for a specialist fanout."""
     return collect(broker, task_ids)
 
 
-@mcp.tool(annotations=tool_annotations("gremlin_synthesize"))
+@mcp.tool(
+    title=tool_title("gremlin_synthesize"),
+    description=tool_description("gremlin_synthesize"),
+    annotations=tool_annotations("gremlin_synthesize"),
+)
 @mcp_error_boundary("gremlin_synthesize")
 def gremlin_synthesize(
-    specialist_task_ids: list[str],
-    request_id: str | None = None,
+    specialist_task_ids: WorkerIdentifierList,
+    request_id: RequestId | None = None,
 ) -> dict[str, Any]:
     """Queue BELZEBUB synthesis after every supplied specialist task is DONE."""
     return enqueue_synthesis(broker, specialist_task_ids, request_id=request_id)
 
 
-@mcp.tool(annotations=tool_annotations("gremlin_prototype"))
+@mcp.tool(
+    title=tool_title("gremlin_prototype"),
+    description=tool_description("gremlin_prototype"),
+    annotations=tool_annotations("gremlin_prototype"),
+)
 @mcp_error_boundary("gremlin_prototype")
 def gremlin_prototype(request: dict[str, Any]) -> dict[str, Any]:
     """Run GREMLIN's existing reference candidate -> PhaseNav IR -> prototype -> test pipeline."""
     return run_prototype(request)
 
 
-@mcp.tool(annotations=tool_annotations("gremlin_phasenav_status"))
+@mcp.tool(
+    title=tool_title("gremlin_phasenav_status"),
+    description=tool_description("gremlin_phasenav_status"),
+    annotations=tool_annotations("gremlin_phasenav_status"),
+)
 @mcp_error_boundary("gremlin_phasenav_status")
 def gremlin_phasenav_status() -> dict[str, Any]:
     """Return the standalone 36D PhaseNav Bestiary runtime/import surface."""
     return phasenav_status()
 
 
-@mcp.tool(annotations=tool_annotations("gremlin_phasenav_reference_sweep"))
+@mcp.tool(
+    title=tool_title("gremlin_phasenav_reference_sweep"),
+    description=tool_description("gremlin_phasenav_reference_sweep"),
+    annotations=tool_annotations("gremlin_phasenav_reference_sweep"),
+)
 @mcp_error_boundary("gremlin_phasenav_reference_sweep")
 def gremlin_phasenav_reference_sweep() -> dict[str, Any]:
     """Run all current Bestiary species through the standalone reference phase layer."""
     return phasenav_reference_sweep()
 
 
-@mcp.tool(annotations=tool_annotations("gremlin_phasenav_threeway"))
+@mcp.tool(
+    title=tool_title("gremlin_phasenav_threeway"),
+    description=tool_description("gremlin_phasenav_threeway"),
+    annotations=tool_annotations("gremlin_phasenav_threeway"),
+)
 @mcp_error_boundary("gremlin_phasenav_threeway")
 def gremlin_phasenav_threeway(
     batch_size: int = 12,
@@ -390,14 +498,22 @@ def gremlin_phasenav_threeway(
     )
 
 
-@mcp.tool(annotations=tool_annotations("gremlin_phasenav_analog_invariants"))
+@mcp.tool(
+    title=tool_title("gremlin_phasenav_analog_invariants"),
+    description=tool_description("gremlin_phasenav_analog_invariants"),
+    annotations=tool_annotations("gremlin_phasenav_analog_invariants"),
+)
 @mcp_error_boundary("gremlin_phasenav_analog_invariants")
 def gremlin_phasenav_analog_invariants() -> dict[str, Any]:
     """Run specialist invariants for all current analog-core Bestiary candidates."""
     return phasenav_analog_invariants()
 
 
-@mcp.tool(annotations=tool_annotations("gremlin_phasenav_live_replay"))
+@mcp.tool(
+    title=tool_title("gremlin_phasenav_live_replay"),
+    description=tool_description("gremlin_phasenav_live_replay"),
+    annotations=tool_annotations("gremlin_phasenav_live_replay"),
+)
 @mcp_error_boundary("gremlin_phasenav_live_replay")
 def gremlin_phasenav_live_replay(
     surface_root: str = "/dev/shm/ciel_noema",
@@ -407,14 +523,18 @@ def gremlin_phasenav_live_replay(
     return phasenav_live_replay(surface_root=surface_root, steps=steps)
 
 
-@mcp.tool(annotations=tool_annotations("gremlin_worker_register"))
+@mcp.tool(
+    title=tool_title("gremlin_worker_register"),
+    description=tool_description("gremlin_worker_register"),
+    annotations=tool_annotations("gremlin_worker_register"),
+)
 @mcp_error_boundary("gremlin_worker_register")
 def gremlin_worker_register(
-    worker_id: str,
-    species: list[str],
+    worker_id: WorkerIdentifier,
+    species: NonEmptyStringList,
     capabilities: list[str] | None = None,
-    vector_width: int = 8,
-    max_batch: int = 128,
+    vector_width: WorkerVectorWidth = 8,
+    max_batch: WorkerMaxBatch = 128,
 ) -> dict[str, Any]:
     """Register or refresh an external backend as one or more GREMLIN animal workers."""
     return broker.register_worker(
@@ -426,38 +546,54 @@ def gremlin_worker_register(
     )
 
 
-@mcp.tool(annotations=tool_annotations("gremlin_worker_heartbeat"))
+@mcp.tool(
+    title=tool_title("gremlin_worker_heartbeat"),
+    description=tool_description("gremlin_worker_heartbeat"),
+    annotations=tool_annotations("gremlin_worker_heartbeat"),
+)
 @mcp_error_boundary("gremlin_worker_heartbeat")
-def gremlin_worker_heartbeat(worker_id: str) -> dict[str, Any]:
+def gremlin_worker_heartbeat(worker_id: WorkerIdentifier) -> dict[str, Any]:
     """Refresh a registered GREMLIN worker heartbeat."""
     return broker.heartbeat(worker_id)
 
 
-@mcp.tool(annotations=tool_annotations("gremlin_worker_list"))
+@mcp.tool(
+    title=tool_title("gremlin_worker_list"),
+    description=tool_description("gremlin_worker_list"),
+    annotations=tool_annotations("gremlin_worker_list"),
+)
 @mcp_error_boundary("gremlin_worker_list")
 def gremlin_worker_list() -> dict[str, Any]:
     """List currently registered external GREMLIN animal workers."""
     return broker.list_workers()
 
 
-@mcp.tool(annotations=tool_annotations("gremlin_worker_enqueue"))
+@mcp.tool(
+    title=tool_title("gremlin_worker_enqueue"),
+    description=tool_description("gremlin_worker_enqueue"),
+    annotations=tool_annotations("gremlin_worker_enqueue"),
+)
 @mcp_error_boundary("gremlin_worker_enqueue")
 def gremlin_worker_enqueue(
     species: str,
     payload: dict[str, Any],
-    task_id: str | None = None,
+    task_id: WorkerIdentifier | None = None,
 ) -> dict[str, Any]:
     """Queue one JSON task for a scheduler-backed GREMLIN animal worker."""
     return broker.enqueue(species, payload, task_id=task_id)
 
 
-@mcp.tool(annotations=tool_annotations("gremlin_worker_claim"))
+@mcp.tool(
+    title=tool_title("gremlin_worker_claim"),
+    description=tool_description("gremlin_worker_claim"),
+    annotations=tool_annotations("gremlin_worker_claim"),
+)
 @mcp_error_boundary("gremlin_worker_claim")
 def gremlin_worker_claim(
-    worker_id: str,
+    worker_id: WorkerIdentifier,
     species: str | None = None,
-    limit: int | None = None,
-    lease_seconds: int | None = None,
+    limit: WorkerClaimLimit | None = None,
+    lease_seconds: WorkerLeaseSeconds | None = None,
 ) -> dict[str, Any]:
     """Claim one bounded same-species batch using GREMLIN orbit/vector lane limits."""
     return broker.claim(
@@ -468,25 +604,37 @@ def gremlin_worker_claim(
     )
 
 
-@mcp.tool(annotations=tool_annotations("gremlin_worker_submit"))
+@mcp.tool(
+    title=tool_title("gremlin_worker_submit"),
+    description=tool_description("gremlin_worker_submit"),
+    annotations=tool_annotations("gremlin_worker_submit"),
+)
 @mcp_error_boundary("gremlin_worker_submit")
 def gremlin_worker_submit(
-    worker_id: str,
-    lease_id: str,
+    worker_id: WorkerIdentifier,
+    lease_id: WorkerIdentifier,
     results: list[dict[str, Any]],
 ) -> dict[str, Any]:
     """Submit exact lease results; the MCP envelope remains CANDIDATE and fail-closed."""
     return broker.submit(worker_id, lease_id, results)
 
 
-@mcp.tool(annotations=tool_annotations("gremlin_worker_result"))
+@mcp.tool(
+    title=tool_title("gremlin_worker_result"),
+    description=tool_description("gremlin_worker_result"),
+    annotations=tool_annotations("gremlin_worker_result"),
+)
 @mcp_error_boundary("gremlin_worker_result")
-def gremlin_worker_result(task_id: str) -> dict[str, Any]:
+def gremlin_worker_result(task_id: WorkerIdentifier) -> dict[str, Any]:
     """Read current state or candidate output for one GREMLIN worker task."""
     return broker.task_result(task_id)
 
 
-@mcp.tool(annotations=tool_annotations("gremlin_worker_queue"))
+@mcp.tool(
+    title=tool_title("gremlin_worker_queue"),
+    description=tool_description("gremlin_worker_queue"),
+    annotations=tool_annotations("gremlin_worker_queue"),
+)
 @mcp_error_boundary("gremlin_worker_queue")
 def gremlin_worker_queue() -> dict[str, Any]:
     """Return per-species queue counts, active leases and persistence scope."""

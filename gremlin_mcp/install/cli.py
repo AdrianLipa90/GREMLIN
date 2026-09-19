@@ -11,7 +11,8 @@ from .config import load_effective_config
 from .device import build_activation_request, device_identity_status, ensure_device_identity
 from .doctor import run_doctor
 from .integrations import gremlin_stdio_entry, inspect_json_mcp, install_json_mcp, remove_json_mcp
-from .license_activation import activate_license_key, import_license_file, installed_license_status
+from .license_activation import activate_license_key, import_license_file, installed_license_status, resolve_public_key_path
+from gremlin_mcp.product.license import load_license
 from .mcp_probe import probe_product_mcp
 from .paths import resolve_paths
 from .profile_activation import import_client_profile, installed_profile_status
@@ -19,6 +20,7 @@ from .provider_integrations import connect_provider, disconnect_provider, list_p
 from .readiness import evaluate_readiness
 from .secrets import resolve_secret_store, secret_store_status
 from .support_report import build_support_report, write_support_report
+from .update_manifest import load_update_manifest, update_eligibility, verify_artifact
 
 
 DEFAULT_CONFIG_TEXT = """schema = \"GREMLIN_CONFIG_V0_1\"\n\n[runtime]\ntransport = \"stdio\"\nstate = \"auto\"\n\n[network]\ninternet = true\nlocal_http = false\n\n[research]\nmax_workers = 4\nmax_sources = 24\n\n[logging]\nlevel = \"info\"\n"""
@@ -80,6 +82,51 @@ def _mcp_test(args: argparse.Namespace) -> int:
     payload = probe_product_mcp(resolve_paths(platform=args.platform), timeout_seconds=args.timeout)
     _emit(payload, as_json=args.json)
     return 0 if payload["status"] == "PASS" else 1
+
+
+def _update_verify(args: argparse.Namespace) -> int:
+    paths = resolve_paths(platform=args.platform)
+    public_key = resolve_public_key_path(paths)
+    manifest = load_update_manifest(args.manifest, public_key)
+
+    license_payload = None
+    if Path(paths.license_file).is_file() and public_key.is_file():
+        license_payload = load_license(paths.license_file, public_key)
+
+    eligibility = update_eligibility(
+        manifest,
+        license_payload=license_payload,
+        platform=paths.platform,
+        architecture=args.architecture,
+    )
+    if license_payload is None:
+        eligibility = {
+            **eligibility,
+            "eligible": False,
+            "reasons": [*eligibility["reasons"], "LICENSE_REQUIRED"],
+        }
+
+    artifact = None
+    if args.artifact:
+        artifact = verify_artifact(manifest, args.artifact)
+
+    payload = {
+        "schema": "GREMLIN_UPDATE_VERIFY_V0_1",
+        "status": "PASS" if eligibility["eligible"] else "NOT_ELIGIBLE",
+        "manifest": manifest,
+        "signature_verified": True,
+        "artifact": artifact,
+        "eligibility": eligibility,
+        "authority": {
+            "download_performed": False,
+            "installation_performed": False,
+            "production_runtime_write": False,
+            "execution_admitted": False,
+            "canon_allowed": False,
+        },
+    }
+    _emit(payload, as_json=args.json)
+    return 0 if eligibility["eligible"] else 1
 
 
 def _init(args: argparse.Namespace) -> int:
@@ -356,6 +403,16 @@ def build_parser() -> argparse.ArgumentParser:
     mcp_test.add_argument("--timeout", type=float, default=10.0)
     mcp_test.add_argument("--json", action="store_true")
     mcp_test.set_defaults(func=_mcp_test)
+
+    update_cmd = sub.add_parser("update", help="verify signed GREMLIN update metadata without downloading or installing")
+    update_sub = update_cmd.add_subparsers(dest="update_command", required=True)
+    update_verify = update_sub.add_parser("verify", help="verify an offline signed update manifest and optional artifact")
+    update_verify.add_argument("--manifest", required=True)
+    update_verify.add_argument("--artifact")
+    update_verify.add_argument("--platform", choices=("windows", "linux"))
+    update_verify.add_argument("--architecture", default="amd64", choices=("amd64",))
+    update_verify.add_argument("--json", action="store_true")
+    update_verify.set_defaults(func=_update_verify)
 
     doctor = sub.add_parser("doctor", help="run sanitized installation/product diagnostics")
     doctor.add_argument("--platform", choices=("windows", "linux"))

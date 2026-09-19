@@ -3,6 +3,7 @@ from __future__ import annotations
 from functools import wraps
 import json
 import re
+import secrets
 from typing import Any, Callable, TypeVar, cast
 
 from mcp.server.mcpserver.exceptions import ToolError
@@ -45,6 +46,12 @@ def _user_action(code: str) -> str:
         return "Use built-in workers or a signed profile that explicitly permits custom workers."
     if code == "REMOTE_HTTP_AUTH_REQUIRED":
         return "Bind GREMLIN MCP to localhost/loopback or configure an authenticated remote transport."
+    if code == "CROSS_ORIGIN_WORKSPACE_REQUEST":
+        return "Use the local GREMLIN Workspace origin; cross-origin requests are not admitted."
+    if code == "REQUEST_BODY_TOO_LARGE":
+        return "Reduce the Workspace request body and retry."
+    if code == "WORKSPACE_INTERNAL_ERROR":
+        return "Open Control Center Diagnostics and export a sanitized support report before retrying."
     if code == "INVALID_REQUEST":
         return "Correct the tool arguments and retry."
     if code in {"TIMEOUT", "NETWORK_ERROR"}:
@@ -58,6 +65,12 @@ def _user_action(code: str) -> str:
 
 def error_envelope(exc: Exception, *, tool: str, request_id: str | None = None) -> dict[str, Any]:
     message = str(exc).strip() or type(exc).__name__
+    if isinstance(request_id, str) and request_id.strip():
+        correlation_id = request_id.strip()
+        request_id_source = "caller"
+    else:
+        correlation_id = f"err-{secrets.token_hex(12)}"
+        request_id_source = "generated"
 
     if isinstance(exc, PermissionError):
         code, detail = _raw_code(message, "AUTHORIZATION_DENIED")
@@ -97,7 +110,8 @@ def error_envelope(exc: Exception, *, tool: str, request_id: str | None = None) 
         "category": category,
         "retryable": retryable,
         "user_action": _user_action(code),
-        "request_id": request_id,
+        "request_id": correlation_id,
+        "request_id_source": request_id_source,
         "exception_type": type(exc).__name__,
         "authority": {
             "production_runtime_write": False,

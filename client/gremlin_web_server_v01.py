@@ -7,6 +7,8 @@ from pathlib import Path
 from typing import Any, Mapping, Sequence
 from urllib.parse import urlparse
 
+from gremlin_mcp.core import bestiary_manifest, status as core_status
+from gremlin_mcp.workspace import _assert_loopback, system_payload
 from tools.gremlin_client_protocol_v01 import REQUEST_SCHEMA, run_client_request
 
 WEB_SCHEMA = "GREMLIN_VISUAL_CLIENT_V0_1"
@@ -62,6 +64,50 @@ def health_payload() -> dict[str, Any]:
     }
 
 
+def status_payload() -> dict[str, Any]:
+    capabilities = core_status(surface="reference")
+    return {
+        "schema": WEB_SCHEMA,
+        "status": "READY",
+        "product": {
+            "schema": "GREMLIN_REFERENCE_VISUAL_STATUS_V0_1",
+            "status": "REFERENCE_VALIDATION",
+        },
+        "capabilities": {
+            "surface": capabilities["surface"],
+            "mode": capabilities["mode"],
+            "tool_count": capabilities["tool_count"],
+            "tool_groups": capabilities["tool_groups"],
+            "capability_contract": capabilities["capability_contract"],
+            "error_contract": capabilities["error_contract"],
+        },
+        "authority": {
+            "production_runtime_write": False,
+            "execution_admitted": False,
+            "canon_allowed": False,
+        },
+    }
+
+
+def bestiary_payload() -> dict[str, Any]:
+    manifest = bestiary_manifest()
+    species = manifest.get("species")
+    if not isinstance(species, list):
+        raise GremlinVisualClientError("Bestiary manifest is malformed")
+    return {
+        "schema": WEB_SCHEMA,
+        "status": "READY",
+        "topology": manifest.get("topology"),
+        "species": species,
+        "species_count": len(species),
+        "authority": {
+            "production_runtime_write": False,
+            "execution_admitted": False,
+            "canon_allowed": False,
+        },
+    }
+
+
 class GremlinVisualClientHandler(BaseHTTPRequestHandler):
     server_version = "GREMLINVisualClient/0.1"
 
@@ -72,6 +118,13 @@ class GremlinVisualClientHandler(BaseHTTPRequestHandler):
         self.send_header("Cache-Control", "no-store")
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("X-Frame-Options", "DENY")
+        self.send_header("Referrer-Policy", "no-referrer")
+        self.send_header(
+            "Content-Security-Policy",
+            "default-src 'self'; script-src 'self'; style-src 'self'; "
+            "img-src 'self' data:; connect-src 'self'; base-uri 'none'; "
+            "frame-ancestors 'none'; form-action 'none'",
+        )
         self.end_headers()
         self.wfile.write(data)
 
@@ -93,6 +146,18 @@ class GremlinVisualClientHandler(BaseHTTPRequestHandler):
         path = urlparse(self.path).path
         if path == "/api/health":
             self._send_json(200, health_payload())
+            return
+        if path == "/api/system":
+            self._send_json(200, system_payload(surface="reference"))
+            return
+        if path == "/api/status":
+            self._send_json(200, status_payload())
+            return
+        if path == "/api/bestiary":
+            try:
+                self._send_json(200, bestiary_payload())
+            except Exception as exc:
+                self._send_error_json(500, exc)
             return
         if path == "/api/example":
             try:
@@ -151,7 +216,7 @@ class GremlinVisualClientHandler(BaseHTTPRequestHandler):
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="gremlin-web-v01",
-        description="Serve the local GREMLIN visual research client.",
+        description="Serve the development-only GREMLIN reference visual client.",
     )
     parser.add_argument("--host", default="127.0.0.1", help="Bind host; defaults to loopback only")
     parser.add_argument("--port", default=8765, type=int, help="TCP port; defaults to 8765")
@@ -162,7 +227,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     if args.port < 1 or args.port > 65535:
         raise SystemExit("port must be in 1..65535")
-    server = ThreadingHTTPServer((args.host, args.port), GremlinVisualClientHandler)
+    try:
+        host = _assert_loopback(args.host)
+    except Exception as exc:
+        raise SystemExit(str(exc)) from exc
+    server = ThreadingHTTPServer((host, args.port), GremlinVisualClientHandler)
     print(f"GREMLIN visual client: http://{args.host}:{args.port}")
     print("Authority boundary: prototype/reference validation only; no production admission.")
     try:

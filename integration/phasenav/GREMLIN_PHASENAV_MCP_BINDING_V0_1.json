@@ -1,0 +1,59 @@
+{
+  "schema": "GREMLIN_PHASENAV_MCP_BINDING_V0_1",
+  "status": "READY_FOR_PHASE_NAV_NATIVE_BINDING",
+  "target": {
+    "repository": "AdrianLipa90/CIEL-NOEMA-HTRI-CIELingo-Phasenav",
+    "ref": "main",
+    "expected_head": "e141af0aab8082acf0d01be9f9e29bb2d6d72aac",
+    "agent_contract_sha": "0dec9c6db62a9ade5fcccc0771c79048ac963b87"
+  },
+  "gremlin": {
+    "repository": "AdrianLipa90/GREMLIN",
+    "branch": "candidate/phasenav-mcp-vcs-gremlin-v0.1-20260915",
+    "validated_source_head": "a2ededb378929b1863c95a24ea3ab6c3bf6ebb8f",
+    "base_main_head": "b33d8c3fec014db4686856958c17e0e948192742",
+    "mcp_entrypoint": "gremlin-phasenav-vcs-mcp",
+    "server_module": "gremlin_mcp.phasenav_vcs_server:main",
+    "capability_module": "gremlin_mcp.phasenav_vcs_capability",
+    "native_contract": "native/GREMLIN_PHASENAV_MCP_VCS_CAPABILITY_V0_1.pnv",
+    "spec": "spec/GREMLIN_PHASENAV_MCP_VCS_CAPABILITY_V0_1.md",
+    "receipt": "provenance/GREMLIN_PHASENAV_MCP_VCS_CAPABILITY_V0_1.json"
+  },
+  "validation": {
+    "workflow_run_id": 34973376728,
+    "job_id": 104394894936,
+    "conclusion": "success",
+    "capability_tests": "PASS",
+    "server_surface_tests": "PASS",
+    "escape_surface_ast_audit": "PASS"
+  },
+  "phase_nav_requirements": {
+    "action_packet": "PHASENAV_ACTION_PACKET_V1 supplied by PhaseNav-native authority surface",
+    "execution_receipt": "PHASENAV_EXECUTION_RECEIPT_V1",
+    "checkpoint_before_step": true,
+    "tag_before_step": true,
+    "bundle_before_step": true,
+    "separate_commit_per_logical_step": true,
+    "tests_after_logical_step": true,
+    "copy_only_first_migration": true,
+    "shell_used": false,
+    "git_cli": false,
+    "subprocess": false,
+    "direct_main_mutation": false,
+    "canon_promotion": false
+  },
+  "gremlin_attestation": {
+    "schema": "GREMLIN_TRIPLE_PULSE_ATTESTATION_V0_1",
+    "identity_receipt_required": true,
+    "domain_receipt_required": true,
+    "authority_receipt_required": true,
+    "same_generation_required": true,
+    "tether_status_required": "ACTIVE"
+  },
+  "authority_boundary": {
+    "gremlin_grants_phase_nav_authority": false,
+    "phase_nav_grants_gremlin_authority_implicitly": false,
+    "explicit_native_binding_required": true,
+    "phase_nav_repository_write_performed": false
+  }
+}

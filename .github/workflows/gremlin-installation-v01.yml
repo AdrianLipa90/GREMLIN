@@ -59,10 +59,12 @@ jobs:
           gremlinctl license --help >/dev/null
           gremlinctl profile --help >/dev/null
           gremlinctl ready --help >/dev/null
+          gremlinctl update --help >/dev/null
           gremlinctl integrations providers --json >/dev/null
           gremlin-product-mcp --help >/dev/null
           gremlin-workspace --help >/dev/null
           gremlin-license --help >/dev/null
+          gremlin-license update-issue --help >/dev/null
           gremlin-bundle --help >/dev/null
       - name: Verify isolated Linux wheel runtime
         run: |
@@ -138,10 +140,12 @@ jobs:
           gremlinctl license --help | Out-Null
           gremlinctl profile --help | Out-Null
           gremlinctl ready --help | Out-Null
+          gremlinctl update --help | Out-Null
           gremlinctl integrations providers --platform windows --json | Out-Null
           gremlinctl device status --platform windows --json | Out-Null
           gremlinctl device init --platform windows --json | Out-Null
           gremlin-workspace --help | Out-Null
+          gremlin-license update-issue --help | Out-Null
       - name: Verify isolated Windows wheel runtime
         shell: pwsh
         run: |

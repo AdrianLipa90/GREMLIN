@@ -16,6 +16,7 @@ ROUTER_VERSION = "0.6.0"
 ROUTER_MODE = "DETERMINISTIC_AUDITABLE_SEMANTIC_ROUTER"
 SEMANTIC_PROFILE = "OCTOPUS_LEXICAL_OOD_PROFILE_V0_6"
 ROUTE_DOMAIN = b"GREMLIN-MCP-OCTOPUS-ROUTE/v0.6\x00"
+MAX_ROUTE_SPECIES = len(SPECIALISTS)
 
 
 @dataclass(frozen=True)
@@ -223,8 +224,8 @@ def route(
     semantic_body = {key: value for key, value in body.items() if key != SCHEDULER_KEY}
 
     limit = int(max_species)
-    if limit <= 0 or limit > len(SPECIALISTS):
-        raise ValueError(f"max_species must be in 1..{len(SPECIALISTS)}")
+    if limit <= 0 or limit > MAX_ROUTE_SPECIES:
+        raise ValueError(f"max_species must be in 1..{MAX_ROUTE_SPECIES}")
     floor = float(min_score)
     cutoff = float(relative_cutoff)
     if floor <= 0:

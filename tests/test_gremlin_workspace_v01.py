@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from dataclasses import replace
 import json
+import os
 from pathlib import Path
+import stat
 import threading
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
@@ -16,19 +18,43 @@ from tools.gremlin_client_protocol_v01 import REQUEST_SCHEMA
 
 
 class FakeRuntime:
-    def __init__(self, *, licensed: bool = True, prototype_allowed: bool = True) -> None:
+    def __init__(
+        self,
+        *,
+        licensed: bool = True,
+        prototype_allowed: bool = True,
+        denied_tools: set[str] | None = None,
+    ) -> None:
         self.licensed = licensed
         self.prototype_allowed = prototype_allowed
+        self.denied_tools = set(denied_tools or set())
         self.calls: list[dict[str, object]] = []
 
     def status(self) -> dict[str, object]:
         if self.licensed:
-            return {"status": "LICENSED"}
+            return {
+                "status": "LICENSED",
+                "license": {
+                    "license_id": "TEST-SECRET-ID",
+                    "edition": "RESEARCH",
+                    "expires_at": "2030-12-31",
+                    "features": ["MCP_STDIO", "PROTOTYPE_PIPELINE"],
+                    "limits": {"max_workers": 4, "max_sources": 24},
+                },
+                "profile": {
+                    "client_id": "test-client-secret-id",
+                    "label": "Test Customer Profile",
+                    "profile_commitment": "a" * 64,
+                },
+            }
         return {"status": "BLOCKED", "reason": "LICENSE_REQUIRED"}
 
     def authorize(self, **kwargs) -> None:
         self.calls.append(dict(kwargs))
-        if not self.prototype_allowed:
+        tool = kwargs.get("tool")
+        if isinstance(tool, str) and tool in self.denied_tools:
+            raise ProductAuthorizationError(f"TOOL_NOT_ALLOWED_BY_PROFILE:{tool}")
+        if not self.prototype_allowed and kwargs.get("feature") == "PROTOTYPE_PIPELINE":
             raise ProductAuthorizationError("FEATURE_NOT_ENTITLED:PROTOTYPE_PIPELINE")
 
 
@@ -69,6 +95,21 @@ def _stage_assets(paths) -> tuple[Path, Path]:
     example_path = root / "example-request.json"
     example_path.write_text(json.dumps(example), encoding="utf-8")
     return root, example_path
+
+
+def _server(paths, *, token: str = "t" * 48, instance_id: str = "i" * 32):
+    web_root, example = _stage_assets(paths)
+    server = workspace.GremlinWorkspaceServer(
+        ("127.0.0.1", 0),
+        web_root=web_root,
+        example_path=example,
+        runtime=FakeRuntime(),  # type: ignore[arg-type]
+        instance_id=instance_id,
+        shutdown_token=token,
+    )
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    return server, thread, token, instance_id
 
 
 def test_workspace_prefers_installed_resources(tmp_path) -> None:
@@ -114,7 +155,7 @@ def test_workspace_check_is_ready_only_after_assets_license_feature_and_port(tmp
     _stage_assets(paths)
     runtime = FakeRuntime()
     monkeypatch.setattr(workspace, "_runtime", lambda _paths: runtime)
-    monkeypatch.setattr(workspace, "_probe_existing_workspace", lambda _host, _port: False)
+    monkeypatch.setattr(workspace, "_probe_health", lambda _host, _port, timeout=0.35: None)
     monkeypatch.setattr(workspace, "_port_available", lambda _host, _port: True)
 
     check = workspace.workspace_check(paths=paths, host="127.0.0.1", port=8765)
@@ -155,6 +196,104 @@ def test_prototype_endpoint_reauthorizes_every_request(monkeypatch) -> None:
     }
 
 
+def test_workspace_system_payload_is_safe_exact_product_dashboard() -> None:
+    payload = workspace.system_payload(FakeRuntime())  # type: ignore[arg-type]
+    assert payload["schema"] == workspace.SYSTEM_SCHEMA
+    assert payload["surface"] == "product"
+    assert payload["product"]["status"] == "LICENSED"
+    assert payload["product"]["license"]["edition"] == "RESEARCH"
+    assert payload["product"]["profile"] == {
+        "configured": True,
+        "label": "Test Customer Profile",
+    }
+    assert payload["mcp"]["tool_count"] == 29
+    assert payload["mcp"]["capability_contract"] == "EXACT_PRODUCT_REGISTRY_V0_1"
+    assert payload["bestiary"]["species_count"] == 18
+    assert len(payload["bestiary"]["species"]) == 18
+    assert {row["name"] for row in payload["bestiary"]["species"]} >= {
+        "HUMMINGBIRD", "OCTOPUS", "SPIDER", "BELZEBUB", "FERRET", "GREMLIN"
+    }
+    serialized = json.dumps(payload, sort_keys=True)
+    assert "TEST-SECRET-ID" not in serialized
+    assert "test-client-secret-id" not in serialized
+    assert payload["authority"]["production_runtime_write"] is False
+    assert payload["authority"]["execution_admitted"] is False
+    assert payload["authority"]["canon_allowed"] is False
+
+
+
+def test_workspace_status_and_bestiary_reauthorize_read_only_surfaces() -> None:
+    runtime = FakeRuntime()
+
+    status = workspace.workspace_status_payload(runtime)  # type: ignore[arg-type]
+    bestiary = workspace.workspace_bestiary_payload(runtime)  # type: ignore[arg-type]
+
+    assert status["status"] == "READY"
+    assert status["product"]["status"] == "LICENSED"
+    assert status["capabilities"]["surface"] == "product"
+    assert status["capabilities"]["tool_count"] == 29
+    assert bestiary["status"] == "READY"
+    assert bestiary["species_count"] == 18
+    assert len(bestiary["species"]) == 18
+    serialized = json.dumps(status, sort_keys=True)
+    assert "TEST-SECRET-ID" not in serialized
+    assert "test-client-secret-id" not in serialized
+    assert runtime.calls == [
+        {"tool": "gremlin_status"},
+        {"tool": "gremlin_bestiary"},
+    ]
+
+
+def test_workspace_read_only_introspection_respects_profile_denial() -> None:
+    runtime = FakeRuntime(denied_tools={"gremlin_bestiary"})
+    with pytest.raises(ProductAuthorizationError, match="TOOL_NOT_ALLOWED_BY_PROFILE:gremlin_bestiary"):
+        workspace.workspace_bestiary_payload(runtime)  # type: ignore[arg-type]
+
+
+def test_workspace_error_payload_reuses_shared_mcp_contract() -> None:
+    payload = workspace.workspace_error_payload(
+        ProductAuthorizationError("FEATURE_NOT_ENTITLED:PROTOTYPE_PIPELINE"),
+        tool="gremlin_prototype",
+        request_id="workspace-req-1",
+    )
+    contract = payload["error_contract"]
+    assert payload["schema"] == workspace.WORKSPACE_SCHEMA
+    assert payload["status"] == "ERROR"
+    assert payload["request_id"] == "workspace-req-1"
+    assert contract["schema"] == "GREMLIN_MCP_ERROR_V0_1"
+    assert contract["tool"] == "gremlin_prototype"
+    assert contract["error_code"] == "FEATURE_NOT_ENTITLED"
+    assert contract["retryable"] is False
+    assert contract["request_id"] == "workspace-req-1"
+    assert contract["request_id_source"] == "caller"
+    assert "entitled" in contract["user_action"]
+
+
+def test_workspace_internal_error_generates_correlation_id() -> None:
+    payload = workspace.workspace_error_payload(
+        RuntimeError("WORKSPACE_INTERNAL_ERROR"),
+        tool="gremlin_status",
+    )
+    contract = payload["error_contract"]
+    assert contract["error_code"] == "WORKSPACE_INTERNAL_ERROR"
+    assert contract["category"] == "RUNTIME"
+    assert contract["request_id_source"] == "generated"
+    assert isinstance(contract["request_id"], str)
+    assert contract["request_id"].startswith("err-")
+    assert payload["request_id"] == contract["request_id"]
+    assert "support report" in contract["user_action"]
+
+
+def test_reference_dashboard_uses_reference_registry_without_product_identity() -> None:
+    payload = workspace.system_payload(surface="reference")
+    assert payload["surface"] == "reference"
+    assert payload["product"]["status"] == "UNLICENSED_RESEARCH"
+    assert payload["mcp"]["tool_count"] == 32
+    assert payload["mcp"]["capability_contract"] == "EXACT_REFERENCE_REGISTRY_V0_1"
+    assert payload["bestiary"]["species_count"] == 18
+    assert payload["product"]["license"]["edition"] is None
+
+
 def test_workspace_http_surface_has_security_headers_and_blocks_cross_origin(tmp_path, monkeypatch) -> None:
     paths = _paths(tmp_path)
     web_root, example = _stage_assets(paths)
@@ -176,6 +315,8 @@ def test_workspace_http_surface_has_security_headers_and_blocks_cross_origin(tmp
         web_root=web_root,
         example_path=example,
         runtime=runtime,  # type: ignore[arg-type]
+        instance_id="a" * 32,
+        shutdown_token="b" * 48,
     )
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
@@ -188,9 +329,32 @@ def test_workspace_http_surface_has_security_headers_and_blocks_cross_origin(tmp
             assert response.status == 200
             assert payload["schema"] == workspace.WORKSPACE_SCHEMA
             assert payload["status"] == "READY"
+            assert payload["instance_id"] == "a" * 32
             assert response.headers["X-Frame-Options"] == "DENY"
             assert response.headers["Referrer-Policy"] == "no-referrer"
             assert "default-src 'self'" in response.headers["Content-Security-Policy"]
+
+        with urlopen(f"{base}/api/system", timeout=2.0) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+            assert response.status == 200
+            assert payload["schema"] == workspace.SYSTEM_SCHEMA
+            assert payload["surface"] == "product"
+            assert payload["mcp"]["tool_count"] == 29
+            assert payload["bestiary"]["species_count"] == 18
+            assert "TEST-SECRET-ID" not in json.dumps(payload)
+
+        with urlopen(f"{base}/api/status", timeout=2.0) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+            assert response.status == 200
+            assert payload["capabilities"]["surface"] == "product"
+            assert payload["capabilities"]["tool_count"] == 29
+            assert "TEST-SECRET-ID" not in json.dumps(payload)
+
+        with urlopen(f"{base}/api/bestiary", timeout=2.0) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+            assert response.status == 200
+            assert payload["species_count"] == 18
+            assert len(payload["species"]) == 18
 
         body = json.dumps({
             "schema": REQUEST_SCHEMA,
@@ -209,6 +373,16 @@ def test_workspace_http_surface_has_security_headers_and_blocks_cross_origin(tmp
         with pytest.raises(HTTPError) as denied:
             urlopen(hostile, timeout=2.0)
         assert denied.value.code == 403
+        denied_payload = json.loads(denied.value.read().decode("utf-8"))
+        denied_contract = denied_payload["error_contract"]
+        assert denied_contract["schema"] == "GREMLIN_MCP_ERROR_V0_1"
+        assert denied_contract["tool"] == "gremlin_prototype"
+        assert denied_contract["error_code"] == "CROSS_ORIGIN_WORKSPACE_REQUEST"
+        assert denied_contract["category"] == "AUTHORIZATION"
+        assert denied_contract["retryable"] is False
+        assert denied_contract["request_id_source"] == "generated"
+        assert denied_contract["request_id"].startswith("err-")
+        assert "local GREMLIN Workspace origin" in denied_contract["user_action"]
 
         allowed = Request(
             f"{base}/api/prototype",
@@ -224,7 +398,91 @@ def test_workspace_http_surface_has_security_headers_and_blocks_cross_origin(tmp
             assert response.status == 200
             assert payload["response"]["request_id"] == "http-1"
             assert payload["authority"]["execution_admitted"] is False
+
+        unauthorized_stop = Request(
+            f"{base}/api/shutdown",
+            data=b"{}",
+            method="POST",
+            headers={"Content-Type": "application/json"},
+        )
+        with pytest.raises(HTTPError) as denied_stop:
+            urlopen(unauthorized_stop, timeout=2.0)
+        assert denied_stop.value.code == 403
     finally:
         server.shutdown()
         server.server_close()
         thread.join(timeout=2.0)
+
+
+def test_workspace_managed_lifecycle_status_and_authenticated_stop(tmp_path) -> None:
+    paths = _paths(tmp_path)
+    server, thread, token, instance_id = _server(paths)
+    host, port = server.server_address[:2]
+    state = {
+        "schema": workspace.INSTANCE_SCHEMA,
+        "instance_id": instance_id,
+        "shutdown_token": token,
+        "pid": os.getpid(),
+        "host": host,
+        "port": port,
+        "url": f"http://{host}:{port}",
+        "started_at": "2026-09-19T00:00:00+00:00",
+    }
+    workspace._write_private_json(workspace._instance_path(paths), state)
+
+    try:
+        status = workspace.workspace_status(paths, host=host, port=port)
+        assert status["status"] == "RUNNING"
+        assert status["instance_id"] == instance_id
+        assert status["can_stop"] is True
+        if os.name != "nt":
+            mode = stat.S_IMODE(workspace._instance_path(paths).stat().st_mode)
+            assert mode & 0o077 == 0
+
+        stopped = workspace.workspace_stop(paths, timeout=2.0)
+        assert stopped["status"] == "STOPPED"
+        assert stopped["instance_id"] == instance_id
+        assert not workspace._instance_path(paths).exists()
+        thread.join(timeout=2.0)
+        assert not thread.is_alive()
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2.0)
+
+
+def test_workspace_status_marks_unreachable_instance_state_stale(tmp_path) -> None:
+    paths = _paths(tmp_path)
+    state = {
+        "schema": workspace.INSTANCE_SCHEMA,
+        "instance_id": "c" * 32,
+        "shutdown_token": "d" * 48,
+        "pid": 999999,
+        "host": "127.0.0.1",
+        "port": 65530,
+        "url": "http://127.0.0.1:65530",
+        "started_at": "2026-09-19T00:00:00+00:00",
+    }
+    workspace._write_private_json(workspace._instance_path(paths), state)
+    status = workspace.workspace_status(paths)
+    assert status["status"] == "STALE"
+    assert status["can_stop"] is False
+
+
+def test_workspace_stop_clears_stale_instance_state(tmp_path) -> None:
+    paths = _paths(tmp_path)
+    state = {
+        "schema": workspace.INSTANCE_SCHEMA,
+        "instance_id": "e" * 32,
+        "shutdown_token": "f" * 48,
+        "pid": 999999,
+        "host": "127.0.0.1",
+        "port": 65529,
+        "url": "http://127.0.0.1:65529",
+        "started_at": "2026-09-19T00:00:00+00:00",
+    }
+    workspace._write_private_json(workspace._instance_path(paths), state)
+    stopped = workspace.workspace_stop(paths)
+    assert stopped["status"] == "STALE_CLEARED"
+    assert stopped["can_stop"] is False
+    assert not workspace._instance_path(paths).exists()

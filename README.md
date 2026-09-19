@@ -1,5 +1,36 @@
 # GREMLIN
 
+## Current validated baseline — 2026-09-18
+
+The current documented baseline is merge commit
+`aaa4db7d268bcd50b70e417137c595c2fa677f5a`, produced from validated PR #62 head
+`072ed5435a8f6f12cc3afe113a8d7e6bc75b83d0`.
+
+That exact head passed **9/9 required workflows** before merge, including Linux/Windows standalone runtime, preview packaging, installation, fail-loud audit, geometry scheduler and Bestiary PhaseNav gates.
+
+The standalone Bestiary currently exposes **18 roles** and supports:
+
+- deterministic OCTOPUS routing;
+- Worker ABI v0.2.1;
+- geometry/phase/state scheduling;
+- lossless geometry context packing;
+- exact 36D PhaseNav reference/vector/continuous gates;
+- Linux and Windows standalone/package validation.
+
+Quick bounded self-test:
+
+```text
+gremlin-mcp --self-test-phasenav
+```
+
+Current documentation:
+
+- `docs/reports/GREMLIN_MAIN_STATE_2026-09-18.md`
+- `docs/roadmap/GREMLIN_DEVELOPMENT_ROADMAP_V0_2.md`
+- `docs/monograph/GREMLIN_MONOGRAPH_V0_2.md`
+
+The software validation above does not imply a physical analog hardware witness or universal end-to-end model-performance claim.
+
 GREMLIN is the root system. OCTOPUS and BELZEBUB are writable subordinate tools with independent local `CURRENT` heads, while GREMLIN binds verified tool heads into one aggregate `SUPER_CURRENT`.
 
 ## Native authority
