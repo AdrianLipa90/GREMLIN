@@ -72,6 +72,13 @@ def gremlin_hive_status() -> dict[str, Any]:
         "production_runtime_write": status["production_runtime_write"],
         "execution_admitted": status["execution_admitted"],
         "canon_allowed": status["canon_allowed"],
+        "memory_information_exchange": {
+            "status": "AVAILABLE",
+            "tool": "gremlin_hive_exchange_ingest",
+            "protocol_schema": "PHASENAV_MEMORY_INFORMATION_EXCHANGE_V0_1",
+            "target_layer": "RELATIONAL",
+            "automatic_latch": False,
+        },
     }
 
 
