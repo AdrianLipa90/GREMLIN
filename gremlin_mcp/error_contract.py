@@ -7,7 +7,9 @@ from typing import Any, Callable, TypeVar, cast
 
 from mcp.server.mcpserver.exceptions import ToolError
 
-SCHEMA = "GREMLIN_MCP_ERROR_V0_1"
+from gremlin_mcp.contracts import MCP_ERROR_SCHEMA
+
+SCHEMA = MCP_ERROR_SCHEMA
 _CODE_RE = re.compile(r"^([A-Z][A-Z0-9_]*)(?::.*)?$", re.DOTALL)
 F = TypeVar("F", bound=Callable[..., Any])
 
