@@ -21,6 +21,9 @@ from gremlin_mcp.raphael import (
 )
 
 
+GENERATION = "raphael-test-generation-001"
+
+
 def _h(value: str) -> str:
     return hashlib.blake2b(value.encode("utf-8"), digest_size=32).hexdigest()
 
@@ -35,6 +38,43 @@ def _evidence(statuses=None):
         }
         for producer, status in statuses.items()
     ]
+
+
+def _attestation(
+    generation: str = GENERATION,
+    *,
+    identity_generation: str | None = None,
+    domain_generation: str | None = None,
+    authority_generation: str | None = None,
+    authority_status: str = "VERIFIED",
+) -> dict:
+    return {
+        "schema": "GREMLIN_TRIPLE_PULSE_ATTESTATION_V0_1",
+        "generation": generation,
+        "identity_receipt": {
+            "generation": identity_generation or generation,
+            "status": "VERIFIED",
+        },
+        "domain_receipt": {
+            "generation": domain_generation or generation,
+            "status": "VERIFIED",
+        },
+        "authority_receipt": {
+            "generation": authority_generation or generation,
+            "status": authority_status,
+        },
+    }
+
+
+def _admission_probe(
+    generation: str = GENERATION,
+    *,
+    tether_status: str = "ACTIVE",
+):
+    return lambda: {
+        "tether_status": tether_status,
+        "gremlin_attestation": _attestation(generation),
+    }
 
 
 def _observation():
@@ -67,6 +107,18 @@ def _decree():
     return decision["decree"]
 
 
+def _authorization(decree, *, actor: str = "USER007", observed_target_sha: str = "a" * 40):
+    return authorize(
+        decree,
+        actor=actor,
+        approved=True,
+        observed_target_sha=observed_target_sha,
+        gate_receipt="operator-gate-receipt-001",
+        tether_status="ACTIVE",
+        gremlin_attestation=_attestation(),
+    )
+
+
 class FakeBackend:
     def __init__(self):
         self.sha = "a" * 40
@@ -74,12 +126,23 @@ class FakeBackend:
         self.rolled_back = False
         self.bad_receipt = False
         self.nonfinite_receipt = False
+        self.bad_reservation_scope = False
 
     def current_state(self):
         return {"target_sha": self.sha}
 
     def prepare(self, decree):
-        return {"target_sha": self.sha, "operation_count": len(decree["operations"])}
+        return {
+            "status": "PREPARED",
+            "target_sha": self.sha,
+            "scope_commitment": (
+                "0" * 64
+                if self.bad_reservation_scope
+                else decree["scope_commitment"]
+            ),
+            "reservation_id": "reservation-001",
+            "rollback_state": {"target_sha": self.sha},
+        }
 
     def apply_operation(self, operation):
         self.applied.append(dict(operation))
@@ -162,7 +225,9 @@ def test_accept_requires_real_post_audit_gates():
             rationale_codes=["EVIDENCE_CLOSED"],
             postconditions=["authority.canon_allowed=false"],
         )
-    with pytest.raises(RaphaelWisdomError, match="at least one decree-bound postcondition"):
+    with pytest.raises(
+        RaphaelWisdomError, match="at least one decree-bound postcondition"
+    ):
         judge(
             observation,
             decision=ACCEPT,
@@ -205,53 +270,100 @@ def test_decree_is_commitment_bound_and_keeps_global_authority_closed():
     assert decree["authority"]["canon_allowed"] is False
 
 
-def test_authorization_binds_exact_decree_and_exact_target_state():
+def test_authorization_binds_target_active_tether_and_same_generation_triple_pulse():
     decree = _decree()
-    auth = authorize(
-        decree,
-        actor="USER007",
-        approved=True,
-        observed_target_sha="a" * 40,
-        authority_receipt_commitment=_h("external-authority"),
-    )
+    auth = _authorization(decree)
     assert auth["authority"]["mutation_authorized"] is True
     assert auth["authority"]["canon_allowed"] is False
     assert auth["scope_commitment"] == decree["scope_commitment"]
+    assert auth["tether_status"] == "ACTIVE"
+    assert auth["generation"] == GENERATION
+    assert len(auth["gremlin_attestation_commitment"]) == 64
 
     with pytest.raises(RaphaelAuthorizationError, match="STATE_DRIFT"):
+        _authorization(decree, observed_target_sha="f" * 40)
+
+    with pytest.raises(RaphaelAuthorizationError, match="tether_status must be ACTIVE"):
         authorize(
             decree,
             actor="USER007",
             approved=True,
-            observed_target_sha="f" * 40,
-            authority_receipt_commitment=_h("external-authority"),
+            observed_target_sha="a" * 40,
+            gate_receipt="operator-gate-receipt-001",
+            tether_status="INACTIVE",
+            gremlin_attestation=_attestation(),
+        )
+
+    with pytest.raises(RaphaelAuthorizationError, match="generation mismatch"):
+        authorize(
+            decree,
+            actor="USER007",
+            approved=True,
+            observed_target_sha="a" * 40,
+            gate_receipt="operator-gate-receipt-001",
+            tether_status="ACTIVE",
+            gremlin_attestation=_attestation(authority_generation="other-generation"),
         )
 
 
 def test_hand_executes_exact_scope_then_expires_mutation_authority():
     decree = _decree()
-    auth = authorize(decree, actor="USER007", approved=True, observed_target_sha="a" * 40, authority_receipt_commitment=_h("external-authority"))
+    auth = _authorization(decree)
     backend = FakeBackend()
     receipt = execute(
         decree,
         auth,
         backend=backend,
         ledger=InMemoryMutationLedger(),
+        admission_probe=_admission_probe(),
         test_runner=lambda name: name == "pytest:raphael",
-        postcondition_checker=lambda condition: condition == "authority.canon_allowed=false",
+        postcondition_checker=lambda condition: condition
+        == "authority.canon_allowed=false",
     )
     assert receipt["status"] == "PASS"
     assert receipt["before_target_sha"] == "a" * 40
     assert receipt["after_target_sha"] == "c" * 40
+    assert len(receipt["reservation_commitment"]) == 64
     assert receipt["mutation_authority_expired"] is True
     assert receipt["authority"]["mutation_authorized"] is False
     assert receipt["authority"]["canon_allowed"] is False
     assert backend.rolled_back is False
 
 
+def test_live_admission_generation_drift_aborts_and_burns_authorization():
+    decree = _decree()
+    auth = _authorization(decree)
+    backend = FakeBackend()
+    ledger = InMemoryMutationLedger()
+    with pytest.raises(RaphaelExecutionError, match="LIVE_ADMISSION_FAILED") as caught:
+        execute(
+            decree,
+            auth,
+            backend=backend,
+            ledger=ledger,
+            admission_probe=_admission_probe("other-generation"),
+            test_runner=lambda _: True,
+            postcondition_checker=lambda _: True,
+        )
+    assert caught.value.receipt["status"] == "ABORTED"
+    assert caught.value.receipt["failure_code"] == "LIVE_ADMISSION_FAILED"
+    assert caught.value.receipt["mutation_started"] is False
+
+    with pytest.raises(RaphaelAuthorizationError, match="already consumed"):
+        execute(
+            decree,
+            auth,
+            backend=backend,
+            ledger=ledger,
+            admission_probe=_admission_probe(),
+            test_runner=lambda _: True,
+            postcondition_checker=lambda _: True,
+        )
+
+
 def test_state_drift_before_hand_is_fail_loud_and_burns_stale_authorization():
     decree = _decree()
-    auth = authorize(decree, actor="USER007", approved=True, observed_target_sha="a" * 40, authority_receipt_commitment=_h("external-authority"))
+    auth = _authorization(decree)
     backend = FakeBackend()
     backend.sha = "d" * 40
     ledger = InMemoryMutationLedger()
@@ -261,6 +373,7 @@ def test_state_drift_before_hand_is_fail_loud_and_burns_stale_authorization():
             auth,
             backend=backend,
             ledger=ledger,
+            admission_probe=_admission_probe(),
             test_runner=lambda _: True,
             postcondition_checker=lambda _: True,
         )
@@ -276,14 +389,36 @@ def test_state_drift_before_hand_is_fail_loud_and_burns_stale_authorization():
             auth,
             backend=backend,
             ledger=ledger,
+            admission_probe=_admission_probe(),
             test_runner=lambda _: True,
             postcondition_checker=lambda _: True,
         )
 
 
+def test_invalid_reservation_scope_quarantines_without_mutation():
+    decree = _decree()
+    auth = _authorization(decree)
+    backend = FakeBackend()
+    backend.bad_reservation_scope = True
+    with pytest.raises(RaphaelExecutionError) as caught:
+        execute(
+            decree,
+            auth,
+            backend=backend,
+            ledger=InMemoryMutationLedger(),
+            admission_probe=_admission_probe(),
+            test_runner=lambda _: True,
+            postcondition_checker=lambda _: True,
+        )
+    assert caught.value.receipt["status"] == "QUARANTINED"
+    assert caught.value.receipt["failure_code"] == "RESERVATION_RECEIPT_INVALID"
+    assert caught.value.receipt["mutation_started"] is False
+    assert backend.applied == []
+
+
 def test_bad_operation_receipt_rolls_back():
     decree = _decree()
-    auth = authorize(decree, actor="USER007", approved=True, observed_target_sha="a" * 40, authority_receipt_commitment=_h("external-authority"))
+    auth = _authorization(decree)
     backend = FakeBackend()
     backend.bad_receipt = True
     with pytest.raises(RaphaelExecutionError) as caught:
@@ -292,6 +427,7 @@ def test_bad_operation_receipt_rolls_back():
             auth,
             backend=backend,
             ledger=InMemoryMutationLedger(),
+            admission_probe=_admission_probe(),
             test_runner=lambda _: True,
             postcondition_checker=lambda _: True,
         )
@@ -302,7 +438,7 @@ def test_bad_operation_receipt_rolls_back():
 
 def test_nonfinite_backend_receipt_rolls_back_before_lineage_commit():
     decree = _decree()
-    auth = authorize(decree, actor="USER007", approved=True, observed_target_sha="a" * 40, authority_receipt_commitment=_h("external-authority"))
+    auth = _authorization(decree)
     backend = FakeBackend()
     backend.nonfinite_receipt = True
     with pytest.raises(RaphaelExecutionError) as caught:
@@ -311,6 +447,7 @@ def test_nonfinite_backend_receipt_rolls_back_before_lineage_commit():
             auth,
             backend=backend,
             ledger=InMemoryMutationLedger(),
+            admission_probe=_admission_probe(),
             test_runner=lambda _: True,
             postcondition_checker=lambda _: True,
         )
@@ -321,7 +458,7 @@ def test_nonfinite_backend_receipt_rolls_back_before_lineage_commit():
 
 def test_failed_post_audit_rolls_back_and_emits_committed_failure_receipt():
     decree = _decree()
-    auth = authorize(decree, actor="USER007", approved=True, observed_target_sha="a" * 40, authority_receipt_commitment=_h("external-authority"))
+    auth = _authorization(decree)
     backend = FakeBackend()
     with pytest.raises(RaphaelExecutionError) as caught:
         execute(
@@ -329,6 +466,7 @@ def test_failed_post_audit_rolls_back_and_emits_committed_failure_receipt():
             auth,
             backend=backend,
             ledger=InMemoryMutationLedger(),
+            admission_probe=_admission_probe(),
             test_runner=lambda _: False,
             postcondition_checker=lambda _: True,
         )
@@ -346,18 +484,12 @@ def test_tampered_decree_is_rejected_before_mutation():
     tampered = copy.deepcopy(decree)
     tampered["allowed_paths"].append("undeclared.py")
     with pytest.raises(ValueError, match="decree_commitment mismatch"):
-        authorize(
-            tampered,
-            actor="USER007",
-            approved=True,
-            observed_target_sha="a" * 40,
-            authority_receipt_commitment=_h("external-authority"),
-        )
+        _authorization(tampered)
 
 
 def test_cancelled_decree_cannot_execute():
     decree = _decree()
-    auth = authorize(decree, actor="USER007", approved=True, observed_target_sha="a" * 40, authority_receipt_commitment=_h("external-authority"))
+    auth = _authorization(decree)
     ledger = InMemoryMutationLedger()
     cancellation = cancel_decree(decree, reason_codes=["NEW_EVIDENCE"], ledger=ledger)
     assert cancellation["status"] == "CANCELLED_BEFORE_MUTATION"
@@ -367,6 +499,7 @@ def test_cancelled_decree_cannot_execute():
             auth,
             backend=FakeBackend(),
             ledger=ledger,
+            admission_probe=_admission_probe(),
             test_runner=lambda _: True,
             postcondition_checker=lambda _: True,
         )
@@ -374,13 +507,14 @@ def test_cancelled_decree_cannot_execute():
 
 def test_decree_and_authorization_are_single_use():
     decree = _decree()
-    auth = authorize(decree, actor="USER007", approved=True, observed_target_sha="a" * 40, authority_receipt_commitment=_h("external-authority"))
+    auth = _authorization(decree)
     ledger = InMemoryMutationLedger()
     first = execute(
         decree,
         auth,
         backend=FakeBackend(),
         ledger=ledger,
+        admission_probe=_admission_probe(),
         test_runner=lambda _: True,
         postcondition_checker=lambda _: True,
     )
@@ -391,6 +525,7 @@ def test_decree_and_authorization_are_single_use():
             auth,
             backend=FakeBackend(),
             ledger=ledger,
+            admission_probe=_admission_probe(),
             test_runner=lambda _: True,
             postcondition_checker=lambda _: True,
         )
@@ -409,7 +544,9 @@ def test_target_sha_accepts_only_exact_sha1_or_sha256_lengths():
 
 
 def test_required_wisdom_quorum_cannot_be_weakened_by_caller():
-    with pytest.raises(RaphaelWisdomError, match="cannot remove mandatory wisdom producers"):
+    with pytest.raises(
+        RaphaelWisdomError, match="cannot remove mandatory wisdom producers"
+    ):
         observe(
             objective="attempt quorum downgrade",
             target_repository="AdrianLipa90/GREMLIN",
@@ -423,7 +560,7 @@ def test_required_wisdom_quorum_cannot_be_weakened_by_caller():
 
 def test_string_fail_is_not_truthy_test_pass():
     decree = _decree()
-    auth = authorize(decree, actor="USER007", approved=True, observed_target_sha="a" * 40, authority_receipt_commitment=_h("external-authority"))
+    auth = _authorization(decree)
     backend = FakeBackend()
     with pytest.raises(RaphaelExecutionError) as caught:
         execute(
@@ -431,6 +568,7 @@ def test_string_fail_is_not_truthy_test_pass():
             auth,
             backend=backend,
             ledger=InMemoryMutationLedger(),
+            admission_probe=_admission_probe(),
             test_runner=lambda _: "FAIL",
             postcondition_checker=lambda _: True,
         )
@@ -441,13 +579,14 @@ def test_string_fail_is_not_truthy_test_pass():
 
 def test_consumed_decree_cannot_be_cancelled_after_mutation():
     decree = _decree()
-    auth = authorize(decree, actor="USER007", approved=True, observed_target_sha="a" * 40, authority_receipt_commitment=_h("external-authority"))
+    auth = _authorization(decree)
     ledger = InMemoryMutationLedger()
     receipt = execute(
         decree,
         auth,
         backend=FakeBackend(),
         ledger=ledger,
+        admission_probe=_admission_probe(),
         test_runner=lambda _: True,
         postcondition_checker=lambda _: True,
     )
@@ -464,5 +603,7 @@ def test_raphael_cannot_self_authorize():
             actor="RAPHAEL",
             approved=True,
             observed_target_sha="a" * 40,
-            authority_receipt_commitment=_h("external-authority"),
+            gate_receipt="operator-gate-receipt-001",
+            tether_status="ACTIVE",
+            gremlin_attestation=_attestation(),
         )
