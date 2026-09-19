@@ -128,3 +128,18 @@ With five workers, the ideal zero-overhead scalar ceiling is therefore
 So the predeclared live >=10x gate cannot be reached on this 5-worker benchmark merely by improving scalar scheduling. Crossing 10x requires an additional execution gain such as native PhaseNav execution, SIMD/vector batching, lower-cost specialist transforms, or a larger verified hardware parallelism budget.
 
 The architecture remains CANDIDATE. The next gate should preserve the same frozen workload and test orbital scheduling with native/vector specialist batches while retaining lineage and output-equivalence checks.
+
+## Post-merge status — 2026-09-18
+
+This specification is retained as historical Bestiary v0.1 evidence.
+
+The later vector/PhaseNav gate requested by this document has now been implemented and validated. The current standalone runtime exposes 18 roles, the PhaseNav scalar/vector/continuous numerical gate passes 18/18 roles, and the validated integration was merged to `main` as `aaa4db7d268bcd50b70e417137c595c2fa677f5a`.
+
+See:
+
+- `spec/GREMLIN_BESTIARY_PHASENAV_PHASE_GATES_V0_1.md`
+- `docs/reports/GREMLIN_BESTIARY_PHASENAV_STANDALONE_VALIDATION_REPORT_V0_1.md`
+- `docs/reports/GREMLIN_MAIN_STATE_2026-09-18.md`
+- `docs/monograph/GREMLIN_MONOGRAPH_V0_2.md`
+
+Historical benchmark numbers and claim scopes in this v0.1 document remain unchanged.

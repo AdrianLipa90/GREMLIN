@@ -59,3 +59,21 @@ The next gate should benchmark the same orbital/species scheduler against an act
 
 Harness: `tools/gremlin_bestiary_vector_live_v04.py`.
 Receipt: `provenance/GREMLIN_BESTIARY_VECTOR_LIVE_V0_4.json`.
+
+## Post-v0.4 gate closure — 2026-09-18
+
+The “next gate” described above has now been executed through the exact 36D Bestiary PhaseNav implementation.
+
+The current evidence includes:
+
+- scalar and NumPy vector realizations of the same declared phase field;
+- scalar/vector max coordinate error `0.0` on the frozen fixture;
+- a continuous RK4 comparison;
+- 18/18 species passing the three-way numerical gate;
+- nine analog-core numerical candidates retaining their specialist invariant;
+- Linux and Windows isolated-wheel validation;
+- Linux and Windows compiled-standalone validation.
+
+This closes the specific v0.4 requirement for an actually vectorizable PhaseNav operator kernel. It does **not** create a physical analog claim.
+
+Current evidence is summarized in `docs/reports/GREMLIN_MAIN_STATE_2026-09-18.md`.

@@ -322,3 +322,31 @@ The next scientific/engineering gate is not another import test. It is to bind t
 5. Candidate live operator bindings are not canonized semantic assignments.
 
 These are deliberate boundaries, not silent fallbacks.
+
+## 14. Post-merge addendum — 2026-09-18
+
+This report remains a frozen description of the evidence state at its original validation point.
+
+The packaging limitation recorded in Sections 10 and 13 was subsequently closed before merge.
+
+Exact head:
+
+`072ed5435a8f6f12cc3afe113a8d7e6bc75b83d0`
+
+completed all nine required workflows successfully, including:
+
+- `GREMLIN Standalone Runtime v0.1` run #46;
+- `GREMLIN Packaging Preview v0.1` run #92;
+- `GREMLIN Installation Architecture v0.1` run #289;
+- `GREMLIN Bestiary PhaseNav Phase Gates v0.1` run #106;
+- `GREMLIN Geometry Phase Scheduler v0.1` run #26;
+- the remaining MCP, OOD, product-licensing and fail-loud workflows.
+
+PR #62 was then merged to `main` at 2026-09-18T14:25:01Z as:
+
+`aaa4db7d268bcd50b70e417137c595c2fa677f5a`.
+
+The post-merge state is recorded separately in
+`docs/reports/GREMLIN_MAIN_STATE_2026-09-18.md`.
+
+This addendum does not widen the physical or authority claims of the original report.
