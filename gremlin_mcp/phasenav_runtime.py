@@ -33,6 +33,8 @@ def status() -> dict[str, Any]:
         "vector_backend_available": bool(manifest["vectorized_batch_realization"]),
         "threeway_continuous_reference_available": True,
         "analog_invariant_suite_available": True,
+        "spectroscopic_holonomy_packet_schema": "PHASENAV_SPECTROSCOPIC_HOLONOMY_STATE_V0_1",
+        "spectroscopic_inverse_problem_available": True,
         "live_noema_required_for_core": False,
         "live_replay_optional": True,
         "live_replay_default_root": "/dev/shm/ciel_noema",
@@ -100,3 +102,13 @@ def live_replay(
         steps=steps,
         require_canonical_root=(surface_root == "/dev/shm/ciel_noema"),
     )
+
+
+def spectroscopic_holonomy(
+    packet: dict[str, Any],
+    observables: list[str],
+) -> dict[str, Any]:
+    """Validate a PhaseNav spectroscopic packet and build a read-only Bestiary plan."""
+    from gremlin_mcp.spectroscopic_holonomy import build_spectroscopic_inverse_plan
+
+    return build_spectroscopic_inverse_plan(packet, observables)
