@@ -327,7 +327,7 @@ def test_decree_and_authorization_are_single_use():
 
 
 def test_target_sha_accepts_only_exact_sha1_or_sha256_lengths():
-    with pytest.raises(ValueError, match="40..64 hexadecimal"):
+    with pytest.raises(ValueError, match="exactly 40 or 64"):
         observe(
             objective="reject malformed state digest",
             target_repository="AdrianLipa90/GREMLIN",
