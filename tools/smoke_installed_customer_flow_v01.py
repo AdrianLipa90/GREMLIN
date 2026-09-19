@@ -130,33 +130,40 @@ def smoke(*, ctl: Path, platform: str, license_key: str) -> dict[str, Any]:
         if "customer-existing-server" not in servers or "gremlin" not in servers:
             raise RuntimeError("MCP merge lost the existing server or failed to add GREMLIN")
 
-        # ACTION_REQUIRED is an intentional fail-loud readiness state and the
-        # gremlinctl CLI represents it with exit code 1 while still returning
-        # the structured readiness receipt.
+        # Customer setup readiness is separate from provider-reported live-session
+        # evidence. Cursor remains REGISTERED_UNVERIFIED, while a real stdio
+        # handshake against the installed gremlin-product-mcp proves the runtime.
         ready = run_json(
             [str(ctl), "ready", "--platform", platform, "--json"],
-            allowed_codes={1},
         )
-        if ready.get("status") != "ACTION_REQUIRED":
+        if ready.get("status") != "READY":
             raise RuntimeError(
-                "readiness must stay ACTION_REQUIRED until a real client verifies "
-                f"the live MCP session: {ready}"
+                "readiness must become READY after provider configuration and "
+                f"a successful product MCP runtime handshake: {ready}"
             )
         if (ready.get("product") or {}).get("status") != "LICENSED":
             raise RuntimeError("readiness lost the LICENSED product state")
-        if not bool((ready.get("runtime") or {}).get("available")):
+        runtime = ready.get("runtime") or {}
+        if not bool(runtime.get("available")):
             raise RuntimeError("readiness did not detect the installed runtime")
+        handshake = runtime.get("handshake") or {}
+        if handshake.get("status") != "PASS" or handshake.get("registry_exact") is not True:
+            raise RuntimeError(f"installed product MCP handshake did not pass exactly: {handshake}")
         providers = ready.get("providers") or {}
+        configured_ids = set(providers.get("configured_ids") or [])
         connected_ids = set(providers.get("connected_ids") or [])
         unverified_ids = set(providers.get("unverified_ids") or [])
+        if "cursor" not in configured_ids:
+            raise RuntimeError("readiness did not retain Cursor as configured")
         if "cursor" in connected_ids:
             raise RuntimeError("readiness falsely promoted Cursor configuration to CONNECTED")
         if "cursor" not in unverified_ids:
             raise RuntimeError("readiness did not retain Cursor as registered/unverified")
-        actions = set(ready.get("actions") or [])
-        expected_action = "Verify a live GREMLIN MCP connection in one detected AI client"
-        if expected_action not in actions:
-            raise RuntimeError(f"readiness did not request live MCP verification: {ready}")
+        if ready.get("actions"):
+            raise RuntimeError(f"READY state still contains blocking actions: {ready}")
+        notices = ready.get("notices") or []
+        if not any("not independently reported a live GREMLIN session" in str(item) for item in notices):
+            raise RuntimeError("readiness lost the explicit live-session limitation")
 
         disconnected = run_json(
             [str(ctl), "integrations", "disconnect", "cursor", "--platform", platform, "--json"]
@@ -179,7 +186,9 @@ def smoke(*, ctl: Path, platform: str, license_key: str) -> dict[str, Any]:
             "provider": "cursor",
             "provider_connect_status": "CONFIGURED_UNVERIFIED",
             "provider_test_status": "REGISTERED_UNVERIFIED",
-            "readiness_status_before_disconnect": "ACTION_REQUIRED",
+            "readiness_status_before_disconnect": "READY",
+            "runtime_handshake_status": "PASS",
+            "provider_configured": True,
             "live_connection_claim": False,
             "existing_config_preserved": True,
         }
