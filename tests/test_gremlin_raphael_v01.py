@@ -198,17 +198,33 @@ def test_hand_executes_exact_scope_then_expires_mutation_authority():
     assert backend.rolled_back is False
 
 
-def test_state_drift_before_hand_is_fail_loud():
+def test_state_drift_before_hand_is_fail_loud_and_burns_stale_authorization():
     decree = _decree()
     auth = authorize(decree, actor="USER007", approved=True, observed_target_sha="a" * 40, authority_receipt_commitment=_h("external-authority"))
     backend = FakeBackend()
     backend.sha = "d" * 40
-    with pytest.raises(RaphaelExecutionError, match="STATE_DRIFT"):
+    ledger = InMemoryMutationLedger()
+    with pytest.raises(RaphaelExecutionError, match="STATE_DRIFT") as caught:
         execute(
             decree,
             auth,
             backend=backend,
-            ledger=InMemoryMutationLedger(),
+            ledger=ledger,
+            test_runner=lambda _: True,
+            postcondition_checker=lambda _: True,
+        )
+    assert caught.value.receipt["status"] == "ABORTED"
+    assert caught.value.receipt["failure_code"] == "STATE_DRIFT"
+    assert caught.value.receipt["mutation_started"] is False
+    assert caught.value.receipt["mutation_authority_expired"] is True
+
+    backend.sha = "a" * 40
+    with pytest.raises(RaphaelAuthorizationError, match="already consumed"):
+        execute(
+            decree,
+            auth,
+            backend=backend,
+            ledger=ledger,
             test_runner=lambda _: True,
             postcondition_checker=lambda _: True,
         )
@@ -307,6 +323,18 @@ def test_decree_and_authorization_are_single_use():
             ledger=ledger,
             test_runner=lambda _: True,
             postcondition_checker=lambda _: True,
+        )
+
+
+def test_target_sha_accepts_only_exact_sha1_or_sha256_lengths():
+    with pytest.raises(ValueError, match="40..64 hexadecimal"):
+        observe(
+            objective="reject malformed state digest",
+            target_repository="AdrianLipa90/GREMLIN",
+            target_branch="feat/test",
+            target_sha="a" * 41,
+            operations=_operations(),
+            evidence_receipts=_evidence(),
         )
 
 
