@@ -17,6 +17,7 @@ from .profile_activation import import_client_profile, installed_profile_status
 from .provider_integrations import connect_provider, disconnect_provider, list_providers, test_provider
 from .readiness import evaluate_readiness
 from .secrets import resolve_secret_store, secret_store_status
+from .support_report import build_support_report, write_support_report
 
 
 DEFAULT_CONFIG_TEXT = """schema = \"GREMLIN_CONFIG_V0_1\"\n\n[runtime]\ntransport = \"stdio\"\nstate = \"auto\"\n\n[network]\ninternet = true\nlocal_http = false\n\n[research]\nmax_workers = 4\nmax_sources = 24\n\n[logging]\nlevel = \"info\"\n"""
@@ -56,6 +57,16 @@ def _doctor(args: argparse.Namespace) -> int:
     payload = run_doctor(platform=args.platform)
     _emit(payload, as_json=args.json)
     return 1 if payload["status"] == "FAIL" else 0
+
+
+def _support_report(args: argparse.Namespace) -> int:
+    paths = resolve_paths(platform=args.platform)
+    payload = build_support_report(paths)
+    if args.write:
+        artifact = write_support_report(paths, payload)
+        payload = {**payload, "artifact_path": str(artifact)}
+    _emit(payload, as_json=args.json)
+    return 0
 
 
 def _ready(args: argparse.Namespace) -> int:
@@ -335,6 +346,14 @@ def build_parser() -> argparse.ArgumentParser:
     doctor.add_argument("--platform", choices=("windows", "linux"))
     doctor.add_argument("--json", action="store_true")
     doctor.set_defaults(func=_doctor)
+
+    support = sub.add_parser("support", help="build a sanitized customer support report")
+    support_sub = support.add_subparsers(dest="support_command", required=True)
+    support_report = support_sub.add_parser("report", help="show or persist a sanitized support report")
+    support_report.add_argument("--platform", choices=("windows", "linux"))
+    support_report.add_argument("--write", action="store_true", help="persist the report under the canonical diagnostics directory")
+    support_report.add_argument("--json", action="store_true")
+    support_report.set_defaults(func=_support_report)
     return parser
 
 
