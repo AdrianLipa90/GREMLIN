@@ -630,6 +630,79 @@ def _verify_authorization(
     return auth
 
 
+def _probe_live_admission(
+    authorization: Mapping[str, Any],
+    admission_probe: Callable[[], Mapping[str, Any]],
+) -> dict[str, Any]:
+    try:
+        raw = admission_probe()
+    except Exception as exc:
+        raise RaphaelAuthorizationError(
+            f"live admission probe failed: {type(exc).__name__}: {exc}"
+        ) from exc
+    if not isinstance(raw, Mapping):
+        raise RaphaelAuthorizationError("live admission probe must return an object")
+    if set(raw) != {"tether_status", "gremlin_attestation"}:
+        raise RaphaelAuthorizationError("live admission probe exact field schema mismatch")
+    if raw.get("tether_status") != "ACTIVE":
+        raise RaphaelAuthorizationError("live tether is not ACTIVE")
+    attestation = _normalize_triple_pulse(raw.get("gremlin_attestation"))
+    if attestation["generation"] != authorization.get("generation"):
+        raise RaphaelAuthorizationError("live admission generation drift")
+    if attestation["attestation_commitment"] != authorization.get(
+        "gremlin_attestation_commitment"
+    ):
+        raise RaphaelAuthorizationError("live triple-pulse attestation drift")
+    return {
+        "tether_status": "ACTIVE",
+        "generation": attestation["generation"],
+        "gremlin_attestation_commitment": attestation["attestation_commitment"],
+    }
+
+
+def _normalize_reservation(
+    value: Mapping[str, Any],
+    *,
+    target_sha: str,
+    scope_commitment: str,
+) -> dict[str, Any]:
+    if not isinstance(value, Mapping):
+        raise RaphaelExecutionError("backend prepare receipt must be an object")
+    required = {
+        "status", "target_sha", "scope_commitment", "reservation_id", "rollback_state"
+    }
+    if set(value) != required:
+        raise RaphaelExecutionError("backend prepare receipt exact field schema mismatch")
+    if value.get("status") != "PREPARED":
+        raise RaphaelExecutionError("backend prepare receipt status must be PREPARED")
+    prepared_sha = _hash40_64(value.get("target_sha"), "prepare.target_sha")
+    if prepared_sha != target_sha:
+        raise RaphaelExecutionError("backend reservation target SHA mismatch")
+    prepared_scope = _hash64(value.get("scope_commitment"), "prepare.scope_commitment")
+    if prepared_scope != scope_commitment:
+        raise RaphaelExecutionError("backend reservation scope commitment mismatch")
+    reservation_id = _text(value.get("reservation_id"), "prepare.reservation_id")
+    rollback_state = value.get("rollback_state")
+    if not isinstance(rollback_state, Mapping):
+        raise RaphaelExecutionError("prepare.rollback_state must be an object")
+    normalized_rollback = json.loads(
+        _canonical(dict(rollback_state)).decode("utf-8")
+    )
+    core = {
+        "status": "PREPARED",
+        "target_sha": prepared_sha,
+        "scope_commitment": prepared_scope,
+        "reservation_id": reservation_id,
+        "rollback_state": normalized_rollback,
+    }
+    return {
+        **core,
+        "reservation_commitment": _commit(
+            b"GREMLIN-RAPHAEL-RESERVATION/v0.1", core
+        ),
+    }
+
+
 def _state_sha(state: Mapping[str, Any]) -> str:
     if not isinstance(state, Mapping):
         raise RaphaelExecutionError("backend current_state must be an object")
@@ -652,6 +725,7 @@ def _receipt(
     rollback: Mapping[str, Any] | None,
     failure_code: str | None,
     mutation_started: bool,
+    reservation_commitment: str | None,
 ) -> dict[str, Any]:
     core = {
         "schema": RECEIPT_SCHEMA,
@@ -659,6 +733,7 @@ def _receipt(
         "phase": "POST_AUDIT",
         "decree_commitment": decree["decree_commitment"],
         "authorization_commitment": authorization["authorization_commitment"],
+        "reservation_commitment": reservation_commitment,
         "before_target_sha": before_sha,
         "after_target_sha": after_sha,
         "applied_results": [dict(item) for item in applied_results],
