@@ -16,9 +16,16 @@ from tools.gremlin_client_protocol_v01 import REQUEST_SCHEMA
 
 
 class FakeRuntime:
-    def __init__(self, *, licensed: bool = True, prototype_allowed: bool = True) -> None:
+    def __init__(
+        self,
+        *,
+        licensed: bool = True,
+        prototype_allowed: bool = True,
+        denied_tools: set[str] | None = None,
+    ) -> None:
         self.licensed = licensed
         self.prototype_allowed = prototype_allowed
+        self.denied_tools = set(denied_tools or set())
         self.calls: list[dict[str, object]] = []
 
     def status(self) -> dict[str, object]:
@@ -28,7 +35,10 @@ class FakeRuntime:
 
     def authorize(self, **kwargs) -> None:
         self.calls.append(dict(kwargs))
-        if not self.prototype_allowed:
+        tool = kwargs.get("tool")
+        if isinstance(tool, str) and tool in self.denied_tools:
+            raise ProductAuthorizationError(f"TOOL_NOT_ALLOWED_BY_PROFILE:{tool}")
+        if not self.prototype_allowed and kwargs.get("feature") == "PROTOTYPE_PIPELINE":
             raise ProductAuthorizationError("FEATURE_NOT_ENTITLED:PROTOTYPE_PIPELINE")
 
 
@@ -155,6 +165,31 @@ def test_prototype_endpoint_reauthorizes_every_request(monkeypatch) -> None:
     }
 
 
+def test_workspace_status_and_bestiary_reauthorize_read_only_surfaces() -> None:
+    runtime = FakeRuntime()
+
+    status = workspace.workspace_status_payload(runtime)  # type: ignore[arg-type]
+    bestiary = workspace.workspace_bestiary_payload(runtime)  # type: ignore[arg-type]
+
+    assert status["status"] == "READY"
+    assert status["product"]["status"] == "LICENSED"
+    assert status["capabilities"]["surface"] == "product"
+    assert status["capabilities"]["tool_count"] == 29
+    assert bestiary["status"] == "READY"
+    assert bestiary["species_count"] == 18
+    assert len(bestiary["species"]) == 18
+    assert runtime.calls == [
+        {"tool": "gremlin_status"},
+        {"tool": "gremlin_bestiary"},
+    ]
+
+
+def test_workspace_read_only_introspection_respects_profile_denial() -> None:
+    runtime = FakeRuntime(denied_tools={"gremlin_bestiary"})
+    with pytest.raises(ProductAuthorizationError, match="TOOL_NOT_ALLOWED_BY_PROFILE:gremlin_bestiary"):
+        workspace.workspace_bestiary_payload(runtime)  # type: ignore[arg-type]
+
+
 def test_workspace_http_surface_has_security_headers_and_blocks_cross_origin(tmp_path, monkeypatch) -> None:
     paths = _paths(tmp_path)
     web_root, example = _stage_assets(paths)
@@ -191,6 +226,18 @@ def test_workspace_http_surface_has_security_headers_and_blocks_cross_origin(tmp
             assert response.headers["X-Frame-Options"] == "DENY"
             assert response.headers["Referrer-Policy"] == "no-referrer"
             assert "default-src 'self'" in response.headers["Content-Security-Policy"]
+
+        with urlopen(f"{base}/api/status", timeout=2.0) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+            assert response.status == 200
+            assert payload["capabilities"]["surface"] == "product"
+            assert payload["capabilities"]["tool_count"] == 29
+
+        with urlopen(f"{base}/api/bestiary", timeout=2.0) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+            assert response.status == 200
+            assert payload["species_count"] == 18
+            assert len(payload["species"]) == 18
 
         body = json.dumps({
             "schema": REQUEST_SCHEMA,
