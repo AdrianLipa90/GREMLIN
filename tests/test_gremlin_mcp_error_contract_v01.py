@@ -40,6 +40,16 @@ def test_authorization_error_envelope_is_actionable_and_fail_closed() -> None:
     assert payload["authority"]["canon_allowed"] is False
 
 
+def test_error_code_prefix_survives_human_detail_with_spaces() -> None:
+    payload = error_envelope(
+        ProductAuthorizationError("PRODUCT_CONFIGURATION_ERROR:required client profile is missing"),
+        tool="gremlin_status",
+    )
+    assert payload["error_code"] == "PRODUCT_CONFIGURATION_ERROR"
+    assert payload["detail_code"] == "PRODUCT_CONFIGURATION_ERROR:required client profile is missing"
+    assert "Diagnostics" in payload["user_action"]
+
+
 def test_reference_mcp_error_remains_protocol_error_with_machine_readable_body() -> None:
     from mcp import Client
     from gremlin_mcp.server import mcp
