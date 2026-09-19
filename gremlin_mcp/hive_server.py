@@ -9,7 +9,7 @@ from mcp.server import MCPServer
 
 from gremlin_mcp import __version__
 from gremlin_mcp.hive_authority import HiveAuthorityRuntime
-from gremlin_mcp.memory_exchange import ingest_exchange_envelope
+from gremlin_mcp.memory_exchange import ingest_exchange_bundle, ingest_exchange_envelope
 from gremlin_mcp.orbital_hive_memory import HIVE_SCHEMA
 
 runtime = HiveAuthorityRuntime(orbit_count=36)
@@ -91,6 +91,20 @@ def gremlin_hive_exchange_ingest(
     return ingest_exchange_envelope(
         runtime,
         envelope,
+        priority=priority,
+        consumer_id="GREMLIN-HIVE",
+    )
+
+
+@mcp.tool()
+def gremlin_hive_exchange_bundle_ingest(
+    bundle: dict[str, Any],
+    priority: float = 0.82,
+) -> dict[str, Any]:
+    """Verify a portable lineage proof and ingest only its RELATIONAL target."""
+    return ingest_exchange_bundle(
+        runtime,
+        bundle,
         priority=priority,
         consumer_id="GREMLIN-HIVE",
     )
