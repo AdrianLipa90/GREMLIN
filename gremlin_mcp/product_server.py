@@ -501,7 +501,7 @@ def gremlin_collect(task_ids: WorkerIdentifierList) -> dict[str, Any]:
     annotations=tool_annotations("gremlin_synthesize"),
 )
 @mcp_error_boundary("gremlin_synthesize")
-def gremlin_synthesize(specialist_task_ids: WorkerIdentifierList, request_id: str | None = None) -> dict[str, Any]:
+def gremlin_synthesize(specialist_task_ids: WorkerIdentifierList, request_id: RequestId | None = None) -> dict[str, Any]:
     product_runtime.authorize(tool="gremlin_synthesize", feature="WORKER_ORCHESTRATION", species="BELZEBUB")
     return enqueue_synthesis(broker, specialist_task_ids, request_id=request_id)
 
