@@ -3,6 +3,8 @@
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => Array.from(document.querySelectorAll(selector));
 const SVG_NS = "http://www.w3.org/2000/svg";
+const MAX_ACTIVITY = 12;
+const TECHNICAL_MODE_STORAGE_KEY = "gremlin.workspace.technical-mode";
 
 const candidateEditor = $("#candidate-editor");
 const problemBrief = $("#problem-brief");
@@ -13,6 +15,11 @@ const runStatus = $("#run-status");
 const verdict = $("#verdict");
 const inputState = $("#input-state");
 const footerMessage = $("#footer-message");
+const technicalToggle = $("#technical-toggle");
+const refreshSystemButton = $("#refresh-system");
+const retryErrorButton = $("#retry-error");
+const activityList = $("#activity-list");
+const clearActivityButton = $("#clear-activity");
 
 const productBadge = $("#product-badge");
 const mcpBadge = $("#mcp-badge");
@@ -26,8 +33,155 @@ const systemAuthority = $("#system-authority");
 const bestiaryTopology = $("#bestiary-topology");
 const bestiaryGrid = $("#bestiary-grid");
 
+const sessionState = {
+  activity: [],
+  technical: false,
+};
+
 function pretty(value) {
   return JSON.stringify(value, null, 2);
+}
+
+
+function nowLabel() {
+  return new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+}
+
+function recordActivity(kind, message) {
+  sessionState.activity.unshift({
+    kind: ["pass", "fail", "info"].includes(kind) ? kind : "info",
+    message: String(message),
+    time: nowLabel(),
+  });
+  sessionState.activity = sessionState.activity.slice(0, MAX_ACTIVITY);
+  renderActivity();
+}
+
+function renderActivity() {
+  activityList.replaceChildren();
+  if (!sessionState.activity.length) {
+    const empty = document.createElement("li");
+    empty.className = "activity-empty";
+    empty.textContent = "No activity yet.";
+    activityList.appendChild(empty);
+    return;
+  }
+  sessionState.activity.forEach((item) => {
+    const row = document.createElement("li");
+    row.className = item.kind;
+    const timeNode = document.createElement("span");
+    timeNode.className = "activity-time";
+    timeNode.textContent = item.time;
+    const messageNode = document.createElement("span");
+    messageNode.className = "activity-message";
+    messageNode.textContent = item.message;
+    row.append(timeNode, messageNode);
+    activityList.appendChild(row);
+  });
+}
+
+function readTechnicalModePreference() {
+  try {
+    return window.sessionStorage.getItem(TECHNICAL_MODE_STORAGE_KEY) === "true";
+  } catch (_) {
+    return false;
+  }
+}
+
+function persistTechnicalModePreference(enabled) {
+  try {
+    window.sessionStorage.setItem(TECHNICAL_MODE_STORAGE_KEY, enabled ? "true" : "false");
+  } catch (_) {
+    // Optional preference storage must never block Workspace operation.
+  }
+}
+
+function setTechnicalMode(enabled, { persist = true } = {}) {
+  sessionState.technical = Boolean(enabled);
+  document.body.classList.toggle("technical-mode", sessionState.technical);
+  technicalToggle.setAttribute("aria-pressed", sessionState.technical ? "true" : "false");
+  technicalToggle.textContent = sessionState.technical ? "Reader view" : "Technical view";
+  if (persist) persistTechnicalModePreference(sessionState.technical);
+
+  if (!sessionState.technical) {
+    const active = $(".tab.active");
+    if (active && active.classList.contains("technical-only")) {
+      const prototypeTab = $('.tab[data-tab="prototype"]');
+      if (prototypeTab) prototypeTab.click();
+    }
+  }
+}
+
+class WorkspaceHttpError extends Error {
+  constructor(message, { status, payload, url }) {
+    super(message);
+    this.name = "WorkspaceHttpError";
+    this.status = status;
+    this.payload = payload;
+    this.url = url;
+  }
+
+  get contract() {
+    return this.payload?.error_contract || null;
+  }
+}
+
+async function fetchJson(url, options = {}) {
+  const response = await fetch(url, {
+    cache: "no-store",
+    ...options,
+  });
+  let payload;
+  try {
+    payload = await response.json();
+  } catch (_) {
+    throw new WorkspaceHttpError(
+      `Invalid JSON response from ${url} (HTTP ${response.status})`,
+      { status: response.status, payload: null, url },
+    );
+  }
+  if (!response.ok) {
+    const contract = payload?.error_contract || null;
+    const message =
+      contract?.detail_code ||
+      payload?.error ||
+      payload?.reason ||
+      `HTTP ${response.status}`;
+    throw new WorkspaceHttpError(message, {
+      status: response.status,
+      payload,
+      url,
+    });
+  }
+  return payload;
+}
+
+function clearErrorGuidance() {
+  const guidance = $("#error-guidance");
+  guidance.hidden = true;
+  $("#error-code").textContent = "ERROR";
+  $("#error-action").textContent = "Inspect GREMLIN Diagnostics before retrying.";
+  $("#error-retry").textContent = "";
+  retryErrorButton.hidden = true;
+  retryErrorButton.disabled = false;
+}
+
+function showErrorGuidance(error) {
+  const guidance = $("#error-guidance");
+  const contract = error instanceof WorkspaceHttpError ? error.contract : null;
+  if (!contract) {
+    guidance.hidden = true;
+    return null;
+  }
+  $("#error-code").textContent = contract.error_code || "ERROR";
+  $("#error-action").textContent =
+    contract.user_action || "Inspect GREMLIN Diagnostics before retrying.";
+  $("#error-retry").textContent = contract.retryable ? "retryable" : "manual action";
+  retryErrorButton.hidden = contract.retryable !== true;
+  retryErrorButton.disabled = false;
+  guidance.hidden = false;
+  guidance.focus();
+  return contract;
 }
 
 function setBadge(element, text, state = "") {
@@ -104,14 +258,13 @@ function renderSystem(payload) {
   systemLoadState.textContent = "system verified";
 }
 
-async function loadSystem() {
+async function loadSystem({ record = false } = {}) {
   systemLoadState.className = "run-status running";
   systemLoadState.textContent = "loading system…";
   try {
-    const response = await fetch("/api/system", { cache: "no-store" });
-    const payload = await response.json();
-    if (!response.ok) throw new Error(payload.error || `System request failed: HTTP ${response.status}`);
+    const payload = await fetchJson("/api/system");
     renderSystem(payload);
+    if (record) recordActivity("info", "System and Bestiary state refreshed.");
   } catch (error) {
     systemLoadState.className = "run-status fail";
     systemLoadState.textContent = "system unavailable";
@@ -119,6 +272,7 @@ async function loadSystem() {
     setBadge(mcpBadge, "MCP: unavailable", "badge-muted");
     bestiaryTopology.textContent = String(error.message || error);
     bestiaryGrid.replaceChildren();
+    if (record) recordActivity("fail", `System refresh failed: ${error.message || error}`);
   }
 }
 
@@ -173,9 +327,7 @@ function buildRequest(candidate) {
 async function loadExample() {
   setRunState("running", "loading example…");
   try {
-    const response = await fetch("/api/example", { cache: "no-store" });
-    if (!response.ok) throw new Error(`Example request failed: HTTP ${response.status}`);
-    const request = await response.json();
+    const request = await fetchJson("/api/example");
     candidateEditor.value = pretty(request.candidate);
     sampleCount.value = request.sample_count || 64;
     if (!problemBrief.value.trim()) {
@@ -183,9 +335,11 @@ async function loadExample() {
     }
     markCandidate(true);
     setRunState("", "example loaded");
+    recordActivity("info", "Example candidate loaded.");
   } catch (error) {
     markCandidate(false);
     setRunState("fail", String(error.message || error));
+    recordActivity("fail", `Example load failed: ${error.message || error}`);
   }
 }
 
@@ -331,6 +485,7 @@ function renderTestGrid(receipt) {
 }
 
 function renderResponse(wrapper, candidate) {
+  clearErrorGuidance();
   const response = wrapper.response;
   const artifacts = response.artifacts || {};
   const ir = artifacts.phasenav_ir || {};
@@ -379,12 +534,16 @@ function renderResponse(wrapper, candidate) {
 function renderError(error) {
   setPipeline([]);
   setVerdict("ERROR");
-  $("#prototype-source").textContent = String(error.message || error);
+  const contract = showErrorGuidance(error);
+  const message = String(error.message || error);
+  const userAction = contract?.user_action || null;
+  const display = userAction ? `${message}\n\nNext action: ${userAction}` : message;
+  $("#prototype-source").textContent = display;
   $("#audit-view").textContent = "The candidate or request failed before a validated prototype receipt was produced.";
   $("#test-grid").replaceChildren();
-  $("#test-detail").textContent = String(error.message || error);
-  $("#receipt-view").textContent = "No receipt produced.";
-  setRunState("fail", String(error.message || error));
+  $("#test-detail").textContent = userAction || message;
+  $("#receipt-view").textContent = contract ? pretty(contract) : "No machine-readable error receipt produced.";
+  setRunState("fail", contract?.error_code ? `${contract.error_code}: ${userAction || message}` : message);
 }
 
 async function runCandidate() {
@@ -394,19 +553,27 @@ async function runCandidate() {
   try {
     const candidate = parseCandidate();
     const request = buildRequest(candidate);
-    const response = await fetch("/api/prototype", {
+    const payload = await fetchJson("/api/prototype", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(request),
     });
-    const payload = await response.json();
-    if (!response.ok) throw new Error(payload.error || `HTTP ${response.status}`);
     renderResponse(payload, candidate);
+    recordActivity(
+      payload.response?.status === "VALIDATED_PROTOTYPE" ? "pass" : "fail",
+      `${candidate.candidate_id || "candidate"}: ${payload.response?.status || "completed"}`,
+    );
   } catch (error) {
     markCandidate(false);
     renderError(error);
+    const contract = error instanceof WorkspaceHttpError ? error.contract : null;
+    recordActivity(
+      "fail",
+      `${contract?.error_code || error.message || error}${contract?.user_action ? ` — ${contract.user_action}` : ""}`,
+    );
   } finally {
     runButton.disabled = false;
+    retryErrorButton.disabled = false;
   }
 }
 
@@ -421,8 +588,31 @@ candidateEditor.addEventListener("input", () => {
 
 runButton.addEventListener("click", runCandidate);
 loadButton.addEventListener("click", loadExample);
+technicalToggle.addEventListener("click", () => setTechnicalMode(!sessionState.technical));
+refreshSystemButton.addEventListener("click", async () => {
+  refreshSystemButton.disabled = true;
+  const label = refreshSystemButton.textContent;
+  refreshSystemButton.textContent = "Refreshing…";
+  try {
+    await loadSystem({ record: true });
+  } finally {
+    refreshSystemButton.disabled = false;
+    refreshSystemButton.textContent = label || "Refresh";
+  }
+});
+retryErrorButton.addEventListener("click", runCandidate);
+clearActivityButton.addEventListener("click", () => {
+  sessionState.activity = [];
+  renderActivity();
+});
+document.addEventListener("keydown", (event) => {
+  if ((event.ctrlKey || event.metaKey) && event.key === "Enter" && !runButton.disabled) {
+    event.preventDefault();
+    runCandidate();
+  }
+});
 
-$$(".tab").forEach((button) => {
+$(".tab").forEach((button) => {
   button.addEventListener("click", () => {
     $$(".tab").forEach((node) => node.classList.remove("active"));
     $$(".tab-panel").forEach((node) => node.classList.remove("active"));
@@ -431,5 +621,10 @@ $$(".tab").forEach((button) => {
   });
 });
 
-loadSystem();
-loadExample();
+setTechnicalMode(readTechnicalModePreference(), { persist: false });
+renderActivity();
+Promise.allSettled([loadSystem(), loadExample()]).then(() => {
+  if (footerMessage.textContent === "Ready.") {
+    footerMessage.textContent = "Workspace ready.";
+  }
+});
