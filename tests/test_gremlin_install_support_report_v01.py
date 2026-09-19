@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 
@@ -97,15 +98,36 @@ def test_support_report_redacts_paths_and_excludes_provider_command_details(tmp_
     assert len(report["report_commitment"]) == 64
 
 
-def test_support_report_write_uses_canonical_diagnostics_directory(tmp_path) -> None:
-    paths = _paths(tmp_path)
-    report = {
+def _sealed_fixture(**extra):
+    core = {
         "schema": "GREMLIN_SUPPORT_REPORT_V0_1",
         "status": "fixture",
-        "report_commitment": "ab" * 32,
+        **extra,
     }
+    commitment = hashlib.blake2b(
+        support.DOMAIN + support._canonical(core),
+        digest_size=32,
+    ).hexdigest()
+    return {**core, "report_commitment": commitment}
+
+
+def test_support_report_write_uses_canonical_diagnostics_directory(tmp_path) -> None:
+    paths = _paths(tmp_path)
+    report = _sealed_fixture()
     target = support.write_support_report(paths, report)
     assert target.parent == Path(paths.diagnostics_dir)
     assert target.is_file()
     loaded = json.loads(target.read_text(encoding="utf-8"))
     assert loaded == report
+
+
+def test_support_report_write_rejects_tampered_payload(tmp_path) -> None:
+    paths = _paths(tmp_path)
+    report = _sealed_fixture()
+    report["status"] = "tampered"
+    try:
+        support.write_support_report(paths, report)
+    except ValueError as exc:
+        assert "commitment mismatch" in str(exc)
+    else:
+        raise AssertionError("tampered support report was persisted")
