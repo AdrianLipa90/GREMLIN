@@ -1,12 +1,19 @@
 from __future__ import annotations
 
 import argparse
+from datetime import datetime, timezone
+import hmac
 import ipaddress
 import json
+import os
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+import secrets
 import socket
+import threading
+import time
 from typing import Any, Mapping, Sequence, cast
+from urllib.error import HTTPError
 from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 import webbrowser
@@ -17,9 +24,11 @@ from gremlin_mcp.product import ProductAuthorizationError, ProductRuntime
 from tools.gremlin_client_protocol_v01 import REQUEST_SCHEMA, run_client_request
 
 WORKSPACE_SCHEMA = "GREMLIN_WORKSPACE_V0_1"
+INSTANCE_SCHEMA = "GREMLIN_WORKSPACE_INSTANCE_V0_1"
 MAX_REQUEST_BYTES = 1024 * 1024
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8765
+STOP_WAIT_SECONDS = 3.0
 
 STATIC_FILES = {
     "/": ("index.html", "text/html; charset=utf-8"),
@@ -126,7 +135,7 @@ def process_prototype_request(payload: Mapping[str, Any], runtime: ProductRuntim
     }
 
 
-def health_payload(runtime: ProductRuntime) -> dict[str, Any]:
+def health_payload(runtime: ProductRuntime, *, instance_id: str | None = None) -> dict[str, Any]:
     allowed, reason = _workspace_gate(runtime)
     product = runtime.status()
     return {
@@ -134,26 +143,106 @@ def health_payload(runtime: ProductRuntime) -> dict[str, Any]:
         "status": "READY" if allowed else "BLOCKED",
         "reason": reason,
         "api": "/api/prototype",
+        "instance_id": instance_id,
         "product_status": product.get("status"),
         "authority": _authority(),
     }
 
 
-def _probe_existing_workspace(host: str, port: int) -> bool:
+def _instance_path(paths: GremlinPaths) -> Path:
+    return Path(paths.state_dir) / "workspace-instance.json"
+
+
+def _write_private_json(path: Path, payload: Mapping[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_name(f".{path.name}.{secrets.token_hex(8)}.tmp")
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+    fd = os.open(temporary, flags, 0o600)
+    open_fd = True
+    try:
+        if os.name != "nt":
+            os.fchmod(fd, 0o600)
+        handle = os.fdopen(fd, "w", encoding="utf-8")
+        open_fd = False
+        with handle:
+            json.dump(payload, handle, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+            handle.write("\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, path)
+        if os.name != "nt":
+            path.chmod(0o600)
+    except BaseException:
+        try:
+            temporary.unlink(missing_ok=True)
+        finally:
+            if open_fd:
+                os.close(fd)
+        raise
+
+
+def _validate_instance_state(value: Any) -> dict[str, Any]:
+    if not isinstance(value, Mapping):
+        raise GremlinWorkspaceError("workspace instance state must be a JSON object")
+    state = dict(value)
+    if state.get("schema") != INSTANCE_SCHEMA:
+        raise GremlinWorkspaceError("workspace instance state schema mismatch")
+    instance_id = state.get("instance_id")
+    token = state.get("shutdown_token")
+    host = state.get("host")
+    port = state.get("port")
+    if not isinstance(instance_id, str) or len(instance_id) < 16:
+        raise GremlinWorkspaceError("workspace instance state has invalid instance_id")
+    if not isinstance(token, str) or len(token) < 32:
+        raise GremlinWorkspaceError("workspace instance state has invalid shutdown token")
+    if not isinstance(host, str):
+        raise GremlinWorkspaceError("workspace instance state has invalid host")
+    _assert_loopback(host)
+    if isinstance(port, bool) or not isinstance(port, int) or not 1 <= port <= 65535:
+        raise GremlinWorkspaceError("workspace instance state has invalid port")
+    return state
+
+
+def _read_instance_state(paths: GremlinPaths) -> dict[str, Any] | None:
+    target = _instance_path(paths)
+    if not target.exists():
+        return None
+    try:
+        value = json.loads(target.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise GremlinWorkspaceError(f"workspace instance state is unreadable: {exc}") from exc
+    return _validate_instance_state(value)
+
+
+def _remove_instance_state(paths: GremlinPaths, *, expected_instance_id: str | None = None) -> None:
+    target = _instance_path(paths)
+    if not target.exists():
+        return
+    if expected_instance_id is not None:
+        current = _read_instance_state(paths)
+        if current is None or current.get("instance_id") != expected_instance_id:
+            return
+    target.unlink(missing_ok=True)
+
+
+def _probe_health(host: str, port: int, *, timeout: float = 0.35) -> dict[str, Any] | None:
     url = f"http://{host}:{port}/api/health"
     try:
         request = Request(url, headers={"Accept": "application/json"})
-        with urlopen(request, timeout=0.35) as response:
+        with urlopen(request, timeout=timeout) as response:
             if response.status != 200:
-                return False
+                return None
             payload = json.loads(response.read(32_768).decode("utf-8"))
     except (OSError, ValueError, json.JSONDecodeError):
-        return False
-    return (
-        isinstance(payload, dict)
-        and payload.get("schema") == WORKSPACE_SCHEMA
-        and payload.get("status") == "READY"
-    )
+        return None
+    if not isinstance(payload, dict) or payload.get("schema") != WORKSPACE_SCHEMA:
+        return None
+    return payload
+
+
+def _probe_existing_workspace(host: str, port: int) -> bool:
+    payload = _probe_health(host, port)
+    return payload is not None and payload.get("status") == "READY"
 
 
 def _port_available(host: str, port: int) -> bool:
@@ -167,6 +256,115 @@ def _port_available(host: str, port: int) -> bool:
     finally:
         sock.close()
     return True
+
+
+def workspace_status(
+    paths: GremlinPaths,
+    *,
+    host: str = DEFAULT_HOST,
+    port: int = DEFAULT_PORT,
+) -> dict[str, Any]:
+    host = _assert_loopback(host)
+    if isinstance(port, bool) or not isinstance(port, int) or not 1 <= port <= 65535:
+        raise GremlinWorkspaceError("workspace port must be an integer in 1..65535")
+
+    state = _read_instance_state(paths)
+    if state is None:
+        health = _probe_health(host, port)
+        if health is not None:
+            return {
+                "schema": WORKSPACE_SCHEMA,
+                "status": "RUNNING_UNMANAGED",
+                "url": f"http://{host}:{port}",
+                "instance_id": health.get("instance_id"),
+                "can_stop": False,
+                "authority": _authority(),
+            }
+        return {
+            "schema": WORKSPACE_SCHEMA,
+            "status": "NOT_RUNNING",
+            "url": f"http://{host}:{port}",
+            "instance_id": None,
+            "can_stop": False,
+            "authority": _authority(),
+        }
+
+    state_host = str(state["host"])
+    state_port = int(state["port"])
+    health = _probe_health(state_host, state_port)
+    if (
+        health is not None
+        and health.get("status") == "READY"
+        and health.get("instance_id") == state.get("instance_id")
+    ):
+        return {
+            "schema": WORKSPACE_SCHEMA,
+            "status": "RUNNING",
+            "url": state["url"],
+            "instance_id": state["instance_id"],
+            "pid": state.get("pid"),
+            "started_at": state.get("started_at"),
+            "can_stop": True,
+            "authority": _authority(),
+        }
+
+    return {
+        "schema": WORKSPACE_SCHEMA,
+        "status": "STALE",
+        "url": state["url"],
+        "instance_id": state["instance_id"],
+        "pid": state.get("pid"),
+        "can_stop": False,
+        "authority": _authority(),
+    }
+
+
+def workspace_stop(paths: GremlinPaths, *, timeout: float = STOP_WAIT_SECONDS) -> dict[str, Any]:
+    state = _read_instance_state(paths)
+    if state is None:
+        return {
+            "schema": WORKSPACE_SCHEMA,
+            "status": "NOT_RUNNING",
+            "can_stop": False,
+            "authority": _authority(),
+        }
+
+    url = str(state["url"]).rstrip("/")
+    request = Request(
+        f"{url}/api/shutdown",
+        data=b"{}",
+        method="POST",
+        headers={
+            "Accept": "application/json",
+            "Authorization": f"Bearer {state['shutdown_token']}",
+            "Content-Type": "application/json",
+        },
+    )
+    try:
+        with urlopen(request, timeout=1.0) as response:
+            payload = json.loads(response.read(32_768).decode("utf-8"))
+    except HTTPError as exc:
+        raise GremlinWorkspaceError(f"workspace stop was rejected with HTTP {exc.code}") from exc
+    except (OSError, json.JSONDecodeError) as exc:
+        raise GremlinWorkspaceError(f"workspace stop request failed: {exc}") from exc
+
+    if not isinstance(payload, Mapping) or payload.get("status") != "STOPPING":
+        raise GremlinWorkspaceError("workspace stop returned an invalid receipt")
+
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if _probe_health(str(state["host"]), int(state["port"]), timeout=0.2) is None:
+            _remove_instance_state(paths, expected_instance_id=str(state["instance_id"]))
+            return {
+                "schema": WORKSPACE_SCHEMA,
+                "status": "STOPPED",
+                "instance_id": state["instance_id"],
+                "can_stop": False,
+                "authority": _authority(),
+            }
+        time.sleep(0.05)
+
+    raise GremlinWorkspaceError("workspace did not stop within the bounded shutdown window")
 
 
 def workspace_check(
@@ -209,7 +407,12 @@ def workspace_check(
             "authority": _authority(),
         }
 
-    already_running = _probe_existing_workspace(host, port)
+    lifecycle = workspace_status(paths, host=host, port=port)
+    already_running = lifecycle.get("status") in {"RUNNING", "RUNNING_UNMANAGED"}
+    if lifecycle.get("status") == "STALE" and _port_available(host, port):
+        _remove_instance_state(paths, expected_instance_id=str(lifecycle.get("instance_id") or ""))
+        lifecycle = workspace_status(paths, host=host, port=port)
+
     available = already_running or _port_available(host, port)
     return {
         "schema": WORKSPACE_SCHEMA,
@@ -217,6 +420,7 @@ def workspace_check(
         "reason": None if available else "WORKSPACE_PORT_UNAVAILABLE",
         "url": f"http://{host}:{port}",
         "already_running": already_running,
+        "lifecycle_status": lifecycle.get("status"),
         "port_available": available if not already_running else False,
         "assets": {
             "ready": True,
@@ -240,11 +444,15 @@ class GremlinWorkspaceServer(ThreadingHTTPServer):
         web_root: Path,
         example_path: Path,
         runtime: ProductRuntime,
+        instance_id: str,
+        shutdown_token: str,
     ) -> None:
         super().__init__(server_address, GremlinWorkspaceHandler)
         self.web_root = web_root
         self.example_path = example_path
         self.runtime = runtime
+        self.instance_id = instance_id
+        self.shutdown_token = shutdown_token
 
 
 class GremlinWorkspaceHandler(BaseHTTPRequestHandler):
@@ -297,7 +505,10 @@ class GremlinWorkspaceHandler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:  # noqa: N802
         path = urlparse(self.path).path
         if path == "/api/health":
-            self._send_json(200, health_payload(self.workspace.runtime))
+            self._send_json(
+                200,
+                health_payload(self.workspace.runtime, instance_id=self.workspace.instance_id),
+            )
             return
         if path == "/api/example":
             try:
@@ -319,11 +530,34 @@ class GremlinWorkspaceHandler(BaseHTTPRequestHandler):
             return
         self._send_bytes(200, content_type, data)
 
+    def _shutdown_authorized(self) -> bool:
+        header = self.headers.get("Authorization", "")
+        prefix = "Bearer "
+        if not header.startswith(prefix):
+            return False
+        supplied = header[len(prefix):]
+        return hmac.compare_digest(supplied, self.workspace.shutdown_token)
+
     def do_POST(self) -> None:  # noqa: N802
         if not self._same_origin():
             self._send_error(403, "cross-origin workspace requests are not allowed")
             return
-        if urlparse(self.path).path != "/api/prototype":
+
+        path = urlparse(self.path).path
+        if path == "/api/shutdown":
+            if not self._shutdown_authorized():
+                self._send_error(403, "workspace shutdown authorization failed")
+                return
+            self._send_json(200, {
+                "schema": WORKSPACE_SCHEMA,
+                "status": "STOPPING",
+                "instance_id": self.workspace.instance_id,
+                "authority": _authority(),
+            })
+            threading.Thread(target=self.workspace.shutdown, daemon=True).start()
+            return
+
+        if path != "/api/prototype":
             self._send_error(404, "resource not found")
             return
         content_type = self.headers.get("Content-Type", "")
@@ -366,7 +600,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--host", default=DEFAULT_HOST)
     parser.add_argument("--port", default=DEFAULT_PORT, type=int)
     parser.add_argument("--platform", choices=("windows", "linux"))
-    parser.add_argument("--check", action="store_true", help="validate assets, entitlement and loopback port then exit")
+    actions = parser.add_mutually_exclusive_group()
+    actions.add_argument("--check", action="store_true", help="validate assets, entitlement and loopback port then exit")
+    actions.add_argument("--status", action="store_true", help="report the managed Workspace lifecycle state then exit")
+    actions.add_argument("--stop", action="store_true", help="stop the managed Workspace instance then exit")
     parser.add_argument("--no-browser", action="store_true", help="serve without opening the default browser")
     parser.add_argument("--json", action="store_true", help="print startup/check result as JSON")
     return parser
@@ -376,7 +613,7 @@ def _emit(payload: Mapping[str, Any], *, as_json: bool) -> None:
     if as_json:
         print(json.dumps(payload, ensure_ascii=False, sort_keys=True))
     else:
-        print(f"GREMLIN Workspace: {payload.get('status')} {payload.get('url')}")
+        print(f"GREMLIN Workspace: {payload.get('status')} {payload.get('url', '')}".rstrip())
         if payload.get("reason"):
             print(f"Reason: {payload['reason']}")
 
@@ -384,6 +621,28 @@ def _emit(payload: Mapping[str, Any], *, as_json: bool) -> None:
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     paths = resolve_paths(platform=args.platform)
+
+    if args.status:
+        status = workspace_status(paths, host=args.host, port=args.port)
+        _emit(status, as_json=args.json)
+        return 0
+    if args.stop:
+        try:
+            stopped = workspace_stop(paths)
+        except GremlinWorkspaceError as exc:
+            _emit(
+                {
+                    "schema": WORKSPACE_SCHEMA,
+                    "status": "ERROR",
+                    "reason": str(exc),
+                    "authority": _authority(),
+                },
+                as_json=args.json,
+            )
+            return 1
+        _emit(stopped, as_json=args.json)
+        return 0
+
     check = workspace_check(paths=paths, host=args.host, port=args.port)
     if args.check:
         _emit(check, as_json=args.json)
@@ -401,12 +660,16 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     web_root, example_path, _ = resolve_workspace_assets(paths)
     runtime = _runtime(paths)
+    instance_id = secrets.token_hex(16)
+    shutdown_token = secrets.token_urlsafe(32)
     try:
         server = GremlinWorkspaceServer(
             (_assert_loopback(args.host), args.port),
             web_root=web_root,
             example_path=example_path,
             runtime=runtime,
+            instance_id=instance_id,
+            shutdown_token=shutdown_token,
         )
     except OSError as exc:
         payload = {
@@ -417,10 +680,35 @@ def main(argv: Sequence[str] | None = None) -> int:
         _emit(payload, as_json=args.json)
         return 1
 
+    state = {
+        "schema": INSTANCE_SCHEMA,
+        "instance_id": instance_id,
+        "shutdown_token": shutdown_token,
+        "pid": os.getpid(),
+        "host": args.host,
+        "port": args.port,
+        "url": url,
+        "started_at": datetime.now(timezone.utc).isoformat(),
+    }
+    try:
+        _write_private_json(_instance_path(paths), state)
+    except Exception as exc:
+        server.server_close()
+        _emit(
+            {
+                **check,
+                "status": "BLOCKED",
+                "reason": f"workspace instance state could not be persisted: {exc}",
+            },
+            as_json=args.json,
+        )
+        return 1
+
     started = {
         **check,
         "status": "READY",
         "already_running": False,
+        "instance_id": instance_id,
     }
     _emit(started, as_json=args.json)
     if not args.no_browser:
@@ -431,6 +719,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         pass
     finally:
         server.server_close()
+        _remove_instance_state(paths, expected_instance_id=instance_id)
     return 0
 
 
