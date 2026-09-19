@@ -92,6 +92,7 @@ jobs:
           /usr/bin/gremlinctl license status --platform linux --json | tee "$RUNNER_TEMP/license.json"
           /usr/bin/gremlinctl profile status --platform linux --json | tee "$RUNNER_TEMP/profile.json"
           /usr/bin/gremlin-mcp --help >/dev/null
+          /usr/bin/gremlin-workspace --help >/dev/null
           /usr/bin/gremlin-mcp --self-test-phasenav
           /usr/bin/gremlinctl integrations providers --platform linux --json | tee "$RUNNER_TEMP/providers.json"
           /usr/bin/gremlinctl ready --platform linux --json > "$RUNNER_TEMP/ready.json" || test $? -eq 1
@@ -112,6 +113,10 @@ jobs:
           test -f /usr/share/gremlin/issuer-public.pem
           test -f /usr/share/gremlin/README-FIRST.txt
           test -f /usr/share/gremlin/MCP-SETUP.md
+          test -f /usr/share/gremlin/workspace/index.html
+          test -f /usr/share/gremlin/workspace/app.js
+          test -f /usr/share/gremlin/workspace/styles.css
+          test -f /usr/share/gremlin/workspace/example-request.json
           test ! -f /usr/share/gremlin/PREVIEW_BUILD.txt
       - name: Hash Linux release
         run: sha256sum dist/installer/GREMLIN-Early-Access-Linux-amd64.deb | tee dist/installer/SHA256SUMS-linux.txt
@@ -183,8 +188,11 @@ jobs:
           $root = Join-Path $env:LOCALAPPDATA 'Programs\GREMLIN'
           $ctl = Join-Path $root 'gremlinctl.exe'
           $fullMcp = Join-Path $root 'gremlin-mcp.exe'
+          $workspace = Join-Path $root 'gremlin-workspace.exe'
           if (-not (Test-Path $fullMcp)) { throw 'Full GREMLIN MCP executable missing' }
+          if (-not (Test-Path $workspace)) { throw 'GREMLIN Workspace executable missing' }
           & $fullMcp --help | Out-Null
+          & $workspace --help | Out-Null
           & $fullMcp --self-test-phasenav
           $env:SMOKE_GRM1 | & $ctl license activate --stdin --platform windows --json
           if ($LASTEXITCODE -ne 0) { throw 'Production-verifier GRM1 activation failed' }
@@ -200,6 +208,9 @@ jobs:
           if (-not (Test-Path (Join-Path $root 'gremlin-control-center.exe'))) { throw 'Control Center missing' }
           if (-not (Test-Path (Join-Path $root 'resources\README-FIRST.txt'))) { throw 'README-FIRST missing' }
           if (-not (Test-Path (Join-Path $root 'resources\MCP-SETUP.md'))) { throw 'MCP-SETUP missing' }
+          foreach ($asset in @('index.html','app.js','styles.css','example-request.json')) {
+            if (-not (Test-Path (Join-Path $root "resources\workspace\$asset"))) { throw "Workspace asset missing: $asset" }
+          }
           if (Test-Path (Join-Path $root 'resources\PREVIEW_BUILD.txt')) { throw 'Production release contains preview marker' }
       - name: Hash Windows release
         shell: pwsh
