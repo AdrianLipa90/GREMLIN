@@ -8,6 +8,14 @@ from typing import Any
 from .hive_authority import HiveAuthorityRuntime
 from .hive_ingest import ingest_research_execution
 from .memory_exchange import ingest_exchange_bundle, ingest_exchange_envelope
+from .memory_anti_entropy import (
+    apply_hive_delta,
+    build_hive_inventory,
+    build_hive_manifest,
+    divergent_hive_buckets,
+    export_hive_delta,
+    plan_hive_delta,
+)
 from .research_executor import execute_research
 from .server import build_parser as build_base_parser
 from .server import configure_state, mcp, standalone_phasenav_self_test
@@ -34,6 +42,15 @@ def gremlin_hive_status() -> dict[str, Any]:
         "protocol_schema": "PHASENAV_MEMORY_INFORMATION_EXCHANGE_V0_1",
         "bundle_schema": "PHASENAV_MEMORY_INFORMATION_EXCHANGE_BUNDLE_V0_1",
         "target_layer": "RELATIONAL",
+        "automatic_latch": False,
+    }
+    result["memory_anti_entropy"] = {
+        "status": "AVAILABLE",
+        "inventory_tool": "gremlin_hive_sync_inventory",
+        "manifest_tool": "gremlin_hive_sync_manifest",
+        "delta_tool": "gremlin_hive_sync_delta",
+        "apply_tool": "gremlin_hive_sync_apply",
+        "scope": "EXCHANGE_MEMORY_ONLY_APPEND_ONLY",
         "automatic_latch": False,
     }
     result["integrated_research_ingest"] = {
@@ -173,6 +190,67 @@ def gremlin_hive_exchange_bundle_ingest(
         bundle,
         priority=priority,
         consumer_id="GREMLIN-HIVE",
+    )
+
+
+@mcp.tool()
+def gremlin_hive_sync_inventory(
+    node_id: str = "GREMLIN-HIVE",
+) -> dict[str, Any]:
+    """Return the compact exchange-memory anti-entropy inventory."""
+    return build_hive_inventory(hive_runtime, node_id=node_id)
+
+
+@mcp.tool()
+def gremlin_hive_sync_manifest(
+    prefixes: list[str],
+    node_id: str = "GREMLIN-HIVE",
+) -> dict[str, Any]:
+    """Return metadata-only manifests for selected divergent buckets."""
+    return build_hive_manifest(hive_runtime, node_id=node_id, prefixes=prefixes)
+
+
+@mcp.tool()
+def gremlin_hive_sync_delta(
+    receiver_inventory: dict[str, Any],
+    receiver_manifest: dict[str, Any],
+    node_id: str = "GREMLIN-HIVE",
+) -> dict[str, Any]:
+    """Build one append-only delta from this Hive to a receiver inventory."""
+    sender_inventory = build_hive_inventory(hive_runtime, node_id=node_id)
+    prefixes = divergent_hive_buckets(sender_inventory, receiver_inventory)
+    sender_manifest = build_hive_manifest(
+        hive_runtime,
+        node_id=node_id,
+        prefixes=prefixes,
+    )
+    plan = plan_hive_delta(
+        sender_inventory,
+        receiver_inventory,
+        sender_manifest,
+        receiver_manifest,
+    )
+    delta = export_hive_delta(hive_runtime, plan)
+    return {
+        "sender_inventory": sender_inventory,
+        "sender_manifest": sender_manifest,
+        "plan": plan,
+        "delta": delta,
+    }
+
+
+@mcp.tool()
+def gremlin_hive_sync_apply(
+    delta: dict[str, Any],
+    node_id: str = "GREMLIN-HIVE",
+    priority: float = 0.82,
+) -> dict[str, Any]:
+    """Apply one prevalidated append-only exchange-memory delta."""
+    return apply_hive_delta(
+        hive_runtime,
+        delta,
+        receiver_node_id=node_id,
+        priority=priority,
     )
 
 
