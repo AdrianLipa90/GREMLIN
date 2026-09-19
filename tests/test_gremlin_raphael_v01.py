@@ -161,6 +161,7 @@ def test_authorization_binds_exact_decree_and_exact_target_state():
         actor="USER007",
         approved=True,
         observed_target_sha="a" * 40,
+        authority_receipt_commitment=_h("external-authority"),
     )
     assert auth["authority"]["mutation_authorized"] is True
     assert auth["authority"]["canon_allowed"] is False
@@ -172,12 +173,13 @@ def test_authorization_binds_exact_decree_and_exact_target_state():
             actor="USER007",
             approved=True,
             observed_target_sha="f" * 40,
+            authority_receipt_commitment=_h("external-authority"),
         )
 
 
 def test_hand_executes_exact_scope_then_expires_mutation_authority():
     decree = _decree()
-    auth = authorize(decree, actor="USER007", approved=True, observed_target_sha="a" * 40)
+    auth = authorize(decree, actor="USER007", approved=True, observed_target_sha="a" * 40, authority_receipt_commitment=_h("external-authority"))
     backend = FakeBackend()
     receipt = execute(
         decree,
@@ -198,7 +200,7 @@ def test_hand_executes_exact_scope_then_expires_mutation_authority():
 
 def test_state_drift_before_hand_is_fail_loud():
     decree = _decree()
-    auth = authorize(decree, actor="USER007", approved=True, observed_target_sha="a" * 40)
+    auth = authorize(decree, actor="USER007", approved=True, observed_target_sha="a" * 40, authority_receipt_commitment=_h("external-authority"))
     backend = FakeBackend()
     backend.sha = "d" * 40
     with pytest.raises(RaphaelExecutionError, match="STATE_DRIFT"):
@@ -214,7 +216,7 @@ def test_state_drift_before_hand_is_fail_loud():
 
 def test_bad_operation_receipt_rolls_back():
     decree = _decree()
-    auth = authorize(decree, actor="USER007", approved=True, observed_target_sha="a" * 40)
+    auth = authorize(decree, actor="USER007", approved=True, observed_target_sha="a" * 40, authority_receipt_commitment=_h("external-authority"))
     backend = FakeBackend()
     backend.bad_receipt = True
     with pytest.raises(RaphaelExecutionError) as caught:
@@ -233,7 +235,7 @@ def test_bad_operation_receipt_rolls_back():
 
 def test_failed_post_audit_rolls_back_and_emits_committed_failure_receipt():
     decree = _decree()
-    auth = authorize(decree, actor="USER007", approved=True, observed_target_sha="a" * 40)
+    auth = authorize(decree, actor="USER007", approved=True, observed_target_sha="a" * 40, authority_receipt_commitment=_h("external-authority"))
     backend = FakeBackend()
     with pytest.raises(RaphaelExecutionError) as caught:
         execute(
@@ -263,12 +265,13 @@ def test_tampered_decree_is_rejected_before_mutation():
             actor="USER007",
             approved=True,
             observed_target_sha="a" * 40,
+            authority_receipt_commitment=_h("external-authority"),
         )
 
 
 def test_cancelled_decree_cannot_execute():
     decree = _decree()
-    auth = authorize(decree, actor="USER007", approved=True, observed_target_sha="a" * 40)
+    auth = authorize(decree, actor="USER007", approved=True, observed_target_sha="a" * 40, authority_receipt_commitment=_h("external-authority"))
     ledger = InMemoryMutationLedger()
     cancellation = cancel_decree(decree, reason_codes=["NEW_EVIDENCE"], ledger=ledger)
     assert cancellation["status"] == "CANCELLED_BEFORE_MUTATION"
@@ -285,7 +288,7 @@ def test_cancelled_decree_cannot_execute():
 
 def test_decree_and_authorization_are_single_use():
     decree = _decree()
-    auth = authorize(decree, actor="USER007", approved=True, observed_target_sha="a" * 40)
+    auth = authorize(decree, actor="USER007", approved=True, observed_target_sha="a" * 40, authority_receipt_commitment=_h("external-authority"))
     ledger = InMemoryMutationLedger()
     first = execute(
         decree,
@@ -304,4 +307,16 @@ def test_decree_and_authorization_are_single_use():
             ledger=ledger,
             test_runner=lambda _: True,
             postcondition_checker=lambda _: True,
+        )
+
+
+def test_raphael_cannot_self_authorize():
+    decree = _decree()
+    with pytest.raises(RaphaelAuthorizationError, match="cannot self-authorize"):
+        authorize(
+            decree,
+            actor="RAPHAEL",
+            approved=True,
+            observed_target_sha="a" * 40,
+            authority_receipt_commitment=_h("external-authority"),
         )
