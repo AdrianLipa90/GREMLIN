@@ -8,7 +8,7 @@ from typing import Any, Callable, TypeVar, cast
 from mcp.server.mcpserver.exceptions import ToolError
 
 SCHEMA = "GREMLIN_MCP_ERROR_V0_1"
-_CODE_RE = re.compile(r"^[A-Z][A-Z0-9_]*(?::[^\s]+)?$")
+_CODE_RE = re.compile(r"^([A-Z][A-Z0-9_]*)(?::.*)?$", re.DOTALL)
 F = TypeVar("F", bound=Callable[..., Any])
 
 
@@ -18,8 +18,9 @@ class GremlinMCPToolError(ToolError):
 
 def _raw_code(message: str, default: str) -> tuple[str, str]:
     text = message.strip()
-    if text and _CODE_RE.match(text):
-        return text.split(":", 1)[0], text
+    match = _CODE_RE.match(text)
+    if match:
+        return match.group(1), text
     return default, text
 
 
