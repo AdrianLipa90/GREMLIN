@@ -361,3 +361,62 @@ Installation architecture v0.1 requires:
 - native Control Center `cargo check`;
 - Control Center diagnostics bridge to `gremlinctl`;
 - packaging templates for Windows and Debian-family Linux.
+
+
+## 13. Post-v0.1 product hardening addendum
+
+The current customer package extends the v0.1 installation boundary with a first-class local Workspace and a committed support-report surface.
+
+Installed runtime aliases now include:
+
+```text
+Windows:
+  gremlin-workspace.exe
+
+Linux:
+  /usr/bin/gremlin-workspace
+```
+
+Workspace static resources are staged under the existing immutable shared-data root:
+
+```text
+Windows:
+  %LOCALAPPDATA%\Programs\GREMLIN\resources\workspace\
+
+Linux:
+  /usr/share/gremlin/workspace/
+```
+
+The Workspace is not a second authorization plane. Startup and every prototype request are admitted through the existing signed product boundary:
+
+```text
+ProductRuntime
+  -> tool = gremlin_prototype
+  -> feature = PROTOTYPE_PIPELINE
+  -> optional client-profile restriction
+  -> reference prototype pipeline
+```
+
+Network boundary:
+
+```text
+loopback only
+no CORS grant
+same-origin POST enforcement
+bounded JSON request body
+CSP + anti-framing headers
+production_runtime_write = false
+execution_admitted = false
+canon_allowed = false
+```
+
+Control Center launches the Workspace only after a successful product/asset/port preflight. The Workspace process is distributed inside the same standalone runtime and does not require a customer Python installation.
+
+Customer support diagnostics now include:
+
+```text
+gremlinctl support report --json
+gremlinctl support report --write --json
+```
+
+The persisted `GREMLIN_SUPPORT_REPORT_V0_1` is commitment-bound, excludes license keys/config contents/provider command output, redacts canonical personal paths from diagnostic details, and is stored under the canonical per-user diagnostics directory.

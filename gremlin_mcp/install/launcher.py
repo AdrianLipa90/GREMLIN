@@ -14,14 +14,16 @@ def _mode(argv0: str, args: Sequence[str]) -> tuple[str, list[str]]:
         return "product-mcp", list(args)
     if stem in {"gremlin-mcp", "gremlin-mcp.exe"}:
         return "mcp", list(args)
-    if args and args[0] in {"ctl", "product-mcp", "mcp"}:
+    if stem in {"gremlin-workspace", "gremlin-workspace.exe"}:
+        return "workspace", list(args)
+    if args and args[0] in {"ctl", "product-mcp", "mcp", "workspace"}:
         return str(args[0]), list(args[1:])
     configured = os.environ.get("GREMLIN_RUNTIME_MODE", "").strip().casefold()
-    if configured in {"ctl", "product-mcp", "mcp"}:
+    if configured in {"ctl", "product-mcp", "mcp", "workspace"}:
         return configured, list(args)
     raise SystemExit(
         "GREMLIN runtime mode is unresolved; invoke as gremlinctl, "
-        "gremlin-product-mcp, or gremlin-mcp"
+        "gremlin-product-mcp, gremlin-mcp, or gremlin-workspace"
     )
 
 
@@ -40,6 +42,10 @@ def main(argv: Sequence[str] | None = None) -> int:
 
             product_main()
             return 0
+        if mode == "workspace":
+            from gremlin_mcp.workspace import main as workspace_main
+
+            return int(workspace_main(forwarded))
         from gremlin_mcp.server_with_hive import main as mcp_main
 
         mcp_main()

@@ -151,6 +151,17 @@ def _runtime_ready_setup(tmp_path: Path, monkeypatch) -> GremlinPaths:
     monkeypatch.setattr("gremlin_mcp.install.readiness.gremlin_stdio_entry", lambda _paths: {
         "command": str(runtime), "args": ["--transport", "stdio"], "env": {}
     })
+    monkeypatch.setattr("gremlin_mcp.install.readiness.probe_product_mcp", lambda _paths: {
+        "schema": "GREMLIN_MCP_RUNTIME_PROBE_V0_1",
+        "status": "PASS",
+        "transport": "stdio",
+        "registry_exact": True,
+        "tool_count": 29,
+        "expected_tool_count": 29,
+        "missing_tools": [],
+        "unexpected_tools": [],
+        "detail": None,
+    })
     return paths
 
 
@@ -166,11 +177,13 @@ def test_readiness_reaches_ready_with_license_runtime_and_verified_provider(tmp_
     })
     ready = evaluate_readiness(paths)
     assert ready["status"] == "READY"
+    assert ready["providers"]["configured_ids"] == ["opencode"]
     assert ready["providers"]["connected_ids"] == ["opencode"]
+    assert ready["runtime"]["handshake"]["status"] == "PASS"
     assert ready["actions"] == []
 
 
-def test_readiness_rejects_registered_but_unverified_provider(tmp_path: Path, monkeypatch) -> None:
+def test_readiness_accepts_registered_provider_after_real_runtime_handshake(tmp_path: Path, monkeypatch) -> None:
     paths = _runtime_ready_setup(tmp_path, monkeypatch)
     monkeypatch.setattr("gremlin_mcp.install.readiness.list_providers", lambda _paths: {
         "providers": [{
@@ -181,10 +194,38 @@ def test_readiness_rejects_registered_but_unverified_provider(tmp_path: Path, mo
         }]
     })
     ready = evaluate_readiness(paths)
-    assert ready["status"] == "ACTION_REQUIRED"
+    assert ready["status"] == "READY"
+    assert ready["providers"]["configured_ids"] == ["codex"]
     assert ready["providers"]["connected"] == 0
     assert ready["providers"]["unverified_ids"] == ["codex"]
-    assert "Verify a live GREMLIN MCP connection in one detected AI client" in ready["actions"]
+    assert ready["runtime"]["handshake"]["status"] == "PASS"
+    assert ready["actions"] == []
+    assert len(ready["notices"]) == 1
+    assert "not independently reported a live GREMLIN session" in ready["notices"][0]
+
+
+def test_readiness_blocks_when_product_mcp_handshake_fails(tmp_path: Path, monkeypatch) -> None:
+    paths = _runtime_ready_setup(tmp_path, monkeypatch)
+    monkeypatch.setattr("gremlin_mcp.install.readiness.list_providers", lambda _paths: {
+        "providers": [{
+            "provider_id": "codex",
+            "detected": True,
+            "connected": False,
+            "connection_status": "REGISTERED_UNVERIFIED",
+        }]
+    })
+    monkeypatch.setattr("gremlin_mcp.install.readiness.probe_product_mcp", lambda _paths: {
+        "schema": "GREMLIN_MCP_RUNTIME_PROBE_V0_1",
+        "status": "FAIL",
+        "transport": "stdio",
+        "registry_exact": False,
+        "detail": "handshake failed",
+    })
+    ready = evaluate_readiness(paths)
+    assert ready["status"] == "ACTION_REQUIRED"
+    assert ready["providers"]["configured_ids"] == ["codex"]
+    assert ready["runtime"]["handshake"]["status"] == "FAIL"
+    assert "Repair or retry the GREMLIN MCP runtime handshake" in ready["actions"]
 
 
 def test_readiness_fails_loudly_on_non_boolean_provider_flags(tmp_path: Path, monkeypatch) -> None:

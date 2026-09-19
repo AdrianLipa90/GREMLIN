@@ -72,6 +72,16 @@ def test_mcp_in_process_handshake_and_status_tool() -> None:
         async with Client(mcp) as client:
             listed = await client.list_tools()
             names = {tool.name for tool in listed.tools}
+            declared_status = status()
+            declared = set(declared_status["tools"])
+            grouped = {
+                tool
+                for tools in declared_status["tool_groups"].values()
+                for tool in tools
+            }
+            assert names == declared
+            assert grouped == declared
+            assert declared_status["tool_count"] == len(names) == 32
             assert {
                 "gremlin_status",
                 "gremlin_bestiary",
@@ -79,6 +89,8 @@ def test_mcp_in_process_handshake_and_status_tool() -> None:
                 "gremlin_plan",
                 "gremlin_relation_parse",
                 "gremlin_relation_signature",
+                "gremlin_research_hound_provenance",
+                "gremlin_research_guarded",
                 "gremlin_research_relational",
                 "gremlin_prototype",
                 "gremlin_phasenav_status",

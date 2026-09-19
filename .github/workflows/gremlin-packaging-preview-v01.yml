@@ -81,7 +81,7 @@ jobs:
             --license-id "CI-PREVIEW-LINUX-${GITHUB_RUN_ID}" \
             --customer "ci-linux-preview" \
             --edition RESEARCH \
-            --features "MCP_STDIO,PERSISTENT_STATE" \
+            --features "MCP_STDIO,PERSISTENT_STATE,PROTOTYPE_PIPELINE" \
             --issued-at 2026-01-01 \
             --expires-at 2030-12-31 \
             --updates-until 2030-12-31 \
@@ -104,6 +104,7 @@ jobs:
           assert 'claude-desktop' not in ids
           PY
           dist/linux/runtime/gremlin-product-mcp --help >/dev/null
+          dist/linux/runtime/gremlin-workspace --help >/dev/null
           dist/linux/runtime/gremlin-mcp --help >/dev/null
           dist/linux/runtime/gremlin-mcp --self-test-phasenav
       - name: Build Debian preview package
@@ -120,6 +121,7 @@ jobs:
           /usr/bin/gremlinctl paths --platform linux --json
           /usr/bin/gremlinctl doctor --platform linux --json
           /usr/bin/gremlin-mcp --help >/dev/null
+          /usr/bin/gremlin-workspace --help >/dev/null
           /usr/bin/gremlin-mcp --self-test-phasenav
           cat "$RUNNER_TEMP/preview-license.key" | /usr/bin/gremlinctl license activate --stdin --platform linux --json
           /usr/bin/gremlinctl license status --platform linux --json | tee "$RUNNER_TEMP/license-installed-linux.json"
@@ -137,6 +139,19 @@ jobs:
           test -f /usr/share/gremlin/README-FIRST.txt
           test -f /usr/share/gremlin/MCP-SETUP.md
           test -f /usr/share/gremlin/PREVIEW_BUILD.txt
+          test -f /usr/share/gremlin/workspace/index.html
+          test -f /usr/share/gremlin/workspace/app.js
+          test -f /usr/share/gremlin/workspace/styles.css
+          test -f /usr/share/gremlin/workspace/example-request.json
+          /usr/bin/gremlin-workspace --check --platform linux --json | tee "$RUNNER_TEMP/workspace-installed-linux.json"
+          python - <<'PY'
+          import json, os
+          p=json.load(open(os.environ['RUNNER_TEMP']+'/workspace-installed-linux.json'))
+          assert p['status']=='READY'
+          assert p['assets']['mode']=='INSTALLED_RESOURCES'
+          assert p['product_status']=='LICENSED'
+          assert p['authority']['execution_admitted'] is False
+          PY
       - name: Customer Connect-Test-Readiness-Disconnect gate
         run: >-
           python tools/smoke_installed_customer_flow_v01.py
@@ -178,7 +193,7 @@ jobs:
           $licenseJson = Join-Path $env:RUNNER_TEMP 'preview-license.json'
           $licenseKey = Join-Path $env:RUNNER_TEMP 'preview-license.key'
           gremlin-license keygen --private $private --public $public
-          gremlin-license issue --private $private --out $licenseJson --key-out $licenseKey --license-id "CI-PREVIEW-WINDOWS-$env:GITHUB_RUN_ID" --customer 'ci-windows-preview' --edition RESEARCH --features 'MCP_STDIO,PERSISTENT_STATE' --issued-at 2026-01-01 --expires-at 2030-12-31 --updates-until 2030-12-31 --max-workers 4 --max-sources 24
+          gremlin-license issue --private $private --out $licenseJson --key-out $licenseKey --license-id "CI-PREVIEW-WINDOWS-$env:GITHUB_RUN_ID" --customer 'ci-windows-preview' --edition RESEARCH --features 'MCP_STDIO,PERSISTENT_STATE,PROTOTYPE_PIPELINE' --issued-at 2026-01-01 --expires-at 2030-12-31 --updates-until 2030-12-31 --max-workers 4 --max-sources 24
           python tools/prepare_installer_resources_v01.py --public-key $public --output dist/windows/resources --version $env:GREMLIN_VERSION --preview
           Remove-Item $private -Force
       - name: Smoke Windows standalone runtime and provider matrix
@@ -194,6 +209,7 @@ jobs:
             if ($ids -notcontains $required) { throw "Missing Windows provider: $required" }
           }
           & .\dist\windows\runtime\gremlin-product-mcp.exe --help | Out-Null
+          & .\dist\windows\runtime\gremlin-workspace.exe --help | Out-Null
           & .\dist\windows\runtime\gremlin-mcp.exe --help | Out-Null
           & .\dist\windows\runtime\gremlin-mcp.exe --self-test-phasenav
       - name: Install Inno Setup
@@ -220,8 +236,11 @@ jobs:
           $root = Join-Path $env:LOCALAPPDATA 'Programs\GREMLIN'
           $ctl = Join-Path $root 'gremlinctl.exe'
           $fullMcp = Join-Path $root 'gremlin-mcp.exe'
+          $workspace = Join-Path $root 'gremlin-workspace.exe'
           if (-not (Test-Path $fullMcp)) { throw 'Full GREMLIN MCP executable missing' }
+          if (-not (Test-Path $workspace)) { throw 'GREMLIN Workspace executable missing' }
           & $fullMcp --help | Out-Null
+          & $workspace --help | Out-Null
           & $fullMcp --self-test-phasenav
           & $ctl paths --platform windows --json
           & $ctl doctor --platform windows --json
@@ -236,6 +255,13 @@ jobs:
           if (-not (Test-Path (Join-Path $root 'resources\README-FIRST.txt'))) { throw 'README-FIRST missing' }
           if (-not (Test-Path (Join-Path $root 'resources\MCP-SETUP.md'))) { throw 'MCP-SETUP missing' }
           if (-not (Test-Path (Join-Path $root 'resources\PREVIEW_BUILD.txt'))) { throw 'Preview marker missing' }
+          foreach ($asset in @('index.html','app.js','styles.css','example-request.json')) {
+            if (-not (Test-Path (Join-Path $root "resources\workspace\$asset"))) { throw "Workspace asset missing: $asset" }
+          }
+          $workspaceCheck = & $workspace --check --platform windows --json | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0) { throw 'Installed Windows Workspace check failed' }
+          if ($workspaceCheck.status -ne 'READY' -or $workspaceCheck.assets.mode -ne 'INSTALLED_RESOURCES') { throw 'Installed Windows Workspace is not ready' }
+          if ($workspaceCheck.authority.execution_admitted) { throw 'Workspace authority boundary opened unexpectedly' }
       - name: Customer Connect-Test-Readiness-Disconnect gate
         shell: pwsh
         run: |

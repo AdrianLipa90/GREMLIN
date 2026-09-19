@@ -228,6 +228,17 @@ def test_product_mcp_discovery_exposes_license_tools(tmp_path) -> None:
         async with Client(product_server.mcp) as client:
             listed = await client.list_tools()
             names = {tool.name for tool in listed.tools}
+            from gremlin_mcp.core import status as core_status
+            declared_status = core_status(surface="product")
+            declared = set(declared_status["tools"])
+            grouped = {
+                tool
+                for tools in declared_status["tool_groups"].values()
+                for tool in tools
+            }
+            assert names == declared
+            assert grouped == declared
+            assert declared_status["tool_count"] == len(names) == 29
             assert {"gremlin_product_status", "gremlin_license_status", "gremlin_route"} <= names
             status_result = await client.call_tool("gremlin_product_status", {})
             assert status_result.is_error is False
@@ -236,5 +247,44 @@ def test_product_mcp_discovery_exposes_license_tools(tmp_path) -> None:
                 {"payload": {"query": "audit evidence provenance and citations"}, "max_species": 4},
             )
             assert routed.is_error is False
+
+    asyncio.run(exercise())
+
+
+def test_product_mcp_denial_is_protocol_error_with_machine_readable_body(tmp_path) -> None:
+    from mcp import Client
+    import json
+    import gremlin_mcp.product_server as product_server
+
+    license_path, public_path, profile_path = _write_runtime_files(
+        tmp_path,
+        profile=_profile(tools=["gremlin_status"]),
+    )
+    product_server.configure_product(
+        license_path=str(license_path),
+        public_key_path=str(public_path),
+        profile_path=str(profile_path),
+        require_license=True,
+    )
+
+    async def exercise() -> None:
+        async with Client(product_server.mcp) as client:
+            denied = await client.call_tool("gremlin_bestiary", {})
+            assert denied.is_error is True
+            text = "\n".join(
+                str(getattr(item, "text", ""))
+                for item in getattr(denied, "content", [])
+                if getattr(item, "text", None) is not None
+            )
+            start = text.find("{")
+            end = text.rfind("}")
+            assert start >= 0 and end > start, text
+            payload = json.loads(text[start : end + 1])
+            assert payload["schema"] == "GREMLIN_MCP_ERROR_V0_1"
+            assert payload["tool"] == "gremlin_bestiary"
+            assert payload["error_code"] == "TOOL_NOT_ALLOWED_BY_PROFILE"
+            assert payload["category"] == "AUTHORIZATION"
+            assert payload["retryable"] is False
+            assert payload["authority"]["execution_admitted"] is False
 
     asyncio.run(exercise())
