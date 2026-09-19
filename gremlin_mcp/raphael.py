@@ -457,12 +457,19 @@ def authorize(
     actor: str,
     approved: bool,
     observed_target_sha: str,
+    authority_receipt_commitment: str,
 ) -> dict[str, Any]:
     """External authority binds one exact decree to one exact target state."""
 
     if type(approved) is not bool or not approved:
         raise RaphaelAuthorizationError("explicit mutation approval is required")
     body = _verify_decree(decree)
+    actor_name = _text(actor, "actor")
+    if actor_name.upper() == "RAPHAEL":
+        raise RaphaelAuthorizationError("RAPHAEL cannot self-authorize mutation")
+    external_receipt = _hash64(
+        authority_receipt_commitment, "authority_receipt_commitment"
+    )
     observed = _hash40_64(observed_target_sha, "observed_target_sha")
     if observed != body["target_sha"]:
         raise RaphaelAuthorizationError("STATE_DRIFT: target SHA differs from decree")
@@ -473,7 +480,9 @@ def authorize(
         "phase": "HAND_GATE",
         "authorization_id": secrets.token_hex(16),
         "authorized_unix_ns": time.time_ns(),
-        "actor": _text(actor, "actor"),
+        "actor": actor_name,
+        "authority_receipt_commitment": external_receipt,
+        "authority_source": "EXTERNAL_TO_RAPHAEL",
         "decree_commitment": decree["decree_commitment"],
         "target_repository": body["target_repository"],
         "target_branch": body["target_branch"],
