@@ -3,6 +3,7 @@
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => Array.from(document.querySelectorAll(selector));
 const SVG_NS = "http://www.w3.org/2000/svg";
+const MAX_ACTIVITY = 12;
 
 const candidateEditor = $("#candidate-editor");
 const problemBrief = $("#problem-brief");
@@ -13,9 +14,25 @@ const runStatus = $("#run-status");
 const verdict = $("#verdict");
 const inputState = $("#input-state");
 const footerMessage = $("#footer-message");
+const technicalToggle = $("#technical-toggle");
+const activityList = $("#activity-list");
+const clearActivityButton = $("#clear-activity");
+
+const sessionState = {
+  activity: [],
+  technical: false,
+  health: null,
+  product: null,
+  capabilities: null,
+  bestiary: null,
+};
 
 function pretty(value) {
   return JSON.stringify(value, null, 2);
+}
+
+function text(value, fallback = "—") {
+  return value === null || value === undefined || value === "" ? fallback : String(value);
 }
 
 function setRunState(state, message) {
@@ -32,7 +49,7 @@ function setVerdict(status) {
     verdict.textContent = "VALIDATED PROTOTYPE";
   } else if (status) {
     verdict.classList.add("verdict-fail");
-    verdict.textContent = status.replaceAll("_", " ");
+    verdict.textContent = String(status).replaceAll("_", " ");
   } else {
     verdict.classList.add("verdict-idle");
     verdict.textContent = "NO RUN";
@@ -42,6 +59,237 @@ function setVerdict(status) {
 function markCandidate(valid) {
   inputState.className = "state-dot";
   inputState.classList.add(valid ? "valid" : "invalid");
+}
+
+function setMetric(selector, value, state = "") {
+  const node = $(selector);
+  node.textContent = text(value);
+  node.className = "";
+  if (state) node.classList.add(state);
+}
+
+function setBadge(selector, label, kind = "muted") {
+  const node = $(selector);
+  node.className = "badge";
+  node.classList.add(
+    kind === "safe" ? "badge-safe" :
+    kind === "lock" ? "badge-lock" :
+    "badge-muted",
+  );
+  node.textContent = label;
+}
+
+function nowLabel() {
+  return new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+}
+
+function recordActivity(kind, message) {
+  sessionState.activity.unshift({
+    kind: ["pass", "fail", "info"].includes(kind) ? kind : "info",
+    message: String(message),
+    time: nowLabel(),
+  });
+  sessionState.activity = sessionState.activity.slice(0, MAX_ACTIVITY);
+  renderActivity();
+}
+
+function renderActivity() {
+  activityList.replaceChildren();
+  if (!sessionState.activity.length) {
+    const empty = document.createElement("li");
+    empty.className = "activity-empty";
+    empty.textContent = "No activity yet.";
+    activityList.appendChild(empty);
+    return;
+  }
+  sessionState.activity.forEach((item) => {
+    const row = document.createElement("li");
+    row.className = item.kind;
+    const timeNode = document.createElement("span");
+    timeNode.className = "activity-time";
+    timeNode.textContent = item.time;
+    const messageNode = document.createElement("span");
+    messageNode.className = "activity-message";
+    messageNode.textContent = item.message;
+    row.append(timeNode, messageNode);
+    activityList.appendChild(row);
+  });
+}
+
+function setTechnicalMode(enabled) {
+  sessionState.technical = Boolean(enabled);
+  document.body.classList.toggle("technical-mode", sessionState.technical);
+  technicalToggle.setAttribute("aria-pressed", sessionState.technical ? "true" : "false");
+  technicalToggle.textContent = sessionState.technical ? "Reader view" : "Technical view";
+
+  if (!sessionState.technical) {
+    const active = $(".tab.active");
+    if (active && active.classList.contains("technical-only")) {
+      const prototypeTab = $('.tab[data-tab="prototype"]');
+      prototypeTab.click();
+    }
+  }
+}
+
+async function fetchJson(url, options = {}) {
+  const response = await fetch(url, {
+    cache: "no-store",
+    ...options,
+  });
+  let payload;
+  try {
+    payload = await response.json();
+  } catch (_) {
+    throw new Error(`Invalid JSON response from ${url} (HTTP ${response.status})`);
+  }
+  if (!response.ok) {
+    throw new Error(payload?.error || payload?.reason || `HTTP ${response.status}`);
+  }
+  return payload;
+}
+
+function authorityClosed(authority) {
+  return Boolean(
+    authority &&
+    authority.production_runtime_write === false &&
+    authority.execution_admitted === false &&
+    authority.canon_allowed === false
+  );
+}
+
+function renderSystemCockpit() {
+  const health = sessionState.health;
+  const product = sessionState.product;
+  const capabilities = sessionState.capabilities;
+
+  if (health) {
+    const ready = health.status === "READY";
+    setMetric("#workspace-state", health.status, ready ? "ok" : "fail");
+  } else {
+    setMetric("#workspace-state", "UNAVAILABLE", "fail");
+  }
+
+  if (product) {
+    const licensed = product.status === "LICENSED";
+    setMetric("#product-state", product.status, licensed ? "ok" : "warn");
+    setBadge("#product-badge", `product: ${product.status}`, licensed ? "safe" : "muted");
+  } else {
+    setMetric("#product-state", "RESTRICTED", "warn");
+    setBadge("#product-badge", "product: restricted", "muted");
+  }
+
+  if (capabilities) {
+    setMetric("#tool-count", capabilities.tool_count, "ok");
+    setBadge("#capability-badge", `MCP: ${capabilities.tool_count} tools`, "safe");
+    $("#capability-detail").textContent = pretty({
+      surface: capabilities.surface,
+      mode: capabilities.mode,
+      capability_contract: capabilities.capability_contract,
+      error_contract: capabilities.error_contract,
+      tool_groups: capabilities.tool_groups,
+    });
+  } else {
+    setMetric("#tool-count", "—", "warn");
+    setBadge("#capability-badge", "MCP: restricted", "muted");
+    $("#capability-detail").textContent = "Capability introspection is unavailable under the active product/profile boundary.";
+  }
+
+  const authority = health?.authority;
+  if (authorityClosed(authority)) {
+    setBadge("#authority-badge", "authority: fail-closed", "lock");
+  } else {
+    setBadge("#authority-badge", "authority: inspect", "muted");
+  }
+
+  const note = $("#system-note");
+  if (health?.status === "READY") {
+    note.textContent = "Local Workspace gate is open. Prototype execution remains bounded by the signed product entitlement and customer profile.";
+  } else if (health?.reason) {
+    note.textContent = `Workspace blocked: ${health.reason}`;
+  } else {
+    note.textContent = "Workspace health could not be verified.";
+  }
+}
+
+function renderBestiary(payload) {
+  const grid = $("#bestiary-grid");
+  const state = $("#bestiary-state");
+  grid.replaceChildren();
+
+  const species = Array.isArray(payload?.species) ? payload.species : [];
+  if (!species.length) {
+    const empty = document.createElement("div");
+    empty.className = "empty-state";
+    empty.textContent = "Bestiary introspection is unavailable under the active product/profile boundary.";
+    grid.appendChild(empty);
+    state.className = "mini-state fail";
+    state.textContent = "restricted";
+    setMetric("#species-count", "—", "warn");
+    return;
+  }
+
+  species.forEach((item) => {
+    const card = document.createElement("div");
+    card.className = "beast-card";
+    card.title = `${text(item.name)} — ${text(item.role)}`;
+
+    const name = document.createElement("div");
+    name.className = "beast-name";
+    name.textContent = text(item.name);
+
+    const stage = document.createElement("div");
+    stage.className = "beast-stage";
+    stage.textContent = text(item.stage);
+
+    const role = document.createElement("div");
+    role.className = "beast-role";
+    role.textContent = text(item.role);
+
+    card.append(name, stage, role);
+    grid.appendChild(card);
+  });
+
+  const topology = Array.isArray(payload.topology) ? payload.topology.join(" → ") : "topology available";
+  state.className = "mini-state ok";
+  state.textContent = `${species.length} roles`;
+  state.title = topology;
+  setMetric("#species-count", species.length, "ok");
+}
+
+async function loadCockpit() {
+  const healthResult = await Promise.allSettled([
+    fetchJson("/api/health"),
+    fetchJson("/api/status"),
+    fetchJson("/api/bestiary"),
+  ]);
+
+  if (healthResult[0].status === "fulfilled") {
+    sessionState.health = healthResult[0].value;
+    recordActivity(
+      healthResult[0].value.status === "READY" ? "pass" : "fail",
+      `Workspace health: ${healthResult[0].value.status}`,
+    );
+  } else {
+    recordActivity("fail", `Workspace health unavailable: ${healthResult[0].reason.message || healthResult[0].reason}`);
+  }
+
+  if (healthResult[1].status === "fulfilled") {
+    sessionState.product = healthResult[1].value.product || null;
+    sessionState.capabilities = healthResult[1].value.capabilities || null;
+  } else {
+    recordActivity("info", `Status introspection restricted: ${healthResult[1].reason.message || healthResult[1].reason}`);
+  }
+
+  if (healthResult[2].status === "fulfilled") {
+    sessionState.bestiary = healthResult[2].value;
+    renderBestiary(sessionState.bestiary);
+    recordActivity("info", `Bestiary loaded: ${sessionState.bestiary.species_count || 0} roles`);
+  } else {
+    renderBestiary(null);
+    recordActivity("info", `Bestiary introspection restricted: ${healthResult[2].reason.message || healthResult[2].reason}`);
+  }
+
+  renderSystemCockpit();
 }
 
 function parseCandidate() {
@@ -69,9 +317,7 @@ function buildRequest(candidate) {
 async function loadExample() {
   setRunState("running", "loading example…");
   try {
-    const response = await fetch("/api/example", { cache: "no-store" });
-    if (!response.ok) throw new Error(`Example request failed: HTTP ${response.status}`);
-    const request = await response.json();
+    const request = await fetchJson("/api/example");
     candidateEditor.value = pretty(request.candidate);
     sampleCount.value = request.sample_count || 64;
     if (!problemBrief.value.trim()) {
@@ -79,9 +325,11 @@ async function loadExample() {
     }
     markCandidate(true);
     setRunState("", "example loaded");
+    recordActivity("info", "Reference candidate loaded.");
   } catch (error) {
     markCandidate(false);
     setRunState("fail", String(error.message || error));
+    recordActivity("fail", `Example load failed: ${error.message || error}`);
   }
 }
 
@@ -98,9 +346,9 @@ function svgElement(name, attrs = {}) {
   return node;
 }
 
-function svgText(parent, x, y, text, className, anchor = "start") {
+function svgText(parent, x, y, value, className, anchor = "start") {
   const node = svgElement("text", { x, y, class: className, "text-anchor": anchor });
-  node.textContent = text;
+  node.textContent = value;
   parent.appendChild(node);
   return node;
 }
@@ -115,9 +363,9 @@ function drawRoundedNode(svg, x, y, width, height, className, label, sublabel = 
   return group;
 }
 
-function truncate(text, max = 24) {
-  const value = String(text || "");
-  return value.length > max ? `${value.slice(0, max - 1)}…` : value;
+function truncate(value, max = 24) {
+  const rendered = String(value || "");
+  return rendered.length > max ? `${rendered.slice(0, max - 1)}…` : rendered;
 }
 
 function renderGraph(ir) {
@@ -138,7 +386,8 @@ function renderGraph(ir) {
 
   terms.forEach((term, index) => {
     const centerY = top + index * rowHeight + 58;
-    const activeLanes = term.ell
+    const coefficients = Array.isArray(term.ell) ? term.ell : [];
+    const activeLanes = coefficients
       .map((coefficient, lane) => ({ lane, coefficient }))
       .filter((item) => item.coefficient !== 0);
 
@@ -156,14 +405,13 @@ function renderGraph(ir) {
 
     activeLanes.forEach((item, laneIndex) => {
       const laneY = laneStartY + laneIndex * laneSpacing;
-      const edge = svgElement("line", {
+      svg.appendChild(svgElement("line", {
         x1: 190,
         y1: laneY,
         x2: operatorX,
         y2: centerY,
         class: "graph-edge accent",
-      });
-      svg.appendChild(edge);
+      }));
       drawRoundedNode(
         svg,
         32,
@@ -176,14 +424,13 @@ function renderGraph(ir) {
       );
     });
 
-    const sourceEdge = svgElement("line", {
+    svg.appendChild(svgElement("line", {
       x1: operatorX + operatorW,
       y1: centerY,
       x2: sourceX,
       y2: centerY,
       class: "graph-edge",
-    });
-    svg.appendChild(sourceEdge);
+    }));
 
     drawRoundedNode(
       svg,
@@ -287,20 +534,31 @@ async function runCandidate() {
   runButton.disabled = true;
   markCandidate(true);
   setRunState("running", "compiling → prototyping → testing…");
+  let candidate = null;
   try {
-    const candidate = parseCandidate();
+    candidate = parseCandidate();
     const request = buildRequest(candidate);
-    const response = await fetch("/api/prototype", {
+    const payload = await fetchJson("/api/prototype", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(request),
     });
-    const payload = await response.json();
-    if (!response.ok) throw new Error(payload.error || `HTTP ${response.status}`);
     renderResponse(payload, candidate);
+
+    const status = payload?.response?.status || "UNKNOWN";
+    const id = candidate.candidate_id || "unnamed candidate";
+    const note = problemBrief.value.trim();
+    recordActivity(
+      status === "VALIDATED_PROTOTYPE" ? "pass" : "fail",
+      `${id}: ${status}${note ? ` — ${truncate(note, 70)}` : ""}`,
+    );
   } catch (error) {
     markCandidate(false);
     renderError(error);
+    recordActivity(
+      "fail",
+      `${candidate?.candidate_id || "candidate"}: ${error.message || error}`,
+    );
   } finally {
     runButton.disabled = false;
   }
@@ -317,6 +575,11 @@ candidateEditor.addEventListener("input", () => {
 
 runButton.addEventListener("click", runCandidate);
 loadButton.addEventListener("click", loadExample);
+technicalToggle.addEventListener("click", () => setTechnicalMode(!sessionState.technical));
+clearActivityButton.addEventListener("click", () => {
+  sessionState.activity = [];
+  renderActivity();
+});
 
 $$(".tab").forEach((button) => {
   button.addEventListener("click", () => {
@@ -327,4 +590,10 @@ $$(".tab").forEach((button) => {
   });
 });
 
-loadExample();
+setTechnicalMode(false);
+renderActivity();
+Promise.allSettled([loadCockpit(), loadExample()]).then(() => {
+  if (footerMessage.textContent === "Ready.") {
+    footerMessage.textContent = "Workspace ready.";
+  }
+});
