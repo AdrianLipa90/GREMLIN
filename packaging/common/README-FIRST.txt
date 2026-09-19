@@ -8,8 +8,10 @@ GREMLIN EARLY ACCESS — START HERE
 5. GREMLIN detects supported AI clients installed on your computer.
 6. Choose your client and press Connect & Test.
 7. When Control Center shows READY, setup is complete.
+8. Choose Launch Workspace for GREMLIN's local visual research surface, or continue inside your connected MCP client.
 
 You do not need Python, pip, a virtual environment, or manual MCP JSON editing for supported clients.
+GREMLIN Workspace binds to loopback only and remains subject to the same signed license/profile capability gates as the product MCP.
 
 Supported on Windows:
 - OpenAI Codex
@@ -31,6 +33,7 @@ Supported on Linux:
 - Windsurf
 
 If setup does not reach READY, open Diagnostics in Control Center. It will show the action still required.
+For support, Diagnostics can export a sanitized committed report without license keys, config contents or provider command output.
 
 For Early Access onboarding support, contact the seller through Contra.
 
