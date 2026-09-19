@@ -154,7 +154,7 @@ impl GremlinControlCenter {
         match status {
             "READY" | "ACTIVE" | "LICENSED" | "CONNECTED" | "PASS" | "OK" => egui::Color32::from_rgb(104, 224, 169),
             "ACTION_REQUIRED" | "CONFIGURED_UNVERIFIED" | "REGISTERED_UNVERIFIED" | "NOT_CONFIGURED" | "DETECTED" => egui::Color32::from_rgb(255, 196, 92),
-            "ERROR" | "FAILED" | "FAIL" | "BLOCKED" | "INVALID" => egui::Color32::from_rgb(255, 110, 135),
+            "ERROR" | "FAILED" | "FAIL" | "BLOCKED" | "INVALID" | "UNAVAILABLE" => egui::Color32::from_rgb(255, 110, 135),
             _ => egui::Color32::from_rgb(119, 190, 255),
         }
     }
@@ -189,6 +189,9 @@ impl GremlinControlCenter {
                 "Complete the remaining product entitlement step.".to_owned()
             };
         }
+        if !self.runtime_available() {
+            return "GREMLIN runtime is unavailable. Open Diagnostics and repair or reinstall the local runtime before connecting an AI client.".to_owned();
+        }
         let (detected, connected) = self.provider_counts();
         if connected == 0 {
             return if detected > 0 {
@@ -215,6 +218,9 @@ impl GremlinControlCenter {
             ui.separator();
             ui.strong("Product");
             Self::status_label(ui, self.product_status());
+            ui.separator();
+            ui.strong("Runtime");
+            Self::status_label(ui, if self.runtime_available() { "ACTIVE" } else { "UNAVAILABLE" });
             ui.separator();
             ui.strong("AI client");
             Self::status_label(ui, if connected > 0 { "CONNECTED" } else if detected > 0 { "DETECTED" } else { "ACTION_REQUIRED" });
@@ -471,8 +477,21 @@ impl GremlinControlCenter {
         self.device.as_ref().and_then(|v| v.get("identity")).and_then(|v| v.get("status")).and_then(Value::as_str)
             .unwrap_or_else(|| self.device.as_ref().and_then(|v| v.get("status")).and_then(Value::as_str).unwrap_or("UNAVAILABLE"))
     }
+    fn runtime_available(&self) -> bool {
+        self.readiness.as_ref()
+            .and_then(|v| v.get("runtime"))
+            .and_then(|v| v.get("available"))
+            .and_then(Value::as_bool)
+            .unwrap_or(false)
+    }
+
     fn runtime_transport(&self) -> &str {
-        self.doctor.as_ref().and_then(|v| v.get("config")).and_then(|v| v.get("runtime")).and_then(|v| v.get("transport")).and_then(Value::as_str).unwrap_or("stdio")
+        self.readiness.as_ref()
+            .and_then(|v| v.get("runtime"))
+            .and_then(|v| v.get("transport"))
+            .and_then(Value::as_str)
+            .or_else(|| self.doctor.as_ref().and_then(|v| v.get("config")).and_then(|v| v.get("runtime")).and_then(|v| v.get("transport")).and_then(Value::as_str))
+            .unwrap_or("stdio")
     }
 
     fn platform_name(&self) -> &str {
@@ -645,7 +664,7 @@ impl GremlinControlCenter {
             ui.strong(self.ready_status());
             if self.ready_status() == "READY" {
                 ui.label("GREMLIN is licensed, the local MCP runtime is available and at least one AI client is connected.");
-                if ui.button("Open GREMLIN").clicked() {
+                if ui.button("Go to Overview").clicked() {
                     self.tab = Tab::Overview;
                 }
             } else if let Some(actions) = self.readiness.as_ref().and_then(|v| v.get("actions")).and_then(Value::as_array) {
@@ -710,8 +729,8 @@ impl GremlinControlCenter {
                 ui.label(format!("{connected} connected / {detected} detected"));
                 ui.end_row();
 
-                ui.strong("MCP transport");
-                Self::status_label(ui, "ACTIVE");
+                ui.strong("MCP runtime");
+                Self::status_label(ui, if self.runtime_available() { "ACTIVE" } else { "UNAVAILABLE" });
                 ui.label(self.runtime_transport());
                 ui.end_row();
 
