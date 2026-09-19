@@ -84,6 +84,7 @@ def _packet(
             "content_addressed_payload": True,
             "causal_lineage": True,
             "computational_u1_route_phase": True,
+            "producer_identity_authenticated": False,
             "physical_nonlocal_signalling": False,
             "physical_channel_identified": False,
             "canon_promoted": False,
@@ -107,6 +108,7 @@ def _bundle(envelopes: list[dict], acks: list[dict], *, target_id: str) -> dict:
         "bundle_sha256": _sha(core),
         "claims": {
             "causal_lineage_bundle": True,
+            "ack_origin_authenticated": False,
             "physical_nonlocal_signalling": False,
             "physical_channel_identified": False,
             "canon_promoted": False,
@@ -268,6 +270,7 @@ def test_ack_is_exactly_content_bound() -> None:
     assert ack["payload_sha256"] == packet["payload_sha256"]
     assert ack["ack_id"].startswith("pxa:")
     assert len(ack["ack_id"]) == 68
+    assert ack["authentication"] == "UNSIGNED_CONTENT_COMMITMENT"
 
 
 def test_durable_restart_preserves_idempotent_exchange_ingest(tmp_path) -> None:
