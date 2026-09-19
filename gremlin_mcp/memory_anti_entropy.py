@@ -818,7 +818,6 @@ def apply_hive_delta(
         key=lambda item: (int(item["_target"]["sequence"]), item["envelope_id"]),
     )
     created = 0
-    acks: list[dict[str, Any]] = []
     for item in ordered:
         if item["proof_kind"] == "LINEAGE_BUNDLE":
             result = ingest_exchange_bundle(
@@ -835,8 +834,8 @@ def apply_hive_delta(
                 consumer_id=f"GREMLIN-HIVE:{receiver}",
             )
         created += int(bool(result["created"]))
-        acks.append(result["ack"])
 
+    acks = _acks_for_transfers(validated["_transfers"], receiver_node_id=receiver)
     after = build_hive_inventory(runtime, node_id=receiver)
     return {
         "status": "APPLIED",
