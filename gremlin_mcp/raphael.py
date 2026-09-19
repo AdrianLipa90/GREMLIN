@@ -17,6 +17,7 @@ DECISION_SCHEMA = "GREMLIN_RAPHAEL_WISDOM_DECISION_V0_1"
 DECREE_SCHEMA = "GREMLIN_RAPHAEL_MUTATION_DECREE_V0_1"
 AUTHORIZATION_SCHEMA = "GREMLIN_RAPHAEL_MUTATION_AUTHORIZATION_V0_1"
 RECEIPT_SCHEMA = "GREMLIN_RAPHAEL_MUTATION_RECEIPT_V0_1"
+TRIPLE_PULSE_SCHEMA = "GREMLIN_TRIPLE_PULSE_ATTESTATION_V0_1"
 
 ACCEPT = "ACCEPT"
 REJECT = "REJECT"
@@ -34,6 +35,7 @@ _BLOCKING_EVIDENCE = frozenset({
 _ALLOWED_OPERATIONS = frozenset({
     "CREATE_FILE", "UPDATE_FILE", "DELETE_FILE", "MOVE_FILE", "MERGE_BRANCH"
 })
+_ACCEPTED_PULSE_STATUS = frozenset({"VERIFIED", "ACTIVE", "PASS"})
 
 _HEX40_64 = re.compile(r"^(?:[0-9a-f]{40}|[0-9a-f]{64})$")
 _HEX64 = re.compile(r"^[0-9a-f]{64}$")
@@ -145,6 +147,43 @@ def _hash64(value: Any, field: str) -> str:
     if not _HEX64.fullmatch(value):
         raise ValueError(f"{field} must be lowercase 64 hexadecimal")
     return value
+
+
+def _normalize_triple_pulse(attestation: Mapping[str, Any]) -> dict[str, Any]:
+    if not isinstance(attestation, Mapping):
+        raise RaphaelAuthorizationError("gremlin_attestation must be an object")
+    required = {
+        "schema", "generation", "identity_receipt", "domain_receipt", "authority_receipt"
+    }
+    if set(attestation) != required:
+        raise RaphaelAuthorizationError("gremlin_attestation exact field schema mismatch")
+    if attestation.get("schema") != TRIPLE_PULSE_SCHEMA:
+        raise RaphaelAuthorizationError(
+            f"gremlin_attestation.schema must be {TRIPLE_PULSE_SCHEMA}"
+        )
+    generation = _text(attestation.get("generation"), "gremlin_attestation.generation")
+    normalized: dict[str, Any] = {
+        "schema": TRIPLE_PULSE_SCHEMA,
+        "generation": generation,
+    }
+    for pulse in ("identity", "domain", "authority"):
+        raw = attestation.get(f"{pulse}_receipt")
+        if not isinstance(raw, Mapping):
+            raise RaphaelAuthorizationError(f"{pulse}_receipt must be an object")
+        receipt = json.loads(_canonical(dict(raw)).decode("utf-8"))
+        if receipt.get("generation") != generation:
+            raise RaphaelAuthorizationError(f"{pulse}_receipt generation mismatch")
+        status_value = _text(
+            receipt.get("status"), f"{pulse}_receipt.status"
+        ).upper()
+        if status_value not in _ACCEPTED_PULSE_STATUS:
+            raise RaphaelAuthorizationError(f"{pulse}_receipt is not verified")
+        receipt["status"] = status_value
+        normalized[f"{pulse}_receipt"] = receipt
+    normalized["attestation_commitment"] = _commit(
+        b"GREMLIN-RAPHAEL-TRIPLE-PULSE/v0.1", normalized
+    )
+    return normalized
 
 
 def _strings(value: Any, field: str, *, allow_empty: bool = False) -> list[str]:
