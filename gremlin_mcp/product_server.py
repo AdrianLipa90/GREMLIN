@@ -129,7 +129,7 @@ def gremlin_license_status() -> dict[str, Any]:
 @mcp.tool()
 def gremlin_status() -> dict[str, Any]:
     product_runtime.authorize(tool="gremlin_status")
-    out = status()
+    out = status(surface="product")
     out["product"] = product_runtime.status()
     out["worker_queue"] = broker.queue_status()
     return out
