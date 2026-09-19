@@ -71,6 +71,29 @@ Boot protocol:
 
 Native witness: `native/GREMLIN_TRIPLE_PULSE_BOOT_V0_5.pnv`.
 
+## RAPHAEL — Lord of Wisdom
+
+RAPHAEL is a NEW angelic function above the GREMLIN aggregate, not a nineteenth Bestiary species. The existing 18-species PhaseNav geometry remains unchanged.
+
+```text
+GREMLIN / SUPER_CURRENT
+  -> RAPHAEL.EYE       observe exact state + evidence
+  -> RAPHAEL.WORD      ACCEPT | REJECT | DEFER | REQUIRE_MORE_EVIDENCE
+  -> external operator gate + ACTIVE tether + same-generation triple pulse
+  -> RAPHAEL.HAND_RESERVE   exact target/scope reservation
+  -> RAPHAEL.HAND_MUTATE    exact frozen mutation only
+  -> RAPHAEL.POST_AUDIT
+  -> committed mutation receipt
+```
+
+RAPHAEL uses `EPISTEMIC CHYBA`, BLAKE2b-256 commitments, exact target SHA binding, immutable mutation scope, single-use authorization, same-generation IDENTITY/DOMAIN/AUTHORITY attestation, a fresh ACTIVE-tether re-probe immediately before HAND, exact-state reservation, fail-closed state-drift detection and rollback-or-quarantine on post-audit failure. RAPHAEL cannot self-authorize and never opens canon authority.
+
+Native contract: `native/GREMLIN_RAPHAEL_WISDOM_MUTATION_V0_1.pnv`.
+
+Specification: `spec/GREMLIN_RAPHAEL_WISDOM_MUTATION_V0_1.md`.
+
+Reference/control implementation: `gremlin_mcp/raphael.py`.
+
 ## PhaseNav prototype pipeline
 
 An audited relation candidate can be compiled into PhaseNav character IR, converted into a deterministic reference prototype and checked by the experiment harness:

@@ -4,6 +4,7 @@ from dataclasses import asdict
 from typing import Any, Mapping
 
 from gremlin_mcp.error_contract import SCHEMA as MCP_ERROR_SCHEMA
+from gremlin_mcp.raphael import angelic_manifest
 
 from tools.gremlin_bestiary_orbital_scheduler_v02 import PROFILES, service_omega, service_period
 from tools.gremlin_bestiary_vector_species_v03 import (
@@ -163,7 +164,10 @@ def status(*, surface: str = "reference") -> dict[str, Any]:
             "fields": ["error_code", "detail_code", "category", "retryable", "user_action", "request_id", "request_id_source"],
             "request_id_policy": "CALLER_OR_GENERATED_NONEMPTY",
         },
-        "topology": list(TOPOLOGY), "authority": authority_state(),
+        "topology": list(TOPOLOGY),
+        "governance_topology": [*TOPOLOGY, "RAPHAEL"],
+        "angelic_functions": {"RAPHAEL": angelic_manifest()},
+        "authority": authority_state(),
     }
 
 
@@ -178,7 +182,14 @@ def bestiary_manifest() -> dict[str, Any]:
                 "omega": service_omega(profile), "period": service_period(profile),
             }
         entries.append(entry)
-    return {"schema": SCHEMA, "topology": list(TOPOLOGY), "species": entries, "authority": authority_state()}
+    return {
+        "schema": SCHEMA,
+        "topology": list(TOPOLOGY),
+        "governance_topology": [*TOPOLOGY, "RAPHAEL"],
+        "species": entries,
+        "angelic_functions": [angelic_manifest()],
+        "authority": authority_state(),
+    }
 
 
 def species_profile(species: str) -> dict[str, Any]:

@@ -14,6 +14,8 @@ def test_standalone_status_is_fail_closed() -> None:
         "execution_admitted": False,
         "canon_allowed": False,
     }
+    assert s["governance_topology"][-1] == "RAPHAEL"
+    assert s["angelic_functions"]["RAPHAEL"]["class"] == "ANGELIC_FUNCTION"
 
 
 def test_bestiary_manifest_contains_full_topology() -> None:
@@ -44,6 +46,10 @@ def test_bestiary_manifest_contains_full_topology() -> None:
     ferret = species_profile("ferret")
     assert ferret["stage"] == "actuation"
     assert ferret["scheduler_profile"] is None
+    assert len(manifest["species"]) == 18
+    assert manifest["governance_topology"][-1] == "RAPHAEL"
+    assert manifest["angelic_functions"][0]["name"] == "RAPHAEL"
+    assert manifest["angelic_functions"][0]["bestiary_species"] is False
 
 
 def test_vector_lane_plan_is_deterministic_and_compressed() -> None:
