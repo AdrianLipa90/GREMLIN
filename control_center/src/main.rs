@@ -214,21 +214,55 @@ fn run_ctl_json_input(args: &[String], input: &str) -> Result<Value, String> {
     decode_json_output(output, "gremlinctl")
 }
 
-fn run_workspace_check_json() -> Result<Value, String> {
+fn run_workspace_json(args: &[&str]) -> Result<Value, String> {
     let child = Command::new(workspace_program())
-        .args(["--check", "--json"])
+        .args(args)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
-        .map_err(|err| format!("Could not launch gremlin-workspace check: {err}"))?;
+        .map_err(|err| format!("Could not launch gremlin-workspace: {err}"))?;
     let output = wait_program_output(child, "gremlin-workspace")?;
     let parsed = serde_json::from_slice::<Value>(&output.stdout)
-        .map_err(|err| format!("Could not decode gremlin-workspace check JSON: {err}"))?;
+        .map_err(|err| format!("Could not decode gremlin-workspace JSON: {err}"))?;
     if output.status.success() {
         return Ok(parsed);
     }
-    let reason = parsed.get("reason").and_then(Value::as_str).unwrap_or("workspace check failed");
-    Err(format!("GREMLIN Workspace is not ready: {reason}"))
+    let reason = parsed.get("reason")
+        .or_else(|| parsed.get("error"))
+        .and_then(Value::as_str)
+        .unwrap_or("workspace command failed");
+    Err(format!("GREMLIN Workspace command failed: {reason}"))
+}
+
+fn run_workspace_check_json() -> Result<Value, String> {
+    run_workspace_json(&["--check", "--json"])
+}
+
+fn run_workspace_status_json() -> Result<Value, String> {
+    run_workspace_json(&["--status", "--json"])
+}
+
+fn run_workspace_stop_json() -> Result<Value, String> {
+    run_workspace_json(&["--stop", "--json"])
+}
+
+fn wait_workspace_running() -> Result<Value, String> {
+    let deadline = Instant::now() + Duration::from_secs(5);
+    loop {
+        match run_workspace_status_json() {
+            Ok(value) => {
+                let status = value.get("status").and_then(Value::as_str).unwrap_or("");
+                if matches!(status, "RUNNING" | "RUNNING_UNMANAGED") {
+                    return Ok(value);
+                }
+            }
+            Err(_) => {}
+        }
+        if Instant::now() >= deadline {
+            return Err("GREMLIN Workspace process started but did not become healthy within 5 seconds.".to_owned());
+        }
+        thread::sleep(Duration::from_millis(100));
+    }
 }
 
 fn spawn_workspace() -> Result<(), String> {
@@ -258,6 +292,7 @@ fn emit_snapshot(tx: &Sender<ControlEvent>) {
     if !send_event(tx, ControlEvent::Doctor(run_ctl_json(&["doctor".into(), "--json".into()]))) { return; }
     if !send_event(tx, ControlEvent::Device(run_ctl_json(&["device".into(), "status".into(), "--json".into()]))) { return; }
     if !send_event(tx, ControlEvent::Providers(run_ctl_json(&["integrations".into(), "providers".into(), "--json".into()]))) { return; }
+    if !send_event(tx, ControlEvent::WorkspaceOutcome(run_workspace_status_json())) { return; }
     let _ = send_event(tx, ControlEvent::Readiness(run_ctl_json(&["ready".into(), "--json".into()])));
 }
 
@@ -285,8 +320,8 @@ impl GremlinControlCenter {
 
     fn status_color(status: &str) -> egui::Color32 {
         match status {
-            "READY" | "ACTIVE" | "LICENSED" | "CONNECTED" | "CONFIGURED" | "VERIFIED" | "PASS" | "OK" => egui::Color32::from_rgb(104, 224, 169),
-            "ACTION_REQUIRED" | "AVAILABLE" | "CONFIGURED_UNVERIFIED" | "REGISTERED_UNVERIFIED" | "REGISTERED_RUNTIME_NOT_READY" | "NOT_CONFIGURED" | "DETECTED" => egui::Color32::from_rgb(255, 196, 92),
+            "READY" | "ACTIVE" | "LICENSED" | "CONNECTED" | "CONFIGURED" | "VERIFIED" | "RUNNING" | "STOPPED" | "PASS" | "OK" => egui::Color32::from_rgb(104, 224, 169),
+            "ACTION_REQUIRED" | "AVAILABLE" | "RUNNING_UNMANAGED" | "NOT_RUNNING" | "CONFIGURED_UNVERIFIED" | "REGISTERED_UNVERIFIED" | "REGISTERED_RUNTIME_NOT_READY" | "NOT_CONFIGURED" | "DETECTED" => egui::Color32::from_rgb(255, 196, 92),
             "ERROR" | "FAILED" | "FAIL" | "BLOCKED" | "INVALID" | "UNAVAILABLE" => egui::Color32::from_rgb(255, 110, 135),
             _ => egui::Color32::from_rgb(119, 190, 255),
         }
@@ -334,6 +369,18 @@ impl GremlinControlCenter {
             "AVAILABLE"
         }
     }
+
+    fn workspace_status(&self) -> &str {
+        self.workspace_result.as_ref()
+            .and_then(|v| v.get("status"))
+            .and_then(Value::as_str)
+            .unwrap_or("NOT_RUNNING")
+    }
+
+    fn workspace_running(&self) -> bool {
+        matches!(self.workspace_status(), "RUNNING" | "RUNNING_UNMANAGED")
+    }
+
 
     fn next_action(&self) -> String {
         if self.ready_status() == "READY" {
@@ -678,16 +725,31 @@ impl GremlinControlCenter {
     }
 
     fn launch_workspace(&mut self) {
-        self.workspace_result = None;
         self.workspace_error = None;
         self.start_task("Launching GREMLIN Workspace", |tx| {
             let outcome = match run_workspace_check_json() {
-                Ok(check) => match spawn_workspace() {
-                    Ok(()) => Ok(check),
+                Ok(_) => match spawn_workspace() {
+                    Ok(()) => wait_workspace_running(),
                     Err(err) => Err(err),
                 },
                 Err(err) => Err(err),
             };
+            let _ = send_event(&tx, ControlEvent::WorkspaceOutcome(outcome));
+            let _ = send_event(&tx, ControlEvent::Done);
+        });
+    }
+
+    fn stop_workspace(&mut self) {
+        self.workspace_error = None;
+        self.start_task("Stopping GREMLIN Workspace", |tx| {
+            let outcome = run_workspace_stop_json().and_then(|stopped| {
+                let status = stopped.get("status").and_then(Value::as_str).unwrap_or("");
+                if matches!(status, "STOPPED" | "NOT_RUNNING") {
+                    Ok(stopped)
+                } else {
+                    Err(format!("Unexpected Workspace stop status: {status}"))
+                }
+            });
             let _ = send_event(&tx, ControlEvent::WorkspaceOutcome(outcome));
             let _ = send_event(&tx, ControlEvent::Done);
         });
@@ -943,10 +1005,13 @@ impl GremlinControlCenter {
             ui.heading("3. Ready");
             ui.strong(self.ready_status());
             if self.ready_status() == "READY" {
-                ui.label("GREMLIN is licensed, the local MCP runtime is available and at least one AI client is connected.");
+                ui.label("GREMLIN is licensed, the product MCP runtime is verified and at least one AI client is configured.");
                 ui.horizontal_wrapped(|ui| {
-                    if ui.add_enabled(!self.is_busy(), egui::Button::new("Launch Workspace")).clicked() {
+                    if ui.add_enabled(!self.is_busy() && !self.workspace_running(), egui::Button::new("Launch Workspace")).clicked() {
                         self.launch_workspace();
+                    }
+                    if ui.add_enabled(!self.is_busy() && self.workspace_running(), egui::Button::new("Stop Workspace")).clicked() {
+                        self.stop_workspace();
                     }
                     if ui.button("Go to Overview").clicked() {
                         self.tab = Tab::Overview;
@@ -1022,6 +1087,16 @@ impl GremlinControlCenter {
                 ui.label(format!("{} • handshake {}", self.runtime_transport(), self.runtime_handshake_status()));
                 ui.end_row();
 
+                ui.strong("Workspace");
+                Self::status_label(ui, self.workspace_status());
+                ui.label(
+                    self.workspace_result.as_ref()
+                        .and_then(|v| v.get("url"))
+                        .and_then(Value::as_str)
+                        .unwrap_or("local loopback surface")
+                );
+                ui.end_row();
+
                 ui.strong("Customer profile");
                 Self::status_label(ui, self.profile_status());
                 ui.label(if self.profile_required() { "required by entitlement" } else { "optional unless licensed profile requires it" });
@@ -1036,10 +1111,16 @@ impl GremlinControlCenter {
         ui.add_space(18.0);
         ui.horizontal_wrapped(|ui| {
             if ui.add_enabled(
-                !self.is_busy() && self.product_status() == "LICENSED",
+                !self.is_busy() && self.product_status() == "LICENSED" && !self.workspace_running(),
                 egui::Button::new("Launch Workspace"),
             ).clicked() {
                 self.launch_workspace();
+            }
+            if ui.add_enabled(
+                !self.is_busy() && self.workspace_running(),
+                egui::Button::new("Stop Workspace"),
+            ).clicked() {
+                self.stop_workspace();
             }
             if ui.button("AI Providers").clicked() {
                 self.tab = Tab::Integrations;
@@ -1054,8 +1135,9 @@ impl GremlinControlCenter {
         if let Some(err) = &self.workspace_error {
             ui.colored_label(egui::Color32::from_rgb(255, 110, 135), err);
         } else if let Some(result) = &self.workspace_result {
+            let status = result.get("status").and_then(Value::as_str).unwrap_or("UNKNOWN");
             let url = result.get("url").and_then(Value::as_str).unwrap_or("http://127.0.0.1:8765");
-            ui.small(format!("Workspace launch requested: {url}"));
+            ui.small(format!("Workspace: {status} • {url}"));
         }
 
         ui.add_space(18.0);
