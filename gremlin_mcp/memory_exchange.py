@@ -307,6 +307,7 @@ def ingest_exchange_envelope(
         "target_layer": normalized["target_layer"],
         "payload_sha256": normalized["payload_sha256"],
         "payload": normalized["payload"],
+        "exchange_packet": normalized,
         "transport": normalized["transport"],
         "hop_count": normalized["hop_count"],
         "hop_limit": normalized["hop_limit"],
@@ -569,6 +570,18 @@ def ingest_exchange_bundle(
         for row in normalized_bundle["envelopes"]
         if row["envelope_id"] != target["envelope_id"]
     ]
+    portable_bundle = {
+        "schema": PHASENAV_BUNDLE_SCHEMA,
+        "version": VERSION,
+        "target_envelope_id": normalized_bundle["target_envelope_id"],
+        "envelopes": normalized_bundle["envelopes"],
+        "acks": normalized_bundle["acks"],
+        "epistemic": EPISTEMIC,
+        "authority": AUTHORITY,
+        "canon_allowed": False,
+        "bundle_sha256": normalized_bundle["bundle_sha256"],
+        "claims": normalized_bundle["claims"],
+    }
     hive_payload = {
         "kind": "PHASENAV_MEMORY_INFORMATION_EXCHANGE",
         "envelope_id": target["envelope_id"],
@@ -584,6 +597,7 @@ def ingest_exchange_bundle(
         "hop_count": target["hop_count"],
         "hop_limit": target["hop_limit"],
         "lineage_bundle_sha256": normalized_bundle["bundle_sha256"],
+        "lineage_bundle": portable_bundle,
         "lineage_witness_envelope_ids": ancestor_ids,
         "lineage_accepted_ack_ids": normalized_bundle["accepted_ancestor_ack_ids"],
         "authority": AUTHORITY,
