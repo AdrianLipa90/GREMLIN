@@ -160,7 +160,8 @@ def status(*, surface: str = "reference") -> dict[str, Any]:
         "error_contract": {
             "schema": MCP_ERROR_SCHEMA,
             "protocol_semantics": "MCP_TOOL_ERROR_IS_ERROR_TRUE",
-            "fields": ["error_code", "detail_code", "category", "retryable", "user_action", "request_id"],
+            "fields": ["error_code", "detail_code", "category", "retryable", "user_action", "request_id", "request_id_source"],
+            "request_id_policy": "CALLER_OR_GENERATED_NONEMPTY",
         },
         "topology": list(TOPOLOGY), "authority": authority_state(),
     }
