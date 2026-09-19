@@ -61,6 +61,25 @@ monotonic sequence are checked before append.
 This path remains useful for chains that are already inside the RELATIONAL
 memory role.
 
+## Identity-authentication boundary
+
+GREMLIN verifies ACK commitments but does not reinterpret an unsigned
+`consumer_id` as a cryptographically authenticated identity.
+
+The current protocol requires:
+
+`authentication = UNSIGNED_CONTENT_COMMITMENT`
+
+on ACK packets and
+
+`ack_origin_authenticated = false`
+
+on lineage bundles.
+
+Therefore integrity and causal consistency are PASS at the software-protocol
+level, while origin authentication remains OPEN until a separate signed or
+transport-authenticated identity binding is supplied.
+
 ## Cross-layer lineage bundle
 
 A SEMANTIC -> RELATIONAL handoff must not require GREMLIN Hive to persist the
@@ -172,6 +191,7 @@ The implementation establishes:
 
 ## OPEN / NOT CLAIMED
 
+- cryptographic producer/consumer identity authentication beyond content commitments;
 - live NOEMA memory synchronization;
 - automatic `PhaseMemoryHypercrystal` promotion;
 - physical nonlocal signalling;
