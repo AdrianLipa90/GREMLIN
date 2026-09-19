@@ -147,6 +147,82 @@ def _canonical_json(value) -> bytes:
     ).encode("utf-8")
 
 
+def _packet_without_hash(
+    rows: Sequence[ResidualChannel],
+    phase_identifiability: PhaseIdentifiability,
+    *,
+    state: str,
+    phase_ok: bool,
+    known_independent: bool,
+    circular_fit: bool,
+    residual_resolved: bool,
+    source_admissible: bool,
+    chi_square: float,
+    max_abs: float,
+    threshold: float,
+    resolution: float,
+    required_source_bindings_admitted: bool,
+) -> dict:
+    return {
+        "schema": SCHEMA,
+        "status": "CANDIDATE_ONLY",
+        "consistency_state": state,
+        "source_attribution_admissible": source_admissible,
+        "physical_source_selected": False,
+        "phase_identifiability": {
+            **asdict(phase_identifiability),
+            "fully_identifiable": phase_ok,
+        },
+        "channels": [
+            {
+                "name": row.name,
+                "observed": float(row.observed),
+                "predicted": float(row.predicted),
+                "sigma": float(row.sigma),
+                "residual": float(row.residual),
+                "normalized_residual": float(row.normalized_residual),
+                "independently_constrained": bool(row.independently_constrained),
+                "circular_fit": bool(row.circular_fit),
+                "provenance": asdict(row.provenance),
+            }
+            for row in rows
+        ],
+        "consistency": {
+            "chi_square": float(chi_square),
+            "residual_dof": len(rows),
+            "max_abs_normalized_residual": float(max_abs),
+            "per_channel_sigma_threshold": float(threshold),
+            "residual_resolution_sigma": float(resolution),
+        },
+        "source_attribution": {
+            "known_sectors_independently_constrained": known_independent,
+            "circular_fit_present": circular_fit,
+            "residual_resolved": residual_resolved,
+            "required_source_bindings_admitted": bool(
+                required_source_bindings_admitted
+            ),
+            "admissible": source_admissible,
+        },
+    }
+
+
+def verify_packet_payload(packet: dict) -> None:
+    if packet.get("schema") != SCHEMA:
+        raise CrossModalEvidenceError("unexpected packet schema")
+    digest = packet.get("packet_sha256")
+    if not isinstance(digest, str) or len(digest) != 64:
+        raise CrossModalEvidenceError("packet_sha256 must be a 64-character hex digest")
+    if any(ch not in "0123456789abcdef" for ch in digest.lower()):
+        raise CrossModalEvidenceError("packet_sha256 must be hexadecimal")
+    base = dict(packet)
+    base.pop("packet_sha256", None)
+    expected = hashlib.sha256(_canonical_json(base)).hexdigest()
+    if digest.lower() != expected:
+        raise CrossModalEvidenceError("packet_sha256 mismatch")
+    if packet.get("physical_source_selected") is not False:
+        raise CrossModalEvidenceError("physical_source_selected must be exactly false")
+
+
 def _validate_covariance(covariance, size: int) -> np.ndarray:
     sigma = np.asarray(covariance, dtype=float)
     if sigma.shape != (size, size):
@@ -236,45 +312,21 @@ def build_cross_modal_report(
         and required_source_bindings_admitted
     )
 
-    packet_without_hash = {
-        "schema": SCHEMA,
-        "channels": [
-            {
-                "name": row.name,
-                "observed": float(row.observed),
-                "predicted": float(row.predicted),
-                "sigma": float(row.sigma),
-                "residual": float(row.residual),
-                "normalized_residual": float(row.normalized_residual),
-                "independently_constrained": bool(row.independently_constrained),
-                "circular_fit": bool(row.circular_fit),
-                "provenance": asdict(row.provenance),
-            }
-            for row in rows
-        ],
-        "phase_identifiability": {
-            **asdict(phase_identifiability),
-            "fully_identifiable": phase_ok,
-        },
-        "consistency": {
-            "state": state,
-            "chi_square": chi_square,
-            "residual_dof": len(rows),
-            "max_abs_normalized_residual": max_abs,
-            "per_channel_sigma_threshold": threshold,
-            "residual_resolution_sigma": resolution,
-        },
-        "source_attribution": {
-            "admissible": source_admissible,
-            "known_sectors_independently_constrained": known_independent,
-            "circular_fit_present": circular_fit,
-            "residual_resolved": residual_resolved,
-            "required_source_bindings_admitted": bool(
-                required_source_bindings_admitted
-            ),
-            "physical_source_selected": False,
-        },
-    }
+    packet_without_hash = _packet_without_hash(
+        rows,
+        phase_identifiability,
+        state=state,
+        phase_ok=phase_ok,
+        known_independent=known_independent,
+        circular_fit=circular_fit,
+        residual_resolved=residual_resolved,
+        source_admissible=source_admissible,
+        chi_square=chi_square,
+        max_abs=max_abs,
+        threshold=threshold,
+        resolution=resolution,
+        required_source_bindings_admitted=required_source_bindings_admitted,
+    )
     packet_sha = hashlib.sha256(_canonical_json(packet_without_hash)).hexdigest()
 
     return CrossModalEvidenceReport(
@@ -310,43 +362,27 @@ def packet_payload(
         required_source_bindings_admitted=required_source_bindings_admitted,
     )
 
-    return {
-        "schema": SCHEMA,
-        "status": "CANDIDATE_ONLY",
-        "consistency_state": report.consistency_state,
-        "source_attribution_admissible": report.source_attribution_admissible,
-        "physical_source_selected": False,
-        "phase_identifiability": {
-            **asdict(phase_identifiability),
-            "fully_identifiable": report.phase_fully_identifiable,
-        },
-        "channels": [
-            {
-                "name": row.name,
-                "observed": float(row.observed),
-                "predicted": float(row.predicted),
-                "sigma": float(row.sigma),
-                "residual": float(row.residual),
-                "normalized_residual": float(row.normalized_residual),
-                "independently_constrained": bool(row.independently_constrained),
-                "circular_fit": bool(row.circular_fit),
-                "provenance": asdict(row.provenance),
-            }
-            for row in rows
-        ],
-        "consistency": {
-            "chi_square": report.chi_square,
-            "residual_dof": report.residual_dof,
-            "max_abs_normalized_residual": report.max_abs_normalized_residual,
-        },
-        "source_attribution": {
-            "known_sectors_independently_constrained":
-                report.known_sectors_independently_constrained,
-            "circular_fit_present": report.circular_fit_present,
-            "residual_resolved": report.residual_resolved,
-            "required_source_bindings_admitted":
-                bool(required_source_bindings_admitted),
-            "admissible": report.source_attribution_admissible,
-        },
-        "packet_sha256": report.packet_sha256,
-    }
+    payload = _packet_without_hash(
+        rows,
+        phase_identifiability,
+        state=report.consistency_state,
+        phase_ok=report.phase_fully_identifiable,
+        known_independent=report.known_sectors_independently_constrained,
+        circular_fit=report.circular_fit_present,
+        residual_resolved=report.residual_resolved,
+        source_admissible=report.source_attribution_admissible,
+        chi_square=report.chi_square,
+        max_abs=report.max_abs_normalized_residual,
+        threshold=_positive(
+            "per_channel_sigma_threshold", per_channel_sigma_threshold
+        ),
+        resolution=_positive(
+            "residual_resolution_sigma", residual_resolution_sigma
+        ),
+        required_source_bindings_admitted=required_source_bindings_admitted,
+    )
+    payload["packet_sha256"] = hashlib.sha256(
+        _canonical_json(payload)
+    ).hexdigest()
+    verify_packet_payload(payload)
+    return payload
