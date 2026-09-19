@@ -47,6 +47,12 @@ def _user_action(code: str) -> str:
         return "Use built-in workers or a signed profile that explicitly permits custom workers."
     if code == "REMOTE_HTTP_AUTH_REQUIRED":
         return "Bind GREMLIN MCP to localhost/loopback or configure an authenticated remote transport."
+    if code == "CROSS_ORIGIN_WORKSPACE_REQUEST":
+        return "Use the local GREMLIN Workspace origin; cross-origin requests are not admitted."
+    if code == "REQUEST_BODY_TOO_LARGE":
+        return "Reduce the Workspace request body and retry."
+    if code == "WORKSPACE_INTERNAL_ERROR":
+        return "Open Control Center Diagnostics and export a sanitized support report before retrying."
     if code == "INVALID_REQUEST":
         return "Correct the tool arguments and retry."
     if code in {"TIMEOUT", "NETWORK_ERROR"}:
