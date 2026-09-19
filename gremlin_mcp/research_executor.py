@@ -12,6 +12,7 @@ from gremlin_mcp.workers import WorkerBroker
 
 EXECUTOR_SCHEMA = "GREMLIN_RESEARCH_EXECUTOR_V0_1"
 EXECUTOR_VERSION = "0.1.2"
+MAX_RESEARCH_SOURCES = 50
 
 # Generic discourse terms remain excluded from concept nodes. Relational verbs are
 # handled separately as candidate graph operators rather than discarded as noise.
@@ -136,8 +137,8 @@ def _content_commitment(source: Mapping[str, Any]) -> str:
 
 def _prepare_sources(rows: Iterable[Mapping[str, Any]], *, max_sources: int) -> list[dict[str, Any]]:
     limit = int(max_sources)
-    if not (1 <= limit <= 50):
-        raise ValueError("max_sources must be in 1..50")
+    if not (1 <= limit <= MAX_RESEARCH_SOURCES):
+        raise ValueError(f"max_sources must be in 1..{MAX_RESEARCH_SOURCES}")
     sources: list[dict[str, Any]] = []
     for raw in list(rows)[:limit]:
         row = dict(raw)
