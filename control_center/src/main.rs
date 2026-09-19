@@ -9,6 +9,9 @@ use std::sync::mpsc::{self, Receiver, Sender, TryRecvError};
 use std::thread;
 use std::time::{Duration, Instant};
 
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
+
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Tab {
     Setup,
@@ -28,6 +31,8 @@ enum ControlEvent {
     Providers(Result<Value, String>),
     ProviderOutcome(Result<Value, String>),
     IntegrationOutcome(Result<Value, String>),
+    WorkspaceOutcome(Result<Value, String>),
+    SupportOutcome(Result<Value, String>),
     ClearLicenseKey,
     Done,
 }
@@ -53,6 +58,10 @@ struct GremlinControlCenter {
     integration_path: String,
     integration_result: Option<Value>,
     integration_error: Option<String>,
+    workspace_result: Option<Value>,
+    workspace_error: Option<String>,
+    support_result: Option<Value>,
+    support_error: Option<String>,
     task_rx: Option<Receiver<ControlEvent>>,
     busy_label: Option<String>,
     operation_error: Option<String>,
@@ -81,6 +90,10 @@ impl Default for GremlinControlCenter {
             integration_path: String::new(),
             integration_result: None,
             integration_error: None,
+            workspace_result: None,
+            workspace_error: None,
+            support_result: None,
+            support_error: None,
             task_rx: None,
             busy_label: None,
             operation_error: None,
@@ -103,48 +116,61 @@ fn ctl_program() -> PathBuf {
     PathBuf::from(if cfg!(windows) { "gremlinctl.exe" } else { "gremlinctl" })
 }
 
+fn workspace_program() -> PathBuf {
+    if let Ok(current) = std::env::current_exe() {
+        if let Some(parent) = current.parent() {
+            let name = if cfg!(windows) { "gremlin-workspace.exe" } else { "gremlin-workspace" };
+            let sibling = parent.join(name);
+            if sibling.exists() {
+                return sibling;
+            }
+        }
+    }
+    PathBuf::from(if cfg!(windows) { "gremlin-workspace.exe" } else { "gremlin-workspace" })
+}
+
 const CTL_TIMEOUT_SECS: u64 = 30;
 const CTL_POLL_MILLIS: u64 = 50;
 
-fn collect_child_output(child: &mut Child, status: std::process::ExitStatus) -> Result<Output, String> {
+fn collect_child_output(child: &mut Child, status: std::process::ExitStatus, label: &str) -> Result<Output, String> {
     let mut stdout = Vec::new();
     let mut stderr = Vec::new();
     if let Some(mut pipe) = child.stdout.take() {
         pipe.read_to_end(&mut stdout)
-            .map_err(|err| format!("Could not read gremlinctl stdout: {err}"))?;
+            .map_err(|err| format!("Could not read {label} stdout: {err}"))?;
     }
     if let Some(mut pipe) = child.stderr.take() {
         pipe.read_to_end(&mut stderr)
-            .map_err(|err| format!("Could not read gremlinctl stderr: {err}"))?;
+            .map_err(|err| format!("Could not read {label} stderr: {err}"))?;
     }
     Ok(Output { status, stdout, stderr })
 }
 
-fn wait_ctl_output(mut child: Child) -> Result<Output, String> {
+fn wait_program_output(mut child: Child, label: &str) -> Result<Output, String> {
     let started = Instant::now();
     let timeout = Duration::from_secs(CTL_TIMEOUT_SECS);
     loop {
         match child.try_wait() {
-            Ok(Some(status)) => return collect_child_output(&mut child, status),
+            Ok(Some(status)) => return collect_child_output(&mut child, status, label),
             Ok(None) => {
                 if started.elapsed() >= timeout {
                     let kill_error = child.kill().err();
                     let _ = child.wait();
                     return Err(match kill_error {
                         Some(err) => format!(
-                            "gremlinctl timed out after {CTL_TIMEOUT_SECS} seconds and termination failed: {err}"
+                            "{label} timed out after {CTL_TIMEOUT_SECS} seconds and termination failed: {err}"
                         ),
-                        None => format!("gremlinctl timed out after {CTL_TIMEOUT_SECS} seconds"),
+                        None => format!("{label} timed out after {CTL_TIMEOUT_SECS} seconds"),
                     });
                 }
                 thread::sleep(Duration::from_millis(CTL_POLL_MILLIS));
             }
-            Err(err) => return Err(format!("Could not poll gremlinctl process: {err}")),
+            Err(err) => return Err(format!("Could not poll {label} process: {err}")),
         }
     }
 }
 
-fn decode_ctl_output(output: std::process::Output) -> Result<Value, String> {
+fn decode_json_output(output: std::process::Output, label: &str) -> Result<Value, String> {
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr).trim().to_owned();
         let stdout = String::from_utf8_lossy(&output.stdout).trim().to_owned();
@@ -155,10 +181,10 @@ fn decode_ctl_output(output: std::process::Output) -> Result<Value, String> {
         } else {
             "no diagnostic output".to_owned()
         };
-        return Err(format!("gremlinctl failed ({}): {detail}", output.status));
+        return Err(format!("{label} failed ({}): {detail}", output.status));
     }
     serde_json::from_slice::<Value>(&output.stdout)
-        .map_err(|err| format!("Could not decode gremlinctl JSON: {err}"))
+        .map_err(|err| format!("Could not decode {label} JSON: {err}"))
 }
 
 fn run_ctl_json(args: &[String]) -> Result<Value, String> {
@@ -168,7 +194,7 @@ fn run_ctl_json(args: &[String]) -> Result<Value, String> {
         .stderr(Stdio::piped())
         .spawn()
         .map_err(|err| format!("Could not launch gremlinctl: {err}"))?;
-    decode_ctl_output(wait_ctl_output(child)?)
+    decode_json_output(wait_program_output(child, "gremlinctl")?, "gremlinctl")
 }
 
 fn run_ctl_json_input(args: &[String], input: &str) -> Result<Value, String> {
@@ -184,8 +210,42 @@ fn run_ctl_json_input(args: &[String], input: &str) -> Result<Value, String> {
             .write_all(input.as_bytes())
             .map_err(|err| format!("Could not pass license to gremlinctl: {err}"))?;
     }
-    let output = wait_ctl_output(child)?;
-    decode_ctl_output(output)
+    let output = wait_program_output(child, "gremlinctl")?;
+    decode_json_output(output, "gremlinctl")
+}
+
+fn run_workspace_check_json() -> Result<Value, String> {
+    let child = Command::new(workspace_program())
+        .args(["--check", "--json"])
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|err| format!("Could not launch gremlin-workspace check: {err}"))?;
+    let output = wait_program_output(child, "gremlin-workspace")?;
+    let parsed = serde_json::from_slice::<Value>(&output.stdout)
+        .map_err(|err| format!("Could not decode gremlin-workspace check JSON: {err}"))?;
+    if output.status.success() {
+        return Ok(parsed);
+    }
+    let reason = parsed.get("reason").and_then(Value::as_str).unwrap_or("workspace check failed");
+    Err(format!("GREMLIN Workspace is not ready: {reason}"))
+}
+
+fn spawn_workspace() -> Result<(), String> {
+    let mut command = Command::new(workspace_program());
+    command
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null());
+    #[cfg(windows)]
+    command.creation_flags(0x08000000);
+    let mut child = command
+        .spawn()
+        .map_err(|err| format!("Could not launch GREMLIN Workspace: {err}"))?;
+    thread::spawn(move || {
+        let _ = child.wait();
+    });
+    Ok(())
 }
 
 fn send_event(tx: &Sender<ControlEvent>, event: ControlEvent) -> bool {
@@ -250,7 +310,7 @@ impl GremlinControlCenter {
 
     fn next_action(&self) -> String {
         if self.ready_status() == "READY" {
-            return "GREMLIN is ready. Open a connected AI client and use GREMLIN through MCP.".to_owned();
+            return "GREMLIN is ready. Launch Workspace or use GREMLIN through a connected MCP client.".to_owned();
         }
         if !self.license_active() {
             return "Activate your GREMLIN license to unlock provider connection controls.".to_owned();
@@ -363,6 +423,26 @@ impl GremlinControlCenter {
                 Err(err) => {
                     self.integration_result = None;
                     self.integration_error = Some(err);
+                }
+            },
+            ControlEvent::WorkspaceOutcome(result) => match result {
+                Ok(value) => {
+                    self.workspace_result = Some(value);
+                    self.workspace_error = None;
+                }
+                Err(err) => {
+                    self.workspace_result = None;
+                    self.workspace_error = Some(err);
+                }
+            },
+            ControlEvent::SupportOutcome(result) => match result {
+                Ok(value) => {
+                    self.support_result = Some(value);
+                    self.support_error = None;
+                }
+                Err(err) => {
+                    self.support_result = None;
+                    self.support_error = Some(err);
                 }
             },
             ControlEvent::ClearLicenseKey => self.license_key_input.clear(),
@@ -552,6 +632,37 @@ impl GremlinControlCenter {
             ];
             let _ = send_event(&tx, ControlEvent::IntegrationOutcome(run_ctl_json(&args)));
             let _ = send_event(&tx, ControlEvent::Readiness(run_ctl_json(&["ready".into(), "--json".into()])));
+            let _ = send_event(&tx, ControlEvent::Done);
+        });
+    }
+
+    fn launch_workspace(&mut self) {
+        self.workspace_result = None;
+        self.workspace_error = None;
+        self.start_task("Launching GREMLIN Workspace", |tx| {
+            let outcome = match run_workspace_check_json() {
+                Ok(check) => match spawn_workspace() {
+                    Ok(()) => Ok(check),
+                    Err(err) => Err(err),
+                },
+                Err(err) => Err(err),
+            };
+            let _ = send_event(&tx, ControlEvent::WorkspaceOutcome(outcome));
+            let _ = send_event(&tx, ControlEvent::Done);
+        });
+    }
+
+    fn export_support_report(&mut self) {
+        self.support_result = None;
+        self.support_error = None;
+        self.start_task("Writing sanitized support report", |tx| {
+            let result = run_ctl_json(&[
+                "support".into(),
+                "report".into(),
+                "--write".into(),
+                "--json".into(),
+            ]);
+            let _ = send_event(&tx, ControlEvent::SupportOutcome(result));
             let _ = send_event(&tx, ControlEvent::Done);
         });
     }
@@ -792,8 +903,16 @@ impl GremlinControlCenter {
             ui.strong(self.ready_status());
             if self.ready_status() == "READY" {
                 ui.label("GREMLIN is licensed, the local MCP runtime is available and at least one AI client is connected.");
-                if ui.button("Go to Overview").clicked() {
-                    self.tab = Tab::Overview;
+                ui.horizontal_wrapped(|ui| {
+                    if ui.add_enabled(!self.is_busy(), egui::Button::new("Launch Workspace")).clicked() {
+                        self.launch_workspace();
+                    }
+                    if ui.button("Go to Overview").clicked() {
+                        self.tab = Tab::Overview;
+                    }
+                });
+                if let Some(err) = &self.workspace_error {
+                    ui.colored_label(egui::Color32::from_rgb(255, 110, 135), err);
                 }
             } else if let Some(actions) = self.readiness.as_ref().and_then(|v| v.get("actions")).and_then(Value::as_array) {
                 for action in actions {
@@ -875,6 +994,12 @@ impl GremlinControlCenter {
 
         ui.add_space(18.0);
         ui.horizontal_wrapped(|ui| {
+            if ui.add_enabled(
+                !self.is_busy() && self.product_status() == "LICENSED",
+                egui::Button::new("Launch Workspace"),
+            ).clicked() {
+                self.launch_workspace();
+            }
             if ui.button("AI Providers").clicked() {
                 self.tab = Tab::Integrations;
             }
@@ -885,6 +1010,12 @@ impl GremlinControlCenter {
                 self.tab = Tab::Diagnostics;
             }
         });
+        if let Some(err) = &self.workspace_error {
+            ui.colored_label(egui::Color32::from_rgb(255, 110, 135), err);
+        } else if let Some(result) = &self.workspace_result {
+            let url = result.get("url").and_then(Value::as_str).unwrap_or("http://127.0.0.1:8765");
+            ui.small(format!("Workspace launch requested: {url}"));
+        }
 
         ui.add_space(18.0);
         egui::Frame::group(ui.style()).show(ui, |ui| {
@@ -1056,6 +1187,18 @@ impl GremlinControlCenter {
             if ui.add_enabled(!self.is_busy(), egui::Button::new("Refresh")).clicked() { self.refresh_all(); }
         });
         ui.label("Start with the human-readable action below. Raw receipts are available only when you need support-level detail.");
+        ui.horizontal_wrapped(|ui| {
+            if ui.add_enabled(!self.is_busy(), egui::Button::new("Export sanitized support report")).clicked() {
+                self.export_support_report();
+            }
+            if let Some(err) = &self.support_error {
+                ui.colored_label(egui::Color32::from_rgb(255, 110, 135), err);
+            } else if let Some(result) = &self.support_result {
+                if let Some(path) = result.get("artifact_path").and_then(Value::as_str) {
+                    ui.small(format!("Support report: {path}"));
+                }
+            }
+        });
         ui.add_space(10.0);
 
         egui::Frame::group(ui.style()).show(ui, |ui| {
