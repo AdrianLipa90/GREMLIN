@@ -68,7 +68,7 @@ class MutationBackend(Protocol):
 
 
 class MutationLedger(Protocol):
-    def cancel(self, decree_commitment: str) -> None: ...
+    def cancel(self, decree_commitment: str) -> bool: ...
     def is_cancelled(self, decree_commitment: str) -> bool: ...
     def consume(self, decree_commitment: str, authorization_commitment: str) -> bool: ...
 
@@ -81,8 +81,12 @@ class InMemoryMutationLedger:
         self._decrees: set[str] = set()
         self._authorizations: set[str] = set()
 
-    def cancel(self, decree_commitment: str) -> None:
-        self._cancelled.add(_hash64(decree_commitment, "decree_commitment"))
+    def cancel(self, decree_commitment: str) -> bool:
+        decree = _hash64(decree_commitment, "decree_commitment")
+        if decree in self._decrees:
+            return False
+        self._cancelled.add(decree)
+        return True
 
     def is_cancelled(self, decree_commitment: str) -> bool:
         return _hash64(decree_commitment, "decree_commitment") in self._cancelled
@@ -155,6 +159,11 @@ def _authority(*, mutation_authorized: bool = False) -> dict[str, bool]:
         "canon_allowed": False,
         "mutation_authorized": bool(mutation_authorized),
     }
+
+
+def _require_closed_authority(record: Mapping[str, Any], field: str) -> None:
+    if record.get("authority") != _authority():
+        raise RaphaelWisdomError(f"{field} attempted authority widening")
 
 
 def _path(value: Any, field: str) -> str:
@@ -302,6 +311,11 @@ def observe(
             blockers.append(f"{producer}:UNKNOWN_STATUS_FAIL_CLOSED")
 
     required = sorted({_text(item, "required_producer").upper() for item in required_producers})
+    omitted_mandatory = sorted(set(REQUIRED_WISDOM_PRODUCERS) - set(required))
+    if omitted_mandatory:
+        raise RaphaelWisdomError(
+            f"required_producers cannot remove mandatory wisdom producers: {omitted_mandatory}"
+        )
     missing = [producer for producer in required if producer not in seen]
 
     repository = _text(target_repository, "target_repository")
@@ -339,6 +353,7 @@ def _verify_observation(observation: Mapping[str, Any]) -> dict[str, Any]:
         raise RaphaelWisdomError("RAPHAEL observation schema/phase mismatch")
     if body.get("epistemic") != EPISTEMIC_MODE:
         raise RaphaelWisdomError("RAPHAEL epistemic mode mismatch")
+    _require_closed_authority(body, "RAPHAEL observation")
     return body
 
 
@@ -422,6 +437,7 @@ def _verify_decree(decree: Mapping[str, Any]) -> dict[str, Any]:
         raise RaphaelWisdomError("RAPHAEL decree must freeze mutation scope")
     if body.get("requires_external_authorization") is not True or body.get("single_use") is not True:
         raise RaphaelWisdomError("RAPHAEL decree authority contract mismatch")
+    _require_closed_authority(body, "RAPHAEL decree")
     return body
 
 
@@ -433,7 +449,10 @@ def cancel_decree(
 ) -> dict[str, Any]:
     _verify_decree(decree)
     reasons = sorted(set(_strings(reason_codes, "reason_codes")))
-    ledger.cancel(decree["decree_commitment"])
+    if not ledger.cancel(decree["decree_commitment"]):
+        raise RaphaelAuthorizationError(
+            "decree already consumed; cancellation is only admitted before mutation"
+        )
     core = {
         "schema": "GREMLIN_RAPHAEL_DECREE_CANCELLATION_V0_1",
         "raphael_schema": RAPHAEL_SCHEMA,
@@ -685,9 +704,12 @@ def execute(
         fail("TEST_RUNNER_MISSING", "required tests exist but no test runner was supplied")
     for name in body["required_tests"]:
         try:
-            ok = bool(test_runner(name)) if test_runner is not None else False
+            raw_test_result = test_runner(name) if test_runner is not None else None
         except Exception as exc:
             fail("TEST_EXECUTION_FAILED", f"test {name!r} raised {type(exc).__name__}: {exc}")
+        if type(raw_test_result) is not bool:
+            fail("MALFORMED_TEST_RESULT", f"test {name!r} must return an exact boolean")
+        ok = raw_test_result
         tests[name] = "PASS" if ok else "FAIL"
         if not ok:
             fail("TEST_FAILURE", f"required test failed: {name}")
@@ -696,21 +718,34 @@ def execute(
         fail("POSTCONDITION_CHECKER_MISSING", "postconditions exist but no checker was supplied")
     for condition in body["postconditions"]:
         try:
-            ok = bool(postcondition_checker(condition)) if postcondition_checker is not None else False
+            raw_postcondition_result = (
+                postcondition_checker(condition) if postcondition_checker is not None else None
+            )
         except Exception as exc:
             fail(
                 "POSTCONDITION_EXECUTION_FAILED",
                 f"postcondition {condition!r} raised {type(exc).__name__}: {exc}",
             )
+        if type(raw_postcondition_result) is not bool:
+            fail(
+                "MALFORMED_POSTCONDITION_RESULT",
+                f"postcondition {condition!r} must return an exact boolean",
+            )
+        ok = raw_postcondition_result
         postconditions[condition] = "PASS" if ok else "FAIL"
         if not ok:
             fail("POSTCONDITION_FAILURE", f"postcondition failed: {condition}")
+
+    try:
+        final_sha = _state_sha(backend.current_state())
+    except RaphaelExecutionError as exc:
+        fail("FINAL_STATE_UNVERIFIABLE", f"final backend state is not verifiable: {exc}")
 
     return _receipt(
         decree=decree,
         authorization=authorization,
         before_sha=before_sha,
-        after_sha=_state_sha(backend.current_state()),
+        after_sha=final_sha,
         applied_results=applied,
         tests=tests,
         postconditions=postconditions,
