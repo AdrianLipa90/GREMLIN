@@ -14,8 +14,112 @@ const verdict = $("#verdict");
 const inputState = $("#input-state");
 const footerMessage = $("#footer-message");
 
+const productBadge = $("#product-badge");
+const mcpBadge = $("#mcp-badge");
+const systemLoadState = $("#system-load-state");
+const systemProductStatus = $("#system-product-status");
+const systemEdition = $("#system-edition");
+const systemToolCount = $("#system-tool-count");
+const systemContract = $("#system-contract");
+const systemSpeciesCount = $("#system-species-count");
+const systemAuthority = $("#system-authority");
+const bestiaryTopology = $("#bestiary-topology");
+const bestiaryGrid = $("#bestiary-grid");
+
 function pretty(value) {
   return JSON.stringify(value, null, 2);
+}
+
+function setBadge(element, text, state = "") {
+  element.className = "badge";
+  if (state) element.classList.add(state);
+  element.textContent = text;
+}
+
+function renderBestiary(bestiary) {
+  bestiaryGrid.replaceChildren();
+  const species = Array.isArray(bestiary?.species) ? bestiary.species : [];
+  species.forEach((item) => {
+    const card = document.createElement("article");
+    card.className = `beast-card beast-stage-${String(item.stage || "unknown").toLowerCase()}`;
+
+    const head = document.createElement("div");
+    head.className = "beast-head";
+
+    const name = document.createElement("strong");
+    name.textContent = item.name || "UNKNOWN";
+
+    const stage = document.createElement("span");
+    stage.className = "beast-stage";
+    stage.textContent = item.stage || "unknown";
+
+    const role = document.createElement("p");
+    role.textContent = item.role || "No role description.";
+
+    head.append(name, stage);
+    card.append(head, role);
+    bestiaryGrid.appendChild(card);
+  });
+
+  const topology = Array.isArray(bestiary?.topology) ? bestiary.topology : [];
+  bestiaryTopology.textContent = topology.length ? topology.join(" → ") : "topology unavailable";
+}
+
+function renderSystem(payload) {
+  const product = payload.product || {};
+  const license = product.license || {};
+  const mcp = payload.mcp || {};
+  const bestiary = payload.bestiary || {};
+  const authority = payload.authority || {};
+
+  const productStatus = String(product.status || "UNKNOWN");
+  systemProductStatus.textContent = productStatus.replaceAll("_", " ");
+  systemEdition.textContent = license.edition ? `edition ${license.edition}` : "edition —";
+
+  const toolCount = Number.isInteger(mcp.tool_count) ? mcp.tool_count : "—";
+  systemToolCount.textContent = toolCount === "—" ? "—" : `${toolCount} tools`;
+  systemContract.textContent = mcp.capability_contract || "contract —";
+
+  const speciesCount = Number.isInteger(bestiary.species_count) ? bestiary.species_count : "—";
+  systemSpeciesCount.textContent = speciesCount === "—" ? "—" : `${speciesCount} roles`;
+
+  const closed = authority.production_runtime_write === false
+    && authority.execution_admitted === false
+    && authority.canon_allowed === false;
+  systemAuthority.textContent = closed ? "CLOSED" : "CHECK REQUIRED";
+
+  setBadge(
+    productBadge,
+    `product: ${productStatus.toLowerCase().replaceAll("_", " ")}`,
+    productStatus === "LICENSED" ? "badge-safe" : "badge-muted",
+  );
+  setBadge(
+    mcpBadge,
+    `MCP: ${toolCount === "—" ? "unknown" : toolCount + " tools"}`,
+    toolCount === 29 ? "badge-safe" : "badge-muted",
+  );
+
+  renderBestiary(bestiary);
+  systemLoadState.className = "run-status pass";
+  systemLoadState.textContent = "system verified";
+}
+
+async function loadSystem() {
+  systemLoadState.className = "run-status running";
+  systemLoadState.textContent = "loading system…";
+  try {
+    const response = await fetch("/api/system", { cache: "no-store" });
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.error || `System request failed: HTTP ${response.status}`);
+    renderSystem(payload);
+  } catch (error) {
+    systemLoadState.className = "run-status fail";
+    systemLoadState.textContent = "system unavailable";
+    setBadge(productBadge, "product: unavailable", "badge-muted");
+    setBadge(mcpBadge, "MCP: unavailable", "badge-muted");
+    bestiaryTopology.textContent = String(error.message || error);
+    bestiaryGrid.replaceChildren();
+  }
 }
 
 function setRunState(state, message) {
@@ -327,4 +431,5 @@ $$(".tab").forEach((button) => {
   });
 });
 
+loadSystem();
 loadExample();
