@@ -228,6 +228,17 @@ def test_product_mcp_discovery_exposes_license_tools(tmp_path) -> None:
         async with Client(product_server.mcp) as client:
             listed = await client.list_tools()
             names = {tool.name for tool in listed.tools}
+            from gremlin_mcp.core import status as core_status
+            declared_status = core_status(surface="product")
+            declared = set(declared_status["tools"])
+            grouped = {
+                tool
+                for tools in declared_status["tool_groups"].values()
+                for tool in tools
+            }
+            assert names == declared
+            assert grouped == declared
+            assert declared_status["tool_count"] == len(names) == 29
             assert {"gremlin_product_status", "gremlin_license_status", "gremlin_route"} <= names
             status_result = await client.call_tool("gremlin_product_status", {})
             assert status_result.is_error is False
