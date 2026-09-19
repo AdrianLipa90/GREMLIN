@@ -73,6 +73,7 @@ class FakeBackend:
         self.applied = []
         self.rolled_back = False
         self.bad_receipt = False
+        self.nonfinite_receipt = False
 
     def current_state(self):
         return {"target_sha": self.sha}
@@ -88,6 +89,7 @@ class FakeBackend:
                 "0" * 64 if self.bad_receipt else operation["operation_commitment"]
             ),
             "status": "APPLIED",
+            **({"diagnostic": float("nan")} if self.nonfinite_receipt else {}),
         }
 
     def rollback(self, rollback_state, applied_results):
@@ -245,6 +247,25 @@ def test_bad_operation_receipt_rolls_back():
             postcondition_checker=lambda _: True,
         )
     assert caught.value.receipt["failure_code"] == "OPERATION_RECEIPT_MISMATCH"
+    assert caught.value.receipt["status"] == "ROLLED_BACK"
+    assert backend.rolled_back is True
+
+
+def test_nonfinite_backend_receipt_rolls_back_before_lineage_commit():
+    decree = _decree()
+    auth = authorize(decree, actor="USER007", approved=True, observed_target_sha="a" * 40, authority_receipt_commitment=_h("external-authority"))
+    backend = FakeBackend()
+    backend.nonfinite_receipt = True
+    with pytest.raises(RaphaelExecutionError) as caught:
+        execute(
+            decree,
+            auth,
+            backend=backend,
+            ledger=InMemoryMutationLedger(),
+            test_runner=lambda _: True,
+            postcondition_checker=lambda _: True,
+        )
+    assert caught.value.receipt["failure_code"] == "MALFORMED_MUTATION_RESULT"
     assert caught.value.receipt["status"] == "ROLLED_BACK"
     assert backend.rolled_back is True
 
