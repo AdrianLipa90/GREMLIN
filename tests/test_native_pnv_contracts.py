@@ -213,6 +213,8 @@ def test_mathematical_constitution_native_contract():
     assert "# LEDGER_DELETE_ALLOWED FALSE" in text
     assert "# SILENT_STATE_CHANGE_ALLOWED FALSE" in text
     assert "# RAPHAEL_CAN_OVERRIDE_CONSTITUTION FALSE" in text
+    assert "# FERRET_EXTERNAL_ACTUATOR_CONSTITUTION_REQUIRED TRUE" in text
+    assert "# FERRET_SINGLE_USE_EXECUTION_LEDGER_REQUIRED TRUE" in text
     assert "# Python code is deterministic reference/test harness only." in text
 
 
@@ -224,7 +226,7 @@ def test_runtime_constitutional_non_bypass_native_contract():
     assert "# MISSING_PACKET_ALLOW FALSE" in text
     assert "# DENY_EXECUTABLE FALSE" in text
     assert "# DEFER_EXECUTABLE FALSE" in text
-    assert "# DECLARED_MUTATION_SURFACE_COUNT 25" in text
+    assert "# DECLARED_MUTATION_SURFACE_COUNT 26" in text
     assert "# GUARD_BEFORE_MUTATION_REQUIRED TRUE" in text
     assert "# UNCONDITIONAL_TOP_LEVEL_GUARD_REQUIRED TRUE" in text
     assert "# GUARD_ENDPOINT_LITERAL_MATCH_REQUIRED TRUE" in text
