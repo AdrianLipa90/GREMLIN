@@ -6,10 +6,10 @@ from tools.gremlin_runtime_constitutional_proof_v01 import (
 )
 
 
-def test_runtime_registry_is_explicit_and_has_25_declared_surfaces() -> None:
+def test_runtime_registry_is_explicit_and_has_26_declared_surfaces() -> None:
     row = manifest()
     assert row["schema"] == "GREMLIN_CONSTITUTIONAL_RUNTIME_SURFACE_REGISTRY_V0_1"
-    assert row["surface_count"] == 25
+    assert row["surface_count"] == 26
     assert row["registry_is_explicit_policy"] is True
     assert row["registry_exhaustiveness_proven"] is False
 
@@ -17,8 +17,8 @@ def test_runtime_registry_is_explicit_and_has_25_declared_surfaces() -> None:
 def test_every_declared_runtime_mutation_is_constitutionally_guarded_before_mutation() -> None:
     receipt = audit_runtime_constitutional_coverage()
     summary = receipt["summary"]
-    assert summary["declared_surface_count"] == 25
-    assert summary["constitutional_covered_count"] == 25
+    assert summary["declared_surface_count"] == 26
+    assert summary["constitutional_covered_count"] == 26
     assert summary["constitutional_gap_count"] == 0
     assert summary["coverage_fraction"] == 1.0
     assert summary["coverage_complete"] is True
