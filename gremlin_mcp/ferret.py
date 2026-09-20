@@ -351,6 +351,12 @@ def verify_authorization(
         raise FerretAuthorizationError("authorization belongs to another preview")
     if auth_dict.get("preview_commitment") != preview_commitment:
         raise FerretAuthorizationError("authorization scope does not match preview")
+    if auth_dict.get("scope") != "EXACT_PREVIEW_ONLY":
+        raise FerretAuthorizationError("authorization scope contract mismatch")
+    if auth_dict.get("single_use") is not True:
+        raise FerretAuthorizationError("FERRET authorization must be single-use")
+    if auth_dict.get("replay_protection") != "FERRET_EXECUTION_LEDGER_REQUIRED":
+        raise FerretAuthorizationError("FERRET authorization replay contract mismatch")
 
 
 def _append_optional_text(values: list[str], value: Any, field: str) -> None:
@@ -691,6 +697,8 @@ def execute_authorized_action(
         "preview_commitment": preview["preview_commitment"],
         "authorization_id": authorization["authorization_id"],
         "authorization_commitment": authorization["authorization_commitment"],
+        "authorization_consumed": True,
+        "single_use": True,
         "started_unix_ns": started,
         "finished_unix_ns": time.time_ns(),
         "status": status,
