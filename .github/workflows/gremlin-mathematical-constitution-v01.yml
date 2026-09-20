@@ -1,0 +1,60 @@
+name: GREMLIN Mathematical Constitution v0.1
+
+on:
+  pull_request:
+    paths:
+      - 'gremlin_mcp/mathematical_constitution.py'
+      - 'spec/GREMLIN_MATHEMATICAL_CONSTITUTION_V0_1.md'
+      - 'native/GREMLIN_MATHEMATICAL_CONSTITUTION_V0_1.pnv'
+      - 'native/GREMLIN_COGNITIVE_ACTION_PRINCIPLE_V0_1.pnv'
+      - 'spec/GREMLIN_COGNITIVE_ACTION_PRINCIPLE_V0_1.md'
+      - 'tests/test_gremlin_mathematical_constitution_v01.py'
+      - 'tests/test_native_pnv_contracts.py'
+      - 'gremlin_mcp/memory_capabilities.py'
+      - 'tools/gremlin_radical_ethics_acquisition_v01.py'
+      - '.github/workflows/gremlin-mathematical-constitution-v01.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'gremlin_mcp/mathematical_constitution.py'
+      - 'spec/GREMLIN_MATHEMATICAL_CONSTITUTION_V0_1.md'
+      - 'native/GREMLIN_MATHEMATICAL_CONSTITUTION_V0_1.pnv'
+      - 'native/GREMLIN_COGNITIVE_ACTION_PRINCIPLE_V0_1.pnv'
+      - 'spec/GREMLIN_COGNITIVE_ACTION_PRINCIPLE_V0_1.md'
+      - 'tests/test_gremlin_mathematical_constitution_v01.py'
+      - 'tests/test_native_pnv_contracts.py'
+      - 'gremlin_mcp/memory_capabilities.py'
+      - 'tools/gremlin_radical_ethics_acquisition_v01.py'
+      - '.github/workflows/gremlin-mathematical-constitution-v01.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  mathematical-constitution:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install GREMLIN test surface
+        run: python -m pip install --disable-pip-version-check -e . pytest numpy
+      - name: Compile constitutional kernel
+        run: >-
+          python -m py_compile
+          gremlin_mcp/mathematical_constitution.py
+          tools/gremlin_cognitive_action_principle_v01.py
+          tools/gremlin_radical_ethics_acquisition_v01.py
+          gremlin_mcp/memory_capabilities.py
+      - name: Run constitutional and bridge tests
+        run: >-
+          python -m pytest -q
+          tests/test_gremlin_mathematical_constitution_v01.py
+          tests/test_gremlin_cognitive_action_principle_v01.py
+          tests/test_gremlin_radical_ethics_acquisition_v01.py
+          tests/test_bestiary_memory_capabilities_v01.py
+          tests/test_native_pnv_contracts.py
