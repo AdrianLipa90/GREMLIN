@@ -246,7 +246,7 @@ def require_constitutional_admission(
     expected_authority_status: int | None = None,
     expected_evidence_status: int | None = None,
 ) -> dict[str, Any]:
-    expected = build_runtime_action_binding(
+    expected_binding = build_runtime_action_binding(
         endpoint=endpoint,
         consequence_class=consequence_class,
         request_payload=request_payload,
@@ -255,24 +255,24 @@ def require_constitutional_admission(
     packet = validate_runtime_constitutional_packet(constitutional_packet)
     binding = packet["action_binding"]
 
-    if binding != expected:
+    if binding != expected_binding:
         raise RuntimeConstitutionalError(
             "constitutional packet is not bound to this exact runtime request"
         )
 
     admission = packet["admission_receipt"]
-    for field, expected in (
+    for field, expected_status in (
         ("capability_scalar", expected_capability_status),
         ("authority_scalar", expected_authority_status),
         ("evidence_scalar", expected_evidence_status),
     ):
-        if expected is None:
+        if expected_status is None:
             continue
-        if isinstance(expected, bool) or expected not in {-1, 0, 1}:
+        if isinstance(expected_status, bool) or expected_status not in {-1, 0, 1}:
             raise RuntimeConstitutionalError(
                 f"expected {field} must be one of -1, 0, +1"
             )
-        if admission[field] != expected:
+        if admission[field] != expected_status:
             raise RuntimeConstitutionalError(
                 f"runtime admission {field} does not match validated upstream state"
             )
@@ -287,9 +287,9 @@ def require_constitutional_admission(
         "schema": SCHEMA,
         "version": VERSION,
         "status": "ADMITTED",
-        "endpoint": expected["endpoint"],
-        "request_sha256": expected["request_sha256"],
-        "action_sha256": expected["action_contract"]["action_sha256"],
+        "endpoint": expected_binding["endpoint"],
+        "request_sha256": expected_binding["request_sha256"],
+        "action_sha256": expected_binding["action_contract"]["action_sha256"],
         "admission_receipt_id": admission["receipt_id"],
         "packet_sha256": packet["packet_sha256"],
         "canon_allowed": False,
