@@ -1,0 +1,44 @@
+name: GREMLIN memory anti-entropy v0.1
+
+on:
+  pull_request:
+    branches:
+      - main
+      - formalism/memory-information-exchange-v01-20260919
+    paths:
+      - 'gremlin_mcp/memory_exchange.py'
+      - 'gremlin_mcp/memory_anti_entropy.py'
+      - 'gremlin_mcp/server_with_hive.py'
+      - 'gremlin_mcp/hive_authority_server.py'
+      - 'gremlin_mcp/hive_server.py'
+      - 'tests/test_gremlin_memory_exchange_v01.py'
+      - 'tests/test_gremlin_memory_anti_entropy_v01.py'
+      - 'spec/GREMLIN_MEMORY_ANTI_ENTROPY_V0_1.md'
+      - '.github/workflows/gremlin-memory-anti-entropy-v01.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  memory-anti-entropy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install GREMLIN and pytest
+        run: python -m pip install -e . pytest
+      - name: Compile anti-entropy surfaces
+        run: >-
+          python -m py_compile
+          gremlin_mcp/memory_exchange.py
+          gremlin_mcp/memory_anti_entropy.py
+          gremlin_mcp/server_with_hive.py
+          gremlin_mcp/hive_authority_server.py
+          gremlin_mcp/hive_server.py
+      - name: Run focused memory synchronization tests
+        run: >-
+          python -m pytest -q
+          tests/test_gremlin_memory_exchange_v01.py
+          tests/test_gremlin_memory_anti_entropy_v01.py
