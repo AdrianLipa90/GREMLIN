@@ -1,0 +1,49 @@
+{
+  "schema": "GREMLIN_EB_CROSS_DOMAIN_EXACT_SOURCE_LOCAL_REPLAY_V0_11",
+  "status": "PASS_SCOPED_LOCAL_REPLAY",
+  "tested_branch": "feat/eb-radial-cross-domain-v010-v011",
+  "tested_head": "322e6ad4617b95d98860a19912e75b05a6c6185e",
+  "python_compile": {
+    "modules": [
+      "tools/gremlin_eb_radial_stability_nullspace_v010.py",
+      "tools/gremlin_cross_domain_coupling_identifiability_v011.py"
+    ],
+    "return_code": 0
+  },
+  "replay": {
+    "pass_count": 18,
+    "failure_count": 0,
+    "checks": [
+      "epicyclic_laplacian",
+      "source_cancels",
+      "inverse_r_null",
+      "source_degeneracy",
+      "g_prec_recovery",
+      "precession_null_fail_closed",
+      "g_opt_recovery",
+      "inverse_r_optical_shear",
+      "spectroscopy_common_mode_fail_closed",
+      "cross_domain_agreement",
+      "cross_domain_mismatch_fail_closed",
+      "beta_recovery",
+      "rank_one",
+      "factorization_fail_closed",
+      "factorization_with_receipt",
+      "v09_gradient",
+      "two_route_gi",
+      "berry_qeff"
+    ]
+  },
+  "harness_boundary": [
+    "v0.10 and v0.11 were executed from the exact branch source text",
+    "the local parent adapter contained the exact v0.9 functions consumed by this replay: eb_source_strength, information_potential_gradient, effective_winding",
+    "this receipt is not a substitute for the full repository pytest suite or hosted GitHub Actions"
+  ],
+  "hosted_ci_at_receipt_time": {
+    "pull_request": 96,
+    "dedicated_run_id": 35489137182,
+    "fail_loud_run_id": 35489137179,
+    "state": "QUEUED_NOT_FAILED"
+  },
+  "unrelated_stderr": "Python startup emitted artifact_tool spreadsheet warmup diagnostics; both compile and test processes returned code 0."
+}
