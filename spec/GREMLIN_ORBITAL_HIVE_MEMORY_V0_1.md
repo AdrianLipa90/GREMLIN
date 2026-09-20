@@ -107,6 +107,8 @@ This is deliberately compatible with GREMLIN's existing persistence discipline w
 
 ## Integration with existing GREMLIN layers
 
+Role names in this diagram are bound to `spec/GREMLIN_ROLE_CAPABILITY_CONTRACT_V1.json` and `gremlin_mcp/core.py::BESTIARY_ROLES`. Documentation must not reassign those capabilities.
+
 ```text
 OCTOPUS / Bestiary inputs
         |
@@ -119,8 +121,9 @@ ORBIT ASSIGNMENT
         v
 36-ring flat Hive table
         |
-        +--> HOUND evidence/provenance
-        +--> RAVEN contradiction checks
+        +--> RAVEN memory/similarity
+        +--> HOUND contradiction/anomaly/test targets
+        +--> OWL evidence/provenance audit
         +--> SPIDER dependency closure
         +--> BELZEBUB adversarial quarantine
         |
