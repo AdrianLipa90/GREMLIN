@@ -29,7 +29,28 @@
       "boundary": "formula-level independent replay; hosted repository CI is authoritative for exact source integration"
     },
     "hosted_ci": {
-      "status": "PENDING_AFTER_NATIVE_CONTRACT_INTEGRATION"
+      "status": "PASS",
+      "tested_code_head": "f93bc5d6e7389cbfed59c2121dd05a315f2b7134",
+      "dedicated": {
+        "run_id": 35499940265,
+        "conclusion": "success",
+        "pytest": "69 passed in 0.60s",
+        "compile": "success",
+        "native_authority_contract": "success"
+      },
+      "fail_loud": {
+        "run_id": 35499940307,
+        "conclusion": "success",
+        "repository_pytest": "1569 passed, 1 skipped in 24.86s",
+        "standalone_wheel_build": "success",
+        "outside_source_tree_smoke_test": "STANDALONE_WHEEL_IMPORT_SURFACE_PASS"
+      },
+      "regression_workflows": {
+        "mcp_v05": "success",
+        "visual_client_v01": "success",
+        "phasenav_prototype_v01": "success",
+        "kaku_radical_writer_v01": "success"
+      }
     }
   }
 }
