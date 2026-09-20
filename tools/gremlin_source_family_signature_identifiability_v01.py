@@ -16,7 +16,10 @@ from typing import Iterable, Sequence
 
 import numpy as np
 
-from tools.gremlin_cross_modal_relational_evidence_v01 import (\n    CrossModalEvidenceError,\n    EvidenceProvenance,\n)
+from tools.gremlin_cross_modal_relational_evidence_v01 import (
+    CrossModalEvidenceError,
+    EvidenceProvenance,
+)
 
 
 SCHEMA = "GREMLIN_SOURCE_FAMILY_SIGNATURE_IDENTIFIABILITY_V0_1"
