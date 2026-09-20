@@ -1,0 +1,33 @@
+{
+  "schema": "GREMLIN_RUNTIME_CONSTITUTIONAL_NON_BYPASS_PROVENANCE_V0_1",
+  "version": "0.1.0",
+  "date": "2026-09-20",
+  "base_pr": 102,
+  "base_branch": "formalism/mathematical-constitution-v01-20260920",
+  "branch": "formalism/runtime-constitutional-non-bypass-v01-20260920",
+  "status": "IMPLEMENTED_CANDIDATE",
+  "declared_surface_registry": {
+    "file_count": 5,
+    "surface_count": 25,
+    "exhaustiveness_proven": false,
+    "whole_repository_mutation_reachability_proven": false
+  },
+  "claims": {
+    "request_bound_action_contract": true,
+    "content_addressed_constitutional_packet": true,
+    "missing_packet_fail_closed": true,
+    "cross_request_replay_rejected_under_sha256_assumption": true,
+    "cross_endpoint_replay_rejected": true,
+    "declared_surface_guard_before_mutation_ast_proof": true,
+    "bestiary_capability_composed_with_constitution": true,
+    "raphael_subordinate_to_constitution": true,
+    "canon_allowed": false
+  },
+  "open": [
+    "whole-repository mutation reachability proof",
+    "cryptographic identity of all ethics-gate producers",
+    "distributed packet revocation and expiry",
+    "external IAM",
+    "canon promotion"
+  ]
+}
