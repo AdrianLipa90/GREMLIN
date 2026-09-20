@@ -36,6 +36,14 @@ def configure_hive_state(state_path: str | None) -> HiveAuthorityRuntime:
 def gremlin_hive_status() -> dict[str, Any]:
     """Return the authoritative shared-cognition Hive surface status."""
     result = hive_runtime.status()
+    result["principal_boundary"] = {
+        "mode": "SYSTEM_OPERATOR_CONTROL_PLANE",
+        "bestiary_species_authority": False,
+        "bestiary_gateway_schema": "GREMLIN_BESTIARY_MEMORY_GATEWAY_V0_1",
+        "bestiary_policy_schema": "BESTIARY_MEMORY_CAPABILITY_V0_1",
+        "direct_hive_tools_are_species_capabilities": False,
+        "identity_authentication_provided": False,
+    }
     result["memory_information_exchange"] = {
         "status": "AVAILABLE",
         "tool": "gremlin_hive_exchange_ingest",
