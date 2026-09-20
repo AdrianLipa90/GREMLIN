@@ -566,7 +566,7 @@ def channel_design_payload(
     channel_rows = tuple(channels)
 
     try:
-        parent_geometry, _, _, _ = signature_geometry(
+        parent_geometry, parent_matrix, parent_covariance, parent_rows = signature_geometry(
             signature_rows,
             covariance,
             rank_rtol=rank_rtol,
@@ -605,6 +605,18 @@ def channel_design_payload(
         "parent_source_family_state": parent_geometry.state,
         "parent_rank": parent_geometry.rank,
         "parent_nullity": parent_geometry.nullity,
+        "parent_input": {
+            "signatures": [
+                {
+                    "name": row.name,
+                    "values": [float(x) for x in row.validate()],
+                    "normalization": row.normalization,
+                    "provenance": asdict(row.provenance),
+                }
+                for row in parent_rows
+            ],
+            "covariance": parent_covariance.tolist(),
+        },
         "source_families": [row.name for row in signature_rows],
         "candidate_channels": [
             {
@@ -682,6 +694,54 @@ def verify_channel_design_payload(payload: dict) -> None:
     }:
         raise SourceFamilyChannelDesignError(
             "invalid parent_source_family_state"
+        )
+
+    parent_input = payload.get("parent_input")
+    if not isinstance(parent_input, dict):
+        raise SourceFamilyChannelDesignError(
+            "parent_input must be a mapping"
+        )
+    parent_signatures = parent_input.get("signatures")
+    if not isinstance(parent_signatures, list) or not parent_signatures:
+        raise SourceFamilyChannelDesignError(
+            "parent_input.signatures must be a non-empty list"
+        )
+    source_count = len(parent_signatures)
+    parent_names = []
+    channel_count = None
+    for index, signature in enumerate(parent_signatures):
+        if not isinstance(signature, dict):
+            raise SourceFamilyChannelDesignError(
+                f"parent_input.signatures[{index}] must be a mapping"
+            )
+        name = _nonempty(
+            f"parent_input.signatures[{index}].name",
+            signature.get("name"),
+        )
+        parent_names.append(name)
+        values = np.asarray(signature.get("values"), dtype=float)
+        if values.ndim != 1 or values.size == 0 or not np.all(np.isfinite(values)):
+            raise SourceFamilyChannelDesignError(
+                f"parent_input.signatures[{index}].values must be a finite non-empty vector"
+            )
+        if channel_count is None:
+            channel_count = int(values.size)
+        elif int(values.size) != channel_count:
+            raise SourceFamilyChannelDesignError(
+                "parent signature channel counts must match"
+            )
+    if len(set(parent_names)) != len(parent_names):
+        raise SourceFamilyChannelDesignError(
+            "parent source-family names must be unique"
+        )
+    parent_covariance = np.asarray(parent_input.get("covariance"), dtype=float)
+    if parent_covariance.shape != (channel_count, channel_count):
+        raise SourceFamilyChannelDesignError(
+            "parent covariance shape must match parent channel count"
+        )
+    if not np.all(np.isfinite(parent_covariance)):
+        raise SourceFamilyChannelDesignError(
+            "parent covariance must be finite"
         )
 
     channels = payload.get("candidate_channels")
