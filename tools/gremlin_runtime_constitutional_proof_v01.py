@@ -274,8 +274,8 @@ def audit_runtime_constitutional_coverage(root: Path = ROOT) -> dict[str, Any]:
         "coverage_complete": total > 0 and not gaps,
         "registry_manifest": registry_manifest(),
         "proof_scope": (
-            "EXPLICIT_REGISTRY_FUNCTION_SIGNATURE_AND_AST_DOMINANCE_"
-            "OVER_DECLARED_MUTATION_CALLS"
+            "EXPLICIT_REGISTRY_UNCONDITIONAL_TOP_LEVEL_GUARD_"
+            "DOMINANCE_OVER_DECLARED_MUTATION_CALLS"
         ),
         "registry_exhaustiveness_proven": False,
         "whole_repository_mutation_reachability_proven": False,
