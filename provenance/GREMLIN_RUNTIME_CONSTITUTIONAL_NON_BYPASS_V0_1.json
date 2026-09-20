@@ -7,7 +7,7 @@
   "branch": "formalism/runtime-constitutional-non-bypass-v01-20260920",
   "status": "IMPLEMENTED_CANDIDATE",
   "declared_surface_registry": {
-    "file_count": 5,
+    "file_count": 6,
     "surface_count": 26,
     "exhaustiveness_proven": false,
     "whole_repository_mutation_reachability_proven": false,
@@ -27,7 +27,9 @@
     "raphael_constitution_precedes_mutation_ledger_consume": true,
     "raphael_subordinate_to_constitution": true,
     "canon_allowed": false,
-    "ferret_external_actuator_constitutionally_guarded": true
+    "ferret_external_actuator_constitutionally_guarded": true,
+    "ferret_external_actuator_constitutional_guard": true,
+    "ferret_single_use_execution_ledger": true
   },
   "open": [
     "whole-repository mutation reachability proof",
