@@ -1,0 +1,56 @@
+{
+  "schema": "GREMLIN_COGNITIVE_ACTION_PRINCIPLE_V0_1_PROVENANCE",
+  "status": "CANDIDATE_ALGORITHMIC_ACTION",
+  "repository": "AdrianLipa90/GREMLIN",
+  "base_main_commit": "f2e454b15c86053c69de93056262cb9e073bfb87",
+  "derivation_status": {
+    "local_quadratic_variational_closure": "EXACT",
+    "v012_MGK_mapping": "EXACT_AFTER_TYPED_INPUT",
+    "phase_potential_gradient": "EXACT",
+    "permission_projector_from_declared_mask": "EXACT",
+    "hybrid_jump_semantics": "CALLER_OWNED",
+    "global_nonlinear_metric_connection_potential": "OPEN",
+    "native_authority_contract": "EXACT_DECLARATIVE_NON_ACTUATING"
+  },
+  "authority": {
+    "production_runtime_write": false,
+    "execution_admitted": false,
+    "canon_allowed": false,
+    "raphael_authority_bypass": false,
+    "native_pnv": "CHYBA_ANALYTIC_NON_ACTUATING"
+  },
+  "validation": {
+    "local_algebraic_replay": {
+      "status": "PASS_SCOPED",
+      "residual_norm": 5.551115123125783e-17,
+      "phase_gradient_max_error": 7.307088267793915e-11,
+      "rayleigh_dissipation": 0.15,
+      "energy_rate": -0.3,
+      "boundary": "formula-level independent replay; hosted repository CI is authoritative for exact source integration"
+    },
+    "hosted_ci": {
+      "status": "PASS",
+      "tested_code_head": "f93bc5d6e7389cbfed59c2121dd05a315f2b7134",
+      "dedicated": {
+        "run_id": 35499940265,
+        "conclusion": "success",
+        "pytest": "69 passed in 0.60s",
+        "compile": "success",
+        "native_authority_contract": "success"
+      },
+      "fail_loud": {
+        "run_id": 35499940307,
+        "conclusion": "success",
+        "repository_pytest": "1569 passed, 1 skipped in 24.86s",
+        "standalone_wheel_build": "success",
+        "outside_source_tree_smoke_test": "STANDALONE_WHEEL_IMPORT_SURFACE_PASS"
+      },
+      "regression_workflows": {
+        "mcp_v05": "success",
+        "visual_client_v01": "success",
+        "phasenav_prototype_v01": "success",
+        "kaku_radical_writer_v01": "success"
+      }
+    }
+  }
+}

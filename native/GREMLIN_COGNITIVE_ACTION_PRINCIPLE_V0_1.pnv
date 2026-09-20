@@ -1,0 +1,63 @@
+EPISTEMIC CHYBA
+MODE ANALYTIC_NON_ACTUATING
+
+# CLASS COGNITIVE_DYNAMICS
+# TITLE GREMLIN_COGNITIVE_ACTION_PRINCIPLE_V0_1
+# CANON_ALLOWED FALSE
+# AUTHORITY NONE
+# MUTATION_AUTHORITY RAPHAEL_ONLY
+
+SCHEMA GREMLIN_COGNITIVE_ACTION_PRINCIPLE_V0_1
+
+# GLOBAL CANDIDATE
+# S_G = integral L_G dt + sum_k Phi_k
+# L_G = 1/2 g_AB qdot^A qdot^B + A_A qdot^A - V_G + lambda^alpha C_alpha
+# G_AB = partial_B A_A - partial_A A_B
+# Rayleigh R = 1/2 D_AB qdot^A qdot^B
+
+# EXACT LOCAL QUADRATIC
+# L2 = 1/2 Xdot^T M Xdot + 1/2 Xdot^T G X - 1/2 X^T K X
+# REQUIRE M = M^T > 0
+# REQUIRE G = -G^T
+# REQUIRE K = K^T
+# REQUIRE D = D^T >= 0
+# EULER_LAGRANGE => M Xdd + G Xdot + K X + D Xdot = Q_ext
+
+# ENERGY
+# E2 = 1/2 Xdot^T M Xdot + 1/2 X^T K X
+# connection curvature does not add stored quadratic energy
+
+# PHASE SECTOR
+# V_phase = -sum_{i<j} K_ij cos(theta_i-theta_j)
+# I_i theta_ddot_i + Gamma_i theta_dot_i
+#   = drive_i + sum_j K_ij sin(theta_j-theta_i)
+
+# PERMISSION TANGENT
+# P = P^T = P^2
+# allowed velocity: qdot = P qdot
+# violation residual: (I-P) qdot
+# ACL_TO_PROJECTOR_ADAPTER OPEN
+
+# HYBRID EVENTS
+# S_hybrid = S_continuous + sum_k Phi_k
+# Phi_k is caller-owned
+# no jump authorization is created here
+# RAPHAEL remains the mutation authority boundary
+# Memory Exchange / Anti-Entropy remain append-only
+
+# LOCAL BINDING
+# v0.12 CollectiveMatrices.mass       -> M
+# v0.12 CollectiveMatrices.gyroscopic -> G
+# v0.12 CollectiveMatrices.stiffness  -> K
+
+# OPEN
+# canonical global coordinate chart
+# nonlinear metric g(q)
+# nonlinear connection A(q)
+# calibrated potential V_G
+# empirical predictive superiority on held-out GREMLIN traces
+# physical units or physical-action interpretation
+
+# Python code is reference/test harness only.
+REFERENCE tools/gremlin_cognitive_action_principle_v01.py
+TESTS tests/test_gremlin_cognitive_action_principle_v01.py
