@@ -238,3 +238,35 @@ tests/test_gremlin_constitutional_runtime_v01.py
 
 Authority:
 CHYBA / CANDIDATE_ONLY / CANON_ALLOWED FALSE
+
+
+## FERRET external-actuation ordering
+
+FERRET is an external actuator. Its exact execution path is constitutionally guarded before both replay-ledger consumption and the injected browser executor.
+
+The ordering is
+
+[
+oxed{
+	ext{preview verification}
+	o
+	ext{authorization verification}
+	o
+	ext{Constitution}
+	o
+	ext{single-use execution-ledger consume}
+	o
+	ext{browser executor}
+	o
+	ext{execution receipt}.
+}
+]
+
+The authorization contract is now single-use:
+
+- single_use=true;
+- replay_protection=FERRET_EXECUTION_LEDGER_REQUIRED.
+
+A missing or invalid constitutional packet does not consume the FERRET authorization. The same exact authorization remains usable only after a valid packet is supplied.
+
+This closes the previous documentation/runtime drift where the FERRET specification required single-use authorization while the implementation delegated replay protection to the caller.
