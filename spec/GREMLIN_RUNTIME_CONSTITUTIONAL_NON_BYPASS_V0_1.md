@@ -112,21 +112,21 @@ Therefore
 
 ## Guard-before-mutation theorem
 
-For every registered function \(f\), let \(\ell_G(f)\) be the source line of its first call to require_constitutional_admission and \(\ell_M(f)\) the source line of its first declared mutation call.
+For every registered function \(f\), let \(g(f)\) be the top-level statement index of its unconditional require_constitutional_admission call and \(m(f)\) the first top-level statement containing any declared mutation call.
 
 CI requires
 
 \[
 \boxed{
-\ell_G(f)<\ell_M(f)
+g(f)<m(f)
 \qquad
 \forall f\in\mathcal R_{25}.
 }
 \]
 
-A guard located after a mutation does not satisfy the theorem.
+The proof rejects a guard hidden inside a conditional branch. The guard must be a direct top-level expression statement and must precede the first mutation-containing statement.
 
-Each registered function must also expose a constitutional_packet input.
+Each registered function must also expose a constitutional_packet input, and the guard endpoint/consequence literals must exactly match the explicit policy registry.
 
 ## Consequence mapping
 
@@ -170,9 +170,11 @@ The runtime ordering is
 \to
 \text{authorization verification}
 \to
-\text{live tether/triple-pulse admission}
+\text{current-state read}
 \to
 \text{constitutional admission}
+\to
+\text{state-drift/live tether/triple-pulse checks}
 \to
 \text{single-use ledger consume}
 \to
@@ -181,6 +183,8 @@ The runtime ordering is
 \text{mutation}.
 }
 \]
+
+This ordering matters because burn-and-abort consumes single-use authorization on stale/live-admission failure. Constitutional admission therefore precedes every declared governance mutation, including ledger consumption.
 
 RAPHAEL executes admitted mutations; it does not define or override constitutional admissibility.
 
@@ -193,7 +197,7 @@ Theorem 2 — endpoint non-replay:
 the endpoint participates in the action ID and binding commitment, so a packet for endpoint \(e_1\) cannot validate for \(e_2\neq e_1\).
 
 Theorem 3 — declared-surface pre-mutation guard:
-for every function in the explicit registry, AST tests require \(\ell_G<\ell_M\).
+for every function in the explicit registry, AST tests require one unconditional top-level guard and \(g(f)<m(f)\).
 
 Theorem 4 — missing packet fail-closed:
 constitutional_packet=None fails packet validation. No compatibility fallback converts missing evidence into ALLOW.
