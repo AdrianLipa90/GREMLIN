@@ -8,8 +8,12 @@ import re
 import secrets
 import socket
 import time
-from typing import Any, Callable, Mapping, Sequence
+from threading import Lock
+from typing import Any, Callable, Mapping, Protocol, Sequence
 import urllib.parse
+
+from .constitutional_runtime import require_constitutional_admission
+from .mathematical_constitution import PASS
 
 FERRET_SCHEMA = "GREMLIN_FERRET_WEB_ACTUATOR_V0_1"
 FERRET_VERSION = "0.1.1"
@@ -317,8 +321,8 @@ def authorize_action(
         "preview_id": preview_dict["preview_id"],
         "preview_commitment": supplied,
         "scope": "EXACT_PREVIEW_ONLY",
-        "single_use": False,
-        "replay_protection": "CALLER_LEDGER_REQUIRED",
+        "single_use": True,
+        "replay_protection": "FERRET_EXECUTION_LEDGER_REQUIRED",
     }
     core["authorization_commitment"] = _commit(
         b"GREMLIN-FERRET-AUTHORIZATION/v0.1\0", core
@@ -603,6 +607,29 @@ class FerretExecutionResult:
     evidence: Mapping[str, Any]
 
 
+class FerretExecutionLedger(Protocol):
+    def consume(self, authorization_commitment: str) -> bool: ...
+
+
+class InMemoryFerretExecutionLedger:
+    """Atomic process-local replay protection for exact FERRET authorization receipts."""
+
+    def __init__(self) -> None:
+        self._lock = Lock()
+        self._consumed: set[str] = set()
+
+    def consume(self, authorization_commitment: str) -> bool:
+        commitment = _strict_commitment(
+            authorization_commitment,
+            "authorization_commitment",
+        )
+        with self._lock:
+            if commitment in self._consumed:
+                return False
+            self._consumed.add(commitment)
+            return True
+
+
 Executor = Callable[[Mapping[str, Any]], FerretExecutionResult]
 
 
@@ -610,11 +637,36 @@ def execute_authorized_action(
     preview: Mapping[str, Any],
     authorization: Mapping[str, Any],
     executor: Executor,
+    *,
+    ledger: FerretExecutionLedger | None = None,
+    constitutional_packet: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Execute only after exact authorization; the concrete browser backend is injected."""
+    """Execute one exact preview only after authorization and constitutional admission."""
     verify_authorization(preview, authorization)
     if not callable(executor):
         raise TypeError("executor must be callable")
+    if ledger is None:
+        raise FerretAuthorizationError("FERRET execution ledger is required")
+
+    require_constitutional_admission(
+        endpoint="ferret.execute_authorized_action",
+        consequence_class="MUTATION",
+        request_payload={
+            "preview_id": preview["preview_id"],
+            "preview_commitment": preview["preview_commitment"],
+            "authorization_id": authorization["authorization_id"],
+            "authorization_commitment": authorization["authorization_commitment"],
+            "actor": authorization["actor"],
+            "target_url": preview["target_url"],
+        },
+        constitutional_packet=constitutional_packet,
+        expected_authority_status=PASS,
+    )
+
+    if not ledger.consume(authorization["authorization_commitment"]):
+        raise FerretAuthorizationError(
+            "FERRET authorization was already consumed"
+        )
 
     started = time.time_ns()
     try:
