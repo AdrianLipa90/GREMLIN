@@ -15,6 +15,14 @@ on:
       - 'tests/test_gremlin_constitutional_runtime_v01.py'
       - 'tests/test_gremlin_runtime_constitutional_coverage_v01.py'
       - 'tests/test_gremlin_raphael_v01.py'
+      - 'native/GREMLIN_RUNTIME_CONSTITUTIONAL_NON_BYPASS_V0_1.pnv'
+      - 'native/GREMLIN_RAPHAEL_WISDOM_MUTATION_V0_1.pnv'
+      - 'spec/GREMLIN_RUNTIME_CONSTITUTIONAL_NON_BYPASS_V0_1.md'
+      - 'tests/test_native_pnv_contracts.py'
+      - 'native/GREMLIN_RUNTIME_CONSTITUTIONAL_NON_BYPASS_V0_1.pnv'
+      - 'native/GREMLIN_RAPHAEL_WISDOM_MUTATION_V0_1.pnv'
+      - 'spec/GREMLIN_RUNTIME_CONSTITUTIONAL_NON_BYPASS_V0_1.md'
+      - 'tests/test_native_pnv_contracts.py'
       - '.github/workflows/gremlin-runtime-constitutional-non-bypass-v01.yml'
   push:
     branches:
@@ -78,3 +86,4 @@ jobs:
           tests/test_gremlin_mathematical_constitution_v01.py
           tests/test_gremlin_raphael_v01.py
           tests/test_bestiary_memory_capabilities_v01.py
+          tests/test_native_pnv_contracts.py
