@@ -4,7 +4,7 @@ ROOT = Path(__file__).resolve().parents[1]
 NATIVE = ROOT / "native"
 FILES = sorted(NATIVE.glob("*.pnv"))
 PROGRAM_FILES = [p for p in FILES if p.read_text().splitlines() and p.read_text().splitlines()[0] == "PNV 1"]
-DECLARATIVE_PNV = {"GREMLIN_ORBITAL_HIVE_MEMORY_V0_1.pnv", "GREMLIN_COGNITIVE_ACTION_PRINCIPLE_V0_1.pnv"}
+DECLARATIVE_PNV = {"GREMLIN_ORBITAL_HIVE_MEMORY_V0_1.pnv", "GREMLIN_COGNITIVE_ACTION_PRINCIPLE_V0_1.pnv", "GREMLIN_MATHEMATICAL_CONSTITUTION_V0_1.pnv"}
 ALLOWED = {"SOURCE","IDENTITY","DIFFERENCE","CONDITION","ORDER","TRANSFORM","COMPOSITION","RETURN"}
 REQUIRED_NATIVE = {
     "BELZEBUB_TOOL_V0_4.pnv",
@@ -187,3 +187,22 @@ def test_cognitive_action_principle_native_contract():
     assert "# EXACT LOCAL QUADRATIC" in text
     assert "# ACL_TO_PROJECTOR_ADAPTER OPEN" in text
     assert "# Python code is reference/test harness only." in text
+
+
+def test_mathematical_constitution_native_contract():
+    text=(NATIVE/"GREMLIN_MATHEMATICAL_CONSTITUTION_V0_1.pnv").read_text()
+    assert text.startswith("EPISTEMIC CHYBA\n")
+    assert "# CLASS MATHEMATICAL_CONSTITUTION" in text
+    assert "# CANON_ALLOWED FALSE" in text
+    assert "# AUTHORITY NONE" in text
+    assert "# RAPHAEL_SUBORDINATE_TO_CONSTITUTION TRUE" in text
+    assert "# ETHICS_KERNEL HARD_ADMISSIBILITY_CONSTRAINT" in text
+    assert "# ETHICS_WEIGHTING_ALLOWED FALSE" in text
+    assert "# ETHICS_CONFLICT_AVERAGING_ALLOWED FALSE" in text
+    assert "# UNKNOWN_HIGH_CONSEQUENCE_ADMISSION FALSE" in text
+    assert "# KAPPA_EXPRESSION ln(2)/(24*pi)" in text
+    assert "# KAPPA_BINDING UNBOUND" in text
+    assert "# LEDGER_DELETE_ALLOWED FALSE" in text
+    assert "# SILENT_STATE_CHANGE_ALLOWED FALSE" in text
+    assert "# RAPHAEL_CAN_OVERRIDE_CONSTITUTION FALSE" in text
+    assert "# Python code is deterministic reference/test harness only." in text
