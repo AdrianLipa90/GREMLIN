@@ -7,6 +7,9 @@ import json
 import pytest
 
 from gremlin_mcp.memory_capabilities import evaluate_access, issue_capability_token
+from tools.gremlin_radical_ethics_acquisition_v01 import (
+    build_gate_receipt as build_radical_gate_receipt,
+)
 
 from gremlin_mcp.mathematical_constitution import (
     BLOCK,
@@ -22,6 +25,7 @@ from gremlin_mcp.mathematical_constitution import (
     canonical_kappa_record,
     capability_status_from_memory_receipt,
     certify_transition,
+    constitutional_gate_from_radical_receipt,
     constitutional_manifest,
     evaluate_admission,
     intersect_flow_masks,
@@ -56,6 +60,8 @@ def _gate(gate: str, status: int = PASS) -> dict:
         gate=gate,
         status=status,
         relation_ids=("rel:1",),
+        subject_refs=("subject:1",),
+        source_classification="TEST_FIXTURE",
         source_ref=f"test:{gate.lower()}",
         evidence_refs=(f"evidence:{gate.lower()}",),
         reason="test fixture",
@@ -185,6 +191,32 @@ def test_radical_gate_adapter_is_exact_and_unweighted() -> None:
 
     assert radical_gate_status("no_go", "CLEAR") == ("NO_GO", PASS)
     assert radical_gate_status("no_go", "HIT") == ("NO_GO", BLOCK)
+
+
+def test_radical_receipt_promotes_only_after_full_validation() -> None:
+    radical = build_radical_gate_receipt(
+        gate_role="consent",
+        status="GRANTED",
+        relation_ids=("rel:1",),
+        subject_refs=("subject:1",),
+        source_classification="EXTERNAL_OBSERVATION",
+        source_ref="evidence:consent",
+        decision_context_commitment="a" * 64,
+        epistemic_status="OBSERVED",
+        evidence_refs=("evidence:consent",),
+        reason="explicit consent evidence",
+    )
+    constitutional = constitutional_gate_from_radical_receipt(radical)
+    assert constitutional["gate"] == "CONSENT"
+    assert constitutional["status"] == PASS
+    assert constitutional["relation_ids"] == ["rel:1"]
+    assert constitutional["subject_refs"] == ["subject:1"]
+    assert constitutional["source_classification"] == "EXTERNAL_OBSERVATION"
+
+    forged = copy.deepcopy(radical)
+    forged["status"] = "DENIED"
+    with pytest.raises(ConstitutionalError, match="invalid Radical"):
+        constitutional_gate_from_radical_receipt(forged)
 
 
 def test_memory_capability_receipt_adapter_validates_full_receipt() -> None:
