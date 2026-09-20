@@ -13,13 +13,24 @@ from gremlin_mcp.bestiary_memory_gateway import (
     plan_hive_delta_as_beast,
     read_hive_head,
 )
+from gremlin_mcp.constitutional_runtime import (
+    build_runtime_action_binding,
+    build_runtime_constitutional_packet,
+)
 from gremlin_mcp.hive_authority import HiveAuthorityRuntime
 from gremlin_mcp.memory_anti_entropy import (
     build_hive_inventory,
     build_hive_manifest,
     divergent_hive_buckets,
 )
-from gremlin_mcp.memory_capabilities import issue_capability_token
+from gremlin_mcp.mathematical_constitution import (
+    ETHICS_GATES,
+    PASS,
+    build_gate_receipt,
+    evaluate_admission,
+)
+from gremlin_mcp.memory_capabilities import evaluate_access, issue_capability_token
+from gremlin_mcp.memory_exchange import validate_exchange_envelope
 
 
 def _canonical(value) -> bytes:
@@ -112,6 +123,71 @@ def _token(
     )
 
 
+def _constitutional_gateway_packet(
+    envelope: dict,
+    *,
+    beast: str,
+    operation: str,
+    artifact_type: str,
+    task_id: str,
+    token: dict,
+    priority: float = 0.82,
+    consumer_id: str = "GREMLIN-HIVE",
+) -> dict:
+    normalized = validate_exchange_envelope(envelope)
+    access = evaluate_access(
+        beast=beast,
+        layer="RELATIONAL",
+        operation=operation,
+        artifact_type=artifact_type,
+        subject_id=normalized["subject_id"],
+        generation_id=normalized["generation_id"],
+        task_id=task_id,
+        token=token,
+    )
+    assert access["decision"] == "ALLOW"
+    payload = {
+        "envelope": normalized,
+        "beast": beast,
+        "operation": operation,
+        "artifact_type": artifact_type,
+        "task_id": task_id,
+        "capability_receipt_id": access["receipt_id"],
+        "token_id": access["token_id"],
+        "priority": priority,
+        "consumer_id": consumer_id,
+    }
+    binding = build_runtime_action_binding(
+        endpoint="bestiary_memory_gateway.ingest_exchange_envelope_as_beast",
+        consequence_class="APPEND_ONLY",
+        request_payload=payload,
+    )
+    gates = [
+        build_gate_receipt(
+            gate=gate,
+            status=PASS,
+            relation_ids=("gateway:test:relation",),
+            subject_refs=(normalized["subject_id"],),
+            source_classification="TEST_FIXTURE",
+            source_ref=f"gateway:test:{gate.lower()}",
+            evidence_refs=(f"gateway:test:evidence:{gate.lower()}",),
+            reason="typed Bestiary gateway constitutional fixture",
+        )
+        for gate in ETHICS_GATES
+    ]
+    admission = evaluate_admission(
+        action=binding["action_contract"],
+        gate_receipts=gates,
+        capability_status=PASS,
+        authority_status=PASS,
+        evidence_status=PASS,
+    )
+    return build_runtime_constitutional_packet(
+        action_binding=binding,
+        admission_receipt=admission,
+    )
+
+
 def test_spider_graph_append_ingests_exchange_and_binds_capability_receipt() -> None:
     runtime = HiveAuthorityRuntime()
     packet = _packet()
@@ -132,6 +208,14 @@ def test_spider_graph_append_ingests_exchange_and_binds_capability_receipt() -> 
         artifact_type="GRAPH_SNAPSHOT",
         task_id="spider-ingest",
         token=token,
+        constitutional_packet=_constitutional_gateway_packet(
+            packet,
+            beast="SPIDER",
+            operation="GRAPH_APPEND",
+            artifact_type="GRAPH_SNAPSHOT",
+            task_id="spider-ingest",
+            token=token,
+        ),
     )
 
     assert result["schema"] == "GREMLIN_BESTIARY_MEMORY_GATEWAY_V0_1"
@@ -199,6 +283,14 @@ def test_hive_read_uses_logical_subject_not_technical_exchange_key() -> None:
         artifact_type="GRAPH_SNAPSHOT",
         task_id="write",
         token=write_token,
+        constitutional_packet=_constitutional_gateway_packet(
+            packet,
+            beast="SPIDER",
+            operation="GRAPH_APPEND",
+            artifact_type="GRAPH_SNAPSHOT",
+            task_id="write",
+            token=write_token,
+        ),
     )
 
     read_token = _token(
@@ -264,6 +356,14 @@ def test_raven_can_receive_whole_hive_metadata_inventory_but_not_payload_export(
         artifact_type="GRAPH_SNAPSHOT",
         task_id="seed",
         token=write_token,
+        constitutional_packet=_constitutional_gateway_packet(
+            packet,
+            beast="SPIDER",
+            operation="GRAPH_APPEND",
+            artifact_type="GRAPH_SNAPSHOT",
+            task_id="seed",
+            token=write_token,
+        ),
     )
 
     inventory_token = _token(
@@ -317,6 +417,14 @@ def test_owl_can_plan_metadata_delta_and_gremlin_can_export_payload_delta() -> N
         artifact_type="GRAPH_SNAPSHOT",
         task_id="delta-seed",
         token=spider_token,
+        constitutional_packet=_constitutional_gateway_packet(
+            packet,
+            beast="SPIDER",
+            operation="GRAPH_APPEND",
+            artifact_type="GRAPH_SNAPSHOT",
+            task_id="delta-seed",
+            token=spider_token,
+        ),
     )
 
     sender_inventory = build_hive_inventory(sender, node_id="HIVE-A")
@@ -377,3 +485,27 @@ def test_spider_cannot_mint_whole_hive_metadata_token() -> None:
             generation_scope="*",
             task_scope="whole-hive",
         )
+
+
+def test_spider_graph_append_without_constitutional_packet_fails_before_mutation() -> None:
+    runtime = HiveAuthorityRuntime()
+    packet = _packet("constitutional-required")
+    token = _token(
+        beast="SPIDER",
+        operation="GRAPH_APPEND",
+        artifact_type="GRAPH_SNAPSHOT",
+        subject_scope=packet["subject_id"],
+        generation_scope=packet["generation_id"],
+        task_scope="constitutional-required",
+    )
+    with pytest.raises(PermissionError, match="constitutional_packet"):
+        ingest_exchange_envelope_as_beast(
+            runtime,
+            packet,
+            beast="SPIDER",
+            operation="GRAPH_APPEND",
+            artifact_type="GRAPH_SNAPSHOT",
+            task_id="constitutional-required",
+            token=token,
+        )
+    assert runtime.table() == ()
