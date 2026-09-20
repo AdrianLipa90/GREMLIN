@@ -1,0 +1,64 @@
+name: GREMLIN Cognitive Action Principle v0.1
+
+on:
+  push:
+    branches:
+      - feat/cognitive-action-principle-v01
+  pull_request:
+    paths:
+      - 'tools/gremlin_cognitive_action_principle_v01.py'
+      - 'tests/test_gremlin_cognitive_action_principle_v01.py'
+      - 'spec/GREMLIN_COGNITIVE_ACTION_PRINCIPLE_V0_1.md'
+      - 'native/GREMLIN_COGNITIVE_ACTION_PRINCIPLE_V0_1.pnv'
+      - 'provenance/GREMLIN_COGNITIVE_ACTION_PRINCIPLE_V0_1.json'
+      - 'tools/gremlin_endogenous_eb_condensate_normal_modes_v012.py'
+      - 'tests/test_gremlin_endogenous_eb_condensate_normal_modes_v012.py'
+      - 'tests/test_gremlin_eb_endogenous_chain_v012.py'
+      - 'gremlin_mcp/raphael.py'
+      - 'gremlin_mcp/memory_exchange.py'
+      - 'gremlin_mcp/memory_anti_entropy.py'
+      - 'tests/test_gremlin_raphael_v01.py'
+      - 'tests/test_gremlin_memory_exchange_v01.py'
+      - 'tests/test_gremlin_memory_anti_entropy_v01.py'
+      - '.github/workflows/gremlin-cognitive-action-principle-v01.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cognitive-action:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install deterministic dependencies
+        run: python -m pip install -e . pytest numpy
+      - name: Compile action and v0.12 surfaces
+        run: |
+          python -m py_compile \
+            tools/gremlin_cognitive_action_principle_v01.py \
+            tools/gremlin_endogenous_eb_condensate_normal_modes_v012.py
+      - name: Validate native authority firewall
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('native/GREMLIN_COGNITIVE_ACTION_PRINCIPLE_V0_1.pnv')
+          text=p.read_text(encoding='utf-8')
+          assert 'EPISTEMIC CHYBA' in text
+          assert 'CANON_ALLOWED FALSE' in text
+          assert 'AUTHORITY NONE' in text
+          assert 'MUTATION_AUTHORITY RAPHAEL_ONLY' in text
+          assert 'Python code is reference/test harness only.' in text
+          PY
+      - name: Run action, dynamics, memory and mutation regression chain
+        run: |
+          python -m pytest -q \
+            tests/test_gremlin_cognitive_action_principle_v01.py \
+            tests/test_gremlin_endogenous_eb_condensate_normal_modes_v012.py \
+            tests/test_gremlin_eb_endogenous_chain_v012.py \
+            tests/test_gremlin_raphael_v01.py \
+            tests/test_gremlin_memory_exchange_v01.py \
+            tests/test_gremlin_memory_anti_entropy_v01.py
