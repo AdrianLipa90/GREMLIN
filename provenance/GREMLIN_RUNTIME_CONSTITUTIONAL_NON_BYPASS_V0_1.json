@@ -38,5 +38,8 @@
     "external IAM",
     "canon promotion"
   ],
-  "exact_head_ci_status": "PENDING_EXACT_HEAD_CI"
+  "exact_head_ci_status": "PENDING_EXACT_HEAD_CI",
+  "base_constitution_head": "3d0696c95bcce76cf3720888aed8725a61f48b1c",
+  "clean_replay_on_current_constitution": true,
+  "clean_replay_date": "2026-09-20"
 }
