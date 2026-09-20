@@ -331,11 +331,19 @@ def test_state_change_requires_allow_and_new_mutation_receipt() -> None:
     allow = _admission(action)
     event = build_ledger_event(
         event_type="MUTATION_RECEIPT",
-        payload={"action": "mutate:state"},
+        payload={
+            "action_id": action["action_id"],
+            "action_sha256": action["action_sha256"],
+            "admission_receipt_id": allow["receipt_id"],
+            "pre_state_commitment": "state:before",
+            "post_state_commitment": "state:after",
+        },
     )
     after = ledger_append((), event)
 
     cert = certify_transition(
+        executed_action_id=action["action_id"],
+        executed_action_sha256=action["action_sha256"],
         pre_state_commitment="state:before",
         post_state_commitment="state:after",
         admission_receipt=allow,
@@ -350,29 +358,50 @@ def test_state_change_requires_allow_and_new_mutation_receipt() -> None:
 
 def test_deny_or_defer_cannot_certify_state_change() -> None:
     action = build_action_contract(action_id="mutate:state", consequence_class="MUTATION")
-    event = build_ledger_event(event_type="MUTATION_RECEIPT", payload={"x": 1})
-    after = (event,)
-
     deny = _admission(action, capability=BLOCK)
+    deny_event = build_ledger_event(
+        event_type="MUTATION_RECEIPT",
+        payload={
+            "action_id": action["action_id"],
+            "action_sha256": action["action_sha256"],
+            "admission_receipt_id": deny["receipt_id"],
+            "pre_state_commitment": "before",
+            "post_state_commitment": "after",
+        },
+    )
     with pytest.raises(ConstitutionalError, match="ALLOW"):
         certify_transition(
+            executed_action_id=action["action_id"],
+            executed_action_sha256=action["action_sha256"],
             pre_state_commitment="before",
             post_state_commitment="after",
             admission_receipt=deny,
             ledger_before=(),
-            ledger_after=after,
-            mutation_receipt_event_id=event["event_id"],
+            ledger_after=(deny_event,),
+            mutation_receipt_event_id=deny_event["event_id"],
         )
 
     defer = _admission(action, authority=UNRESOLVED)
+    defer_event = build_ledger_event(
+        event_type="MUTATION_RECEIPT",
+        payload={
+            "action_id": action["action_id"],
+            "action_sha256": action["action_sha256"],
+            "admission_receipt_id": defer["receipt_id"],
+            "pre_state_commitment": "before",
+            "post_state_commitment": "after",
+        },
+    )
     with pytest.raises(ConstitutionalError, match="ALLOW"):
         certify_transition(
+            executed_action_id=action["action_id"],
+            executed_action_sha256=action["action_sha256"],
             pre_state_commitment="before",
             post_state_commitment="after",
             admission_receipt=defer,
             ledger_before=(),
-            ledger_after=after,
-            mutation_receipt_event_id=event["event_id"],
+            ledger_after=(defer_event,),
+            mutation_receipt_event_id=defer_event["event_id"],
         )
 
 
@@ -381,6 +410,8 @@ def test_silent_mutation_without_new_ledger_event_is_rejected() -> None:
     allow = _admission(action)
     with pytest.raises(ConstitutionalError, match="appended ledger event"):
         certify_transition(
+            executed_action_id=action["action_id"],
+            executed_action_sha256=action["action_sha256"],
             pre_state_commitment="before",
             post_state_commitment="after",
             admission_receipt=allow,
@@ -427,3 +458,62 @@ def test_gate_receipt_tamper_fails_commitment_validation() -> None:
     tampered["status"] = BLOCK
     with pytest.raises(ConstitutionalError, match="commitment"):
         validate_gate_receipt(tampered)
+
+
+def test_transition_cannot_reuse_allow_receipt_for_different_action() -> None:
+    admitted_action = build_action_contract(
+        action_id="mutate:admitted",
+        consequence_class="MUTATION",
+    )
+    executed_action = build_action_contract(
+        action_id="mutate:different",
+        consequence_class="MUTATION",
+    )
+    allow = _admission(admitted_action)
+    event = build_ledger_event(
+        event_type="MUTATION_RECEIPT",
+        payload={
+            "action_id": executed_action["action_id"],
+            "action_sha256": executed_action["action_sha256"],
+            "admission_receipt_id": allow["receipt_id"],
+            "pre_state_commitment": "before",
+            "post_state_commitment": "after",
+        },
+    )
+    with pytest.raises(ConstitutionalError, match="does not match"):
+        certify_transition(
+            executed_action_id=executed_action["action_id"],
+            executed_action_sha256=executed_action["action_sha256"],
+            pre_state_commitment="before",
+            post_state_commitment="after",
+            admission_receipt=allow,
+            ledger_before=(),
+            ledger_after=(event,),
+            mutation_receipt_event_id=event["event_id"],
+        )
+
+
+def test_mutation_receipt_must_bind_exact_pre_and_post_state() -> None:
+    action = build_action_contract(action_id="mutate:bound", consequence_class="MUTATION")
+    allow = _admission(action)
+    event = build_ledger_event(
+        event_type="MUTATION_RECEIPT",
+        payload={
+            "action_id": action["action_id"],
+            "action_sha256": action["action_sha256"],
+            "admission_receipt_id": allow["receipt_id"],
+            "pre_state_commitment": "wrong-before",
+            "post_state_commitment": "after",
+        },
+    )
+    with pytest.raises(ConstitutionalError, match="state/action binding"):
+        certify_transition(
+            executed_action_id=action["action_id"],
+            executed_action_sha256=action["action_sha256"],
+            pre_state_commitment="before",
+            post_state_commitment="after",
+            admission_receipt=allow,
+            ledger_before=(),
+            ledger_after=(event,),
+            mutation_receipt_event_id=event["event_id"],
+        )
