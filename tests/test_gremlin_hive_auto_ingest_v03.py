@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import copy
+
 import pytest
 
 from gremlin_mcp.hive_authority import HiveAuthorityRuntime
@@ -109,10 +111,26 @@ def test_ingest_creates_execution_specialists_and_synthesis_without_latch() -> N
     mole = runtime.head("research:exec-commit-001:specialist:mole-1")
     assert hound.coordinate.radius < mole.coordinate.radius
     assert hound.payload["phase_basis"] == PHASE_BASIS
+    assert hound.payload["memory_layer"] == "RELATIONAL"
+    assert hound.payload["memory_operation"] == "FLAG"
+    assert hound.payload["memory_artifact_type"] == "CONTRADICTION"
+    assert hound.payload["memory_capability_receipt"]["decision"] == "ALLOW"
+    assert mole.payload["memory_operation"] == "DERIVE"
+    assert mole.payload["memory_artifact_type"] == "DERIVATION"
+    assert mole.payload["memory_capability_receipt"]["beast"] == "MOLE"
+
+    root = runtime.head("research:exec-commit-001:execution")
+    assert root.payload["memory_artifact_type"] == "ORCHESTRATION_RECEIPT"
+    assert root.payload["memory_capability_receipt"]["beast"] == "GREMLIN"
 
     synthesis = runtime.head("research:exec-commit-001:synthesis")
     assert "result:result-hound-1" in synthesis.dependencies
     assert "result:result-mole-1" in synthesis.dependencies
+    assert synthesis.payload["memory_operation"] == "DERIVE"
+    assert synthesis.payload["memory_artifact_type"] == "SYNTHESIS_CANDIDATE"
+    assert synthesis.payload["memory_capability_receipt"]["beast"] == "BELZEBUB"
+    assert summary["projection_policy"] == "BESTIARY_MEMORY_CAPABILITY_V0_1"
+    assert summary["skipped_relational_projection_count"] == 0
 
 
 def test_same_execution_is_idempotent() -> None:
@@ -197,3 +215,82 @@ def test_idempotent_authority_rejects_provenance_change_under_same_subject() -> 
             provenance=("source:B",),
             dependencies=("dep:A",),
         )
+
+
+
+def test_raven_and_ant_do_not_project_directly_into_relational_hive() -> None:
+    runtime = HiveAuthorityRuntime()
+    result = copy.deepcopy(_result())
+    result["stage_executions"][0]["results"].extend(
+        [
+            {
+                "species": "RAVEN",
+                "task_id": "raven-1",
+                "task_commitment": "task-raven-1",
+                "result_commitment": "result-raven-1",
+                "candidate": {
+                    "species": "RAVEN",
+                    "epistemic_status": "MEMORY_INDEX_CANDIDATE",
+                    "similar": ["prior-a"],
+                },
+            },
+            {
+                "species": "ANT",
+                "task_id": "ant-1",
+                "task_commitment": "task-ant-1",
+                "result_commitment": "result-ant-1",
+                "candidate": {
+                    "species": "ANT",
+                    "epistemic_status": "ENUMERATION_CANDIDATE",
+                    "variants": [1, 2, 3],
+                },
+            },
+        ]
+    )
+
+    summary = ingest_research_execution(runtime, result)
+
+    assert summary["created_count"] == 4
+    assert summary["skipped_relational_projection_count"] == 2
+    skipped = {
+        row["species"]: row
+        for row in summary["records"]
+        if row.get("projection_status") == "NOT_AUTHORIZED_FOR_RELATIONAL_HIVE"
+    }
+    assert set(skipped) == {"RAVEN", "ANT"}
+    assert skipped["RAVEN"]["record_id"] is None
+    assert skipped["ANT"]["record_id"] is None
+    with pytest.raises(KeyError):
+        runtime.head("research:exec-commit-001:specialist:raven-1")
+    with pytest.raises(KeyError):
+        runtime.head("research:exec-commit-001:specialist:ant-1")
+
+
+def test_unknown_species_fails_preflight_before_any_hive_mutation() -> None:
+    runtime = HiveAuthorityRuntime()
+    result = copy.deepcopy(_result())
+    result["stage_executions"][0]["results"].append(
+        {
+            "species": "UNKNOWN_BEAST",
+            "task_id": "unknown-1",
+            "task_commitment": "task-unknown-1",
+            "result_commitment": "result-unknown-1",
+            "candidate": {"value": 1},
+        }
+    )
+
+    with pytest.raises(ValueError, match="unknown or untyped research species"):
+        ingest_research_execution(runtime, result)
+
+    assert runtime.table() == ()
+
+
+def test_missing_specialist_commitment_fails_preflight_before_root_write() -> None:
+    runtime = HiveAuthorityRuntime()
+    result = copy.deepcopy(_result())
+    result["stage_executions"][0]["results"][0]["result_commitment"] = ""
+
+    with pytest.raises(ValueError, match="missing result_commitment"):
+        ingest_research_execution(runtime, result)
+
+    assert runtime.table() == ()
