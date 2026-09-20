@@ -38,5 +38,5 @@
     "external IAM",
     "canon promotion"
   ],
-  "exact_head_ci_status": "PENDING"
+  "exact_head_ci_status": "PENDING_EXACT_HEAD_CI"
 }
