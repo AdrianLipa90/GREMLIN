@@ -230,3 +230,36 @@ binds this gate as:
 `EPISTEMIC CHYBA / ANALYTIC_NON_ACTUATING / CANON_ALLOWED FALSE / AUTHORITY NONE / MUTATION_AUTHORITY RAPHAEL_ONLY`.
 
 This is an authority firewall, not an execution program. It declares no new PNV opcodes and grants no write, mutation, publication or canon authority. Python remains the reference/test harness; runtime promotion would require a separate admitted authority path.
+
+
+## 10. Constitutional binding
+
+The permission projector in this document is an execution geometry, not an authorization source.
+
+The Mathematical Constitution v0.1 is evaluated first:
+
+[
+mathcal D_{m adm}
+=
+mathcal D_{m dynamics}
+cap
+mathcal D_{m capability}
+cap
+mathcal D_{m ethics}
+cap
+mathcal D_{m authority}.
+]
+
+Only the already-admitted coordinate mask is converted into the local projector (P).
+
+Therefore:
+
+- the Cognitive Action Principle cannot promote DENY or DEFER to ALLOW;
+- an optimizer cannot widen the projector domain;
+- a Bestiary capability receipt remains upstream of the projector;
+- RAPHAEL remains mutation authority but is subordinate to constitutional admissibility;
+- the action functional does not assign ethical weights or penalties.
+
+Reference:
+
+`spec/GREMLIN_MATHEMATICAL_CONSTITUTION_V0_1.md`
