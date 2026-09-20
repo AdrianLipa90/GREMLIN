@@ -1,0 +1,47 @@
+name: GREMLIN EB Radial + Cross-Domain Identifiability v0.10-v0.11
+
+on:
+  push:
+    branches:
+      - feat/eb-radial-cross-domain-v010-v011
+  pull_request:
+    paths:
+      - 'tools/gremlin_eb_condensate_orbital_phase_bridge_v09.py'
+      - 'tools/gremlin_eb_radial_stability_nullspace_v010.py'
+      - 'tools/gremlin_cross_domain_coupling_identifiability_v011.py'
+      - 'tests/test_gremlin_eb_condensate_orbital_phase_bridge_v09.py'
+      - 'tests/test_gremlin_eb_radial_stability_nullspace_v010.py'
+      - 'tests/test_gremlin_cross_domain_coupling_identifiability_v011.py'
+      - 'tests/test_gremlin_eb_cross_domain_integration_v011.py'
+      - 'spec/GREMLIN_EB_CONDENSATE_ORBITAL_PHASE_BRIDGE_V0_9.md'
+      - 'spec/GREMLIN_EB_RADIAL_STABILITY_AND_NULLSPACE_V0_10.md'
+      - 'spec/GREMLIN_CROSS_DOMAIN_COUPLING_IDENTIFIABILITY_V0_11.md'
+      - 'provenance/GREMLIN_EB_RADIAL_STABILITY_AND_NULLSPACE_V0_10.json'
+      - 'provenance/GREMLIN_CROSS_DOMAIN_COUPLING_IDENTIFIABILITY_V0_11.json'
+      - '.github/workflows/gremlin-eb-cross-domain-v011.yml'
+  workflow_dispatch:
+
+jobs:
+  exact-chain:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install test runner
+        run: python -m pip install pytest
+      - name: Compile new executable surfaces
+        run: |
+          python -m py_compile \
+            tools/gremlin_eb_condensate_orbital_phase_bridge_v09.py \
+            tools/gremlin_eb_radial_stability_nullspace_v010.py \
+            tools/gremlin_cross_domain_coupling_identifiability_v011.py
+      - name: Run EB orbital-to-cross-domain deterministic chain
+        run: |
+          python -m pytest -q \
+            tests/test_gremlin_orbit_source_coupling_identifiability_v08.py \
+            tests/test_gremlin_eb_condensate_orbital_phase_bridge_v09.py \
+            tests/test_gremlin_eb_radial_stability_nullspace_v010.py \
+            tests/test_gremlin_cross_domain_coupling_identifiability_v011.py \
+            tests/test_gremlin_eb_cross_domain_integration_v011.py
