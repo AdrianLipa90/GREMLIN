@@ -354,12 +354,13 @@ def radical_gate_status(role: str, status: str) -> tuple[str, int]:
 def capability_status_from_memory_receipt(packet: Mapping[str, Any]) -> int:
     if packet.get("schema") != MEMORY_ACCESS_RECEIPT_SCHEMA:
         raise ConstitutionalError("unsupported memory capability receipt")
-    decision = _upper(packet.get("decision"), "decision")
-    claims = packet.get("claims")
-    if not isinstance(claims, Mapping):
-        raise ConstitutionalError("memory capability receipt claims must be a mapping")
-    if claims.get("deny_by_default") is not True or claims.get("decision_is_auditable") is not True:
-        raise ConstitutionalError("memory capability receipt loses deny-by-default/audit boundary")
+    from .memory_capabilities import validate_access_receipt
+
+    try:
+        validated = validate_access_receipt(packet)
+    except (TypeError, ValueError, PermissionError) as exc:
+        raise ConstitutionalError("invalid Bestiary memory capability receipt") from exc
+    decision = _upper(validated.get("decision"), "decision")
     if decision == "ALLOW":
         return PASS
     if decision == "DENY":
@@ -533,6 +534,9 @@ def validate_admission_receipt(packet: Mapping[str, Any]) -> dict[str, Any]:
         raise ConstitutionalError("admission scalar composition mismatch")
     if core.get("decision") != decision_from_scalar(expected_global):
         raise ConstitutionalError("admission decision/scalar mismatch")
+    consequence = _upper(core.get("consequence_class"), "consequence_class")
+    if consequence not in CONSEQUENCE_REQUIREMENTS:
+        raise ConstitutionalError("unsupported consequence class in admission receipt")
     required_gates = core.get("required_ethics_gates")
     gate_state = core.get("required_gate_state")
     if not isinstance(required_gates, list) or not required_gates:
@@ -542,6 +546,8 @@ def validate_admission_receipt(packet: Mapping[str, Any]) -> dict[str, Any]:
         raise ConstitutionalError("unknown required gate in admission receipt")
     if tuple(required_gates) != normalized_required or len(set(normalized_required)) != len(normalized_required):
         raise ConstitutionalError("admission required gates must be canonical and unique")
+    if list(required_gates) != list(CONSEQUENCE_REQUIREMENTS[consequence]):
+        raise ConstitutionalError("admission receipt gate set does not match consequence class")
     if not isinstance(gate_state, Mapping) or set(gate_state) != set(normalized_required):
         raise ConstitutionalError("admission gate state must cover the exact required gate set")
     for key, value in gate_state.items():
