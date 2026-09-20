@@ -22,6 +22,11 @@ from tools.gremlin_cross_modal_relational_evidence_v01 import (
 from tools.gremlin_identifiability_measurement_design_v01 import (
     IndependentMeasurement,
     MeasurementSignature,
+    rank_independent_measurements,
+)
+from tools.gremlin_source_family_signature_identifiability_v01 import (
+    SourceFamilyIdentifiabilityError,
+    SourceFamilySignature,
 )
 
 
@@ -470,6 +475,7 @@ def bogoliubov_dispersion_signature(
 
 @dataclass(frozen=True)
 class CatalogMeasurementInstance:
+    instance_id: str
     channel_id: str
     source_names: tuple[str, ...]
     source_signature: tuple[float, ...]
@@ -481,6 +487,10 @@ class CatalogMeasurementInstance:
     epistemic: str = "CHYBA"
 
     def validate(self) -> ChannelDefinition:
+        if not str(self.instance_id).strip():
+            raise MeasurementChannelCatalogError(
+                "instance_id must be non-empty"
+            )
         definition = channel_definition(self.channel_id)
         if not self.source_names:
             raise MeasurementChannelCatalogError(
@@ -543,7 +553,7 @@ class CatalogMeasurementInstance:
             )
         return IndependentMeasurement(
             signature=MeasurementSignature(
-                name=self.channel_id,
+                name=self.instance_id,
                 source_signature=self.source_signature,
                 provenance=self.provenance,
             ),
@@ -555,6 +565,7 @@ class CatalogMeasurementInstance:
         return {
             "schema": SCHEMA,
             "catalog_definition": asdict(definition),
+            "instance_id": self.instance_id,
             "channel_id": self.channel_id,
             "source_names": list(self.source_names),
             "source_signature": [float(x) for x in self.source_signature],
@@ -566,3 +577,85 @@ class CatalogMeasurementInstance:
             "epistemic": self.epistemic,
             "physical_source_selected": False,
         }
+
+
+
+def rank_catalog_measurements(
+    current_signatures: Sequence[SourceFamilySignature],
+    covariance,
+    candidates: Sequence[CatalogMeasurementInstance],
+    *,
+    policy: str,
+    rank_rtol: float = 1e-10,
+    max_condition_number: float = 1e8,
+):
+    """Rank typed catalog measurements against one declared source basis.
+
+    The candidate source-name order must match the current SourceFamilySignature
+    order exactly. This prevents numerically valid rows from being applied to a
+    differently ordered or differently normalized source basis.
+    """
+
+    sources = tuple(current_signatures)
+    if not sources:
+        raise MeasurementChannelCatalogError(
+            "current_signatures must be non-empty"
+        )
+
+    source_names = tuple(source.name for source in sources)
+    if len(set(source_names)) != len(source_names):
+        raise MeasurementChannelCatalogError(
+            "current source-family names must be unique"
+        )
+    for source in sources:
+        try:
+            source.validate()
+        except SourceFamilyIdentifiabilityError as exc:
+            raise MeasurementChannelCatalogError(
+                f"current source-family basis invalid: {exc}"
+            ) from exc
+        if not str(source.normalization).strip():
+            raise MeasurementChannelCatalogError(
+                "current source-family normalization must be declared"
+            )
+
+    options = tuple(candidates)
+    if not options:
+        raise MeasurementChannelCatalogError(
+            "at least one catalog candidate is required"
+        )
+    instance_ids = tuple(option.instance_id for option in options)
+    if len(set(instance_ids)) != len(instance_ids):
+        raise MeasurementChannelCatalogError(
+            "catalog candidate instance_id values must be unique"
+        )
+
+    measurements = []
+    by_instance = {}
+    for option in options:
+        option.validate()
+        if tuple(option.source_names) != source_names:
+            raise MeasurementChannelCatalogError(
+                f"candidate {option.instance_id} source basis/order does not "
+                "match current source-family signatures"
+            )
+        measurements.append(option.to_independent_measurement())
+        by_instance[option.instance_id] = option
+
+    ranked = rank_independent_measurements(
+        sources,
+        covariance,
+        measurements,
+        policy=policy,
+        rank_rtol=rank_rtol,
+        max_condition_number=max_condition_number,
+    )
+
+    return tuple(
+        (
+            instance_id,
+            by_instance[instance_id].channel_id,
+            report,
+        )
+        for instance_id, report in ranked
+    )
