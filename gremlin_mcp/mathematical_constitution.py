@@ -569,10 +569,42 @@ def validate_admission_receipt(packet: Mapping[str, Any]) -> dict[str, Any]:
     return {**core, "receipt_id": supplied}
 
 
-def admitted_action_ids(receipts: Sequence[Mapping[str, Any]]) -> tuple[str, ...]:
+def validate_admission_against_action(
+    packet: Mapping[str, Any],
+    action: Mapping[str, Any],
+) -> dict[str, Any]:
+    receipt = validate_admission_receipt(packet)
+    contract = validate_action_contract(action)
+    if receipt["action_id"] != contract["action_id"]:
+        raise ConstitutionalError("admission action_id does not match action contract")
+    if receipt["action_sha256"] != contract["action_sha256"]:
+        raise ConstitutionalError("admission action commitment does not match action contract")
+    if receipt["consequence_class"] != contract["consequence_class"]:
+        raise ConstitutionalError("admission consequence class does not match action contract")
+    if receipt["required_ethics_gates"] != contract["required_ethics_gates"]:
+        raise ConstitutionalError("admission gate requirements do not match action contract")
+    return receipt
+
+
+def admitted_action_ids(
+    receipts: Sequence[Mapping[str, Any]],
+    action_contracts: Sequence[Mapping[str, Any]],
+) -> tuple[str, ...]:
+    actions: dict[str, dict[str, Any]] = {}
+    for packet in action_contracts:
+        action = validate_action_contract(packet)
+        action_id = action["action_id"]
+        if action_id in actions:
+            raise ConstitutionalError("duplicate action contract id")
+        actions[action_id] = action
+
     allowed = []
     for packet in receipts:
         receipt = validate_admission_receipt(packet)
+        action = actions.get(receipt["action_id"])
+        if action is None:
+            raise ConstitutionalError("admission receipt has no matching action contract")
+        receipt = validate_admission_against_action(receipt, action)
         if receipt["decision"] == "ALLOW":
             allowed.append(receipt["action_id"])
     return tuple(sorted(set(allowed)))
@@ -679,8 +711,7 @@ def ledger_precedes(
 
 def certify_transition(
     *,
-    executed_action_id: str,
-    executed_action_sha256: str,
+    action_contract: Mapping[str, Any],
     pre_state_commitment: str,
     post_state_commitment: str,
     admission_receipt: Mapping[str, Any],
@@ -688,11 +719,10 @@ def certify_transition(
     ledger_after: Sequence[Mapping[str, Any]],
     mutation_receipt_event_id: str | None = None,
 ) -> dict[str, Any]:
-    admission = validate_admission_receipt(admission_receipt)
-    action_id = _text(executed_action_id, "executed_action_id")
-    action_sha = _text(executed_action_sha256, "executed_action_sha256")
-    if admission["action_id"] != action_id or admission["action_sha256"] != action_sha:
-        raise ConstitutionalError("transition action does not match constitutional admission")
+    action = validate_action_contract(action_contract)
+    admission = validate_admission_against_action(admission_receipt, action)
+    action_id = action["action_id"]
+    action_sha = action["action_sha256"]
     pre = _text(pre_state_commitment, "pre_state_commitment")
     post = _text(post_state_commitment, "post_state_commitment")
     if not ledger_precedes(ledger_before, ledger_after):
@@ -785,6 +815,7 @@ __all__ = [
     "ledger_precedes",
     "radical_gate_status",
     "validate_action_contract",
+    "validate_admission_against_action",
     "validate_admission_receipt",
     "validate_constitutional_manifest",
     "validate_gate_receipt",
