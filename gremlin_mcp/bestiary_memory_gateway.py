@@ -336,7 +336,7 @@ def ingest_exchange_envelope_as_beast(
         expected_capability_status=capability_status_from_memory_receipt(receipt),
     )
     require_constitutional_admission(
-        endpoint="ingest_exchange_envelope_as_beast",
+        endpoint="bestiary_memory_gateway.ingest_exchange_envelope_as_beast",
         consequence_class="APPEND_ONLY",
         request_payload={
             "envelope": normalized,
@@ -412,7 +412,7 @@ def ingest_exchange_bundle_as_beast(
         expected_capability_status=capability_status_from_memory_receipt(receipt),
     )
     require_constitutional_admission(
-        endpoint="ingest_exchange_bundle_as_beast",
+        endpoint="bestiary_memory_gateway.ingest_exchange_bundle_as_beast",
         consequence_class="APPEND_ONLY",
         request_payload={
             "bundle": normalized,
