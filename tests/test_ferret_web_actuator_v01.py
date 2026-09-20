@@ -17,6 +17,7 @@ from gremlin_mcp.mathematical_constitution import (
 )
 from gremlin_mcp.ferret import (
     FerretAuthorizationError,
+    FerretExecutionError,
     FerretExecutionResult,
     FerretHandoffError,
     InMemoryFerretExecutionLedger,
