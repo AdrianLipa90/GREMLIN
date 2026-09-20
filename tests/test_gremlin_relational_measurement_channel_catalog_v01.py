@@ -18,6 +18,7 @@ from tools.gremlin_relational_measurement_channel_catalog_v01 import (
     channel_definition,
     holonomy_shell_signature,
     radial_scalar_signature_rows,
+    rank_catalog_measurements,
     spectral_chain_rule_signature,
     spectral_line_frequency_signature,
     thomas_fermi_sound_speed_signature,
@@ -167,6 +168,7 @@ def test_thomas_fermi_and_bogoliubov_control_signatures():
 
 def test_model_consistency_channel_cannot_be_promoted_to_source_fisher_row():
     instance = CatalogMeasurementInstance(
+        instance_id="test-instance",
         channel_id="CENTRAL_CONSISTENCY_RESIDUAL",
         source_names=("source_a", "source_b"),
         source_signature=(1.0, 0.0),
@@ -185,6 +187,7 @@ def test_model_consistency_channel_cannot_be_promoted_to_source_fisher_row():
 
 def test_derived_phase_channel_requires_explicit_independent_readout_evidence():
     instance = CatalogMeasurementInstance(
+        instance_id="test-instance",
         channel_id="TRANSVERSE_PHASE_CURVATURE",
         source_names=("source_a", "source_b"),
         source_signature=(1.0, -1.0),
@@ -203,6 +206,7 @@ def test_derived_phase_channel_requires_explicit_independent_readout_evidence():
 
 def test_independent_phase_readout_can_be_converted_to_measurement_design_input():
     instance = CatalogMeasurementInstance(
+        instance_id="test-instance",
         channel_id="TRANSVERSE_PHASE_CURVATURE",
         source_names=("source_a", "source_b"),
         source_signature=(1.0, -1.0),
@@ -213,7 +217,7 @@ def test_independent_phase_readout_can_be_converted_to_measurement_design_input(
         independence_evidence="INDEPENDENT_READOUT:separate phase-imaging detector",
     )
     measurement = instance.to_independent_measurement()
-    assert measurement.signature.name == "TRANSVERSE_PHASE_CURVATURE"
+    assert measurement.signature.name == "test-instance"
     assert measurement.signature.source_signature == pytest.approx((1.0, -1.0))
     assert measurement.variance == pytest.approx(0.25)
 
@@ -244,7 +248,7 @@ def test_spectral_channel_can_break_orbital_source_degeneracy():
         policy="RANK_THEN_NULLSPACE",
     )
 
-    assert ranked[0][0] == "SPECTRAL_LINE_FREQUENCY"
+    assert ranked[0][0] == "test-instance"
     assert ranked[0][1].rank_before == 1
     assert ranked[0][1].rank_after == 2
     assert ranked[0][1].rank_gain == 1
@@ -255,6 +259,7 @@ def test_reconstructed_phase_curvature_from_same_orbit_is_not_counted_by_default
     assert definition.independence_default is False
 
     instance = CatalogMeasurementInstance(
+        instance_id="test-instance",
         channel_id="TRANSVERSE_PHASE_CURVATURE",
         source_names=("source_a", "source_b"),
         source_signature=(1.0, -1.0),
@@ -283,6 +288,7 @@ def test_bogoliubov_control_can_count_only_after_explicit_source_map_and_indepen
         source_to_u_i=[1.0, -1.0],
     )
     instance = CatalogMeasurementInstance(
+        instance_id="test-instance",
         channel_id="BOGOLIUBOV_SOUND_SPEED_SQ",
         source_names=("source_a", "source_b"),
         source_signature=q,
@@ -295,8 +301,97 @@ def test_bogoliubov_control_can_count_only_after_explicit_source_map_and_indepen
     assert instance.to_independent_measurement().variance == pytest.approx(0.1)
 
 
+
+def test_catalog_ranking_binds_exact_source_basis_order():
+    current = [
+        _source("source_a", [1.0]),
+        _source("source_b", [1.0]),
+    ]
+    candidate = CatalogMeasurementInstance(
+        instance_id="spectral-line-17",
+        channel_id="SPECTRAL_LINE_FREQUENCY",
+        source_names=("source_a", "source_b"),
+        source_signature=(1.0, -1.0),
+        variance=1.0,
+        provenance=PROV,
+        response_model_id="oes-line-phase-chain-rule",
+        independence_declared=True,
+        independence_evidence="INDEPENDENT_READOUT:spectrometer",
+    )
+    ranked = rank_catalog_measurements(
+        current,
+        [[1.0]],
+        [candidate],
+        policy="RANK_THEN_NULLSPACE",
+    )
+    assert ranked[0][0] == "spectral-line-17"
+    assert ranked[0][1] == "SPECTRAL_LINE_FREQUENCY"
+    assert ranked[0][2].rank_gain == 1
+
+    wrong_order = CatalogMeasurementInstance(
+        instance_id="spectral-line-wrong-order",
+        channel_id="SPECTRAL_LINE_FREQUENCY",
+        source_names=("source_b", "source_a"),
+        source_signature=(-1.0, 1.0),
+        variance=1.0,
+        provenance=PROV,
+        response_model_id="oes-line-phase-chain-rule",
+        independence_declared=True,
+        independence_evidence="INDEPENDENT_READOUT:spectrometer",
+    )
+    with pytest.raises(
+        MeasurementChannelCatalogError,
+        match="source basis/order",
+    ):
+        rank_catalog_measurements(
+            current,
+            [[1.0]],
+            [wrong_order],
+            policy="RANK_THEN_NULLSPACE",
+        )
+
+
+def test_multiple_instances_of_same_channel_type_remain_distinct():
+    current = [
+        _source("source_a", [1.0, 0.0]),
+        _source("source_b", [0.0, 1.0]),
+    ]
+    candidates = [
+        CatalogMeasurementInstance(
+            instance_id="line-501nm",
+            channel_id="SPECTRAL_LINE_FREQUENCY",
+            source_names=("source_a", "source_b"),
+            source_signature=(1.0, 1.0),
+            variance=1.0,
+            provenance=PROV,
+            response_model_id="line-501",
+            independence_declared=True,
+            independence_evidence="INDEPENDENT_READOUT:spectrometer",
+        ),
+        CatalogMeasurementInstance(
+            instance_id="line-612nm",
+            channel_id="SPECTRAL_LINE_FREQUENCY",
+            source_names=("source_a", "source_b"),
+            source_signature=(1.0, -1.0),
+            variance=1.0,
+            provenance=PROV,
+            response_model_id="line-612",
+            independence_declared=True,
+            independence_evidence="INDEPENDENT_READOUT:spectrometer",
+        ),
+    ]
+    ranked = rank_catalog_measurements(
+        current,
+        np.eye(2),
+        candidates,
+        policy="D_OPTIMAL",
+    )
+    assert {row[0] for row in ranked} == {"line-501nm", "line-612nm"}
+    assert all(row[1] == "SPECTRAL_LINE_FREQUENCY" for row in ranked)
+
 def test_catalog_instance_mapping_preserves_source_neutrality():
     instance = CatalogMeasurementInstance(
+        instance_id="test-instance",
         channel_id="SPECTRAL_INTENSITY",
         source_names=("source_a", "source_b"),
         source_signature=(0.5, 2.0),
@@ -345,6 +440,7 @@ def test_catalog_instance_mapping_preserves_source_neutrality():
             [0.0],
         ),
         lambda: CatalogMeasurementInstance(
+            instance_id="duplicate-source-instance",
             channel_id="ORBITAL_OMEGA_SQ",
             source_names=("source_a", "source_a"),
             source_signature=(1.0, 2.0),
