@@ -124,7 +124,7 @@ CATALOG: tuple[ChannelDefinition, ...] = (
     ChannelDefinition(
         "KOBS_GRADIENT",
         "ORBITAL",
-        MODEL_CONSISTENCY,
+        SOURCE_SENSITIVE_CONDITIONAL,
         "DERIVED_FROM_OMEGA_KAPPA",
         False,
         "AdrianLipa90/Informational-Dynamics-of-Time",
