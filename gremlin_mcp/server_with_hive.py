@@ -236,6 +236,12 @@ def gremlin_hive_exchange_ingest(
         request_payload={"envelope": envelope, "priority": priority},
         constitutional_packet=constitutional_packet,
     )
+    require_constitutional_admission(
+        endpoint="gremlin_hive_exchange_ingest",
+        consequence_class="APPEND_ONLY",
+        request_payload={"envelope": envelope, "priority": priority},
+        constitutional_packet=constitutional_packet,
+    )
     return ingest_exchange_envelope(
         hive_runtime,
         envelope,
