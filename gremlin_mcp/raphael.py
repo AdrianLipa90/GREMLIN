@@ -776,6 +776,28 @@ def execute(
 
     before_sha = _state_sha(backend.current_state())
 
+    require_constitutional_admission(
+        endpoint="raphael.execute",
+        consequence_class="MUTATION",
+        request_payload={
+            "decree_commitment": decree["decree_commitment"],
+            "authorization_commitment": authorization["authorization_commitment"],
+            "target_repository": body["target_repository"],
+            "target_branch": body["target_branch"],
+            "target_sha": body["target_sha"],
+            "scope_commitment": body["scope_commitment"],
+            "actor": auth["actor"],
+            "gate_receipt": auth["gate_receipt"],
+            "generation": auth["generation"],
+            "gremlin_attestation_commitment": auth[
+                "gremlin_attestation_commitment"
+            ],
+        },
+        constitutional_packet=constitutional_packet,
+        expected_authority_status=PASS,
+        expected_evidence_status=PASS,
+    )
+
     def burn_and_abort(code: str, message: str) -> None:
         if not ledger.consume(
             decree["decree_commitment"], authorization["authorization_commitment"]
@@ -806,34 +828,12 @@ def execute(
         )
 
     try:
-        live_admission = _probe_live_admission(auth, admission_probe)
+        _probe_live_admission(auth, admission_probe)
     except RaphaelAuthorizationError as exc:
         burn_and_abort(
             "LIVE_ADMISSION_FAILED",
             f"LIVE_ADMISSION_FAILED: {exc}",
         )
-
-    require_constitutional_admission(
-        endpoint="raphael.execute",
-        consequence_class="MUTATION",
-        request_payload={
-            "decree_commitment": decree["decree_commitment"],
-            "authorization_commitment": authorization["authorization_commitment"],
-            "target_repository": body["target_repository"],
-            "target_branch": body["target_branch"],
-            "target_sha": body["target_sha"],
-            "scope_commitment": body["scope_commitment"],
-            "actor": auth["actor"],
-            "gate_receipt": auth["gate_receipt"],
-            "generation": auth["generation"],
-            "gremlin_attestation_commitment": live_admission[
-                "gremlin_attestation_commitment"
-            ],
-        },
-        constitutional_packet=constitutional_packet,
-        expected_authority_status=PASS,
-        expected_evidence_status=PASS,
-    )
 
     if not ledger.consume(
         decree["decree_commitment"], authorization["authorization_commitment"]
