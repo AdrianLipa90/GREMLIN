@@ -371,8 +371,7 @@ def test_deny_or_defer_cannot_certify_state_change() -> None:
     )
     with pytest.raises(ConstitutionalError, match="ALLOW"):
         certify_transition(
-            executed_action_id=action["action_id"],
-            executed_action_sha256=action["action_sha256"],
+            action_contract=action,
             pre_state_commitment="before",
             post_state_commitment="after",
             admission_receipt=deny,
@@ -394,8 +393,7 @@ def test_deny_or_defer_cannot_certify_state_change() -> None:
     )
     with pytest.raises(ConstitutionalError, match="ALLOW"):
         certify_transition(
-            executed_action_id=action["action_id"],
-            executed_action_sha256=action["action_sha256"],
+            action_contract=action,
             pre_state_commitment="before",
             post_state_commitment="after",
             admission_receipt=defer,
@@ -410,8 +408,7 @@ def test_silent_mutation_without_new_ledger_event_is_rejected() -> None:
     allow = _admission(action)
     with pytest.raises(ConstitutionalError, match="appended ledger event"):
         certify_transition(
-            executed_action_id=action["action_id"],
-            executed_action_sha256=action["action_sha256"],
+            action_contract=action,
             pre_state_commitment="before",
             post_state_commitment="after",
             admission_receipt=allow,
@@ -510,8 +507,7 @@ def test_mutation_receipt_must_bind_exact_pre_and_post_state() -> None:
     )
     with pytest.raises(ConstitutionalError, match="state/action binding"):
         certify_transition(
-            executed_action_id=action["action_id"],
-            executed_action_sha256=action["action_sha256"],
+            action_contract=action,
             pre_state_commitment="before",
             post_state_commitment="after",
             admission_receipt=allow,
