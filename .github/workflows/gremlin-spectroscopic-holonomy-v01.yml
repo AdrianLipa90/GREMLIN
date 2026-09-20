@@ -1,0 +1,43 @@
+name: GREMLIN spectroscopic holonomy v0.1
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'gremlin_mcp/spectroscopic_holonomy.py'
+      - 'gremlin_mcp/phasenav_runtime.py'
+      - 'gremlin_mcp/core.py'
+      - 'gremlin_mcp/server.py'
+      - 'gremlin_mcp/tool_catalog.py'
+      - 'gremlin_mcp/tool_metadata.py'
+      - 'tests/test_gremlin_spectroscopic_holonomy_v01.py'
+      - 'tests/test_gremlin_mcp_v01.py'
+      - 'tests/test_gremlin_mcp_surface_parity_v01.py'
+      - 'spec/GREMLIN_PHASENAV_SPECTROSCOPIC_HOLONOMY_V0_1.md'
+      - '.github/workflows/gremlin-spectroscopic-holonomy-v01.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  spectroscopic-holonomy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install GREMLIN MCP and pytest
+        run: python -m pip install -e . pytest
+      - name: Compile bridge modules
+        run: >-
+          python -m py_compile
+          gremlin_mcp/spectroscopic_holonomy.py
+          gremlin_mcp/phasenav_runtime.py
+          gremlin_mcp/server.py
+      - name: Run focused bridge and surface-contract tests
+        run: >-
+          python -m pytest -q
+          tests/test_gremlin_spectroscopic_holonomy_v01.py
+          tests/test_gremlin_mcp_v01.py
+          tests/test_gremlin_mcp_surface_parity_v01.py

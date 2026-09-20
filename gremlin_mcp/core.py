@@ -48,6 +48,7 @@ REFERENCE_MCP_TOOLS = [
     "gremlin_auto_fanout", "gremlin_fanout", "gremlin_collect", "gremlin_synthesize", "gremlin_prototype",
     "gremlin_phasenav_status", "gremlin_phasenav_reference_sweep", "gremlin_phasenav_threeway",
     "gremlin_phasenav_analog_invariants", "gremlin_phasenav_live_replay",
+    "gremlin_phasenav_spectroscopic_holonomy",
     "gremlin_worker_register", "gremlin_worker_heartbeat", "gremlin_worker_list", "gremlin_worker_enqueue",
     "gremlin_worker_claim", "gremlin_worker_submit", "gremlin_worker_result", "gremlin_worker_queue",
 ]
@@ -76,6 +77,7 @@ REFERENCE_MCP_TOOL_GROUPS: dict[str, tuple[str, ...]] = {
     "phasenav": (
         "gremlin_phasenav_status", "gremlin_phasenav_reference_sweep", "gremlin_phasenav_threeway",
         "gremlin_phasenav_analog_invariants", "gremlin_phasenav_live_replay",
+        "gremlin_phasenav_spectroscopic_holonomy",
     ),
     "workers": (
         "gremlin_worker_register", "gremlin_worker_heartbeat", "gremlin_worker_list", "gremlin_worker_enqueue",

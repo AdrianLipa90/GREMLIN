@@ -87,7 +87,7 @@ def test_mcp_in_process_handshake_and_status_tool() -> None:
             }
             assert names == declared
             assert grouped == declared
-            assert declared_status["tool_count"] == len(names) == 32
+            assert declared_status["tool_count"] == len(names) == 33
             assert {
                 "gremlin_status",
                 "gremlin_bestiary",
@@ -104,6 +104,7 @@ def test_mcp_in_process_handshake_and_status_tool() -> None:
                 "gremlin_phasenav_threeway",
                 "gremlin_phasenav_analog_invariants",
                 "gremlin_phasenav_live_replay",
+                "gremlin_phasenav_spectroscopic_holonomy",
             } <= names
             result = await client.call_tool("gremlin_status", {})
             assert result.is_error is False
@@ -119,6 +120,8 @@ def test_standalone_phasenav_runtime_import_surface_is_complete() -> None:
     assert s["species_count"] == 18
     assert set(s["species"]) >= {"FOX", "BEAVER", "BAT", "CANARY", "SERPENT", "CHAMELEON"}
     assert s["vector_backend_available"] is True
+    assert s["spectroscopic_holonomy_packet_schema"] == "PHASENAV_SPECTROSCOPIC_HOLONOMY_STATE_V0_1"
+    assert s["spectroscopic_inverse_problem_available"] is True
 
     sweep = reference_sweep()
     assert sweep["species_count"] == 18

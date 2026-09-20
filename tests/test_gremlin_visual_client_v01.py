@@ -38,7 +38,7 @@ class GremlinVisualClientV01Tests(unittest.TestCase):
     def test_reference_dashboard_contract_matches_shared_workspace_surface(self):
         dashboard = system_payload(surface="reference")
         self.assertEqual(dashboard["surface"], "reference")
-        self.assertEqual(dashboard["mcp"]["tool_count"], 32)
+        self.assertEqual(dashboard["mcp"]["tool_count"], 33)
         self.assertEqual(dashboard["bestiary"]["species_count"], 18)
         self.assertFalse(dashboard["authority"]["execution_admitted"])
 
@@ -105,7 +105,7 @@ class GremlinVisualClientV01Tests(unittest.TestCase):
         self.assertEqual(status["status"], "READY")
         self.assertEqual(status["product"]["status"], "REFERENCE_VALIDATION")
         self.assertEqual(status["capabilities"]["surface"], "reference")
-        self.assertEqual(status["capabilities"]["tool_count"], 32)
+        self.assertEqual(status["capabilities"]["tool_count"], 33)
         self.assertFalse(status["authority"]["execution_admitted"])
 
         bestiary = bestiary_payload()
@@ -116,7 +116,7 @@ class GremlinVisualClientV01Tests(unittest.TestCase):
 
         dashboard = system_payload(surface="reference")
         self.assertEqual(dashboard["surface"], "reference")
-        self.assertEqual(dashboard["mcp"]["tool_count"], 32)
+        self.assertEqual(dashboard["mcp"]["tool_count"], 33)
 
     def test_visual_client_does_not_add_external_frontend_dependencies(self):
         html = (WEB_ROOT / "index.html").read_text(encoding="utf-8")

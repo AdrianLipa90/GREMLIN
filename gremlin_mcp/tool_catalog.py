@@ -31,6 +31,7 @@ TOOL_DESCRIPTIONS: dict[str, str] = {
     "gremlin_phasenav_threeway": "Compare scalar, NumPy-vector and continuous T^36 realizations.",
     "gremlin_phasenav_analog_invariants": "Run specialist invariants for all current analog-core Bestiary candidates.",
     "gremlin_phasenav_live_replay": "Replay all species against an explicit live PhaseNav surface; no fallback.",
+    "gremlin_phasenav_spectroscopic_holonomy": "Validate a typed PhaseNav spectroscopic-holonomy packet and build a read-only GREMLIN inverse-spectroscopy plan.",
     "gremlin_worker_register": "Register or refresh an external backend as one or more GREMLIN animal workers.",
     "gremlin_worker_heartbeat": "Refresh a registered GREMLIN worker heartbeat.",
     "gremlin_worker_list": "List currently registered external GREMLIN animal workers.",
