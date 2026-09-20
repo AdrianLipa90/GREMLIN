@@ -4,6 +4,7 @@ import copy
 
 import pytest
 
+from gremlin_mcp.core import bestiary_manifest, species_profile, status
 from gremlin_mcp.bestiary_memory_capability import (
     ALL_PRINCIPALS,
     BESTIARY_PRINCIPALS,
@@ -532,3 +533,27 @@ def test_private_scratch_is_local_only_and_not_source_of_truth() -> None:
     assert receipt["decision"] == "ALLOW"
     assert receipt["reason_code"] == "PRIVATE_SCRATCH_LOCAL_ONLY"
     assert receipt["rule_id"] == "PRIVATE_SCRATCH_LOCAL"
+
+
+
+def test_core_bestiary_and_species_profiles_expose_same_memory_policy() -> None:
+    manifest = bestiary_manifest()
+    spider = next(item for item in manifest["species"] if item["name"] == "SPIDER")
+    spider_profile = species_profile("SPIDER")
+
+    assert spider["memory_capability"] == spider_profile["memory_capability"]
+    assert any(
+        rule["rule_id"] == "SPI-REL-GRAPH"
+        for rule in spider["memory_capability"]["rules"]
+    )
+    assert manifest["memory_capability_manifest_sha256"] == memory_capability_manifest()["manifest_sha256"]
+    assert manifest["angelic_functions"][0]["memory_capability"]["principal"] == "RAPHAEL"
+
+
+def test_status_advertises_policy_without_changing_reference_tool_registry() -> None:
+    current = status()
+    assert current["memory_capability"]["schema"] == "GREMLIN_BESTIARY_MEMORY_CAPABILITY_V0_1"
+    assert current["memory_capability"]["default_policy"] == "DENY"
+    assert current["memory_capability"]["principal_count"] == 19
+    assert current["tool_count"] == 33
+    assert "gremlin_memory_capability_check" not in current["tools"]
