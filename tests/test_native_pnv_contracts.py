@@ -196,6 +196,7 @@ def test_mathematical_constitution_native_contract():
     assert "# CANON_ALLOWED FALSE" in text
     assert "# AUTHORITY NONE" in text
     assert "# RAPHAEL_SUBORDINATE_TO_CONSTITUTION TRUE" in text
+    assert "# FERRET_EXTERNAL_ACTUATOR_CONSTITUTION_REQUIRED TRUE" in text
     assert "# ETHICS_KERNEL HARD_ADMISSIBILITY_CONSTRAINT" in text
     assert "# ETHICS_WEIGHTING_ALLOWED FALSE" in text
     assert "# ETHICS_CONFLICT_AVERAGING_ALLOWED FALSE" in text
