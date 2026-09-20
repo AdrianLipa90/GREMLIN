@@ -10,6 +10,7 @@ from mcp.server import MCPServer
 from gremlin_mcp import __version__
 from gremlin_mcp.hive_authority import HiveAuthorityRuntime
 from gremlin_mcp.memory_exchange import ingest_exchange_bundle, ingest_exchange_envelope
+from gremlin_mcp.memory_consolidation import build_consolidation_route
 from gremlin_mcp.memory_anti_entropy import (
     apply_hive_delta,
     build_hive_inventory,
@@ -61,6 +62,13 @@ def gremlin_hive_status() -> dict[str, Any]:
         "apply_tool": "gremlin_hive_sync_apply",
         "scope": "EXCHANGE_MEMORY_ONLY_APPEND_ONLY",
         "automatic_latch": False,
+    }
+    result["memory_consolidation"] = {
+        "status": "AVAILABLE_READ_ONLY",
+        "route_tool": "gremlin_hive_consolidation_route",
+        "source_layer": "EPISODIC",
+        "derived_layer": "SEMANTIC",
+        "direct_hive_ingest_allowed": False,
     }
     return result
 
@@ -143,6 +151,15 @@ def gremlin_hive_sync_apply(
         receiver_node_id=node_id,
         priority=priority,
     )
+
+
+@mcp.tool()
+def gremlin_hive_consolidation_route(
+    plan: dict[str, Any],
+    receipt: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Validate PhaseNav consolidation and return the admitted SEMANTIC->RELATIONAL route."""
+    return build_consolidation_route(plan, receipt)
 
 
 @mcp.tool()
