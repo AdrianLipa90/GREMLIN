@@ -149,6 +149,14 @@ Preparation does not contact or mutate the target website.
 
 An authorization for one preview cannot authorize a modified plan.
 
+The runtime contract is fail-closed and single-use:
+
+`single_use = true`
+
+`replay_protection = FERRET_EXECUTION_LEDGER_REQUIRED`
+
+Execution consumes the exact authorization commitment atomically before the browser backend is invoked. A second execution with the same authorization is rejected. Missing or invalid constitutional admission is rejected before ledger consumption, so a caller does not lose an authorization merely because constitutional evidence is incomplete.
+
 ## Human handoff receipts
 
 `detect_human_gate()` emits committed gate evidence without attempting a solution.
@@ -188,6 +196,8 @@ gremlin-ferret handoff \
 It opens visible Chromium, pauses while the human completes a challenge, saves the resulting browser state locally, and emits committed resume metadata. It does not submit the target form.
 
 ## Execution receipt
+
+The Constitutional runtime layer is evaluated before execution-ledger consumption and before dispatch to the concrete browser backend. FERRET is therefore an explicit high-consequence runtime surface rather than an exception to the GREMLIN Constitutional kernel.
 
 `execute_authorized_action()` verifies preview and authorization commitments before dispatching a concrete browser backend. The backend returns a bounded result which FERRET wraps in a committed execution receipt containing:
 
