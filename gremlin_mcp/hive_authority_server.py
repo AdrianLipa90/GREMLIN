@@ -9,6 +9,7 @@ from mcp.server import MCPServer
 
 from gremlin_mcp import __version__
 from gremlin_mcp.hive_authority import HiveAuthorityRuntime
+from gremlin_mcp.memory_exchange import ingest_exchange_bundle, ingest_exchange_envelope
 
 runtime = HiveAuthorityRuntime()
 
@@ -36,7 +37,43 @@ def configure_state(state_path: str | None) -> HiveAuthorityRuntime:
 
 @mcp.tool()
 def gremlin_hive_status() -> dict[str, Any]:
-    return runtime.status()
+    result = runtime.status()
+    result["memory_information_exchange"] = {
+        "status": "AVAILABLE",
+        "tool": "gremlin_hive_exchange_ingest",
+        "protocol_schema": "PHASENAV_MEMORY_INFORMATION_EXCHANGE_V0_1",
+        "target_layer": "RELATIONAL",
+        "automatic_latch": False,
+    }
+    return result
+
+
+@mcp.tool()
+def gremlin_hive_exchange_ingest(
+    envelope: dict[str, Any],
+    priority: float = 0.82,
+) -> dict[str, Any]:
+    """Ingest a typed PhaseNav envelope into RELATIONAL Hive memory."""
+    return ingest_exchange_envelope(
+        runtime,
+        envelope,
+        priority=priority,
+        consumer_id="GREMLIN-HIVE",
+    )
+
+
+@mcp.tool()
+def gremlin_hive_exchange_bundle_ingest(
+    bundle: dict[str, Any],
+    priority: float = 0.82,
+) -> dict[str, Any]:
+    """Verify a portable lineage proof and ingest only its RELATIONAL target."""
+    return ingest_exchange_bundle(
+        runtime,
+        bundle,
+        priority=priority,
+        consumer_id="GREMLIN-HIVE",
+    )
 
 
 @mcp.tool()
