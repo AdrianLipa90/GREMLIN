@@ -4,7 +4,7 @@ ROOT = Path(__file__).resolve().parents[1]
 NATIVE = ROOT / "native"
 FILES = sorted(NATIVE.glob("*.pnv"))
 PROGRAM_FILES = [p for p in FILES if p.read_text().splitlines() and p.read_text().splitlines()[0] == "PNV 1"]
-DECLARATIVE_PNV = {"GREMLIN_ORBITAL_HIVE_MEMORY_V0_1.pnv"}
+DECLARATIVE_PNV = {"GREMLIN_ORBITAL_HIVE_MEMORY_V0_1.pnv", "GREMLIN_COGNITIVE_ACTION_PRINCIPLE_V0_1.pnv"}
 ALLOWED = {"SOURCE","IDENTITY","DIFFERENCE","CONDITION","ORDER","TRANSFORM","COMPOSITION","RETURN"}
 REQUIRED_NATIVE = {
     "BELZEBUB_TOOL_V0_4.pnv",
@@ -175,3 +175,15 @@ def test_raphael_wisdom_mutation_native_contract():
     assert "# MUTATION_AUTHORITY_EXPIRES_AFTER_RECEIPT TRUE" in text
     assert "# CANON_ALLOWED FALSE" in text
     assert "# NEW_PNV_OPCODES 0" in text
+
+
+def test_cognitive_action_principle_native_contract():
+    text=(NATIVE/"GREMLIN_COGNITIVE_ACTION_PRINCIPLE_V0_1.pnv").read_text()
+    assert text.startswith("EPISTEMIC CHYBA\n")
+    assert "# CLASS COGNITIVE_DYNAMICS" in text
+    assert "# CANON_ALLOWED FALSE" in text
+    assert "# AUTHORITY NONE" in text
+    assert "# MUTATION_AUTHORITY RAPHAEL_ONLY" in text
+    assert "# EXACT LOCAL QUADRATIC" in text
+    assert "# ACL_TO_PROJECTOR_ADAPTER OPEN" in text
+    assert "# Python code is reference/test harness only." in text
