@@ -41,5 +41,7 @@
   "exact_head_ci_status": "PENDING_EXACT_HEAD_CI",
   "base_constitution_head": "3d0696c95bcce76cf3720888aed8725a61f48b1c",
   "clean_replay_on_current_constitution": true,
-  "clean_replay_date": "2026-09-20"
+  "clean_replay_date": "2026-09-20",
+  "base_main_head": "9949dafd973a9c133da1d7329f3954c23bd994ad",
+  "clean_replay_on_current_main": true
 }
