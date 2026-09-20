@@ -10,6 +10,14 @@ from mcp.server import MCPServer
 from gremlin_mcp import __version__
 from gremlin_mcp.hive_authority import HiveAuthorityRuntime
 from gremlin_mcp.memory_exchange import ingest_exchange_bundle, ingest_exchange_envelope
+from gremlin_mcp.memory_anti_entropy import (
+    apply_hive_delta,
+    build_hive_inventory,
+    build_hive_manifest,
+    divergent_hive_buckets,
+    export_hive_delta,
+    plan_hive_delta,
+)
 from gremlin_mcp.orbital_hive_memory import HIVE_SCHEMA
 
 runtime = HiveAuthorityRuntime(orbit_count=36)
@@ -79,6 +87,15 @@ def gremlin_hive_status() -> dict[str, Any]:
             "target_layer": "RELATIONAL",
             "automatic_latch": False,
         },
+        "memory_anti_entropy": {
+            "status": "AVAILABLE",
+            "inventory_tool": "gremlin_hive_sync_inventory",
+            "manifest_tool": "gremlin_hive_sync_manifest",
+            "delta_tool": "gremlin_hive_sync_delta",
+            "apply_tool": "gremlin_hive_sync_apply",
+            "scope": "EXCHANGE_MEMORY_ONLY_APPEND_ONLY",
+            "automatic_latch": False,
+        },
     }
 
 
@@ -107,6 +124,58 @@ def gremlin_hive_exchange_bundle_ingest(
         bundle,
         priority=priority,
         consumer_id="GREMLIN-HIVE",
+    )
+
+
+@mcp.tool()
+def gremlin_hive_sync_inventory(
+    node_id: str = "GREMLIN-HIVE",
+) -> dict[str, Any]:
+    return build_hive_inventory(runtime, node_id=node_id)
+
+
+@mcp.tool()
+def gremlin_hive_sync_manifest(
+    prefixes: list[str],
+    node_id: str = "GREMLIN-HIVE",
+) -> dict[str, Any]:
+    return build_hive_manifest(runtime, node_id=node_id, prefixes=prefixes)
+
+
+@mcp.tool()
+def gremlin_hive_sync_delta(
+    receiver_inventory: dict[str, Any],
+    receiver_manifest: dict[str, Any],
+    node_id: str = "GREMLIN-HIVE",
+) -> dict[str, Any]:
+    sender_inventory = build_hive_inventory(runtime, node_id=node_id)
+    prefixes = divergent_hive_buckets(sender_inventory, receiver_inventory)
+    sender_manifest = build_hive_manifest(runtime, node_id=node_id, prefixes=prefixes)
+    plan = plan_hive_delta(
+        sender_inventory,
+        receiver_inventory,
+        sender_manifest,
+        receiver_manifest,
+    )
+    return {
+        "sender_inventory": sender_inventory,
+        "sender_manifest": sender_manifest,
+        "plan": plan,
+        "delta": export_hive_delta(runtime, plan),
+    }
+
+
+@mcp.tool()
+def gremlin_hive_sync_apply(
+    delta: dict[str, Any],
+    node_id: str = "GREMLIN-HIVE",
+    priority: float = 0.82,
+) -> dict[str, Any]:
+    return apply_hive_delta(
+        runtime,
+        delta,
+        receiver_node_id=node_id,
+        priority=priority,
     )
 
 
