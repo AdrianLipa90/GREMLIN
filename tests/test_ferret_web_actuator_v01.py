@@ -164,6 +164,8 @@ def test_execution_receipt_binds_preview_and_authorization() -> None:
     assert receipt["status"] == "SUBMITTED"
     assert receipt["preview_commitment"] == preview["preview_commitment"]
     assert receipt["authorization_commitment"] == authorization["authorization_commitment"]
+    assert receipt["authorization_consumed"] is True
+    assert receipt["single_use"] is True
     assert receipt["evidence"]["case_id"] == "CASE-123"
     assert len(receipt["execution_commitment"]) == 64
 
@@ -356,3 +358,30 @@ def test_constitutional_packet_cannot_be_replayed_on_another_preview() -> None:
             executor,
             constitutional_packet=packet_a,
         )
+
+
+def test_ferret_rejects_rehashed_authorization_with_weakened_single_use_contract() -> None:
+    preview = prepare_action(_request())
+    authorization = authorize_action(preview, actor="USER007", approved=True)
+    weakened = copy.deepcopy(authorization)
+    weakened.pop("authorization_commitment")
+    weakened["single_use"] = False
+    weakened["replay_protection"] = "CALLER_LEDGER_REQUIRED"
+
+    import hashlib
+    import json
+
+    raw = json.dumps(
+        weakened,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+        allow_nan=False,
+    ).encode("utf-8")
+    weakened["authorization_commitment"] = hashlib.blake2b(
+        b"GREMLIN-FERRET-AUTHORIZATION/v0.1\0" + raw,
+        digest_size=32,
+    ).hexdigest()
+
+    with pytest.raises(FerretAuthorizationError, match="single-use"):
+        verify_authorization(preview, weakened)
