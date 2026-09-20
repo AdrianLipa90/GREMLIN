@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 import hashlib
 import json
 from typing import Any, Iterable, Mapping, Sequence
@@ -680,6 +679,8 @@ def ledger_precedes(
 
 def certify_transition(
     *,
+    executed_action_id: str,
+    executed_action_sha256: str,
     pre_state_commitment: str,
     post_state_commitment: str,
     admission_receipt: Mapping[str, Any],
@@ -688,6 +689,10 @@ def certify_transition(
     mutation_receipt_event_id: str | None = None,
 ) -> dict[str, Any]:
     admission = validate_admission_receipt(admission_receipt)
+    action_id = _text(executed_action_id, "executed_action_id")
+    action_sha = _text(executed_action_sha256, "executed_action_sha256")
+    if admission["action_id"] != action_id or admission["action_sha256"] != action_sha:
+        raise ConstitutionalError("transition action does not match constitutional admission")
     pre = _text(pre_state_commitment, "pre_state_commitment")
     post = _text(post_state_commitment, "post_state_commitment")
     if not ledger_precedes(ledger_before, ledger_after):
@@ -703,12 +708,28 @@ def certify_transition(
         receipt_id = _text(mutation_receipt_event_id, "mutation_receipt_event_id")
         if receipt_id in before or receipt_id not in after:
             raise ConstitutionalError("mutation receipt must be newly appended")
+        event = after[receipt_id]
+        if event["event_type"] != "MUTATION_RECEIPT":
+            raise ConstitutionalError("state change requires a MUTATION_RECEIPT event")
+        payload = event["payload"]
+        required_payload = {
+            "action_id": action_id,
+            "action_sha256": action_sha,
+            "admission_receipt_id": admission["receipt_id"],
+            "pre_state_commitment": pre,
+            "post_state_commitment": post,
+        }
+        for key, expected in required_payload.items():
+            if payload.get(key) != expected:
+                raise ConstitutionalError(f"mutation receipt state/action binding mismatch: {key}")
     elif mutation_receipt_event_id is not None:
         _text(mutation_receipt_event_id, "mutation_receipt_event_id")
 
     core = {
         "schema": TRANSITION_SCHEMA,
         "version": VERSION,
+        "executed_action_id": action_id,
+        "executed_action_sha256": action_sha,
         "pre_state_commitment": pre,
         "post_state_commitment": post,
         "state_changed": changed,
