@@ -149,6 +149,14 @@ Preparation does not contact or mutate the target website.
 
 An authorization for one preview cannot authorize a modified plan.
 
+The runtime contract is fail-closed and single-use:
+
+`single_use = true`
+
+`replay_protection = FERRET_EXECUTION_LEDGER_REQUIRED`
+
+Execution consumes the exact authorization commitment atomically before the browser backend is invoked. A second execution with the same authorization is rejected. Missing or invalid constitutional admission is rejected before ledger consumption, so a caller does not lose an authorization merely because constitutional evidence is incomplete.
+
 ## Human handoff receipts
 
 `detect_human_gate()` emits committed gate evidence without attempting a solution.
@@ -188,6 +196,8 @@ gremlin-ferret handoff \
 It opens visible Chromium, pauses while the human completes a challenge, saves the resulting browser state locally, and emits committed resume metadata. It does not submit the target form.
 
 ## Execution receipt
+
+The Constitutional runtime layer is evaluated before execution-ledger consumption and before dispatch to the concrete browser backend. FERRET is therefore an explicit high-consequence runtime surface rather than an exception to the GREMLIN Constitutional kernel.
 
 `execute_authorized_action()` verifies preview and authorization commitments before dispatching a concrete browser backend. The backend returns a bounded result which FERRET wraps in a committed execution receipt containing:
 
@@ -229,3 +239,50 @@ find official complaint form
 - autonomous posting or messaging;
 - background actuation without a fresh authorization receipt;
 - promotion to GREMLIN canon or production authority.
+
+
+## Constitutional execution firewall
+
+FERRET external actuation is a high-consequence MUTATION surface.
+
+The execution ordering is:
+
+[
+oxed{
+	ext{preview verification}
+	o
+	ext{authorization verification}
+	o
+	ext{constitutional admission}
+	o
+	ext{single-use authorization consume}
+	o
+	ext{executor}.
+}
+]
+
+The runtime constitutional request binds:
+
+- `preview_id`;
+- `preview_commitment`;
+- `authorization_id`;
+- `authorization_commitment`;
+- authorized actor;
+- target URL.
+
+The preview commitment already binds the normalized intent and complete step sequence, including redacted secret references. Therefore the constitutional packet does not need to duplicate all steps to remain bound to them.
+
+The constitutional layer requires consequence class `MUTATION` and requires the admission receipt to preserve the independently verified authority channel as PASS.
+
+A missing, mismatched, DENY or DEFER constitutional packet fails before the external executor is called.
+
+FERRET authorization is single-use. `authorize_action()` emits:
+
+- `single_use=true`;
+- `replay_protection=FERRET_EXECUTION_LEDGER_REQUIRED`.
+
+`execute_authorized_action()` requires a `FerretExecutionLedger`. The authorization commitment is atomically consumed after constitutional admission and before external actuation. Reuse is rejected.
+
+If constitutional admission fails, the authorization is not consumed. If execution begins after successful consume and the backend later fails, the authorization remains consumed. Retrying an external side effect therefore requires a fresh authorization instead of silently replaying an uncertain action.
+
+This layer does not grant canon authority.
