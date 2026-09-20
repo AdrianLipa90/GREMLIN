@@ -242,6 +242,9 @@ def require_constitutional_admission(
     request_payload: Mapping[str, Any],
     constitutional_packet: Mapping[str, Any],
     parameter_ids: Sequence[str] | None = None,
+    expected_capability_status: int | None = None,
+    expected_authority_status: int | None = None,
+    expected_evidence_status: int | None = None,
 ) -> dict[str, Any]:
     expected = build_runtime_action_binding(
         endpoint=endpoint,
@@ -258,6 +261,22 @@ def require_constitutional_admission(
         )
 
     admission = packet["admission_receipt"]
+    for field, expected in (
+        ("capability_scalar", expected_capability_status),
+        ("authority_scalar", expected_authority_status),
+        ("evidence_scalar", expected_evidence_status),
+    ):
+        if expected is None:
+            continue
+        if isinstance(expected, bool) or expected not in {-1, 0, 1}:
+            raise RuntimeConstitutionalError(
+                f"expected {field} must be one of -1, 0, +1"
+            )
+        if admission[field] != expected:
+            raise RuntimeConstitutionalError(
+                f"runtime admission {field} does not match validated upstream state"
+            )
+
     if admission["decision"] != "ALLOW":
         raise RuntimeConstitutionalError(
             f"runtime action is not constitutionally admitted: "
