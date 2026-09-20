@@ -314,3 +314,45 @@ def test_ferret_missing_constitution_does_not_consume_authorization() -> None:
         constitutional_packet=_constitutional_packet(preview, authorization),
     )
     assert receipt["status"] == "SUBMITTED"
+
+
+def test_execution_without_constitutional_packet_fails_before_executor() -> None:
+    preview = prepare_action(_request())
+    authorization = authorize_action(preview, actor="USER007", approved=True)
+    called = {"value": False}
+
+    def executor(_preview):
+        called["value"] = True
+        return FerretExecutionResult(
+            status="SHOULD_NOT_RUN",
+            resolved_url="https://example.com/complaints",
+            evidence={},
+        )
+
+    with pytest.raises(RuntimeConstitutionalError):
+        execute_authorized_action(preview, authorization, executor)
+    assert called["value"] is False
+
+
+def test_constitutional_packet_cannot_be_replayed_on_another_preview() -> None:
+    preview_a = prepare_action(_request())
+    authorization_a = authorize_action(preview_a, actor="USER007", approved=True)
+    packet_a = _constitutional_packet(preview_a, authorization_a)
+
+    preview_b = prepare_action(_request())
+    authorization_b = authorize_action(preview_b, actor="USER007", approved=True)
+
+    def executor(_preview):
+        return FerretExecutionResult(
+            status="SHOULD_NOT_RUN",
+            resolved_url="https://example.com/complaints",
+            evidence={},
+        )
+
+    with pytest.raises(RuntimeConstitutionalError, match="exact runtime request"):
+        execute_authorized_action(
+            preview_b,
+            authorization_b,
+            executor,
+            constitutional_packet=packet_a,
+        )
