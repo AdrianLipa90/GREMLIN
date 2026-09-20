@@ -15,14 +15,10 @@ on:
       - 'tests/test_gremlin_constitutional_runtime_v01.py'
       - 'tests/test_gremlin_runtime_constitutional_coverage_v01.py'
       - 'tests/test_gremlin_raphael_v01.py'
-      - 'native/GREMLIN_RUNTIME_CONSTITUTIONAL_NON_BYPASS_V0_1.pnv'
-      - 'native/GREMLIN_RAPHAEL_WISDOM_MUTATION_V0_1.pnv'
-      - 'spec/GREMLIN_RUNTIME_CONSTITUTIONAL_NON_BYPASS_V0_1.md'
       - 'tests/test_native_pnv_contracts.py'
       - 'native/GREMLIN_RUNTIME_CONSTITUTIONAL_NON_BYPASS_V0_1.pnv'
       - 'native/GREMLIN_RAPHAEL_WISDOM_MUTATION_V0_1.pnv'
       - 'spec/GREMLIN_RUNTIME_CONSTITUTIONAL_NON_BYPASS_V0_1.md'
-      - 'tests/test_native_pnv_contracts.py'
       - '.github/workflows/gremlin-runtime-constitutional-non-bypass-v01.yml'
   push:
     branches:
@@ -40,6 +36,10 @@ on:
       - 'tests/test_gremlin_constitutional_runtime_v01.py'
       - 'tests/test_gremlin_runtime_constitutional_coverage_v01.py'
       - 'tests/test_gremlin_raphael_v01.py'
+      - 'tests/test_native_pnv_contracts.py'
+      - 'native/GREMLIN_RUNTIME_CONSTITUTIONAL_NON_BYPASS_V0_1.pnv'
+      - 'native/GREMLIN_RAPHAEL_WISDOM_MUTATION_V0_1.pnv'
+      - 'spec/GREMLIN_RUNTIME_CONSTITUTIONAL_NON_BYPASS_V0_1.md'
       - '.github/workflows/gremlin-runtime-constitutional-non-bypass-v01.yml'
   workflow_dispatch:
 
@@ -52,7 +52,6 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
