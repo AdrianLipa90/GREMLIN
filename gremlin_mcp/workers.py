@@ -8,6 +8,11 @@ import time
 from typing import Any, Iterable, Mapping
 import uuid
 
+from gremlin_mcp.memory_capabilities import (
+    authorize_memory_requests,
+    validate_task_authorization_bundle,
+)
+
 from tools.gremlin_bestiary_orbital_scheduler_v02 import PROFILES, service_omega
 from tools.gremlin_bestiary_vector_species_v03 import lane_width
 from tools.gremlin_geometry_context_pack_v01 import pack_context
@@ -28,6 +33,9 @@ MAX_IDENTIFIER_CHARS = 128
 MAX_WORKER_VECTOR_WIDTH = 1024
 MAX_WORKER_BATCH = 128
 MAX_LEASE_SECONDS = 300
+
+MEMORY_REQUESTS_KEY = "_gremlin_memory_requests"
+MEMORY_AUTHORIZATION_KEY = "_gremlin_memory_authorization"
 
 # Capture/routing/root/actuation remain GREMLIN-core boundaries. All remaining
 # Bestiary roles may participate in the geometry/phase/state worker scheduler.
@@ -211,8 +219,20 @@ class WorkerBroker:
         if not isinstance(payload, Mapping):
             raise ValueError("payload must be a mapping")
         body = dict(payload)
-        _canonical(body)
+        if MEMORY_AUTHORIZATION_KEY in body:
+            raise ValueError(
+                f"{MEMORY_AUTHORIZATION_KEY} is broker-owned and cannot be supplied by callers"
+            )
         tid = _normalize_id(task_id, field="task_id") if task_id is not None else uuid.uuid4().hex
+        memory_requests = body.pop(MEMORY_REQUESTS_KEY, None)
+        if memory_requests is not None:
+            authorization = authorize_memory_requests(
+                name,
+                memory_requests,
+                task_id=tid,
+            )
+            body[MEMORY_AUTHORIZATION_KEY] = authorization
+        _canonical(body)
         now = time.time_ns()
         core = {
             "schema": WORKER_SCHEMA,
@@ -268,11 +288,12 @@ class WorkerBroker:
 
             queue_rows: dict[str, list[dict[str, Any]]] = {}
             for name in candidate_names:
-                rows = [
-                    self._scheduler_task_view(task)
-                    for task in self._tasks.values()
-                    if task.species == name and task.state == "QUEUED"
-                ]
+                rows: list[dict[str, Any]] = []
+                for task in self._tasks.values():
+                    if task.species != name or task.state != "QUEUED":
+                        continue
+                    self._validate_task_memory_authorization(task)
+                    rows.append(self._scheduler_task_view(task))
                 if rows:
                     queue_rows[name] = rows
 
@@ -488,6 +509,17 @@ class WorkerBroker:
                 "scheduler": scheduler_manifest(),
                 "authority": _authority_state(),
             }
+
+    @staticmethod
+    def _validate_task_memory_authorization(task: TaskRecord) -> None:
+        authorization = task.payload.get(MEMORY_AUTHORIZATION_KEY)
+        if authorization is None:
+            return
+        validated = validate_task_authorization_bundle(authorization)
+        if validated["beast"] != task.species:
+            raise RuntimeError("task memory authorization beast/species mismatch")
+        if validated["task_id"] != task.task_id:
+            raise RuntimeError("task memory authorization task_id mismatch")
 
     def _require_worker(self, worker_id: str) -> WorkerRecord:
         worker = self._workers.get(worker_id)
