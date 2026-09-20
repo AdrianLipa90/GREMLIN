@@ -158,7 +158,7 @@ def test_raphael_wisdom_mutation_native_contract():
     text=(NATIVE/"GREMLIN_RAPHAEL_WISDOM_MUTATION_V0_1.pnv").read_text()
     assert "# CLASS ANGELIC_FUNCTION" in text
     assert "# TITLE LORD_OF_WISDOM" in text
-    assert "# PIPELINE EYE->WORD->EXTERNAL_AUTHORITY_GATE->LIVE_ADMISSION->HAND_RESERVE->HAND_MUTATE->POST_AUDIT" in text
+    assert "# PIPELINE EYE->WORD->EXTERNAL_AUTHORITY_GATE->LIVE_ADMISSION->CONSTITUTIONAL_ADMISSION->HAND_RESERVE->HAND_MUTATE->POST_AUDIT" in text
     assert "# BESTIARY_SPECIES FALSE" in text
     assert "# REQUIRED_WISDOM_PRODUCERS GREMLIN,OWL,HOUND" in text
     assert "# EPISTEMIC CHYBA" in text
@@ -168,6 +168,9 @@ def test_raphael_wisdom_mutation_native_contract():
     assert "# GREMLIN_TRIPLE_PULSE_ATTESTATION REQUIRED" in text
     assert "# SAME_GENERATION_IDENTITY_DOMAIN_AUTHORITY REQUIRED" in text
     assert "# LIVE_ADMISSION_REPROBE_BEFORE_HAND REQUIRED" in text
+    assert "# CONSTITUTIONAL_ADMISSION REQUIRED" in text
+    assert "# CONSTITUTIONAL_PACKET_EXACT_REQUEST_BOUND TRUE" in text
+    assert "# CONSTITUTIONAL_OVERRIDE FALSE" in text
     assert "# EXACT_STATE_RESERVATION REQUIRED" in text
     assert "# SINGLE_USE TRUE" in text
     assert "# STATE_DRIFT FAIL_CLOSED" in text
