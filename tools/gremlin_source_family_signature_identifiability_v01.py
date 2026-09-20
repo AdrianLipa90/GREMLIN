@@ -16,7 +16,7 @@ from typing import Iterable, Sequence
 
 import numpy as np
 
-from tools.gremlin_cross_modal_relational_evidence_v01 import EvidenceProvenance
+from tools.gremlin_cross_modal_relational_evidence_v01 import (\n    CrossModalEvidenceError,\n    EvidenceProvenance,\n)
 
 
 SCHEMA = "GREMLIN_SOURCE_FAMILY_SIGNATURE_IDENTIFIABILITY_V0_1"
@@ -99,7 +99,12 @@ class SourceFamilySignature:
     def validate(self) -> np.ndarray:
         _nonempty("signature.name", self.name)
         _nonempty("signature.normalization", self.normalization)
-        self.provenance.validate()
+        try:
+            self.provenance.validate()
+        except CrossModalEvidenceError as exc:
+            raise SourceFamilyIdentifiabilityError(
+                f"signature[{self.name}] provenance invalid: {exc}"
+            ) from exc
         return _validate_vector(self.values, name=f"signature[{self.name}].values")
 
 
@@ -514,12 +519,52 @@ def source_family_payload(
     **kwargs,
 ) -> dict:
     rows = tuple(signatures)
+    call_kwargs = dict(kwargs)
+
+    heldout_rows = None
+    if call_kwargs.get("heldout_signatures") is not None:
+        heldout_rows = tuple(call_kwargs["heldout_signatures"])
+        call_kwargs["heldout_signatures"] = heldout_rows
+
     report = analyze_source_family_signatures(
         rows,
         residual,
         covariance,
-        **kwargs,
+        **call_kwargs,
     )
+
+    fit_residual = _validate_vector(residual, name="residual")
+    fit_covariance = _validate_covariance(
+        covariance,
+        fit_residual.size,
+        name="covariance",
+    )
+
+    heldout_input = None
+    if heldout_rows is not None:
+        heldout_residual = _validate_vector(
+            call_kwargs["heldout_residual"],
+            name="heldout_residual",
+        )
+        heldout_covariance = _validate_covariance(
+            call_kwargs["heldout_covariance"],
+            heldout_residual.size,
+            name="heldout_covariance",
+        )
+        heldout_input = {
+            "signatures": [
+                {
+                    "name": row.name,
+                    "values": [float(x) for x in row.validate()],
+                    "normalization": row.normalization,
+                    "provenance": asdict(row.provenance),
+                }
+                for row in heldout_rows
+            ],
+            "residual": [float(x) for x in heldout_residual],
+            "covariance": heldout_covariance.tolist(),
+            "independent": bool(report.heldout_independent),
+        }
 
     payload = {
         "schema": SCHEMA,
@@ -535,21 +580,35 @@ def source_family_payload(
                 else "INF"
             ),
         },
-        "signatures": [
-            {
-                "name": row.name,
-                "normalization": row.normalization,
-                "provenance": asdict(row.provenance),
-            }
-            for row in rows
-        ],
+        "fit_input": {
+            "signatures": [
+                {
+                    "name": row.name,
+                    "values": [float(x) for x in row.validate()],
+                    "normalization": row.normalization,
+                    "provenance": asdict(row.provenance),
+                }
+                for row in rows
+            ],
+            "residual": [float(x) for x in fit_residual],
+            "covariance": fit_covariance.tolist(),
+        },
         "fit": {
-            "amplitudes": report.amplitudes,
-            "amplitude_std": report.amplitude_std,
+            "amplitudes": (
+                [float(x) for x in report.amplitudes]
+                if report.amplitudes is not None
+                else None
+            ),
+            "amplitude_std": (
+                [float(x) for x in report.amplitude_std]
+                if report.amplitude_std is not None
+                else None
+            ),
             "chi_square": report.fit_chi_square,
             "null_chi_square": report.fit_null_chi_square,
             "delta_chi_square": report.fit_delta_chi_square,
         },
+        "heldout_input": heldout_input,
         "heldout": {
             "independent": report.heldout_independent,
             "chi_square": report.heldout_chi_square,
@@ -579,6 +638,83 @@ def verify_source_family_payload(payload: dict) -> None:
         "IDENTIFIABLE",
     }:
         raise SourceFamilyIdentifiabilityError("invalid source_family_state")
+    if payload.get("route") not in {
+        "REQUEST_MORE_INDEPENDENT_CHANNELS",
+        "REQUEST_BETTER_CONDITIONING",
+        "REQUEST_HELD_OUT_VALIDATION",
+        "NO_SOURCE_ROUTE",
+        "STOP_DECLARED_SOURCE_FAMILY_MODEL",
+        "ALLOW_CANDIDATE_SOURCE_FAMILY_TESTS",
+    }:
+        raise SourceFamilyIdentifiabilityError("invalid source-family route")
+
+    fit_input = payload.get("fit_input")
+    if not isinstance(fit_input, dict):
+        raise SourceFamilyIdentifiabilityError("fit_input must be a mapping")
+    signatures = fit_input.get("signatures")
+    if not isinstance(signatures, list) or not signatures:
+        raise SourceFamilyIdentifiabilityError(
+            "fit_input.signatures must be a non-empty list"
+        )
+    names = []
+    channel_count = None
+    for index, signature in enumerate(signatures):
+        if not isinstance(signature, dict):
+            raise SourceFamilyIdentifiabilityError(
+                f"fit_input.signatures[{index}] must be a mapping"
+            )
+        name = _nonempty(
+            f"fit_input.signatures[{index}].name",
+            signature.get("name"),
+        )
+        names.append(name)
+        _nonempty(
+            f"fit_input.signatures[{index}].normalization",
+            signature.get("normalization"),
+        )
+        values = _validate_vector(
+            signature.get("values"),
+            name=f"fit_input.signatures[{index}].values",
+        )
+        if channel_count is None:
+            channel_count = int(values.size)
+        elif int(values.size) != channel_count:
+            raise SourceFamilyIdentifiabilityError(
+                "fit signature channel counts must match"
+            )
+    if len(set(names)) != len(names):
+        raise SourceFamilyIdentifiabilityError(
+            "fit signature names must be unique"
+        )
+
+    residual = _validate_vector(
+        fit_input.get("residual"),
+        name="fit_input.residual",
+    )
+    if residual.size != channel_count:
+        raise SourceFamilyIdentifiabilityError(
+            "fit residual length must match signature channel count"
+        )
+    _validate_covariance(
+        fit_input.get("covariance"),
+        int(residual.size),
+        name="fit_input.covariance",
+    )
+
+    fit = payload.get("fit")
+    if not isinstance(fit, dict):
+        raise SourceFamilyIdentifiabilityError("fit must be a mapping")
+    state = payload["source_family_state"]
+    amplitudes = fit.get("amplitudes")
+    if state in {"UNDERDETERMINED", "ILL_CONDITIONED"}:
+        if amplitudes is not None:
+            raise SourceFamilyIdentifiabilityError(
+                "non-identifiable states must not claim unique amplitudes"
+            )
+    elif not isinstance(amplitudes, list) or len(amplitudes) != len(signatures):
+        raise SourceFamilyIdentifiabilityError(
+            "IDENTIFIABLE payload must contain one amplitude per source family"
+        )
 
     digest = payload.get("packet_sha256")
     if not isinstance(digest, str) or len(digest) != 64:
