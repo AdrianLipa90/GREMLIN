@@ -5,6 +5,7 @@ from typing import Any, Mapping
 
 from gremlin_mcp.error_contract import SCHEMA as MCP_ERROR_SCHEMA
 from gremlin_mcp.raphael import angelic_manifest
+from gremlin_mcp.memory_capabilities import beast_capabilities, policy_manifest
 
 from tools.gremlin_bestiary_orbital_scheduler_v02 import PROFILES, service_omega, service_period
 from tools.gremlin_bestiary_vector_species_v03 import (
@@ -169,6 +170,14 @@ def status(*, surface: str = "reference") -> dict[str, Any]:
         "topology": list(TOPOLOGY),
         "governance_topology": [*TOPOLOGY, "RAPHAEL"],
         "angelic_functions": {"RAPHAEL": angelic_manifest()},
+        "memory_capability_policy": {
+            "schema": policy_manifest()["schema"],
+            "version": policy_manifest()["version"],
+            "policy_sha256": policy_manifest()["policy_sha256"],
+            "default": policy_manifest()["default"],
+            "destructive_operations": policy_manifest()["destructive_operations"],
+            "raphael": beast_capabilities("RAPHAEL"),
+        },
         "authority": authority_state(),
     }
 
@@ -176,7 +185,12 @@ def status(*, surface: str = "reference") -> dict[str, Any]:
 def bestiary_manifest() -> dict[str, Any]:
     entries: list[dict[str, Any]] = []
     for name, meta in BESTIARY_ROLES.items():
-        entry: dict[str, Any] = {"name": name, **meta, "scheduler_profile": None}
+        entry: dict[str, Any] = {
+            "name": name,
+            **meta,
+            "scheduler_profile": None,
+            "memory_capabilities": beast_capabilities(name),
+        }
         if name in PROFILES:
             profile = PROFILES[name]
             entry["scheduler_profile"] = {
@@ -190,6 +204,13 @@ def bestiary_manifest() -> dict[str, Any]:
         "governance_topology": [*TOPOLOGY, "RAPHAEL"],
         "species": entries,
         "angelic_functions": [angelic_manifest()],
+        "memory_capability_policy": {
+            "schema": policy_manifest()["schema"],
+            "version": policy_manifest()["version"],
+            "policy_sha256": policy_manifest()["policy_sha256"],
+            "default": policy_manifest()["default"],
+            "raphael": beast_capabilities("RAPHAEL"),
+        },
         "authority": authority_state(),
     }
 
@@ -200,7 +221,12 @@ def species_profile(species: str) -> dict[str, Any]:
         raise ValueError(f"unknown GREMLIN species: {species!r}")
     meta = BESTIARY_ROLES[name]
     result: dict[str, Any] = {
-        "schema": SCHEMA, "name": name, **meta, "scheduler_profile": None, "authority": authority_state(),
+        "schema": SCHEMA,
+        "name": name,
+        **meta,
+        "scheduler_profile": None,
+        "memory_capabilities": beast_capabilities(name),
+        "authority": authority_state(),
     }
     if name in PROFILES:
         profile = PROFILES[name]
