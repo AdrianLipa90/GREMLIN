@@ -4,7 +4,9 @@ Status: `CANDIDATE_EXPERIMENT_DESIGN_GATE / NULLSPACE_AWARE / NO_SOURCE_SELECTIO
 
 This gate answers the next question after source-family identifiability:
 
-> if the currently available observables do not separate the declared source families, which additional measurement channels are capable of breaking the degeneracy?
+> if the currently available observables do not separate the declared source
+> families, which additional measurement channels are capable of breaking the
+> degeneracy?
 
 It does not claim experimental feasibility and it does not select a physical source.
 
@@ -12,164 +14,147 @@ It does not claim experimental feasibility and it does not select a physical sou
 
 Let the current fit use the whitened source-signature matrix
 
-[
-A=L^{-1}S,
-qquad
-Sigma=LL^T,
-]
+~~~text
+A = L^(-1) S
+
+Sigma = L L^T
+~~~
 
 with
 
-[
-Ainmathbb R^{m	imes p}.
-]
+~~~text
+A in R^(m x p)
+~~~
 
 Let
 
-[
-r=operatorname{rank}(A),
-qquad
-q=p-r.
-]
+~~~text
+r = rank(A)
+
+q = p - r
+~~~
 
 The source-family nullspace has dimension
 
-[
-oxed{q=dimker A.}
-]
+~~~text
+q = dim ker(A)
+~~~
 
 ## 2. One candidate measurement channel
 
 A new scalar measurement channel has a declared source-family response row
 
-[
-mathbf c^Tinmathbb R^{1	imes p}
-]
+~~~text
+c^T in R^(1 x p)
+~~~
 
-and positive uncertainty scale (sigma_c).
+and positive uncertainty scale `sigma_c`.
 
-For a channel declared independent of the existing covariance block, define the whitened response
+For a channel declared independent of the existing covariance block, define the
+whitened response
 
-[
-oxed{
-mathbf w^T=rac{mathbf c^T}{sigma_c}.
-}
-]
+~~~text
+w^T = c^T / sigma_c
+~~~
 
 The augmented design matrix is
 
-[
-widetilde A=
-egin{bmatrix}
-A\
-mathbf w^T
-end{bmatrix}.
-]
+~~~text
+A_tilde = [ A
+            w^T ]
+~~~
 
 A single scalar channel can increase rank by at most one:
 
-[
-oxed{
-0le
-operatorname{rank}(widetilde A)-operatorname{rank}(A)
-le1.
-}
-]
+~~~text
+0 <= rank(A_tilde) - rank(A) <= 1
+~~~
 
 ## 3. Exact nullspace-breaking theorem
 
-Let (V_0inmathbb R^{p	imes q}) have orthonormal columns spanning (ker A).
+Let `V_0 in R^(p x q)` have orthonormal columns spanning `ker(A)`.
 
 Then
 
-[
-oxed{
-operatorname{rank}(widetilde A)=r+1
+~~~text
+rank(A_tilde) = r + 1
 iff
-mathbf w^T V_0
-eq 0.
-}
-]
+w^T V_0 != 0
+~~~
 
-Equivalently, the new channel increases source-family rank iff its whitened source-response row has a non-zero projection onto the current nullspace.
+Equivalently, the new channel increases source-family rank iff its whitened
+source-response row has a non-zero projection onto the current nullspace.
 
 A channel satisfying
 
-[
-mathbf w^T V_0=0
-]
+~~~text
+w^T V_0 = 0
+~~~
 
-is **nullspace-blind**: it may improve precision inside the already resolved subspace, but it cannot remove the current exact degeneracy.
+is **nullspace-blind**: it may improve precision inside the already resolved
+subspace, but it cannot remove the current exact degeneracy.
 
 ## 4. Multiple candidate channels
 
-For (k) independent candidate channels stack the whitened rows into
+For `k` independent candidate channels stack the whitened rows into
 
-[
-Winmathbb R^{k	imes p},
-]
+~~~text
+W in R^(k x p)
+~~~
 
 and define
 
-[
-A_+=
-egin{bmatrix}
-A\
-W
-end{bmatrix}.
-]
+~~~text
+A_plus = [ A
+           W ]
+~~~
 
 The total possible rank lift is
 
-[
-oxed{
-operatorname{rank}(A_+)-r
-=
-operatorname{rank}(W V_0).
-}
-]
+~~~text
+rank(A_plus) - r = rank(W V_0)
+~~~
 
 Therefore the current exact nullspace is completely removed iff
 
-[
-oxed{
-operatorname{rank}(W V_0)=q.
-}
-]
+~~~text
+rank(W V_0) = q
+~~~
 
 This also gives the lower bound
 
-[
-oxed{
-kge q
-}
-]
+~~~text
+k >= q
+~~~
 
-for scalar independent channels needed to remove a (q)-dimensional nullspace.
+for scalar independent channels needed to remove a `q`-dimensional nullspace.
 
-The lower bound is necessary, not sufficient: redundant new channels can fail to span the nullspace.
+The lower bound is necessary, not sufficient: redundant new channels can fail
+to span the nullspace.
 
 ## 5. Conditioning after rank closure
 
-When the current design is already full rank, or after enough channels close the exact nullspace, the next issue is conditioning.
+When the current design is already full rank, or after enough channels close the
+exact nullspace, the next issue is conditioning.
 
 For augmented singular values
 
-[
-	ildesigma_{max}gecdotsge	ildesigma_{min}>0,
-]
+~~~text
+sigma_tilde_max >= ... >= sigma_tilde_min > 0
+~~~
 
 define
 
-[
-kappa_2(A_+)
-=
-rac{	ildesigma_{max}}{	ildesigma_{min}}.
-]
+~~~text
+kappa_2(A_plus)
+= sigma_tilde_max / sigma_tilde_min
+~~~
 
-A channel may therefore be useful even when it adds no rank if it increases the smallest singular value or lowers the condition number.
+A channel may therefore be useful even when it adds no rank if it increases the
+smallest singular value or lowers the condition number.
 
-The configured conditioning threshold remains a numerical policy parameter, not a physical constant.
+The configured conditioning threshold remains a numerical policy parameter, not
+a physical constant.
 
 ## 6. Candidate-channel diagnostics
 
@@ -220,56 +205,46 @@ Every candidate channel must declare:
 
 Version 0.1 admits only channels explicitly declared independent of the existing block.
 
-Correlated new measurements require a future augmented-covariance extension and must fail closed here.
+Correlated new measurements require a future augmented-covariance extension and
+must fail closed here.
 
 ## 9. Routing semantics
 
 If the current source-family state is `UNDERDETERMINED`:
 
 - at least one rank-lifting candidate:
-  [
-  	exttt{PROPOSE_RANK_LIFTING_MEASUREMENT}
-  ]
+  `PROPOSE_RANK_LIFTING_MEASUREMENT`;
 - no rank-lifting candidates:
-  [
-  	exttt{NO_AVAILABLE_CHANNEL_BREAKS_DEGENERACY}
-  ]
+  `NO_AVAILABLE_CHANNEL_BREAKS_DEGENERACY`.
 
 If the state is `ILL_CONDITIONED`:
 
 - a conditioning-improving candidate:
-  [
-  	exttt{PROPOSE_CONDITIONING_MEASUREMENT}
-  ]
+  `PROPOSE_CONDITIONING_MEASUREMENT`.
 
-If the state is already `IDENTIFIABLE`, the channel-design result is optional precision planning only.
+If the state is already `IDENTIFIABLE`, the channel-design result is optional
+precision planning only.
 
 ## 10. Firewalls
 
 This gate does not establish:
 
-[
-	ext{recommended measurement}Rightarrow	ext{physical feasibility},
-]
+~~~text
+recommended measurement => physical feasibility
 
-[
-	ext{rank lift}Rightarrow	ext{true source},
-]
+rank lift => true source
 
-[
-	ext{condition improvement}Rightarrow	ext{physical source proof},
-]
+condition improvement => physical source proof
+~~~
 
 or any source-specific physical binding.
 
 The exact admitted statement is:
 
-[
-oxed{
-	ext{the declared candidate measurement does or does not add independent
-source-family geometry under the declared covariance model.}
-}
-]
+~~~text
+the declared candidate measurement does or does not add independent
+source-family geometry under the declared covariance model
+~~~
 
 ## 11. Parent and downstream links
 
