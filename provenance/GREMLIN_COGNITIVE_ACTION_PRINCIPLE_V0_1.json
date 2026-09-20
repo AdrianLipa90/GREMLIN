@@ -1,0 +1,39 @@
+{
+  "schema": "GREMLIN_COGNITIVE_ACTION_PRINCIPLE_V0_1_PROVENANCE",
+  "status": "CANDIDATE_GLOBAL_EXACT_LOCAL_QUADRATIC",
+  "repository": "AdrianLipa90/GREMLIN",
+  "branch": "feat/cognitive-action-principle-v01",
+  "base_main_commit": "f51b8a0597052bbfcd14404c7d5a0703cc256d7b",
+  "imported_dependency": {
+    "surface": "GREMLIN_ENDOGENOUS_EB_CONDENSATE_NORMAL_MODES_V0_12",
+    "exact_green_head": "f54f5ee3ae3abb956cbe3c92efaadf14ab41c4d2",
+    "source_pr": 99,
+    "note": "v0.10-v0.12 files copied byte-for-byte onto current-main-derived branch before v0.1 action work"
+  },
+  "equations": {
+    "global_candidate": "S_G=int L_G dt + sum Phi_k",
+    "local_lagrangian": "L2=1/2 qdot^T M qdot + 1/2 qdot^T G q - 1/2 q^T K q",
+    "local_euler_lagrange": "M qddot + G qdot + K q = 0",
+    "rayleigh": "R=1/2 qdot^T D qdot",
+    "energy": "E2=1/2 qdot^T M qdot + 1/2 q^T K q"
+  },
+  "local_prewrite_validation": {
+    "status": "PASS",
+    "tests": 16,
+    "failures": 0,
+    "scope": "reference module algebraic/unit replay before repository write"
+  },
+  "hosted_validation": {
+    "status": "PENDING"
+  },
+  "firewalls": [
+    "global nonlinear cognitive action remains candidate",
+    "local constant M/G/K reduction is exact",
+    "no consciousness or biological-equivalence claim",
+    "no physical-action units without external calibration",
+    "RAPHAEL remains mutation authority",
+    "memory exchange and anti-entropy remain append-only",
+    "ACL-to-tangent-projector mapping remains adapter-owned",
+    "canon_allowed=false"
+  ]
+}
