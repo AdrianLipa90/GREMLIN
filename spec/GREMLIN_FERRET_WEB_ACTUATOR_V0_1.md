@@ -239,3 +239,50 @@ find official complaint form
 - autonomous posting or messaging;
 - background actuation without a fresh authorization receipt;
 - promotion to GREMLIN canon or production authority.
+
+
+## Constitutional execution firewall
+
+FERRET external actuation is a high-consequence MUTATION surface.
+
+The execution ordering is:
+
+[
+oxed{
+	ext{preview verification}
+	o
+	ext{authorization verification}
+	o
+	ext{constitutional admission}
+	o
+	ext{single-use authorization consume}
+	o
+	ext{executor}.
+}
+]
+
+The runtime constitutional request binds:
+
+- `preview_id`;
+- `preview_commitment`;
+- `authorization_id`;
+- `authorization_commitment`;
+- authorized actor;
+- target URL.
+
+The preview commitment already binds the normalized intent and complete step sequence, including redacted secret references. Therefore the constitutional packet does not need to duplicate all steps to remain bound to them.
+
+The constitutional layer requires consequence class `MUTATION` and requires the admission receipt to preserve the independently verified authority channel as PASS.
+
+A missing, mismatched, DENY or DEFER constitutional packet fails before the external executor is called.
+
+FERRET authorization is single-use. `authorize_action()` emits:
+
+- `single_use=true`;
+- `replay_protection=FERRET_EXECUTION_LEDGER_REQUIRED`.
+
+`execute_authorized_action()` requires a `FerretExecutionLedger`. The authorization commitment is atomically consumed after constitutional admission and before external actuation. Reuse is rejected.
+
+If constitutional admission fails, the authorization is not consumed. If execution begins after successful consume and the backend later fails, the authorization remains consumed. Retrying an external side effect therefore requires a fresh authorization instead of silently replaying an uncertain action.
+
+This layer does not grant canon authority.
