@@ -4,10 +4,21 @@ import copy
 
 import pytest
 
+from gremlin_mcp.constitutional_runtime import (
+    build_runtime_action_binding,
+    build_runtime_constitutional_packet,
+)
+from gremlin_mcp.mathematical_constitution import (
+    ETHICS_GATES,
+    PASS,
+    build_gate_receipt,
+    evaluate_admission,
+)
 from gremlin_mcp.ferret import (
     FerretAuthorizationError,
     FerretExecutionResult,
     FerretHandoffError,
+    InMemoryFerretExecutionLedger,
     authorize_action,
     complete_human_handoff,
     detect_human_gate,
@@ -32,6 +43,46 @@ def _request() -> dict:
             {"action": "snapshot", "label": "confirmation"},
         ],
     }
+
+
+def _constitutional_packet(preview: dict, authorization: dict) -> dict:
+    payload = {
+        "preview_id": preview["preview_id"],
+        "preview_commitment": preview["preview_commitment"],
+        "authorization_id": authorization["authorization_id"],
+        "authorization_commitment": authorization["authorization_commitment"],
+        "actor": authorization["actor"],
+        "target_url": preview["target_url"],
+    }
+    binding = build_runtime_action_binding(
+        endpoint="ferret.execute_authorized_action",
+        consequence_class="MUTATION",
+        request_payload=payload,
+    )
+    gates = [
+        build_gate_receipt(
+            gate=gate,
+            status=PASS,
+            relation_ids=("ferret:test:relation",),
+            subject_refs=("ferret:test:subject",),
+            source_classification="TEST_FIXTURE",
+            source_ref=f"ferret:test:{gate.lower()}",
+            evidence_refs=(f"ferret:test:evidence:{gate.lower()}",),
+            reason="FERRET constitutional test fixture",
+        )
+        for gate in ETHICS_GATES
+    ]
+    admission = evaluate_admission(
+        action=binding["action_contract"],
+        gate_receipts=gates,
+        capability_status=PASS,
+        authority_status=PASS,
+        evidence_status=PASS,
+    )
+    return build_runtime_constitutional_packet(
+        action_binding=binding,
+        admission_receipt=admission,
+    )
 
 
 def _captcha_observation() -> dict:
@@ -103,7 +154,13 @@ def test_execution_receipt_binds_preview_and_authorization() -> None:
             evidence={"case_id": "CASE-123", "screenshot_sha256": "a" * 64},
         )
 
-    receipt = execute_authorized_action(preview, authorization, executor)
+    receipt = execute_authorized_action(
+        preview,
+        authorization,
+        executor,
+        ledger=InMemoryFerretExecutionLedger(),
+        constitutional_packet=_constitutional_packet(preview, authorization),
+    )
     assert receipt["status"] == "SUBMITTED"
     assert receipt["preview_commitment"] == preview["preview_commitment"]
     assert receipt["authorization_commitment"] == authorization["authorization_commitment"]
@@ -193,3 +250,67 @@ def test_resume_receipt_binds_private_browser_state_by_hash_only() -> None:
     tampered["storage_state_sha256"] = "c" * 64
     with pytest.raises(FerretHandoffError):
         verify_handoff_resume(handoff, tampered)
+
+
+def test_ferret_authorization_is_single_use() -> None:
+    preview = prepare_action(_request())
+    authorization = authorize_action(preview, actor="USER007", approved=True)
+    assert authorization["single_use"] is True
+    assert authorization["replay_protection"] == "FERRET_EXECUTION_LEDGER_REQUIRED"
+
+    def executor(_preview):
+        return FerretExecutionResult(
+            status="SUBMITTED",
+            resolved_url="https://example.com/complaints/confirmation",
+            evidence={"case_id": "CASE-ONE"},
+        )
+
+    ledger = InMemoryFerretExecutionLedger()
+    packet = _constitutional_packet(preview, authorization)
+    first = execute_authorized_action(
+        preview,
+        authorization,
+        executor,
+        ledger=ledger,
+        constitutional_packet=packet,
+    )
+    assert first["status"] == "SUBMITTED"
+
+    with pytest.raises(FerretAuthorizationError, match="already consumed"):
+        execute_authorized_action(
+            preview,
+            authorization,
+            executor,
+            ledger=ledger,
+            constitutional_packet=packet,
+        )
+
+
+def test_ferret_missing_constitution_does_not_consume_authorization() -> None:
+    preview = prepare_action(_request())
+    authorization = authorize_action(preview, actor="USER007", approved=True)
+    ledger = InMemoryFerretExecutionLedger()
+
+    def executor(_preview):
+        return FerretExecutionResult(
+            status="SUBMITTED",
+            resolved_url="https://example.com/complaints/confirmation",
+            evidence={"case_id": "CASE-TWO"},
+        )
+
+    with pytest.raises(PermissionError, match="constitutional_packet"):
+        execute_authorized_action(
+            preview,
+            authorization,
+            executor,
+            ledger=ledger,
+        )
+
+    receipt = execute_authorized_action(
+        preview,
+        authorization,
+        executor,
+        ledger=ledger,
+        constitutional_packet=_constitutional_packet(preview, authorization),
+    )
+    assert receipt["status"] == "SUBMITTED"
