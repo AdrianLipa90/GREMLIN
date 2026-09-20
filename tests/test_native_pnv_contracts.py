@@ -200,6 +200,11 @@ def test_mathematical_constitution_native_contract():
     assert "# ETHICS_WEIGHTING_ALLOWED FALSE" in text
     assert "# ETHICS_CONFLICT_AVERAGING_ALLOWED FALSE" in text
     assert "# UNKNOWN_HIGH_CONSEQUENCE_ADMISSION FALSE" in text
+    assert "# GATE_RECEIPT_RELATION_LINEAGE_REQUIRED TRUE" in text
+    assert "# GATE_RECEIPT_EVIDENCE_LINEAGE_REQUIRED TRUE" in text
+    assert "# CONSENT_SUBJECT_LINEAGE_REQUIRED TRUE" in text
+    assert "# TRANSITION_REQUIRES_FULL_ACTION_CONTRACT TRUE" in text
+    assert "# MUTATION_RECEIPT_BINDS_PRE_POST_ACTION TRUE" in text
     assert "# KAPPA_EXPRESSION ln(2)/(24*pi)" in text
     assert "# KAPPA_BINDING UNBOUND" in text
     assert "# LEDGER_DELETE_ALLOWED FALSE" in text
