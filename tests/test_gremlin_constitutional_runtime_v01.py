@@ -167,3 +167,13 @@ def test_runtime_packet_tamper_is_rejected() -> None:
     tampered["action_binding"]["endpoint"] = "gremlin_hive_latch"
     with pytest.raises(RuntimeConstitutionalError):
         validate_runtime_constitutional_packet(tampered)
+
+
+def test_missing_runtime_constitutional_packet_fails_closed() -> None:
+    with pytest.raises(RuntimeConstitutionalError):
+        require_constitutional_admission(
+            endpoint="gremlin_hive_latch",
+            consequence_class="GOVERNANCE",
+            request_payload={"subject_id": "x"},
+            constitutional_packet=None,
+        )
