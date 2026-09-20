@@ -330,3 +330,16 @@ BELZEBUB quarantines untrusted code as data, performs semantic defensive analysi
 GREMLIN is distributed under the **CIEL Research Non-Commercial License v2.0** (`LicenseRef-CIEL-Research-NonCommercial-2.0`). The license permits non-commercial research execution, reproducibility, benchmarking, profiling, vectorization, security review, and project-native agent/orchestration experiments while reserving commercial use, production deployment, hosted services, AI/ML development use, and model extraction for separate written authorization.
 
 See [`LICENSE`](LICENSE) for the canonical terms.
+
+
+## EB orbital-phase dependency bridge
+
+The candidate dependency gate `spec/GREMLIN_EB_CONDENSATE_ORBITAL_PHASE_BRIDGE_V0_9.md` composes the RFC Euler-closed finite phase Hamiltonian, GREMLIN's role-separated orbital kernel and the informational-potential radial term. It exposes the conditional closure
+
+```text
+omega^2
+ = C_mu H_Phi^EB eta_G/r^3
+ + alpha_I/(m_I r kappa_E) dXi_I/dr
+```
+
+and the phase-winding/connection comparison without promoting the physical EB-condensate, source, coupling or metric bindings. The executable gate is `tools/gremlin_eb_condensate_orbital_phase_bridge_v09.py`.
