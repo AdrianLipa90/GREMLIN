@@ -167,7 +167,7 @@ def test_thomas_fermi_and_bogoliubov_control_signatures():
 
 def test_model_consistency_channel_cannot_be_promoted_to_source_fisher_row():
     instance = CatalogMeasurementInstance(
-        channel_id="KOBS_GRADIENT",
+        channel_id="CENTRAL_CONSISTENCY_RESIDUAL",
         source_names=("source_a", "source_b"),
         source_signature=(1.0, 0.0),
         variance=1.0,
