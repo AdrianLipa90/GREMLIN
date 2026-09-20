@@ -17,6 +17,7 @@ from gremlin_mcp.mathematical_constitution import (
 )
 from gremlin_mcp.ferret import (
     FerretAuthorizationError,
+    FerretExecutionError,
     FerretExecutionResult,
     FerretHandoffError,
     InMemoryFerretExecutionLedger,
@@ -167,8 +168,49 @@ def test_execution_receipt_binds_preview_and_authorization() -> None:
     assert receipt["authorization_commitment"] == authorization["authorization_commitment"]
     assert receipt["authorization_consumed"] is True
     assert receipt["single_use"] is True
+    assert receipt["approved_origin"] == "https://example.com"
+    assert receipt["resolved_origin"] == "https://example.com"
+    assert receipt["origin_confined"] is True
     assert receipt["evidence"]["case_id"] == "CASE-123"
     assert len(receipt["execution_commitment"]) == 64
+
+
+def test_cross_origin_execution_result_fails_closed_and_burns_authorization() -> None:
+    preview = prepare_action(_request())
+    authorization = authorize_action(preview, actor="USER007", approved=True)
+    ledger = InMemoryFerretExecutionLedger()
+
+    def escaped_executor(_preview):
+        return FerretExecutionResult(
+            status="SUBMITTED",
+            resolved_url="https://other.example/confirmation",
+            evidence={"redirect": True},
+        )
+
+    with pytest.raises(FerretExecutionError, match="approved origin"):
+        execute_authorized_action(
+            preview,
+            authorization,
+            escaped_executor,
+            ledger=ledger,
+            constitutional_packet=_constitutional_packet(preview, authorization),
+        )
+
+    def safe_executor(_preview):
+        return FerretExecutionResult(
+            status="SUBMITTED",
+            resolved_url="https://example.com/confirmation",
+            evidence={},
+        )
+
+    with pytest.raises(FerretAuthorizationError, match="already consumed"):
+        execute_authorized_action(
+            preview,
+            authorization,
+            safe_executor,
+            ledger=ledger,
+            constitutional_packet=_constitutional_packet(preview, authorization),
+        )
 
 
 def test_detect_human_gate_finds_hcaptcha_without_solving_it() -> None:

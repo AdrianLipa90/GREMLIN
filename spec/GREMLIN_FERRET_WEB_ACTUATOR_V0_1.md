@@ -206,8 +206,13 @@ The Constitutional runtime layer is evaluated before execution-ledger consumptio
 - start and finish timestamps;
 - terminal status;
 - resolved URL;
+- approved target origin;
+- resolved terminal origin;
+- explicit `origin_confined=true` invariant;
 - backend evidence;
 - `execution_commitment`.
+
+The concrete Playwright backend checks same-origin confinement after every browser step. The central `execute_authorized_action()` layer independently rechecks the terminal `resolved_url`, so a custom executor cannot obtain a valid FERRET execution receipt after escaping the approved origin. If a backend reports cross-origin drift after actuation began, execution fails closed and the single-use authorization remains consumed; an uncertain external side effect is never silently retried.
 
 The Playwright adapter includes screenshot hashes and confirmation-page evidence where requested by the preview. It does not store passwords, authentication tokens or raw cookies in execution receipts.
 

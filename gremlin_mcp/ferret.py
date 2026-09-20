@@ -16,7 +16,7 @@ from .constitutional_runtime import require_constitutional_admission
 from .mathematical_constitution import PASS
 
 FERRET_SCHEMA = "GREMLIN_FERRET_WEB_ACTUATOR_V0_1"
-FERRET_VERSION = "0.1.1"
+FERRET_VERSION = "0.1.2"
 
 _ALLOWED_ACTIONS = frozenset(
     {
@@ -686,8 +686,14 @@ def execute_authorized_action(
         resolved_url = _normalize_public_https_url(
             _strict_text(result.resolved_url, "execution resolved_url")
         )
+        approved_origin = _origin(preview["target_url"])
+        resolved_origin = _origin(resolved_url)
     except ValueError as exc:
         raise FerretExecutionError(str(exc)) from exc
+    if resolved_origin != approved_origin:
+        raise FerretExecutionError(
+            f"execution resolved_url escaped approved origin: {resolved_origin}"
+        )
     if not isinstance(result.evidence, Mapping):
         raise FerretExecutionError("FERRET backend evidence must be a mapping")
 
@@ -703,6 +709,9 @@ def execute_authorized_action(
         "finished_unix_ns": time.time_ns(),
         "status": status,
         "resolved_url": resolved_url,
+        "approved_origin": approved_origin,
+        "resolved_origin": resolved_origin,
+        "origin_confined": True,
         "evidence": dict(result.evidence),
         "authority": {
             "external_action_executed": True,
