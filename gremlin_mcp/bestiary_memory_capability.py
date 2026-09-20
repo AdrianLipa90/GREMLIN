@@ -469,6 +469,11 @@ def _decide(
     if operation in FORBIDDEN_MEMORY_OPERATIONS:
         return AccessDecision(False, "GLOBAL_DESTRUCTIVE_MEMORY_OPERATION_DENIED", None, "NONE")
 
+    if layer == PRIVATE_LAYER:
+        if operation in PRIVATE_SCRATCH_PROFILE["operations"]:
+            return AccessDecision(True, "PRIVATE_SCRATCH_LOCAL_ONLY", "PRIVATE_SCRATCH_LOCAL", "FULL")
+        return AccessDecision(False, "PRIVATE_SCRATCH_OPERATION_DENIED", None, "NONE")
+
     rule = _find_rule(
         principal,
         layer=layer,
@@ -477,9 +482,6 @@ def _decide(
     )
     if rule is None:
         return AccessDecision(False, "NO_MATCHING_TYPED_CAPABILITY_RULE", None, "NONE")
-
-    if layer == PRIVATE_LAYER:
-        return AccessDecision(True, "PRIVATE_SCRATCH_LOCAL_ONLY", rule["rule_id"], rule["visibility"])
 
     if token is None:
         return AccessDecision(False, "SHARED_MEMORY_SCOPE_TOKEN_REQUIRED", rule["rule_id"], "NONE")
