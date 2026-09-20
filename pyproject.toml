@@ -23,7 +23,7 @@ dependencies = [
 
 [project.optional-dependencies]
 ferret = [
-  "playwright>=1.62,<2"
+  "playwright>=1.63.0,<2"
 ]
 
 [project.scripts]
