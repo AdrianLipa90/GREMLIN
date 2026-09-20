@@ -335,6 +335,22 @@ def ingest_exchange_envelope_as_beast(
         constitutional_packet=constitutional_packet,
         expected_capability_status=capability_status_from_memory_receipt(receipt),
     )
+    require_constitutional_admission(
+        endpoint="ingest_exchange_envelope_as_beast",
+        consequence_class="APPEND_ONLY",
+        request_payload={
+            "envelope": normalized,
+            "beast": beast,
+            "operation": op,
+            "artifact_type": artifact_type,
+            "task_id": task_id,
+            "priority": priority,
+            "consumer_id": consumer_id,
+            "capability_receipt_id": receipt["receipt_id"],
+        },
+        constitutional_packet=constitutional_packet,
+        expected_capability_status=PASS,
+    )
     result = ingest_exchange_envelope(
         runtime,
         normalized,
@@ -395,9 +411,25 @@ def ingest_exchange_bundle_as_beast(
         constitutional_packet=constitutional_packet,
         expected_capability_status=capability_status_from_memory_receipt(receipt),
     )
+    require_constitutional_admission(
+        endpoint="ingest_exchange_bundle_as_beast",
+        consequence_class="APPEND_ONLY",
+        request_payload={
+            "bundle": normalized,
+            "beast": beast,
+            "operation": op,
+            "artifact_type": artifact_type,
+            "task_id": task_id,
+            "priority": priority,
+            "consumer_id": consumer_id,
+            "capability_receipt_id": receipt["receipt_id"],
+        },
+        constitutional_packet=constitutional_packet,
+        expected_capability_status=PASS,
+    )
     result = ingest_exchange_bundle(
         runtime,
-        bundle,
+        normalized,
         priority=priority,
         consumer_id=consumer_id,
     )
