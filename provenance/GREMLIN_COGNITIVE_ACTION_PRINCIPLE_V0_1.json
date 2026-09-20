@@ -1,0 +1,24 @@
+{
+  "schema": "GREMLIN_COGNITIVE_ACTION_PRINCIPLE_V0_1_PROVENANCE",
+  "status": "CANDIDATE_ALGORITHMIC_ACTION",
+  "repository": "AdrianLipa90/GREMLIN",
+  "base_main_commit": "f2e454b15c86053c69de93056262cb9e073bfb87",
+  "derivation_status": {
+    "local_quadratic_variational_closure": "EXACT",
+    "v012_MGK_mapping": "EXACT_AFTER_TYPED_INPUT",
+    "phase_potential_gradient": "EXACT",
+    "permission_projector_from_declared_mask": "EXACT",
+    "hybrid_jump_semantics": "CALLER_OWNED",
+    "global_nonlinear_metric_connection_potential": "OPEN"
+  },
+  "authority": {
+    "production_runtime_write": false,
+    "execution_admitted": false,
+    "canon_allowed": false,
+    "raphael_authority_bypass": false
+  },
+  "validation": {
+    "local_replay": "PENDING",
+    "hosted_ci": "PENDING"
+  }
+}
