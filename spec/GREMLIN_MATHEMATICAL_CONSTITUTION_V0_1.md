@@ -802,3 +802,39 @@ Tests:
 \`tests/test_gremlin_mathematical_constitution_v01.py\`
 
 The Python implementation is a deterministic reference and validation surface. It is not self-authorizing.
+
+
+## 25. Receipt completeness and exact transition binding
+
+A constitutional hard-gate receipt is not a bare boolean.
+
+Every promoted hard-gate receipt must bind:
+
+- a non-empty relation lineage;
+- a non-empty evidence lineage;
+- an explicit source classification;
+- a source reference;
+- affected subject lineage for Consent and Agency Protection;
+- a content-addressed receipt commitment.
+
+The Radical Ethics adapter first validates the existing Radical gate receipt and only then creates the constitutional receipt. A modified Radical status with a stale receipt commitment is rejected.
+
+Likewise an admission receipt is valid for execution only when it is checked against the complete content-addressed ActionContract. Matching an action name or an arbitrary hash string is insufficient.
+
+For a mutation, the newly appended `MUTATION_RECEIPT` must bind the exact tuple
+
+[
+oxed{
+(
+action_id,
+action_sha256,
+admission_receipt_id,
+pre_state,
+post_state
+).
+}
+]
+
+The transition certificate validates this tuple before certifying the state change.
+
+Therefore a valid ALLOW receipt for action (a) cannot be reused to authorize a distinct action (b), and a mutation receipt for one state transition cannot certify another state transition.
