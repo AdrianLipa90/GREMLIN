@@ -8,6 +8,9 @@ import time
 from threading import Lock
 from typing import Any, Callable, Mapping, Protocol, Sequence
 
+from .constitutional_runtime import require_constitutional_admission
+from .mathematical_constitution import PASS
+
 RAPHAEL_SCHEMA = "GREMLIN_RAPHAEL_WISDOM_MUTATION_V0_1"
 RAPHAEL_VERSION = "0.1.0"
 EPISTEMIC_MODE = "CHYBA"
@@ -760,6 +763,7 @@ def execute(
     backend: MutationBackend,
     ledger: MutationLedger,
     admission_probe: Callable[[], Mapping[str, Any]],
+    constitutional_packet: Mapping[str, Any] | None = None,
     test_runner: Callable[[str], bool] | None = None,
     postcondition_checker: Callable[[str], bool] | None = None,
 ) -> dict[str, Any]:
@@ -802,12 +806,34 @@ def execute(
         )
 
     try:
-        _probe_live_admission(auth, admission_probe)
+        live_admission = _probe_live_admission(auth, admission_probe)
     except RaphaelAuthorizationError as exc:
         burn_and_abort(
             "LIVE_ADMISSION_FAILED",
             f"LIVE_ADMISSION_FAILED: {exc}",
         )
+
+    require_constitutional_admission(
+        endpoint="raphael.execute",
+        consequence_class="MUTATION",
+        request_payload={
+            "decree_commitment": decree["decree_commitment"],
+            "authorization_commitment": authorization["authorization_commitment"],
+            "target_repository": body["target_repository"],
+            "target_branch": body["target_branch"],
+            "target_sha": body["target_sha"],
+            "scope_commitment": body["scope_commitment"],
+            "actor": auth["actor"],
+            "gate_receipt": auth["gate_receipt"],
+            "generation": auth["generation"],
+            "gremlin_attestation_commitment": live_admission[
+                "gremlin_attestation_commitment"
+            ],
+        },
+        constitutional_packet=constitutional_packet,
+        expected_authority_status=PASS,
+        expected_evidence_status=PASS,
+    )
 
     if not ledger.consume(
         decree["decree_commitment"], authorization["authorization_commitment"]
