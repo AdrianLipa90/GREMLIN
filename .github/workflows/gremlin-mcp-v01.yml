@@ -16,9 +16,11 @@ on:
       - 'tests/test_gremlin_memory_exchange_v01.py'
       - 'tests/test_gremlin_memory_anti_entropy_v01.py'
       - 'tests/test_gremlin_memory_consolidation_v01.py'
+      - 'tests/test_bestiary_memory_capability_v01.py'
       - 'spec/GREMLIN_MEMORY_INFORMATION_EXCHANGE_V0_1.md'
       - 'spec/GREMLIN_MEMORY_ANTI_ENTROPY_V0_1.md'
       - 'spec/GREMLIN_MEMORY_CONSOLIDATION_V0_1.md'
+      - 'spec/GREMLIN_BESTIARY_MEMORY_CAPABILITY_V0_1.md'
       - 'tests/test_gremlin_mcp_surface_parity_v01.py'
       - 'tests/test_gremlin_spectroscopic_holonomy_v01.py'
       - 'spec/GREMLIN_PHASENAV_SPECTROSCOPIC_HOLONOMY_V0_1.md'
@@ -67,6 +69,7 @@ jobs:
           tests/test_gremlin_memory_exchange_v01.py
           tests/test_gremlin_memory_anti_entropy_v01.py
           tests/test_gremlin_memory_consolidation_v01.py
+          tests/test_bestiary_memory_capability_v01.py
           tests/test_gremlin_mcp_surface_parity_v01.py
           tests/test_gremlin_spectroscopic_holonomy_v01.py
           tests/test_gremlin_raphael_v01.py
