@@ -4,168 +4,153 @@ Status: `CANDIDATE_DIAGNOSTIC_GATE / SOURCE_NEUTRAL / HELD_OUT_VALIDATION_REQUIR
 
 This gate answers a narrower question than source attribution:
 
-> given a declared set of candidate source-family signatures, do the available observables contain enough independent geometry to distinguish their amplitudes?
+> given a declared set of candidate source-family signatures, do the available
+> observables contain enough independent geometry to distinguish their amplitudes?
 
-It does not select a physical source and it does not promote any candidate family to canon.
+It does not select a physical source and it does not promote any candidate family
+to canon.
 
 ## 1. Inputs
 
 Let the independently constructed cross-modal residual be
 
-[
-mathbf rinmathbb R^m,
-]
+~~~text
+r in R^m
+~~~
 
 with positive-definite covariance
 
-[
-Sigmainmathbb R^{m	imes m}.
-]
+~~~text
+Sigma in R^(m x m)
+~~~
 
 Let the candidate source-family signature matrix be
 
-[
-oxed{
-S=
-egin{bmatrix}
-mathbf s_1 & mathbf s_2 & cdots & mathbf s_p
-end{bmatrix}
-inmathbb R^{m	imes p}.
-}
-]
+~~~text
+S = [ s_1  s_2  ...  s_p ]
 
-Each column is the predicted *shape across observables per unit candidate amplitude* for one declared source family.
+S in R^(m x p)
+~~~
 
-A signature column must have explicit provenance. The matrix is not allowed to contain a source family whose normalization or channel mapping is undeclared.
+Each column is the predicted *shape across observables per unit candidate
+amplitude* for one declared source family.
+
+A signature column must have explicit provenance. The matrix is not allowed to
+contain a source family whose normalization or channel mapping is undeclared.
 
 ## 2. Whitening
 
 Take the Cholesky factor
 
-[
-Sigma=LL^T.
-]
+~~~text
+Sigma = L L^T
+~~~
 
 Define
 
-[
-oxed{
-A=L^{-1}S,
-qquad
-mathbf b=L^{-1}mathbf r.
-}
-]
+~~~text
+A = L^(-1) S
 
-The weighted least-squares geometry is therefore ordinary Euclidean geometry in the whitened coordinates.
+b = L^(-1) r
+~~~
+
+The weighted least-squares geometry is therefore ordinary Euclidean geometry in
+the whitened coordinates.
 
 The weighted Gram/Fisher matrix is
 
-[
-oxed{
-G
-=
-A^TA
-=
-S^TSigma^{-1}S.
-}
-]
+~~~text
+G = A^T A = S^T Sigma^(-1) S
+~~~
 
 ## 3. Exact source-family identifiability theorem
 
-Because (Sigma) is positive definite, (L) is invertible. Therefore
+Because `Sigma` is positive definite, `L` is invertible. Therefore
 
-[
-oxed{
-operatorname{rank}(G)
-=
-operatorname{rank}(A)
-=
-operatorname{rank}(S).
-}
-]
+~~~text
+rank(G) = rank(A) = rank(S)
+~~~
 
-Hence the declared (p) source-family amplitudes are algebraically identifiable from the fit channels iff
+Hence the declared `p` source-family amplitudes are algebraically identifiable
+from the fit channels iff
 
-[
-oxed{
-operatorname{rank}(G)=p.
-}
-]
+~~~text
+rank(G) = p
+~~~
 
 If
 
-[
-operatorname{rank}(G)<p,
-]
+~~~text
+rank(G) < p
+~~~
 
-then there exists a non-zero vector (mathbf v) satisfying
+then there exists a non-zero vector `v` satisfying
 
-[
-Smathbf v=0,
-]
+~~~text
+S v = 0
+~~~
 
 and therefore
 
-[
-S(mathbf a+lambdamathbf v)=Smathbf a
-]
+~~~text
+S (a + lambda v) = S a
+~~~
 
-for every scalar (lambda).
+for every scalar `lambda`.
 
 The affected source-family amplitudes are observationally non-unique.
 
 GREMLIN must report
 
-[
-oxed{	exttt{UNDERDETERMINED}}
-]
+~~~text
+UNDERDETERMINED
+~~~
 
 for unique amplitude/source-family recovery.
 
 ## 4. Nullspace and degeneracy structure
 
-The SVD
+The singular-value decomposition
 
-[
-A=U,operatorname{diag}(sigma_1,ldots,sigma_q)V^T
-]
+~~~text
+A = U diag(sigma_1, ..., sigma_q) V^T
+~~~
 
 provides the exact/numerical nullspace.
 
-For numerical rank (r),
+For numerical rank `r`,
 
-[
-oxed{
-dimker A=p-r.
-}
-]
+~~~text
+dim ker(A) = p - r
+~~~
 
-Each nullspace vector is a source-amplitude combination that leaves the predicted observable vector unchanged at the declared numerical tolerance.
+Each nullspace vector is a source-amplitude combination that leaves the predicted
+observable vector unchanged at the declared numerical tolerance.
 
-The numerical nullspace basis is a diagnostic representation, not a canonical physical basis.
+The numerical nullspace basis is a diagnostic representation, not a canonical
+physical basis.
 
 ### Pairwise degeneracy classes
 
-Normalize each non-zero whitened signature column,
+Normalize each non-zero whitened signature column:
 
-[
-hat{mathbf s}_j=rac{A_{cdot j}}{|A_{cdot j}|}.
-]
+~~~text
+s_hat_j = A[:, j] / ||A[:, j]||
+~~~
 
 If
 
-[
-left|
-hat{mathbf s}_i^That{mathbf s}_j
-ight|
-approx 1,
-]
+~~~text
+| s_hat_i^T s_hat_j | ~= 1
+~~~
 
 the two source families are pairwise indistinguishable up to amplitude sign.
 
-Connected components of this pairwise-collinearity relation may be reported as pairwise degeneracy classes.
+Connected components of this pairwise-collinearity relation may be reported as
+pairwise degeneracy classes.
 
-This does not replace the full nullspace test: three or more signatures can be linearly dependent without any pair being collinear.
+This does not replace the full nullspace test: three or more signatures can be
+linearly dependent without any pair being collinear.
 
 ## 5. Practical conditioning gate
 
@@ -173,95 +158,79 @@ Formal full rank is not sufficient for stable inversion.
 
 Let
 
-[
-sigma_{max}gecdotsgesigma_{min}>0
-]
+~~~text
+sigma_max >= ... >= sigma_min > 0
+~~~
 
-be the retained singular values of (A).
+be the retained singular values of `A`.
 
 Define
 
-[
-oxed{
-kappa_2(A)=rac{sigma_{max}}{sigma_{min}}.
-}
-]
+~~~text
+kappa_2(A) = sigma_max / sigma_min
+~~~
 
 GREMLIN distinguishes:
 
-- `UNDERDETERMINED`: rank (<p);
-- `ILL_CONDITIONED`: rank (=p) but the configured numerical condition limit is exceeded;
-- `IDENTIFIABLE`: rank (=p) and the condition gate passes.
+- `UNDERDETERMINED`: rank < p;
+- `ILL_CONDITIONED`: rank = p but the configured numerical condition limit is exceeded;
+- `IDENTIFIABLE`: rank = p and the condition gate passes.
 
 The condition threshold is a numerical policy parameter, not a physical constant.
 
 ## 6. Candidate amplitude estimator
 
-Only in the `IDENTIFIABLE` state may GREMLIN report a unique weighted least-squares candidate amplitude vector
+Only in the `IDENTIFIABLE` state may GREMLIN report a unique weighted
+least-squares candidate amplitude vector
 
-[
-oxed{
-hat{mathbf a}
-=
-G^{-1}S^TSigma^{-1}mathbf r.
-}
-]
+~~~text
+a_hat
+= G^(-1) S^T Sigma^(-1) r
+~~~
 
 Equivalently,
 
-[
-hat{mathbf a}
-=
-(A^TA)^{-1}A^Tmathbf b.
-]
+~~~text
+a_hat
+= (A^T A)^(-1) A^T b
+~~~
 
 The nominal amplitude covariance under the declared linear/Gaussian local model is
 
-[
-oxed{
-operatorname{Cov}(hat{mathbf a})=G^{-1}.
-}
-]
+~~~text
+Cov(a_hat) = G^(-1)
+~~~
 
 These are candidate model coefficients, not physical-source verdicts.
 
-For rank-deficient or ill-conditioned cases GREMLIN must not report a unique amplitude solution as if it were identified.
+For rank-deficient or ill-conditioned cases GREMLIN must not report a unique
+amplitude solution as if it were identified.
 
 ## 7. Fit residual
 
 The fitted residual is
 
-[
-mathbf e
-=
-mathbf r-Shat{mathbf a}.
-]
+~~~text
+e = r - S a_hat
+~~~
 
 The training statistic is
 
-[
-oxed{
-chi^2_{m fit}
-=
-mathbf e^TSigma^{-1}mathbf e.
-}
-]
+~~~text
+chi_fit^2 = e^T Sigma^(-1) e
+~~~
 
 The null statistic is
 
-[
-chi^2_{0}
-=
-mathbf r^TSigma^{-1}mathbf r,
-]
+~~~text
+chi_0^2 = r^T Sigma^(-1) r
+~~~
 
 with training improvement
 
-[
-Deltachi^2_{m fit}
-=
-chi^2_0-chi^2_{m fit}.
-]
+~~~text
+Delta chi_fit^2 = chi_0^2 - chi_fit^2
+~~~
 
 Training improvement is not independent confirmation.
 
@@ -271,51 +240,42 @@ Source-family routing requires an independent held-out channel set.
 
 Let
 
-[
-mathbf r_h,quad
-S_h,quad
-Sigma_h
-]
+~~~text
+r_h, S_h, Sigma_h
+~~~
 
-be data/signatures/covariance not used to estimate (hat{mathbf a}).
+be data/signatures/covariance not used to estimate `a_hat`.
 
 The frozen fit predicts
 
-[
-hat{mathbf r}_h=S_hhat{mathbf a}.
-]
+~~~text
+r_hat_h = S_h a_hat
+~~~
 
 Then
 
-[
-oxed{
-chi^2_h
-=
-(mathbf r_h-S_hhat{mathbf a})^T
-Sigma_h^{-1}
-(mathbf r_h-S_hhat{mathbf a}).
-}
-]
+~~~text
+chi_h^2
+= (r_h - S_h a_hat)^T
+  Sigma_h^(-1)
+  (r_h - S_h a_hat)
+~~~
 
 The held-out null statistic is
 
-[
-chi^2_{h,0}
-=
-mathbf r_h^TSigma_h^{-1}mathbf r_h,
-]
+~~~text
+chi_(h,0)^2 = r_h^T Sigma_h^(-1) r_h
+~~~
 
 and
 
-[
-oxed{
-Deltachi^2_h
-=
-chi^2_{h,0}-chi^2_h.
-}
-]
+~~~text
+Delta chi_h^2 = chi_(h,0)^2 - chi_h^2
+~~~
 
-A positive value means that the frozen candidate-family mixture predicts the held-out residual better than the zero-source-family null under the declared covariance. It is not by itself proof of physical origin.
+A positive value means that the frozen candidate-family mixture predicts the
+held-out residual better than the zero-source-family null under the declared
+covariance. It is not by itself proof of physical origin.
 
 ## 9. Routing rule
 
@@ -330,9 +290,9 @@ A source-family test may be routed downstream only when:
 
 Then GREMLIN may emit
 
-[
-oxed{	exttt{ALLOW_CANDIDATE_SOURCE_FAMILY_TESTS}}.
-]
+~~~text
+ALLOW_CANDIDATE_SOURCE_FAMILY_TESTS
+~~~
 
 Otherwise it emits one of:
 
@@ -345,37 +305,20 @@ Otherwise it emits one of:
 
 This gate does not establish:
 
-[
-	ext{candidate amplitude}Rightarrow	ext{physical source},
-]
-
-[
-	ext{best fit}Rightarrow	ext{true cause},
-]
-
-[
-U_I	ext{ is physical},
-]
-
-[
-W_{m chem}=W_{m sem},
-]
-
-or
-
-[
-Phi_{m phase}Rightarrow g_{mu
-u}.
-]
+~~~text
+candidate amplitude => physical source
+best fit => true cause
+U_I is physical
+W_chem = W_sem
+Phi_phase => g_(mu nu)
+~~~
 
 The strongest admitted statement is:
 
-[
-oxed{
-	ext{the declared source-family signatures are or are not distinguishable
-within the supplied observable/covariance geometry.}
-}
-]
+~~~text
+the declared source-family signatures are or are not distinguishable
+within the supplied observable/covariance geometry
+~~~
 
 ## 11. Upstream/downstream links
 

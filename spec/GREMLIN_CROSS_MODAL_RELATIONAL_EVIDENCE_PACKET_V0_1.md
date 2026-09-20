@@ -2,7 +2,8 @@
 
 Status: `CANDIDATE_DIAGNOSTIC_PACKET / SOURCE_ATTRIBUTION_FAIL_CLOSED / NO_SINGLE_SCORE_PROMOTION`
 
-This packet joins independently constrained observables from the radial, condensate, phase-optics and spectroscopy branches without collapsing them into a physical-source verdict.
+This packet joins independently constrained observables from the radial, condensate,
+phase-optics and spectroscopy branches without collapsing them into a physical-source verdict.
 
 Its purpose is to answer three narrower questions:
 
@@ -10,33 +11,31 @@ Its purpose is to answer three narrower questions:
 2. are the latent phase coordinates locally identifiable?
 3. after known sectors are subtracted, is any residual still statistically resolved?
 
-It does **not** answer "the residual is informational", "the residual is holonomic", or "the residual is gravitational".
+It does **not** answer "the residual is informational", "the residual is holonomic",
+or "the residual is gravitational".
 
 ## 1. Typed channel residuals
 
 Each observable channel supplies a residual
 
-[
-r_a = y_a^{m obs}-y_a^{m pred}
-]
+~~~text
+r_a = y_a(obs) - y_a(pred)
+~~~
 
-together with a declared positive uncertainty scale (sigma_a), or with a full positive-definite covariance matrix (Sigma).
+together with a declared positive uncertainty scale `sigma_a`, or with a full
+positive-definite covariance matrix `Sigma`.
 
-The normalized residual vector is
+For diagonal covariance,
 
-[
-z_a=rac{r_a}{sigma_a}
-]
-
-for diagonal covariance.
+~~~text
+z_a = r_a / sigma_a
+~~~
 
 For a full covariance model,
 
-[
-oxed{
-chi^2 = mathbf r^TSigma^{-1}mathbf r.
-}
-]
+~~~text
+chi^2 = r^T Sigma^(-1) r
+~~~
 
 The statistic is a consistency diagnostic only. It is not a physical-source probability.
 
@@ -45,66 +44,53 @@ The statistic is a consistency diagnostic only. It is not a physical-source prob
 The packet can carry, when available:
 
 - **orbital central-consistency**
-  [
-  mathcal B
-  =
-  kappa_{m meas}^2
-  -
-  4Omega_{m meas}^2
-  -
-  r(Omega_{m meas}^2)';
-  ]
+
+~~~text
+B = kappa_meas^2 - 4 Omega_meas^2 - r d(Omega_meas^2)/dr
+~~~
 
 - **condensate-subtracted radial residual**
-  [
-  G_{m res}
-  =
-  rOmega^2
-  -
-  rac{K_{m orb}}{r^2}
-  -
-  2mathcal M gho'
-  +
-  2mathcal M^2Q_ho';
-  ]
 
-- **phase-optics curvature residual**
-  comparing an independently measured phase-curvature observable to
-  [
-  rac{partial^2Phi}{partial b^2}
-  =
-  rac{b^2}{r^2}kappa^2
-  +
-  left(1-rac{4b^2}{r^2}ight)Omega^2;
-  ]
+~~~text
+G_res = r Omega^2
+        - K_orb/r^2
+        - 2 M g rho'
+        + 2 M^2 Q_rho'
+~~~
 
-- **spectral line/intensity response residuals**
-  derived from the declared phase-dependent Hamiltonian;
+- **phase-optics curvature residual**, comparing an independently measured
+  phase-curvature observable to
 
-- **density / Bogoliubov control residuals**
-  constraining (gho), (c_s), or the quantum-pressure reconstruction.
+~~~text
+d^2 Phi / db^2
+= (b^2/r^2) kappa^2
+  + (1 - 4 b^2/r^2) Omega^2
+~~~
+
+- **spectral line/intensity response residuals** derived from the declared
+  phase-dependent Hamiltonian;
+- **density / Bogoliubov control residuals** constraining `g rho`, `c_s`,
+  or the quantum-pressure reconstruction.
 
 No channel is mandatory in all experiments, but absent channels reduce what may be inferred.
 
 ## 3. Phase-identifiability gate
 
-Let the declared effective transport graph have cycle rank (eta_1).
+Let the declared effective transport graph have cycle rank `beta_1`.
 
 The phase sector is locally identifiable only if
 
-[
-oxed{
-operatorname{rank}mathcal Jgeeta_1
-quad	ext{and}quad
-operatorname{rank}F_Phigeeta_1.
-}
-]
+~~~text
+rank(J) >= beta_1
+and
+rank(F_Phi) >= beta_1
+~~~
 
 If this fails, GREMLIN must emit
 
-[
-oxed{	exttt{UNDERDETERMINED}}
-]
+~~~text
+UNDERDETERMINED
+~~~
 
 for any source decomposition that requires the unresolved phase coordinates.
 
@@ -112,50 +98,57 @@ A small orbital residual cannot override this gate.
 
 ## 4. Known-sector subtraction gate
 
-A candidate residual may be routed downstream only when all declared known-sector contributors used in the subtraction have external constraints.
+A candidate residual may be routed downstream only when all declared known-sector
+contributors used in the subtraction have external constraints.
 
 Examples:
 
-- (ho(r)) constrained by imaging or another independent measurement;
-- (gho/m_B) constrained by Bogoliubov spectroscopy;
-- (K_{m orb}) constrained under its own source/coupling identifiability firewall;
+- `rho(r)` constrained by imaging or another independent measurement;
+- `g rho / m_B` constrained by Bogoliubov spectroscopy;
+- `K_orb` constrained under its own source/coupling identifiability firewall;
 - covariance/uncertainty model declared before the final source fit.
 
-If the subtraction reuses the same observable both to fit and to "confirm" a contributor, the packet is marked `circular_fit=true` and source attribution fails closed.
+If the subtraction reuses the same observable both to fit and to "confirm" a
+contributor, the packet is marked `circular_fit=true` and source attribution
+fails closed.
 
 ## 5. Packet verdicts
 
-The packet has three top-level consistency states:
+The packet has three top-level consistency states.
 
 ### CONSISTENT
 
-All supplied channel residuals are within their declared tolerance/covariance gate and no structural model-consistency check is violated.
+All supplied channel residuals are within their declared tolerance/covariance gate
+and no structural model-consistency check is violated.
 
 This means only:
 
-[
-	ext{data are consistent with the declared model at the tested resolution.}
-]
+~~~text
+data are consistent with the declared model at the tested resolution
+~~~
 
 ### INCONSISTENT
 
-At least one supplied channel violates its declared gate, or a structural identity such as the orbital/epicyclic consistency relation fails.
+At least one supplied channel violates its declared gate, or a structural identity
+such as the orbital/epicyclic consistency relation fails.
 
 This rejects the declared combined model for that packet.
 
 ### UNDERDETERMINED
 
-The supplied observations do not provide enough independent constraints to resolve the declared latent coordinates or source decomposition.
+The supplied observations do not provide enough independent constraints to resolve
+the declared latent coordinates or source decomposition.
 
-This state takes precedence over source attribution even if the measured residual norm is small.
+This state takes precedence over source attribution even if the measured residual
+norm is small.
 
 ## 6. Source-attribution firewall
 
 The packet reports a separate boolean:
 
-[
-oxed{	exttt{source_attribution_admissible}}
-]
+~~~text
+source_attribution_admissible
+~~~
 
 which can be true only when:
 
@@ -165,11 +158,13 @@ which can be true only when:
 4. the residual is resolved above the declared uncertainty model;
 5. all required source-specific binding gates are already admitted upstream.
 
-Even when true, GREMLIN still returns a **candidate source family**, not a proven physical origin.
+Even when true, GREMLIN still returns a **candidate source family**, not a proven
+physical origin.
 
 ## 7. Provenance requirements
 
 Every channel must carry:
+
 - repository;
 - branch;
 - exact commit SHA;
@@ -177,7 +172,8 @@ Every channel must carry:
 - validation/receipt locator;
 - epistemic status.
 
-The packet itself is content-addressable and suitable for PNCS/runtime transport, but remains non-canonical until its source-owned parents are promoted.
+The packet itself is content-addressable and suitable for PNCS/runtime transport,
+but remains non-canonical until its source-owned parents are promoted.
 
 ## 8. Cross-repository links
 
@@ -204,21 +200,14 @@ The packet itself is content-addressable and suitable for PNCS/runtime transport
 
 ## 9. Non-promotions
 
-This gate does not establish:
+This gate does not establish any of the following:
 
-[
-W_{m chem}=W_{m sem},
-]
+~~~text
+W_chem = W_sem
+U_I is a universal physical force
+Phi_phase => g_(mu nu)
+a physical BEC realization
+~~~
 
-[
-U_I	ext{ is a universal physical force},
-]
-
-[
-Phi_{m phase}Rightarrow g_{mu
-u},
-]
-
-or any physical BEC realization.
-
-Software PASS means that the packet logic is implemented as declared, not that a new physical source has been observed.
+Software PASS means that the packet logic is implemented as declared, not that a
+new physical source has been observed.
