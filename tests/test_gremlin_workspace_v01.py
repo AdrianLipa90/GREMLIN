@@ -486,3 +486,67 @@ def test_workspace_stop_clears_stale_instance_state(tmp_path) -> None:
     assert stopped["status"] == "STALE_CLEARED"
     assert stopped["can_stop"] is False
     assert not workspace._instance_path(paths).exists()
+
+
+def test_remove_instance_state_retries_transient_permission_error(tmp_path, monkeypatch) -> None:
+    paths = _paths(tmp_path)
+    state = {
+        "schema": workspace.INSTANCE_SCHEMA,
+        "instance_id": "r" * 32,
+        "shutdown_token": "s" * 48,
+        "pid": 123,
+        "host": "127.0.0.1",
+        "port": 65528,
+        "url": "http://127.0.0.1:65528",
+        "started_at": "2026-09-20T00:00:00+00:00",
+    }
+    target = workspace._instance_path(paths)
+    workspace._write_private_json(target, state)
+    original_unlink = Path.unlink
+    attempts = {"count": 0}
+
+    def flaky_unlink(self, *args, **kwargs):
+        if self == target and attempts["count"] < 2:
+            attempts["count"] += 1
+            raise PermissionError(13, "transient locked handle", str(self))
+        return original_unlink(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "unlink", flaky_unlink)
+    workspace._remove_instance_state(
+        paths,
+        expected_instance_id=state["instance_id"],
+        retry_seconds=0.5,
+    )
+    assert attempts["count"] == 2
+    assert not target.exists()
+
+
+def test_remove_instance_state_persistent_permission_error_fails_loud(tmp_path, monkeypatch) -> None:
+    paths = _paths(tmp_path)
+    state = {
+        "schema": workspace.INSTANCE_SCHEMA,
+        "instance_id": "t" * 32,
+        "shutdown_token": "u" * 48,
+        "pid": 123,
+        "host": "127.0.0.1",
+        "port": 65527,
+        "url": "http://127.0.0.1:65527",
+        "started_at": "2026-09-20T00:00:00+00:00",
+    }
+    target = workspace._instance_path(paths)
+    workspace._write_private_json(target, state)
+    original_unlink = Path.unlink
+
+    def denied_unlink(self, *args, **kwargs):
+        if self == target:
+            raise PermissionError(13, "persistent locked handle", str(self))
+        return original_unlink(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "unlink", denied_unlink)
+    with pytest.raises(workspace.GremlinWorkspaceError, match="cleanup failed"):
+        workspace._remove_instance_state(
+            paths,
+            expected_instance_id=state["instance_id"],
+            retry_seconds=0.0,
+        )
+    assert target.exists()

@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import hashlib
 import json
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from typing import Any
 import uuid
 
-from gremlin_mcp.workers import WorkerBroker
+from gremlin_mcp.workers import MEMORY_AUTHORIZATION_KEY, MEMORY_REQUESTS_KEY, WorkerBroker
 from tools.gremlin_geometry_phase_scheduler_v01 import SCHEDULER_KEY
 
 PIPELINE_SCHEMA = "GREMLIN_MCP_BESTIARY_PIPELINE_V0_4"
@@ -55,6 +55,48 @@ def _normalize_species(values: Iterable[str]) -> tuple[str, ...]:
     return tuple(out)
 
 
+def _fanout_memory_requests(
+    payload: Mapping[str, Any],
+) -> tuple[tuple[tuple[str, ...], dict[str, Any]], ...]:
+    raw = payload.get(MEMORY_REQUESTS_KEY)
+    if raw is None:
+        return ()
+    if isinstance(raw, (str, bytes, Mapping)) or not isinstance(raw, Sequence):
+        raise ValueError(f"{MEMORY_REQUESTS_KEY} must be a sequence of mappings")
+    out: list[tuple[tuple[str, ...], dict[str, Any]]] = []
+    for index, item in enumerate(raw):
+        if not isinstance(item, Mapping):
+            raise ValueError(f"{MEMORY_REQUESTS_KEY}[{index}] must be a mapping")
+        row = dict(item)
+        selector = row.pop("species", None)
+        if selector is None:
+            raise ValueError(
+                f"{MEMORY_REQUESTS_KEY}[{index}] requires explicit species selector during fanout"
+            )
+        if isinstance(selector, str):
+            selected = (selector.strip().upper(),)
+        elif isinstance(selector, Sequence) and not isinstance(selector, (str, bytes, Mapping)):
+            selected = tuple(
+                _strict_text(value, f"{MEMORY_REQUESTS_KEY}[{index}].species").upper()
+                for value in selector
+            )
+        else:
+            raise ValueError(
+                f"{MEMORY_REQUESTS_KEY}[{index}].species must be a string or sequence"
+            )
+        selected = tuple(dict.fromkeys(selected))
+        if not selected:
+            raise ValueError(f"{MEMORY_REQUESTS_KEY}[{index}].species must be non-empty")
+        for name in selected:
+            if name not in SPECIALISTS:
+                raise ValueError(
+                    f"{MEMORY_REQUESTS_KEY}[{index}] targets non-specialist species: {name}"
+                )
+        _canonical(row)
+        out.append((selected, row))
+    return tuple(out)
+
+
 def _request_id(value: str | None) -> str:
     if value is None:
         return uuid.uuid4().hex
@@ -76,9 +118,18 @@ def fanout(
     if not isinstance(payload, Mapping):
         raise ValueError("payload must be a mapping")
     body = dict(payload)
+    if MEMORY_AUTHORIZATION_KEY in body:
+        raise ValueError(
+            f"{MEMORY_AUTHORIZATION_KEY} is broker-owned and cannot be supplied by callers"
+        )
     _canonical(body)
     scheduler_meta = body.get(SCHEDULER_KEY)
-    semantic_body = {key: value for key, value in body.items() if key != SCHEDULER_KEY}
+    memory_requests = _fanout_memory_requests(body)
+    semantic_body = {
+        key: value
+        for key, value in body.items()
+        if key not in {SCHEDULER_KEY, MEMORY_REQUESTS_KEY, MEMORY_AUTHORIZATION_KEY}
+    }
     roles = _normalize_species(species)
     rid = _request_id(request_id)
 
@@ -97,7 +148,19 @@ def fanout(
     rows: list[dict[str, Any]] = []
     for name in roles:
         task_id = f"{rid[:48]}-{name.lower()}-{digest[:12]}"
-        task_payload: dict[str, Any] = {"schema": PIPELINE_SCHEMA, "request_id": rid, "route_species": name, "payload": semantic_body}
+        task_payload: dict[str, Any] = {
+            "schema": PIPELINE_SCHEMA,
+            "request_id": rid,
+            "route_species": name,
+            "payload": semantic_body,
+        }
+        selected_memory_requests = [
+            dict(request)
+            for selectors, request in memory_requests
+            if name in selectors
+        ]
+        if selected_memory_requests:
+            task_payload[MEMORY_REQUESTS_KEY] = selected_memory_requests
         if scheduler_meta is not None:
             task_payload[SCHEDULER_KEY] = scheduler_meta
         if route_meta is not None:

@@ -8,7 +8,7 @@ import unicodedata
 from typing import Any, Iterable, Mapping
 
 from gremlin_mcp.pipeline import SPECIALISTS, fanout
-from gremlin_mcp.workers import WorkerBroker
+from gremlin_mcp.workers import MEMORY_AUTHORIZATION_KEY, MEMORY_REQUESTS_KEY, WorkerBroker
 from tools.gremlin_geometry_phase_scheduler_v01 import SCHEDULER_KEY
 
 ROUTER_SCHEMA = "GREMLIN_MCP_OCTOPUS_ROUTER_V0_6"
@@ -221,7 +221,11 @@ def route(
         raise ValueError("payload must be a non-empty mapping")
     body = dict(payload)
     _canonical(body)
-    semantic_body = {key: value for key, value in body.items() if key != SCHEDULER_KEY}
+    semantic_body = {
+        key: value
+        for key, value in body.items()
+        if key not in {SCHEDULER_KEY, MEMORY_REQUESTS_KEY, MEMORY_AUTHORIZATION_KEY}
+    }
 
     limit = int(max_species)
     if limit <= 0 or limit > MAX_ROUTE_SPECIES:

@@ -8,6 +8,7 @@ from typing import Any
 from .hive_authority import HiveAuthorityRuntime
 from .hive_ingest import ingest_research_execution
 from .memory_exchange import ingest_exchange_bundle, ingest_exchange_envelope
+from .memory_consolidation import build_consolidation_route
 from .memory_anti_entropy import (
     apply_hive_delta,
     build_hive_inventory,
@@ -35,6 +36,14 @@ def configure_hive_state(state_path: str | None) -> HiveAuthorityRuntime:
 def gremlin_hive_status() -> dict[str, Any]:
     """Return the authoritative shared-cognition Hive surface status."""
     result = hive_runtime.status()
+    result["principal_boundary"] = {
+        "mode": "SYSTEM_OPERATOR_CONTROL_PLANE",
+        "bestiary_species_authority": False,
+        "bestiary_gateway_schema": "GREMLIN_BESTIARY_MEMORY_GATEWAY_V0_1",
+        "bestiary_policy_schema": "BESTIARY_MEMORY_CAPABILITY_V0_1",
+        "direct_hive_tools_are_species_capabilities": False,
+        "identity_authentication_provided": False,
+    }
     result["memory_information_exchange"] = {
         "status": "AVAILABLE",
         "tool": "gremlin_hive_exchange_ingest",
@@ -52,6 +61,13 @@ def gremlin_hive_status() -> dict[str, Any]:
         "apply_tool": "gremlin_hive_sync_apply",
         "scope": "EXCHANGE_MEMORY_ONLY_APPEND_ONLY",
         "automatic_latch": False,
+    }
+    result["memory_consolidation"] = {
+        "status": "AVAILABLE_READ_ONLY",
+        "route_tool": "gremlin_hive_consolidation_route",
+        "source_layer": "EPISODIC",
+        "derived_layer": "SEMANTIC",
+        "direct_hive_ingest_allowed": False,
     }
     result["integrated_research_ingest"] = {
         "status": "AVAILABLE",
@@ -252,6 +268,15 @@ def gremlin_hive_sync_apply(
         receiver_node_id=node_id,
         priority=priority,
     )
+
+
+@mcp.tool()
+def gremlin_hive_consolidation_route(
+    plan: dict[str, Any],
+    receipt: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Validate PhaseNav consolidation and return the admitted SEMANTIC->RELATIONAL route."""
+    return build_consolidation_route(plan, receipt)
 
 
 @mcp.tool()

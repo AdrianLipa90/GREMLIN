@@ -1,0 +1,26 @@
+{
+  "schema": "GREMLIN_CROSS_DOMAIN_COUPLING_IDENTIFIABILITY_V0_11_PROVENANCE",
+  "status": "CANDIDATE_ONLY",
+  "base_repository": "AdrianLipa90/GREMLIN",
+  "base_commit": "2be887f688d69f5b0bef633781ace0599023e3a8",
+  "parents": [
+    "GREMLIN v0.9 EB condensate orbital phase bridge",
+    "GREMLIN v0.10 EB radial stability and nullspace",
+    "QHTRI phase-optics THEORY.md @ c59f84ff38084d34d7b6c4a6ec8fcd4b9b75d152",
+    "Resonant-Chemistry crosswalk @ 0774e762af047e05198da40777b7f78d34da54d2"
+  ],
+  "derived_relations": [
+    "g_I optical Frobenius estimator",
+    "g_I spectroscopic non-common-mode estimator",
+    "beta_G orbital subtraction",
+    "exact rank-1 C_mu/eta_G orbital Jacobian",
+    "gamma_B from independently receipted circulation"
+  ],
+  "firewalls": [
+    "inconsistent cross-domain estimators fail closed rather than being fitted",
+    "C_mu/eta_G factorization requires an independent receipt",
+    "common-mode spectroscopy is non-identifying",
+    "phase circulation must carry an independent receipt"
+  ],
+  "local_replay": "9/9 PASS inside isolated implementation replay before repository write"
+}

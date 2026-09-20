@@ -1,0 +1,79 @@
+{
+  "schema": "GREMLIN_ENDOGENOUS_EB_CONDENSATE_NORMAL_MODES_V0_12_PROVENANCE",
+  "status": "CANDIDATE_SAME_CARRIER_BRIDGE",
+  "base_repository": "AdrianLipa90/GREMLIN",
+  "base_main_commit": "ba798ce818f5f07b8466a5982fe2e87626efc213",
+  "parents": [
+    "GREMLIN_EB_CONDENSATE_ORBITAL_PHASE_BRIDGE_V0_9",
+    "GREMLIN_EB_RADIAL_STABILITY_AND_NULLSPACE_V0_10",
+    "GREMLIN_CROSS_DOMAIN_COUPLING_IDENTIFIABILITY_V0_11",
+    "GREMLIN_RADIAL_MEDIUM_IDENTIFIABILITY_V0_1",
+    "RFC RF-S22"
+  ],
+  "declared_bridge": "chi=q_eff*theta+chi_0, or D_tau chi=q_eff*zeta_tau*Omega",
+  "derived_relations": [
+    "Lambda_EB=C_mu*eta_G*I_phi*q_eff^2*zeta_tau^2/(2*r^3)",
+    "pure hard-lock radius r_*^3=C_mu*eta_G*I_phi*q_eff^2*zeta_tau^2/2",
+    "kappa_end^2=(3-6*Lambda_EB)*Omega^2+V_rad''/m_I",
+    "on closed equilibrium: kappa_end^2=-3*Omega^2+(V_rad''+6*V_rad'/r)/m_I",
+    "pure endogenous hard-lock branch kappa_end^2=-3*Omega^2",
+    "stability requires [V_rad''+6*V_rad'/r]/(m_I*Omega^2)>3",
+    "fixed-q winding trajectory has d ln(Omega^2)/d ln r=-4",
+    "pure endogenous circular-family force law has d ln(Omega_circ^2)/d ln r=-7",
+    "stationary-central cross-check returns kappa_epi^2=-3*Omega^2 and zero residual",
+    "I_rel=I_phi*J_theta/(J_theta+q_eff^2*I_phi)",
+    "Omega_psi^2=K_psi/I_rel"
+  ],
+  "validation": {
+    "local_algebraic_replay": {
+      "status": "PASS_SCOPED",
+      "checks": 11,
+      "failures": 0,
+      "coverage": [
+        "Lambda_EB pure closure",
+        "r~q^(2/3)",
+        "Omega~q^(-1/3)",
+        "H_EB~q^(4/3)",
+        "pure kappa_end^2=-3 Omega^2",
+        "reduced/unreduced stiffness equivalence",
+        "stationary-central r^-7 cross-check",
+        "relative-phase inertia",
+        "hard-lock frequency scaling",
+        "diagonal 3x3 normal modes",
+        "negative radial stiffness growth mode"
+      ],
+      "boundary": "formula-level replay of the implemented equations; hosted repository CI remains authoritative for exact source/test integration"
+    },
+    "hosted_ci": {
+      "status": "PASS",
+      "tested_head": "92e1604ae0b92c4448bc5287c84a67ce50b3abe0",
+      "dedicated": {
+        "run_id": 35497956475,
+        "conclusion": "success",
+        "pytest": "68 passed in 0.49s",
+        "compile": "success"
+      },
+      "fail_loud": {
+        "run_id": 35497956432,
+        "conclusion": "success",
+        "repository_pytest": "success",
+        "standalone_wheel_build": "success",
+        "outside_source_tree_smoke_test": "success"
+      }
+    },
+    "historical_exact_source_replay": {
+      "receipt": "provenance/GREMLIN_EB_CROSS_DOMAIN_EXACT_SOURCE_LOCAL_REPLAY_V0_11.json",
+      "status": "PASS_SCOPED_LOCAL_REPLAY",
+      "pass_count": 18,
+      "failure_count": 0,
+      "tested_head": "322e6ad4617b95d98860a19912e75b05a6c6185e",
+      "boundary": "historical exact-source replay retained for provenance; hosted current-head CI remains authoritative"
+    }
+  },
+  "firewalls": [
+    "fixed-q winding derivative and circular-family force derivative are distinct",
+    "mixed collective couplings remain caller-owned",
+    "physical carrier and metric bindings remain OPEN",
+    "budget mismatch fails closed"
+  ]
+}

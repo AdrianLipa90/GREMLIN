@@ -32,6 +32,7 @@ MAX_REQUEST_BYTES = 1024 * 1024
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8765
 STOP_WAIT_SECONDS = 3.0
+WORKSPACE_POLL_SECONDS = 0.05
 
 STATIC_FILES = {
     "/": ("index.html", "text/html; charset=utf-8"),
@@ -339,15 +340,42 @@ def _read_instance_state(paths: GremlinPaths) -> dict[str, Any] | None:
     return _validate_instance_state(value)
 
 
-def _remove_instance_state(paths: GremlinPaths, *, expected_instance_id: str | None = None) -> None:
+def _remove_instance_state(
+    paths: GremlinPaths,
+    *,
+    expected_instance_id: str | None = None,
+    retry_seconds: float = STOP_WAIT_SECONDS,
+) -> None:
     target = _instance_path(paths)
-    if not target.exists():
-        return
-    if expected_instance_id is not None:
-        current = _read_instance_state(paths)
-        if current is None or current.get("instance_id") != expected_instance_id:
+    deadline = time.monotonic() + max(0.0, float(retry_seconds))
+    last_error: OSError | None = None
+
+    while True:
+        if not target.exists():
             return
-    target.unlink(missing_ok=True)
+        if expected_instance_id is not None:
+            current = _read_instance_state(paths)
+            if current is None or current.get("instance_id") != expected_instance_id:
+                return
+        try:
+            target.unlink(missing_ok=True)
+            return
+        except OSError as exc:
+            last_error = exc
+            transient_windows_handle_race = (
+                isinstance(exc, PermissionError)
+                or getattr(exc, "winerror", None) in {5, 32}
+            )
+            if not transient_windows_handle_race or time.monotonic() >= deadline:
+                raise GremlinWorkspaceError(
+                    f"workspace instance state cleanup failed: {exc}"
+                ) from exc
+            time.sleep(WORKSPACE_POLL_SECONDS)
+
+    if last_error is not None:  # pragma: no cover - loop exits above
+        raise GremlinWorkspaceError(
+            f"workspace instance state cleanup failed: {last_error}"
+        )
 
 
 def _probe_health(host: str, port: int, *, timeout: float = 0.35) -> dict[str, Any] | None:
@@ -498,7 +526,7 @@ def workspace_stop(paths: GremlinPaths, *, timeout: float = STOP_WAIT_SECONDS) -
                 "can_stop": False,
                 "authority": _authority(),
             }
-        time.sleep(0.05)
+        time.sleep(WORKSPACE_POLL_SECONDS)
 
     raise GremlinWorkspaceError("workspace did not stop within the bounded shutdown window")
 

@@ -1,12 +1,13 @@
 # GREMLIN
 
-## Current validated baseline — 2026-09-18
+## Validation status and provenance
 
-The current documented baseline is merge commit
-`aaa4db7d268bcd50b70e417137c595c2fa677f5a`, produced from validated PR #62 head
-`072ed5435a8f6f12cc3afe113a8d7e6bc75b83d0`.
+The 2026-09-18 baseline at merge commit
+`aaa4db7d268bcd50b70e417137c595c2fa677f5a` remains a historical exact-head validation record from PR #62. It is not a moving attestation for later repository state.
 
-That exact head passed **9/9 required workflows** before merge, including Linux/Windows standalone runtime, preview packaging, installation, fail-loud audit, geometry scheduler and Bestiary PhaseNav gates.
+As of 2026-09-20, `main` has advanced through the EB condensate/orbital dependency bridge and the validated PhaseNav spectroscopic-holonomy merge. PR #89 head `1f3bab8fbc87774d6584b91f761d0d522d515dd6` passed its eight required workflows before merge.
+
+**Validation authority is exact-head CI.** Any commit after a recorded validated head must carry its own workflow evidence before it is described as validated. README prose, historical receipts, mergeability, or a green ancestor are not substitutes for exact-head CI.
 
 The standalone Bestiary currently exposes **18 roles** and supports:
 

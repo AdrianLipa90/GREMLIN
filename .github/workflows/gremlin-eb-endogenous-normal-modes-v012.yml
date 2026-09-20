@@ -1,0 +1,58 @@
+name: GREMLIN Endogenous EB Condensate Normal Modes v0.12
+
+on:
+  push:
+    branches:
+      - feat/eb-endogenous-normal-modes-v012
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'tools/gremlin_eb_condensate_orbital_phase_bridge_v09.py'
+      - 'tools/gremlin_eb_radial_stability_nullspace_v010.py'
+      - 'tools/gremlin_cross_domain_coupling_identifiability_v011.py'
+      - 'tools/gremlin_endogenous_eb_condensate_normal_modes_v012.py'
+      - 'tools/gremlin_radial_medium_identifiability_v01.py'
+      - 'tests/test_gremlin_orbit_source_coupling_identifiability_v08.py'
+      - 'tests/test_gremlin_eb_condensate_orbital_phase_bridge_v09.py'
+      - 'tests/test_gremlin_eb_radial_stability_nullspace_v010.py'
+      - 'tests/test_gremlin_cross_domain_coupling_identifiability_v011.py'
+      - 'tests/test_gremlin_eb_cross_domain_integration_v011.py'
+      - 'tests/test_gremlin_radial_medium_identifiability_v01.py'
+      - 'tests/test_gremlin_endogenous_eb_condensate_normal_modes_v012.py'
+      - 'tests/test_gremlin_eb_endogenous_chain_v012.py'
+      - 'spec/GREMLIN_ENDOGENOUS_EB_CONDENSATE_NORMAL_MODES_V0_12.md'
+      - 'provenance/GREMLIN_EB_CROSS_DOMAIN_EXACT_SOURCE_LOCAL_REPLAY_V0_11.json'
+      - 'provenance/GREMLIN_ENDOGENOUS_EB_CONDENSATE_NORMAL_MODES_V0_12.json'
+      - '.github/workflows/gremlin-eb-endogenous-normal-modes-v012.yml'
+  workflow_dispatch:
+
+jobs:
+  endogenous-normal-modes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install focused test dependencies
+        run: python -m pip install pytest numpy
+      - name: Compile EB v0.9-v0.12 executable surfaces
+        run: |
+          python -m py_compile \
+            tools/gremlin_eb_condensate_orbital_phase_bridge_v09.py \
+            tools/gremlin_eb_radial_stability_nullspace_v010.py \
+            tools/gremlin_cross_domain_coupling_identifiability_v011.py \
+            tools/gremlin_endogenous_eb_condensate_normal_modes_v012.py \
+            tools/gremlin_radial_medium_identifiability_v01.py
+      - name: Run deterministic EB and radial-medium chain
+        run: |
+          python -m pytest -q \
+            tests/test_gremlin_orbit_source_coupling_identifiability_v08.py \
+            tests/test_gremlin_eb_condensate_orbital_phase_bridge_v09.py \
+            tests/test_gremlin_eb_radial_stability_nullspace_v010.py \
+            tests/test_gremlin_cross_domain_coupling_identifiability_v011.py \
+            tests/test_gremlin_eb_cross_domain_integration_v011.py \
+            tests/test_gremlin_radial_medium_identifiability_v01.py \
+            tests/test_gremlin_endogenous_eb_condensate_normal_modes_v012.py \
+            tests/test_gremlin_eb_endogenous_chain_v012.py
