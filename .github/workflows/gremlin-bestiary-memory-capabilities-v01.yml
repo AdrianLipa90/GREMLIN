@@ -1,0 +1,90 @@
+name: GREMLIN Bestiary memory capabilities v0.1
+
+on:
+  pull_request:
+    branches:
+      - main
+      - formalism/memory-consolidation-retention-v01-20260920
+    paths:
+      - 'gremlin_mcp/memory_capabilities.py'
+      - 'gremlin_mcp/core.py'
+      - 'gremlin_mcp/bestiary_memory_gateway.py'
+      - 'gremlin_mcp/hive_ingest.py'
+      - 'gremlin_mcp/server_with_hive.py'
+      - 'gremlin_mcp/workers.py'
+      - 'gremlin_mcp/pipeline.py'
+      - 'gremlin_mcp/router.py'
+      - 'tests/test_bestiary_memory_capabilities_v01.py'
+      - 'tests/test_bestiary_memory_dispatch_v01.py'
+      - 'tests/test_bestiary_memory_gateway_v01.py'
+      - 'tests/test_gremlin_hive_auto_ingest_v03.py'
+      - 'spec/BESTIARY_MEMORY_CAPABILITY_V0_1.md'
+      - 'config/BESTIARY_MEMORY_CAPABILITY_V0_1.json'
+      - '.github/workflows/gremlin-bestiary-memory-capabilities-v01.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  bestiary-memory-capabilities:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install GREMLIN and pytest
+        run: python -m pip install -e . pytest
+      - name: Compile memory capability surfaces
+        run: >-
+          python -m py_compile
+          gremlin_mcp/memory_capabilities.py
+          gremlin_mcp/core.py
+          gremlin_mcp/bestiary_memory_gateway.py
+          gremlin_mcp/hive_ingest.py
+          gremlin_mcp/server_with_hive.py
+          gremlin_mcp/workers.py
+          gremlin_mcp/pipeline.py
+          gremlin_mcp/router.py
+      - name: Run focused capability tests
+        run: >-
+          python -m pytest -q
+          tests/test_bestiary_memory_capabilities_v01.py
+          tests/test_bestiary_memory_dispatch_v01.py
+          tests/test_bestiary_memory_gateway_v01.py
+          tests/test_gremlin_hive_auto_ingest_v03.py
+      - name: Export canonical capability manifest
+        run: |
+          mkdir -p build/memory-capabilities
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from gremlin_mcp.memory_capabilities import policy_manifest
+          path = Path("build/memory-capabilities/BESTIARY_MEMORY_CAPABILITY_V0_1.json")
+          path.write_text(
+              json.dumps(policy_manifest(), ensure_ascii=False, sort_keys=True, indent=2) + "\n",
+              encoding="utf-8",
+          )
+          print(path)
+          print(policy_manifest()["policy_sha256"])
+          PY
+      - name: Verify frozen repo manifest matches runtime policy
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from gremlin_mcp.memory_capabilities import policy_manifest
+          frozen = json.loads(
+              Path("config/BESTIARY_MEMORY_CAPABILITY_V0_1.json").read_text(encoding="utf-8")
+          )
+          runtime = policy_manifest()
+          assert frozen == runtime
+          assert frozen["policy_sha256"] == runtime["policy_sha256"]
+          print(runtime["policy_sha256"])
+          PY
+      - name: Upload canonical capability manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: bestiary-memory-capability-v01
+          path: build/memory-capabilities/BESTIARY_MEMORY_CAPABILITY_V0_1.json
+          if-no-files-found: error
