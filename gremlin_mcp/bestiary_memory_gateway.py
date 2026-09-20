@@ -3,10 +3,8 @@ from __future__ import annotations
 from dataclasses import asdict
 from typing import Any, Mapping, Sequence
 
+from .constitutional_runtime import require_constitutional_admission
 from .hive_authority import HiveAuthorityRuntime
-from .constitutional_runtime import require_constitutional_admission
-from .mathematical_constitution import PASS
-from .constitutional_runtime import require_constitutional_admission
 from .mathematical_constitution import capability_status_from_memory_receipt
 from .memory_anti_entropy import (
     build_hive_inventory,
@@ -326,22 +324,6 @@ def ingest_exchange_envelope_as_beast(
         consequence_class="APPEND_ONLY",
         request_payload={
             "envelope": normalized,
-            "priority": priority,
-            "consumer_id": consumer_id,
-            "beast": receipt["beast"],
-            "operation": receipt["operation"],
-            "artifact_type": receipt["artifact_type"],
-            "task_id": receipt["task_id"],
-            "capability_receipt_id": receipt["receipt_id"],
-        },
-        constitutional_packet=constitutional_packet,
-        expected_capability_status=capability_status_from_memory_receipt(receipt),
-    )
-    require_constitutional_admission(
-        endpoint="bestiary_memory_gateway.ingest_exchange_envelope_as_beast",
-        consequence_class="APPEND_ONLY",
-        request_payload={
-            "envelope": normalized,
             "beast": beast,
             "operation": op,
             "artifact_type": artifact_type,
@@ -352,7 +334,7 @@ def ingest_exchange_envelope_as_beast(
             "consumer_id": consumer_id,
         },
         constitutional_packet=constitutional_packet,
-        expected_capability_status=PASS,
+        expected_capability_status=capability_status_from_memory_receipt(receipt),
     )
     result = ingest_exchange_envelope(
         runtime,
