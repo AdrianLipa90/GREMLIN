@@ -1,0 +1,45 @@
+{
+  "schema": "GREMLIN_RUNTIME_CONSTITUTIONAL_NON_BYPASS_PROVENANCE_V0_1",
+  "version": "0.1.0",
+  "date": "2026-09-20",
+  "base_pr": 102,
+  "base_branch": "formalism/mathematical-constitution-v01-20260920",
+  "branch": "formalism/runtime-constitutional-non-bypass-v01-20260920",
+  "status": "IMPLEMENTED_CANDIDATE",
+  "declared_surface_registry": {
+    "file_count": 6,
+    "surface_count": 26,
+    "exhaustiveness_proven": false,
+    "whole_repository_mutation_reachability_proven": false,
+    "structural_proof": "UNCONDITIONAL_TOP_LEVEL_GUARD_DOMINATES_DECLARED_MUTATION_STATEMENT"
+  },
+  "claims": {
+    "request_bound_action_contract": true,
+    "content_addressed_constitutional_packet": true,
+    "missing_packet_fail_closed": true,
+    "cross_request_replay_rejected_under_sha256_assumption": true,
+    "cross_endpoint_replay_rejected": true,
+    "declared_surface_guard_before_mutation_ast_proof": true,
+    "guard_is_unconditional_top_level_statement": true,
+    "endpoint_and_consequence_literal_match_registry": true,
+    "bestiary_capability_composed_with_constitution": true,
+    "bestiary_capability_scalar_matches_validated_receipt": true,
+    "raphael_constitution_precedes_mutation_ledger_consume": true,
+    "raphael_subordinate_to_constitution": true,
+    "canon_allowed": false,
+    "ferret_external_actuator_constitutionally_guarded": true,
+    "ferret_external_actuator_constitutional_guard": true,
+    "ferret_single_use_execution_ledger": true
+  },
+  "open": [
+    "whole-repository mutation reachability proof",
+    "cryptographic identity of all ethics-gate producers",
+    "distributed packet revocation and expiry",
+    "external IAM",
+    "canon promotion"
+  ],
+  "exact_head_ci_status": "PENDING_EXACT_HEAD_CI",
+  "base_constitution_head": "3d0696c95bcce76cf3720888aed8725a61f48b1c",
+  "clean_replay_on_current_constitution": true,
+  "clean_replay_date": "2026-09-20"
+}
