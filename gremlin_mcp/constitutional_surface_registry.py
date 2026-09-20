@@ -143,6 +143,13 @@ SURFACES: Final[dict[str, dict[str, dict[str, object]]]] = {
             "mutation_calls": ("consume", "prepare", "apply_operation"),
         },
     },
+    "gremlin_mcp/ferret.py": {
+        "execute_authorized_action": {
+            "endpoint": "ferret.execute_authorized_action",
+            "consequence_class": "MUTATION",
+            "mutation_calls": ("consume", "executor"),
+        },
+    },
 }
 
 
