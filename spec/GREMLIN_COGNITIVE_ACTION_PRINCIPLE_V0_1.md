@@ -217,3 +217,16 @@ Implementation:
 
 Tests:
 `tests/test_gremlin_cognitive_action_principle_v01.py`
+
+
+## 9. Native NOEMA authority contract
+
+The declarative native unit
+
+`native/GREMLIN_COGNITIVE_ACTION_PRINCIPLE_V0_1.pnv`
+
+binds this gate as:
+
+`EPISTEMIC CHYBA / ANALYTIC_NON_ACTUATING / CANON_ALLOWED FALSE / AUTHORITY NONE / MUTATION_AUTHORITY RAPHAEL_ONLY`.
+
+This is an authority firewall, not an execution program. It declares no new PNV opcodes and grants no write, mutation, publication or canon authority. Python remains the reference/test harness; runtime promotion would require a separate admitted authority path.
