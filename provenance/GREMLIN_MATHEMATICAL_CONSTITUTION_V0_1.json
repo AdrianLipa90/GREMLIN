@@ -1,0 +1,36 @@
+{
+  "schema": "GREMLIN_MATHEMATICAL_CONSTITUTION_PROVENANCE_V0_1",
+  "version": "0.1.0",
+  "date": "2026-09-20",
+  "base_pr": 99,
+  "base_head": "f672e1cf526a37dfb52d1d2cfcf73370f3395505",
+  "branch": "formalism/mathematical-constitution-v01-20260920",
+  "status": "IMPLEMENTED_CANDIDATE",
+  "exact_head_ci_status": "PENDING",
+  "claims": {
+    "normative_axioms_explicit_policy_not_theorems": true,
+    "ethical_gates_hard_non_weighted": true,
+    "gate_conflict_averaging": false,
+    "utility_non_bypass_reference_model": true,
+    "unknown_high_consequence_allow": false,
+    "parameter_provenance_typed": true,
+    "kappa_recorded_but_operator_binding_unbound": true,
+    "append_only_ledger_reference_semilattice": true,
+    "silent_mutation_certificate_forbidden": true,
+    "complete_runtime_entrypoint_coverage_proven": false,
+    "production_execution_authority": false,
+    "canon_allowed": false
+  },
+  "bindings": {
+    "cognitive_action": "GREMLIN_COGNITIVE_ACTION_PRINCIPLE_V0_1",
+    "radical_ethics": "GREMLIN_RADICAL_ETHICS_ACQUISITION_BUNDLE_V0_1",
+    "bestiary_memory": "BESTIARY_MEMORY_CAPABILITY_V0_1"
+  },
+  "open": [
+    "complete runtime entrypoint constitutional coverage proof",
+    "life-protection operational producer binding",
+    "agency-protection operational producer binding",
+    "kappa operator binding",
+    "canon promotion"
+  ]
+}
