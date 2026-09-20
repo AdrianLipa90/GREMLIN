@@ -32,8 +32,7 @@ MAX_REQUEST_BYTES = 1024 * 1024
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8765
 STOP_WAIT_SECONDS = 3.0
-STATE_REMOVE_RETRY_SECONDS = 1.0
-STATE_REMOVE_RETRY_INTERVAL_SECONDS = 0.05
+WORKSPACE_POLL_SECONDS = 0.05
 
 STATIC_FILES = {
     "/": ("index.html", "text/html; charset=utf-8"),
@@ -345,7 +344,7 @@ def _remove_instance_state(
     paths: GremlinPaths,
     *,
     expected_instance_id: str | None = None,
-    retry_seconds: float = STATE_REMOVE_RETRY_SECONDS,
+    retry_seconds: float = STOP_WAIT_SECONDS,
 ) -> None:
     target = _instance_path(paths)
     deadline = time.monotonic() + max(0.0, float(retry_seconds))
@@ -371,7 +370,7 @@ def _remove_instance_state(
                 raise GremlinWorkspaceError(
                     f"workspace instance state cleanup failed: {exc}"
                 ) from exc
-            time.sleep(STATE_REMOVE_RETRY_INTERVAL_SECONDS)
+            time.sleep(WORKSPACE_POLL_SECONDS)
 
     if last_error is not None:  # pragma: no cover - loop exits above
         raise GremlinWorkspaceError(
@@ -527,7 +526,7 @@ def workspace_stop(paths: GremlinPaths, *, timeout: float = STOP_WAIT_SECONDS) -
                 "can_stop": False,
                 "authority": _authority(),
             }
-        time.sleep(0.05)
+        time.sleep(WORKSPACE_POLL_SECONDS)
 
     raise GremlinWorkspaceError("workspace did not stop within the bounded shutdown window")
 
