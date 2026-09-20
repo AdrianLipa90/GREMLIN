@@ -231,6 +231,7 @@ def test_spectral_channel_can_break_orbital_source_degeneracy():
 
     # A declared spectral line response sees the difference.
     spectral_instance = CatalogMeasurementInstance(
+        instance_id="spectral-degeneracy-breaker",
         channel_id="SPECTRAL_LINE_FREQUENCY",
         source_names=("source_a", "source_b"),
         source_signature=(1.0, -1.0),
@@ -248,7 +249,7 @@ def test_spectral_channel_can_break_orbital_source_degeneracy():
         policy="RANK_THEN_NULLSPACE",
     )
 
-    assert ranked[0][0] == "test-instance"
+    assert ranked[0][0] == "spectral-degeneracy-breaker"
     assert ranked[0][1].rank_before == 1
     assert ranked[0][1].rank_after == 2
     assert ranked[0][1].rank_gain == 1
