@@ -5,6 +5,7 @@ import copy
 import pytest
 
 from gremlin_mcp.constitutional_runtime import (
+    RuntimeConstitutionalError,
     build_runtime_action_binding,
     build_runtime_constitutional_packet,
 )
@@ -332,7 +333,12 @@ def test_execution_without_constitutional_packet_fails_before_executor() -> None
         )
 
     with pytest.raises(RuntimeConstitutionalError):
-        execute_authorized_action(preview, authorization, executor)
+        execute_authorized_action(
+            preview,
+            authorization,
+            executor,
+            ledger=InMemoryFerretExecutionLedger(),
+        )
     assert called["value"] is False
 
 
@@ -356,6 +362,7 @@ def test_constitutional_packet_cannot_be_replayed_on_another_preview() -> None:
             preview_b,
             authorization_b,
             executor,
+            ledger=InMemoryFerretExecutionLedger(),
             constitutional_packet=packet_a,
         )
 
