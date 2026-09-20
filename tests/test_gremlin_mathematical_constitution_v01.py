@@ -32,6 +32,7 @@ from gremlin_mcp.mathematical_constitution import (
     ledger_precedes,
     radical_gate_status,
     validate_action_contract,
+    validate_admission_against_action,
     validate_admission_receipt,
     validate_constitutional_manifest,
     validate_gate_receipt,
@@ -342,8 +343,7 @@ def test_state_change_requires_allow_and_new_mutation_receipt() -> None:
     after = ledger_append((), event)
 
     cert = certify_transition(
-        executed_action_id=action["action_id"],
-        executed_action_sha256=action["action_sha256"],
+        action_contract=action,
         pre_state_commitment="state:before",
         post_state_commitment="state:after",
         admission_receipt=allow,
@@ -448,7 +448,10 @@ def test_utility_has_no_surface_to_promote_denied_action() -> None:
 
     utility = {"action:allow": -1_000_000, "action:deny": 1_000_000_000}
     assert utility["action:deny"] > utility["action:allow"]
-    assert admitted_action_ids((allow_receipt, deny_receipt)) == ("action:allow",)
+    assert admitted_action_ids(
+        (allow_receipt, deny_receipt),
+        (allow_action, deny_action),
+    ) == ("action:allow",)
 
 
 def test_gate_receipt_tamper_fails_commitment_validation() -> None:
@@ -482,8 +485,7 @@ def test_transition_cannot_reuse_allow_receipt_for_different_action() -> None:
     )
     with pytest.raises(ConstitutionalError, match="does not match"):
         certify_transition(
-            executed_action_id=executed_action["action_id"],
-            executed_action_sha256=executed_action["action_sha256"],
+            action_contract=executed_action,
             pre_state_commitment="before",
             post_state_commitment="after",
             admission_receipt=allow,
@@ -517,3 +519,25 @@ def test_mutation_receipt_must_bind_exact_pre_and_post_state() -> None:
             ledger_after=(event,),
             mutation_receipt_event_id=event["event_id"],
         )
+
+
+def test_admission_receipt_is_bound_to_full_action_contract() -> None:
+    action = build_action_contract(
+        action_id="analytic:bound",
+        consequence_class="ANALYTIC_NON_ACTUATING",
+    )
+    receipt = _admission(
+        action,
+        gates=[
+            _gate("EPISTEMIC_INTEGRITY"),
+            _gate("PROVENANCE_INTEGRITY"),
+        ],
+    )
+    assert validate_admission_against_action(receipt, action)["decision"] == "ALLOW"
+
+    other = build_action_contract(
+        action_id="analytic:other",
+        consequence_class="ANALYTIC_NON_ACTUATING",
+    )
+    with pytest.raises(ConstitutionalError, match="action_id"):
+        validate_admission_against_action(receipt, other)
