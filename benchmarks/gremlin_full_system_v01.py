@@ -274,41 +274,6 @@ def run_fault_injection_matrix() -> dict[str, Any]:
     receipt = _admit(action_with_kappa, parameters=(kappa,))
     record("canonical_but_unbound_kappa", "DEFER", receipt["decision"], receipt["decision"] == "DEFER")
 
-    runtime_payload = {
-        "subject_id": "benchmark:runtime",
-        "operation": "APPEND_ONLY_TEST",
-        "value": 1,
-    }
-    runtime_binding = build_runtime_action_binding(
-        endpoint="benchmark.runtime.guard",
-        consequence_class="APPEND_ONLY",
-        request_payload=runtime_payload,
-    )
-    runtime_admission = evaluate_admission(
-        action=runtime_binding["action_contract"],
-        gate_receipts=gates,
-        capability_status=PASS,
-        authority_status=PASS,
-        evidence_status=PASS,
-    )
-    runtime_packet = build_runtime_constitutional_packet(
-        action_binding=runtime_binding,
-        admission_receipt=runtime_admission,
-    )
-
-    def runtime_guard_call() -> None:
-        receipt = require_constitutional_admission(
-            endpoint="benchmark.runtime.guard",
-            consequence_class="APPEND_ONLY",
-            request_payload=runtime_payload,
-            constitutional_packet=runtime_packet,
-            expected_capability_status=PASS,
-            expected_authority_status=PASS,
-            expected_evidence_status=PASS,
-        )
-        if receipt["status"] != "ADMITTED":
-            raise RuntimeError("runtime constitutional guard benchmark drift")
-
     token = issue_capability_token(
         beast="SPIDER",
         layer="RELATIONAL",
@@ -421,6 +386,41 @@ def run_constitution_microbench(repetitions: int = 3000) -> dict[str, Any]:
         )
         if receipt["decision"] != "ALLOW":
             raise RuntimeError("constitutional admission benchmark drift")
+
+    runtime_payload = {
+        "subject_id": "benchmark:runtime",
+        "operation": "APPEND_ONLY_TEST",
+        "value": 1,
+    }
+    runtime_binding = build_runtime_action_binding(
+        endpoint="benchmark.runtime.guard",
+        consequence_class="APPEND_ONLY",
+        request_payload=runtime_payload,
+    )
+    runtime_admission = evaluate_admission(
+        action=runtime_binding["action_contract"],
+        gate_receipts=gates,
+        capability_status=PASS,
+        authority_status=PASS,
+        evidence_status=PASS,
+    )
+    runtime_packet = build_runtime_constitutional_packet(
+        action_binding=runtime_binding,
+        admission_receipt=runtime_admission,
+    )
+
+    def runtime_guard_call() -> None:
+        receipt = require_constitutional_admission(
+            endpoint="benchmark.runtime.guard",
+            consequence_class="APPEND_ONLY",
+            request_payload=runtime_payload,
+            constitutional_packet=runtime_packet,
+            expected_capability_status=PASS,
+            expected_authority_status=PASS,
+            expected_evidence_status=PASS,
+        )
+        if receipt["status"] != "ADMITTED":
+            raise RuntimeError("runtime constitutional guard benchmark drift")
 
     token = issue_capability_token(
         beast="SPIDER",
