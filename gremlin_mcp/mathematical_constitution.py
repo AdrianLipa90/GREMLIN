@@ -489,6 +489,7 @@ def evaluate_admission(
         "action_id": validated_action["action_id"],
         "action_sha256": validated_action["action_sha256"],
         "consequence_class": validated_action["consequence_class"],
+        "required_ethics_gates": list(validated_action["required_ethics_gates"]),
         "decision": decision_from_scalar(global_scalar),
         "global_admissibility_scalar": global_scalar,
         "ethical_scalar": ethical_scalar,
@@ -532,13 +533,23 @@ def validate_admission_receipt(packet: Mapping[str, Any]) -> dict[str, Any]:
         raise ConstitutionalError("admission scalar composition mismatch")
     if core.get("decision") != decision_from_scalar(expected_global):
         raise ConstitutionalError("admission decision/scalar mismatch")
+    required_gates = core.get("required_ethics_gates")
     gate_state = core.get("required_gate_state")
-    if not isinstance(gate_state, Mapping) or not gate_state:
-        raise ConstitutionalError("admission receipt requires gate state")
+    if not isinstance(required_gates, list) or not required_gates:
+        raise ConstitutionalError("admission receipt requires explicit gate requirements")
+    normalized_required = tuple(_upper(value, "required gate") for value in required_gates)
+    if any(gate not in ETHICS_GATES for gate in normalized_required):
+        raise ConstitutionalError("unknown required gate in admission receipt")
+    if tuple(required_gates) != normalized_required or len(set(normalized_required)) != len(normalized_required):
+        raise ConstitutionalError("admission required gates must be canonical and unique")
+    if not isinstance(gate_state, Mapping) or set(gate_state) != set(normalized_required):
+        raise ConstitutionalError("admission gate state must cover the exact required gate set")
     for key, value in gate_state.items():
         if _upper(key, "gate") not in ETHICS_GATES:
             raise ConstitutionalError("unknown gate in admission receipt")
         _lattice(value, "gate status")
+    if core.get("ethical_scalar") != lattice_meet(tuple(gate_state.values())):
+        raise ConstitutionalError("ethical scalar does not equal the hard-gate meet")
     for key in ("action_id", "action_sha256", "consequence_class"):
         _text(core.get(key), key)
     if core.get("utility_participated_in_admission") is not False:
