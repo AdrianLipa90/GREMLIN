@@ -76,26 +76,43 @@ def _name_keyword(call: ast.Call, name: str) -> str | None:
     return None
 
 
-def _direct_calls(
-    node: ast.FunctionDef | ast.AsyncFunctionDef,
-) -> list[ast.Call]:
+def _calls_without_nested_functions(node: ast.AST) -> list[ast.Call]:
     calls: list[ast.Call] = []
 
     class Visitor(ast.NodeVisitor):
         def visit_FunctionDef(self, child: ast.FunctionDef) -> None:
-            if child is node:
-                self.generic_visit(child)
-            # Nested function bodies are still part of the runtime surface and may mutate.
+            return
 
         def visit_AsyncFunctionDef(self, child: ast.AsyncFunctionDef) -> None:
-            if child is node:
-                self.generic_visit(child)
+            return
+
+        def visit_Lambda(self, child: ast.Lambda) -> None:
+            return
 
         def visit_Call(self, child: ast.Call) -> None:
             calls.append(child)
             self.generic_visit(child)
 
     Visitor().visit(node)
+    return calls
+
+
+def _top_level_guard_calls(
+    node: ast.FunctionDef | ast.AsyncFunctionDef,
+) -> list[tuple[int, ast.Call]]:
+    out: list[tuple[int, ast.Call]] = []
+    for index, statement in enumerate(node.body):
+        if not isinstance(statement, ast.Expr) or not isinstance(statement.value, ast.Call):
+            continue
+        if _call_name(statement.value) == GUARD_NAME:
+            out.append((index, statement.value))
+    return out
+
+
+def _all_calls(node: ast.FunctionDef | ast.AsyncFunctionDef) -> list[ast.Call]:
+    calls: list[ast.Call] = []
+    for statement in node.body:
+        calls.extend(_calls_without_nested_functions(statement))
     return calls
 
 
@@ -151,23 +168,37 @@ def audit_runtime_constitutional_coverage(root: Path = ROOT) -> dict[str, Any]:
                 )
                 continue
 
-            calls = _direct_calls(node)
-            guards = [call for call in calls if _call_name(call) == GUARD_NAME]
+            calls = _all_calls(node)
+            guards = _top_level_guard_calls(node)
             declared_mutations = tuple(str(x) for x in policy["mutation_calls"])
             mutation_calls = [
                 call for call in calls if _call_name(call) in set(declared_mutations)
             ]
 
-            guard = guards[0] if len(guards) == 1 else None
+            guard_index, guard = guards[0] if len(guards) == 1 else (None, None)
             guard_line = None if guard is None else int(guard.lineno)
             mutation_lines = sorted(int(call.lineno) for call in mutation_calls)
             first_mutation = None if not mutation_lines else mutation_lines[0]
 
+            mutation_statement_indices = []
+            for index, statement in enumerate(node.body):
+                statement_calls = _calls_without_nested_functions(statement)
+                if any(
+                    _call_name(call) in set(declared_mutations)
+                    for call in statement_calls
+                ):
+                    mutation_statement_indices.append(index)
+            first_mutation_statement = (
+                None
+                if not mutation_statement_indices
+                else min(mutation_statement_indices)
+            )
+
             packet_argument_present = "constitutional_packet" in _argument_names(node)
             guard_before = (
-                guard_line is not None
-                and first_mutation is not None
-                and guard_line < first_mutation
+                guard_index is not None
+                and first_mutation_statement is not None
+                and guard_index < first_mutation_statement
             )
             endpoint_exact = (
                 guard is not None
@@ -213,7 +244,10 @@ def audit_runtime_constitutional_coverage(root: Path = ROOT) -> dict[str, Any]:
                     "packet_argument_present": packet_argument_present,
                     "guard_count": len(guards),
                     "guard_line": guard_line,
+                    "guard_top_level_statement_index": guard_index,
                     "first_mutation_line": first_mutation,
+                    "first_mutation_top_level_statement_index": first_mutation_statement,
+                    "guard_is_unconditional_top_level_statement": guard_index is not None,
                     "guard_before_first_mutation": guard_before,
                     "guard_endpoint_exact": endpoint_exact,
                     "guard_consequence_exact": consequence_exact,
