@@ -529,6 +529,6 @@ def test_private_scratch_is_local_only_and_not_source_of_truth() -> None:
         requested_visibility="FULL",
         token=None,
     )
-    # No shared policy rule exists for private scratch: scratch is deliberately
-    # outside shared memory SoT and is described, not granted by shared ACL.
-    assert receipt["decision"] == "DENY"
+    assert receipt["decision"] == "ALLOW"
+    assert receipt["reason_code"] == "PRIVATE_SCRATCH_LOCAL_ONLY"
+    assert receipt["rule_id"] == "PRIVATE_SCRATCH_LOCAL"
