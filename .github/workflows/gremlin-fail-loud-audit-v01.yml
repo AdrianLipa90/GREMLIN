@@ -9,8 +9,16 @@ on:
       - 'examples/**'
       - 'benchmarks/**'
       - 'tests/**'
+      - 'native/**'
+      - 'spec/**'
+      - 'config/**'
       - 'pyproject.toml'
-      - '.github/workflows/gremlin-fail-loud-audit-v01.yml'
+      - 'LICENSE'
+      - 'AI_TRAINING_POLICY.md'
+      - 'README.md'
+      - 'SECURITY.md'
+      - '.github/dependabot.yml'
+      - '.github/workflows/**'
   push:
     branches:
       - main
@@ -21,8 +29,16 @@ on:
       - 'examples/**'
       - 'benchmarks/**'
       - 'tests/**'
+      - 'native/**'
+      - 'spec/**'
+      - 'config/**'
       - 'pyproject.toml'
-      - '.github/workflows/gremlin-fail-loud-audit-v01.yml'
+      - 'LICENSE'
+      - 'AI_TRAINING_POLICY.md'
+      - 'README.md'
+      - 'SECURITY.md'
+      - '.github/dependabot.yml'
+      - '.github/workflows/**'
   workflow_dispatch:
 
 permissions:
