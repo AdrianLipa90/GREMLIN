@@ -82,7 +82,7 @@ Thus an admission packet cannot contradict an independently observed upstream ch
 
 ## Declared v0.1 mutation registry
 
-The registry contains 24 mutation surfaces.
+The registry contains 25 mutation surfaces.
 
 hive_server.py:
 - gremlin_hive_exchange_ingest
@@ -95,7 +95,7 @@ hive_server.py:
 
 hive_authority_server.py: the same seven surfaces.
 
-server_with_hive.py: the same seven surfaces.
+server_with_hive.py: the same seven Hive surfaces plus gremlin_hive_research_execute.
 
 bestiary_memory_gateway.py:
 - ingest_exchange_envelope_as_beast
@@ -107,7 +107,7 @@ raphael.py:
 Therefore
 
 \[
-7+7+7+2+1=24.
+7+7+8+2+1=25.
 \]
 
 ## Guard-before-mutation theorem
@@ -120,7 +120,7 @@ CI requires
 \boxed{
 \ell_G(f)<\ell_M(f)
 \qquad
-\forall f\in\mathcal R_{24}.
+\forall f\in\mathcal R_{25}.
 }
 \]
 
@@ -201,7 +201,7 @@ constitutional_packet=None fails packet validation. No compatibility fallback co
 ## Scope firewall
 
 v0.1 does not yet prove:
-- that the 24-function registry is exhaustive for every mutation reachable anywhere in the repository;
+- that the 25-function registry is exhaustive for every mutation reachable anywhere in the repository;
 - cryptographic identity of every ethics-gate producer;
 - distributed revocation or expiry of all packets;
 - external IAM;
