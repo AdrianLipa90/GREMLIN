@@ -1,0 +1,19 @@
+{
+  "schema": "GREMLIN_EB_RADIAL_STABILITY_AND_NULLSPACE_V0_10_PROVENANCE",
+  "status": "CANDIDATE_ONLY",
+  "base_repository": "AdrianLipa90/GREMLIN",
+  "base_commit": "2be887f688d69f5b0bef633781ace0599023e3a8",
+  "parent_spec": "spec/GREMLIN_EB_CONDENSATE_ORBITAL_PHASE_BRIDGE_V0_9.md",
+  "derived_relations": [
+    "kappa_r^2=A_G/r^3+(W''+3W'/r)/m_I",
+    "m_I(kappa_r^2-Omega^2)=Delta_3 W",
+    "Delta_3(u0-lambda/r)=0 for r>0",
+    "A_G shift=lambda/m_I for the inverse-radius null mode"
+  ],
+  "firewalls": [
+    "Q_rho/trap/interaction controls remain explicit",
+    "precession cannot identify g_I when Delta_3 Xi_I=0",
+    "no physical metric/gravity promotion"
+  ],
+  "local_replay": "7/7 PASS inside isolated implementation replay before repository write"
+}
