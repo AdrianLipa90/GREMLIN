@@ -10,7 +10,8 @@
     "file_count": 5,
     "surface_count": 25,
     "exhaustiveness_proven": false,
-    "whole_repository_mutation_reachability_proven": false
+    "whole_repository_mutation_reachability_proven": false,
+    "structural_proof": "UNCONDITIONAL_TOP_LEVEL_GUARD_DOMINATES_DECLARED_MUTATION_STATEMENT"
   },
   "claims": {
     "request_bound_action_contract": true,
@@ -19,7 +20,11 @@
     "cross_request_replay_rejected_under_sha256_assumption": true,
     "cross_endpoint_replay_rejected": true,
     "declared_surface_guard_before_mutation_ast_proof": true,
+    "guard_is_unconditional_top_level_statement": true,
+    "endpoint_and_consequence_literal_match_registry": true,
     "bestiary_capability_composed_with_constitution": true,
+    "bestiary_capability_scalar_matches_validated_receipt": true,
+    "raphael_constitution_precedes_mutation_ledger_consume": true,
     "raphael_subordinate_to_constitution": true,
     "canon_allowed": false
   },
@@ -29,5 +34,6 @@
     "distributed packet revocation and expiry",
     "external IAM",
     "canon promotion"
-  ]
+  ],
+  "exact_head_ci_status": "PENDING"
 }
