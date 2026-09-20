@@ -12,6 +12,7 @@ on:
       - 'gremlin_mcp/bestiary_memory_gateway.py'
       - 'gremlin_mcp/raphael.py'
       - 'gremlin_mcp/ferret.py'
+      - 'spec/GREMLIN_FERRET_WEB_ACTUATOR_V0_1.md'
       - 'tools/gremlin_runtime_constitutional_proof_v01.py'
       - 'tests/test_gremlin_constitutional_runtime_v01.py'
       - 'tests/test_gremlin_runtime_constitutional_coverage_v01.py'
