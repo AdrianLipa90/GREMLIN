@@ -4,7 +4,7 @@ ROOT = Path(__file__).resolve().parents[1]
 NATIVE = ROOT / "native"
 FILES = sorted(NATIVE.glob("*.pnv"))
 PROGRAM_FILES = [p for p in FILES if p.read_text().splitlines() and p.read_text().splitlines()[0] == "PNV 1"]
-DECLARATIVE_PNV = {"GREMLIN_ORBITAL_HIVE_MEMORY_V0_1.pnv", "GREMLIN_COGNITIVE_ACTION_PRINCIPLE_V0_1.pnv", "GREMLIN_MATHEMATICAL_CONSTITUTION_V0_1.pnv"}
+DECLARATIVE_PNV = {"GREMLIN_ORBITAL_HIVE_MEMORY_V0_1.pnv", "GREMLIN_COGNITIVE_ACTION_PRINCIPLE_V0_1.pnv", "GREMLIN_MATHEMATICAL_CONSTITUTION_V0_1.pnv", "GREMLIN_RUNTIME_CONSTITUTIONAL_NON_BYPASS_V0_1.pnv"}
 ALLOWED = {"SOURCE","IDENTITY","DIFFERENCE","CONDITION","ORDER","TRANSFORM","COMPOSITION","RETURN"}
 REQUIRED_NATIVE = {
     "BELZEBUB_TOOL_V0_4.pnv",
@@ -211,3 +211,17 @@ def test_mathematical_constitution_native_contract():
     assert "# SILENT_STATE_CHANGE_ALLOWED FALSE" in text
     assert "# RAPHAEL_CAN_OVERRIDE_CONSTITUTION FALSE" in text
     assert "# Python code is deterministic reference/test harness only." in text
+
+
+def test_runtime_constitutional_non_bypass_native_contract():
+    text=(NATIVE/"GREMLIN_RUNTIME_CONSTITUTIONAL_NON_BYPASS_V0_1.pnv").read_text()
+    assert text.startswith("EPISTEMIC CHYBA\n")
+    assert "# CLASS RUNTIME_CONSTITUTIONAL_NON_BYPASS" in text
+    assert "# CANON_ALLOWED FALSE" in text
+    assert "# MISSING_PACKET_ALLOW FALSE" in text
+    assert "# DENY_EXECUTABLE FALSE" in text
+    assert "# DEFER_EXECUTABLE FALSE" in text
+    assert "# DECLARED_MUTATION_SURFACE_COUNT 24" in text
+    assert "# GUARD_BEFORE_MUTATION_REQUIRED TRUE" in text
+    assert "# CONSTITUTIONAL_PACKET_INPUT_REQUIRED TRUE" in text
+    assert "# RAPHAEL_CAN_OVERRIDE_CONSTITUTION FALSE" in text
