@@ -18,7 +18,29 @@
     "raphael_authority_bypass": false
   },
   "validation": {
-    "local_replay": "PENDING",
-    "hosted_ci": "PENDING"
+    "local_algebraic_replay": {
+      "status": "PASS_SCOPED",
+      "residual_norm": 5.551115123125783e-17,
+      "phase_gradient_max_error": 7.307088267793915e-11,
+      "rayleigh_dissipation": 0.15,
+      "energy_rate": -0.3,
+      "boundary": "formula-level independent replay; hosted repository CI is authoritative for exact source integration"
+    },
+    "hosted_ci": {
+      "tested_head": "04852a5b28ab89fb5c52cba7bf341852deb02602",
+      "dedicated": {
+        "run_id": 35499441148,
+        "conclusion": "success",
+        "pytest": "53 passed in 1.02s",
+        "compile": "success"
+      },
+      "fail_loud": {
+        "run_id": 35499441137,
+        "conclusion": "success",
+        "repository_pytest": "success",
+        "standalone_wheel_build": "success",
+        "outside_source_tree_smoke_test": "success"
+      }
+    }
   }
 }
