@@ -4,6 +4,10 @@ from dataclasses import asdict
 from typing import Any, Mapping, Sequence
 
 from .hive_authority import HiveAuthorityRuntime
+from .constitutional_runtime import require_constitutional_admission
+from .mathematical_constitution import PASS
+from .constitutional_runtime import require_constitutional_admission
+from .mathematical_constitution import capability_status_from_memory_receipt
 from .memory_anti_entropy import (
     build_hive_inventory,
     build_hive_manifest,
@@ -298,6 +302,7 @@ def ingest_exchange_envelope_as_beast(
     token: Mapping[str, Any],
     priority: float = 0.82,
     consumer_id: str = "GREMLIN-HIVE",
+    constitutional_packet: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Append one validated RELATIONAL exchange envelope under typed Bestiary write intent."""
     normalized = validate_exchange_envelope(envelope)
@@ -315,6 +320,39 @@ def ingest_exchange_envelope_as_beast(
         generation_id=normalized["generation_id"],
         task_id=task_id,
         token=token,
+    )
+    require_constitutional_admission(
+        endpoint="bestiary_memory_gateway.ingest_exchange_envelope_as_beast",
+        consequence_class="APPEND_ONLY",
+        request_payload={
+            "envelope": normalized,
+            "priority": priority,
+            "consumer_id": consumer_id,
+            "beast": receipt["beast"],
+            "operation": receipt["operation"],
+            "artifact_type": receipt["artifact_type"],
+            "task_id": receipt["task_id"],
+            "capability_receipt_id": receipt["receipt_id"],
+        },
+        constitutional_packet=constitutional_packet,
+        expected_capability_status=capability_status_from_memory_receipt(receipt),
+    )
+    require_constitutional_admission(
+        endpoint="bestiary_memory_gateway.ingest_exchange_envelope_as_beast",
+        consequence_class="APPEND_ONLY",
+        request_payload={
+            "envelope": normalized,
+            "beast": beast,
+            "operation": op,
+            "artifact_type": artifact_type,
+            "task_id": task_id,
+            "capability_receipt_id": receipt["receipt_id"],
+            "token_id": receipt["token_id"],
+            "priority": priority,
+            "consumer_id": consumer_id,
+        },
+        constitutional_packet=constitutional_packet,
+        expected_capability_status=PASS,
     )
     result = ingest_exchange_envelope(
         runtime,
@@ -340,6 +378,7 @@ def ingest_exchange_bundle_as_beast(
     token: Mapping[str, Any],
     priority: float = 0.82,
     consumer_id: str = "GREMLIN-HIVE",
+    constitutional_packet: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Append one lineage-verified RELATIONAL exchange target under typed Bestiary intent."""
     normalized = validate_exchange_bundle(bundle)
@@ -359,9 +398,25 @@ def ingest_exchange_bundle_as_beast(
         task_id=task_id,
         token=token,
     )
+    require_constitutional_admission(
+        endpoint="bestiary_memory_gateway.ingest_exchange_bundle_as_beast",
+        consequence_class="APPEND_ONLY",
+        request_payload={
+            "bundle": normalized,
+            "priority": priority,
+            "consumer_id": consumer_id,
+            "beast": receipt["beast"],
+            "operation": receipt["operation"],
+            "artifact_type": receipt["artifact_type"],
+            "task_id": receipt["task_id"],
+            "capability_receipt_id": receipt["receipt_id"],
+        },
+        constitutional_packet=constitutional_packet,
+        expected_capability_status=capability_status_from_memory_receipt(receipt),
+    )
     result = ingest_exchange_bundle(
         runtime,
-        bundle,
+        normalized,
         priority=priority,
         consumer_id=consumer_id,
     )
