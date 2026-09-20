@@ -45,6 +45,16 @@ HIGH_CONSEQUENCE_CLASSES = frozenset({"APPEND_ONLY", "MUTATION", "GOVERNANCE"})
 
 PARAMETER_SOURCE_CLASSES = frozenset({"DERIVED", "MEASURED", "POLICY", "UNKNOWN"})
 PARAMETER_BINDING_STATES = frozenset({"BOUND", "UNBOUND", "OPEN"})
+GATE_SOURCE_CLASSES = frozenset({
+    "LIVE_NOEMA_WITNESS",
+    "EXTERNAL_OBSERVATION",
+    "CIEL_IMPLEMENTATION_DONOR",
+    "NOEMA_IMPLEMENTATION_DONOR",
+    "STATIC_REFERENCE",
+    "TEST_FIXTURE",
+    "DERIVED_CONSTITUTIONAL",
+    "POLICY",
+})
 
 GATE_SCHEMA = "GREMLIN_CONSTITUTIONAL_GATE_RECEIPT_V0_1"
 PARAMETER_SCHEMA = "GREMLIN_CONSTITUTIONAL_PARAMETER_V0_1"
@@ -283,6 +293,8 @@ def build_gate_receipt(
     gate: str,
     status: int,
     relation_ids: Sequence[str],
+    subject_refs: Sequence[str],
+    source_classification: str,
     source_ref: str,
     evidence_refs: Sequence[str],
     reason: str,
@@ -292,13 +304,25 @@ def build_gate_receipt(
         raise ConstitutionalError(f"unknown ethics gate: {gate_name}")
     code = _lattice(status, "status")
     relations = _unique_text(relation_ids, "relation_id")
+    subjects = _unique_text(subject_refs, "subject_ref")
     evidence = _unique_text(evidence_refs, "evidence_ref")
+    source_class = _upper(source_classification, "source_classification")
+    if not relations:
+        raise ConstitutionalError("constitutional gate receipt requires relation lineage")
+    if not evidence:
+        raise ConstitutionalError("constitutional gate receipt requires evidence lineage")
+    if gate_name in {"CONSENT", "AGENCY_PROTECTION"} and not subjects:
+        raise ConstitutionalError(f"{gate_name} requires affected subject lineage")
+    if source_class not in GATE_SOURCE_CLASSES:
+        raise ConstitutionalError("unsupported constitutional gate source classification")
     core = {
         "schema": GATE_SCHEMA,
         "version": VERSION,
         "gate": gate_name,
         "status": code,
         "relation_ids": list(relations),
+        "subject_refs": list(subjects),
+        "source_classification": source_class,
         "source_ref": _text(source_ref, "source_ref"),
         "evidence_refs": list(evidence),
         "reason": _text(reason, "reason"),
@@ -321,11 +345,19 @@ def validate_gate_receipt(packet: Mapping[str, Any]) -> dict[str, Any]:
         raise ConstitutionalError("unknown constitutional gate")
     _lattice(core.get("status"), "status")
     relations = core.get("relation_ids")
+    subjects = core.get("subject_refs")
     evidence = core.get("evidence_refs")
-    if not isinstance(relations, list) or tuple(relations) != _unique_text(relations, "relation_id"):
-        raise ConstitutionalError("gate relation_ids must be canonical and unique")
-    if not isinstance(evidence, list) or tuple(evidence) != _unique_text(evidence, "evidence_ref"):
-        raise ConstitutionalError("gate evidence_refs must be canonical and unique")
+    if not isinstance(relations, list) or tuple(relations) != _unique_text(relations, "relation_id") or not relations:
+        raise ConstitutionalError("gate relation_ids must be canonical, unique and non-empty")
+    if not isinstance(subjects, list) or tuple(subjects) != _unique_text(subjects, "subject_ref"):
+        raise ConstitutionalError("gate subject_refs must be canonical and unique")
+    if gate in {"CONSENT", "AGENCY_PROTECTION"} and not subjects:
+        raise ConstitutionalError(f"{gate} requires affected subject lineage")
+    if not isinstance(evidence, list) or tuple(evidence) != _unique_text(evidence, "evidence_ref") or not evidence:
+        raise ConstitutionalError("gate evidence_refs must be canonical, unique and non-empty")
+    source_class = _upper(core.get("source_classification"), "source_classification")
+    if source_class not in GATE_SOURCE_CLASSES:
+        raise ConstitutionalError("unsupported constitutional gate source classification")
     for key in ("source_ref", "reason"):
         _text(core.get(key), key)
     if core.get("hard_gate") is not True:
@@ -348,6 +380,38 @@ def radical_gate_status(role: str, status: str) -> tuple[str, int]:
         return RADICAL_GATE_MAP[key]
     except KeyError as exc:
         raise ConstitutionalError("unsupported Radical ethics gate status") from exc
+
+
+def constitutional_gate_from_radical_receipt(
+    packet: Mapping[str, Any],
+) -> dict[str, Any]:
+    from tools.gremlin_radical_ethics_acquisition_v01 import (
+        validate_gate_receipt as validate_radical_gate_receipt,
+    )
+
+    try:
+        validate_radical_gate_receipt(packet)
+    except (TypeError, ValueError) as exc:
+        raise ConstitutionalError("invalid Radical ethics gate receipt") from exc
+
+    gate, status = radical_gate_status(
+        str(packet["gate_role"]),
+        str(packet["status"]),
+    )
+    evidence = packet.get("evidence_refs")
+    if not isinstance(evidence, list) or not evidence:
+        raise ConstitutionalError("Radical gate requires evidence lineage for constitutional promotion")
+    reason = _text(packet.get("reason"), "reason")
+    return build_gate_receipt(
+        gate=gate,
+        status=status,
+        relation_ids=packet["relation_ids"],
+        subject_refs=packet["subject_refs"],
+        source_classification=str(packet["source_classification"]),
+        source_ref=f"radical-receipt:{packet['receipt_id']}",
+        evidence_refs=evidence,
+        reason=reason,
+    )
 
 
 def capability_status_from_memory_receipt(packet: Mapping[str, Any]) -> int:
@@ -787,6 +851,7 @@ __all__ = [
     "EPISTEMIC",
     "ETHICS_GATES",
     "GATE_SCHEMA",
+    "GATE_SOURCE_CLASSES",
     "HIGH_CONSEQUENCE_CLASSES",
     "LEDGER_EVENT_SCHEMA",
     "LATTICE",
@@ -804,6 +869,7 @@ __all__ = [
     "canonical_kappa_record",
     "capability_status_from_memory_receipt",
     "certify_transition",
+    "constitutional_gate_from_radical_receipt",
     "constitutional_manifest",
     "decision_from_scalar",
     "evaluate_admission",
