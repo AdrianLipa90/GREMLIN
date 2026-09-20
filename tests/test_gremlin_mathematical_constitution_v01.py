@@ -1,8 +1,12 @@
 from __future__ import annotations
 
 import copy
+import hashlib
+import json
 
 import pytest
+
+from gremlin_mcp.memory_capabilities import evaluate_access, issue_capability_token
 
 from gremlin_mcp.mathematical_constitution import (
     BLOCK,
@@ -33,6 +37,17 @@ from gremlin_mcp.mathematical_constitution import (
     validate_gate_receipt,
     validate_parameter_record,
 )
+
+
+def _content_hash(value: dict) -> str:
+    raw = json.dumps(
+        value,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+        allow_nan=False,
+    ).encode("utf-8")
+    return hashlib.sha256(raw).hexdigest()
 
 
 def _gate(gate: str, status: int = PASS) -> dict:
@@ -152,7 +167,10 @@ def test_admission_receipt_cannot_hide_a_required_gate() -> None:
     tampered = copy.deepcopy(receipt)
     tampered["required_ethics_gates"].remove("NO_GO")
     tampered["required_gate_state"].pop("NO_GO")
-    with pytest.raises(ConstitutionalError):
+    core = dict(tampered)
+    core.pop("receipt_id")
+    tampered["receipt_id"] = "car:" + _content_hash(core)
+    with pytest.raises(ConstitutionalError, match="consequence class"):
         validate_admission_receipt(tampered)
 
 
@@ -168,26 +186,43 @@ def test_radical_gate_adapter_is_exact_and_unweighted() -> None:
     assert radical_gate_status("no_go", "HIT") == ("NO_GO", BLOCK)
 
 
-def test_memory_capability_receipt_adapter_preserves_deny_by_default() -> None:
-    allow = {
-        "schema": "BESTIARY_MEMORY_ACCESS_RECEIPT_V0_1",
-        "decision": "ALLOW",
-        "claims": {
-            "deny_by_default": True,
-            "decision_is_auditable": True,
-        },
-    }
-    deny = {
-        **allow,
-        "decision": "DENY",
-    }
+def test_memory_capability_receipt_adapter_validates_full_receipt() -> None:
+    token = issue_capability_token(
+        beast="SPIDER",
+        layer="RELATIONAL",
+        operation="GRAPH_APPEND",
+        artifact_type="RELATION_EDGE",
+        subject_scope="subject:1",
+        generation_scope="generation:1",
+        task_scope="task:1",
+    )
+    allow = evaluate_access(
+        beast="SPIDER",
+        layer="RELATIONAL",
+        operation="GRAPH_APPEND",
+        artifact_type="RELATION_EDGE",
+        subject_id="subject:1",
+        generation_id="generation:1",
+        task_id="task:1",
+        token=token,
+    )
+    deny = evaluate_access(
+        beast="SPIDER",
+        layer="RELATIONAL",
+        operation="DELETE",
+        artifact_type="RELATION_EDGE",
+        subject_id="subject:1",
+        generation_id="generation:1",
+        task_id="task:1",
+        token=None,
+    )
     assert capability_status_from_memory_receipt(allow) == PASS
     assert capability_status_from_memory_receipt(deny) == BLOCK
 
-    weakened = copy.deepcopy(allow)
-    weakened["claims"]["deny_by_default"] = False
-    with pytest.raises(ConstitutionalError):
-        capability_status_from_memory_receipt(weakened)
+    forged = copy.deepcopy(deny)
+    forged["decision"] = "ALLOW"
+    with pytest.raises(ConstitutionalError, match="invalid Bestiary"):
+        capability_status_from_memory_receipt(forged)
 
 
 def test_parameter_provenance_classes_are_explicit() -> None:
