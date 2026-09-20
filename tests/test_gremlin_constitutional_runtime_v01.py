@@ -177,3 +177,28 @@ def test_missing_runtime_constitutional_packet_fails_closed() -> None:
             request_payload={"subject_id": "x"},
             constitutional_packet=None,
         )
+
+
+def test_expected_status_validation_preserves_runtime_binding() -> None:
+    payload = {"subject_id": "status-bound", "priority": 0.82}
+    packet = _packet(
+        endpoint="gremlin_hive_place",
+        consequence_class="APPEND_ONLY",
+        payload=payload,
+        capability=PASS,
+        authority=PASS,
+        evidence=PASS,
+    )
+    receipt = require_constitutional_admission(
+        endpoint="gremlin_hive_place",
+        consequence_class="APPEND_ONLY",
+        request_payload=payload,
+        constitutional_packet=packet,
+        expected_capability_status=PASS,
+        expected_authority_status=PASS,
+        expected_evidence_status=PASS,
+    )
+    assert receipt["status"] == "ADMITTED"
+    assert receipt["endpoint"] == "gremlin_hive_place"
+    assert len(receipt["request_sha256"]) == 64
+    assert len(receipt["action_sha256"]) == 64
