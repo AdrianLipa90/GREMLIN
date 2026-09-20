@@ -224,7 +224,7 @@ def test_runtime_constitutional_non_bypass_native_contract():
     assert "# MISSING_PACKET_ALLOW FALSE" in text
     assert "# DENY_EXECUTABLE FALSE" in text
     assert "# DEFER_EXECUTABLE FALSE" in text
-    assert "# DECLARED_MUTATION_SURFACE_COUNT 24" in text
+    assert "# DECLARED_MUTATION_SURFACE_COUNT 25" in text
     assert "# GUARD_BEFORE_MUTATION_REQUIRED TRUE" in text
     assert "# CONSTITUTIONAL_PACKET_INPUT_REQUIRED TRUE" in text
     assert "# RAPHAEL_CAN_OVERRIDE_CONSTITUTION FALSE" in text
