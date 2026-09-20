@@ -5,6 +5,16 @@ import hashlib
 
 import pytest
 
+from gremlin_mcp.constitutional_runtime import (
+    build_runtime_action_binding,
+    build_runtime_constitutional_packet,
+)
+from gremlin_mcp.mathematical_constitution import (
+    ETHICS_GATES,
+    PASS,
+    build_gate_receipt,
+    evaluate_admission,
+)
 from gremlin_mcp.raphael import (
     ACCEPT,
     DEFER,
@@ -75,6 +85,50 @@ def _admission_probe(
         "tether_status": tether_status,
         "gremlin_attestation": _attestation(generation),
     }
+
+
+def _constitutional_packet(decree: dict, auth: dict) -> dict:
+    payload = {
+        "decree_commitment": decree["decree_commitment"],
+        "authorization_commitment": auth["authorization_commitment"],
+        "target_repository": decree["target_repository"],
+        "target_branch": decree["target_branch"],
+        "target_sha": decree["target_sha"],
+        "scope_commitment": decree["scope_commitment"],
+        "actor": auth["actor"],
+        "gate_receipt": auth["gate_receipt"],
+        "generation": auth["generation"],
+        "gremlin_attestation_commitment": auth["gremlin_attestation_commitment"],
+    }
+    binding = build_runtime_action_binding(
+        endpoint="raphael.execute",
+        consequence_class="MUTATION",
+        request_payload=payload,
+    )
+    gates = [
+        build_gate_receipt(
+            gate=gate,
+            status=PASS,
+            relation_ids=("raphael:test:relation",),
+            subject_refs=("raphael:test:subject",),
+            source_classification="TEST_FIXTURE",
+            source_ref=f"raphael:test:{gate.lower()}",
+            evidence_refs=(f"raphael:test:evidence:{gate.lower()}",),
+            reason="RAPHAEL constitutional test fixture",
+        )
+        for gate in ETHICS_GATES
+    ]
+    admission = evaluate_admission(
+        action=binding["action_contract"],
+        gate_receipts=gates,
+        capability_status=PASS,
+        authority_status=PASS,
+        evidence_status=PASS,
+    )
+    return build_runtime_constitutional_packet(
+        action_binding=binding,
+        admission_receipt=admission,
+    )
 
 
 def _observation():
@@ -316,6 +370,7 @@ def test_hand_executes_exact_scope_then_expires_mutation_authority():
         backend=backend,
         ledger=InMemoryMutationLedger(),
         admission_probe=_admission_probe(),
+        constitutional_packet=_constitutional_packet(decree, auth),
         test_runner=lambda name: name == "pytest:raphael",
         postcondition_checker=lambda condition: condition
         == "authority.canon_allowed=false",
@@ -342,6 +397,7 @@ def test_live_admission_generation_drift_aborts_and_burns_authorization():
             backend=backend,
             ledger=ledger,
             admission_probe=_admission_probe("other-generation"),
+            constitutional_packet=_constitutional_packet(decree, auth),
             test_runner=lambda _: True,
             postcondition_checker=lambda _: True,
         )
@@ -356,6 +412,7 @@ def test_live_admission_generation_drift_aborts_and_burns_authorization():
             backend=backend,
             ledger=ledger,
             admission_probe=_admission_probe(),
+            constitutional_packet=_constitutional_packet(decree, auth),
             test_runner=lambda _: True,
             postcondition_checker=lambda _: True,
         )
@@ -374,6 +431,7 @@ def test_state_drift_before_hand_is_fail_loud_and_burns_stale_authorization():
             backend=backend,
             ledger=ledger,
             admission_probe=_admission_probe(),
+            constitutional_packet=_constitutional_packet(decree, auth),
             test_runner=lambda _: True,
             postcondition_checker=lambda _: True,
         )
@@ -390,6 +448,7 @@ def test_state_drift_before_hand_is_fail_loud_and_burns_stale_authorization():
             backend=backend,
             ledger=ledger,
             admission_probe=_admission_probe(),
+            constitutional_packet=_constitutional_packet(decree, auth),
             test_runner=lambda _: True,
             postcondition_checker=lambda _: True,
         )
@@ -407,6 +466,7 @@ def test_invalid_reservation_scope_quarantines_without_mutation():
             backend=backend,
             ledger=InMemoryMutationLedger(),
             admission_probe=_admission_probe(),
+            constitutional_packet=_constitutional_packet(decree, auth),
             test_runner=lambda _: True,
             postcondition_checker=lambda _: True,
         )
@@ -428,6 +488,7 @@ def test_bad_operation_receipt_rolls_back():
             backend=backend,
             ledger=InMemoryMutationLedger(),
             admission_probe=_admission_probe(),
+            constitutional_packet=_constitutional_packet(decree, auth),
             test_runner=lambda _: True,
             postcondition_checker=lambda _: True,
         )
@@ -448,6 +509,7 @@ def test_nonfinite_backend_receipt_rolls_back_before_lineage_commit():
             backend=backend,
             ledger=InMemoryMutationLedger(),
             admission_probe=_admission_probe(),
+            constitutional_packet=_constitutional_packet(decree, auth),
             test_runner=lambda _: True,
             postcondition_checker=lambda _: True,
         )
@@ -467,6 +529,7 @@ def test_failed_post_audit_rolls_back_and_emits_committed_failure_receipt():
             backend=backend,
             ledger=InMemoryMutationLedger(),
             admission_probe=_admission_probe(),
+            constitutional_packet=_constitutional_packet(decree, auth),
             test_runner=lambda _: False,
             postcondition_checker=lambda _: True,
         )
@@ -500,6 +563,7 @@ def test_cancelled_decree_cannot_execute():
             backend=FakeBackend(),
             ledger=ledger,
             admission_probe=_admission_probe(),
+            constitutional_packet=_constitutional_packet(decree, auth),
             test_runner=lambda _: True,
             postcondition_checker=lambda _: True,
         )
@@ -515,6 +579,7 @@ def test_decree_and_authorization_are_single_use():
         backend=FakeBackend(),
         ledger=ledger,
         admission_probe=_admission_probe(),
+        constitutional_packet=_constitutional_packet(decree, auth),
         test_runner=lambda _: True,
         postcondition_checker=lambda _: True,
     )
@@ -526,6 +591,7 @@ def test_decree_and_authorization_are_single_use():
             backend=FakeBackend(),
             ledger=ledger,
             admission_probe=_admission_probe(),
+            constitutional_packet=_constitutional_packet(decree, auth),
             test_runner=lambda _: True,
             postcondition_checker=lambda _: True,
         )
@@ -569,6 +635,7 @@ def test_string_fail_is_not_truthy_test_pass():
             backend=backend,
             ledger=InMemoryMutationLedger(),
             admission_probe=_admission_probe(),
+            constitutional_packet=_constitutional_packet(decree, auth),
             test_runner=lambda _: "FAIL",
             postcondition_checker=lambda _: True,
         )
@@ -587,6 +654,7 @@ def test_consumed_decree_cannot_be_cancelled_after_mutation():
         backend=FakeBackend(),
         ledger=ledger,
         admission_probe=_admission_probe(),
+        constitutional_packet=_constitutional_packet(decree, auth),
         test_runner=lambda _: True,
         postcondition_checker=lambda _: True,
     )
@@ -607,3 +675,33 @@ def test_raphael_cannot_self_authorize():
             tether_status="ACTIVE",
             gremlin_attestation=_attestation(),
         )
+
+
+def test_missing_constitutional_packet_rejects_before_consuming_authorization():
+    decree = _decree()
+    auth = _authorization(decree)
+    ledger = InMemoryMutationLedger()
+    backend = FakeBackend()
+
+    with pytest.raises(PermissionError, match="constitutional_packet"):
+        execute(
+            decree,
+            auth,
+            backend=backend,
+            ledger=ledger,
+            admission_probe=_admission_probe(),
+            test_runner=lambda _: True,
+            postcondition_checker=lambda _: True,
+        )
+
+    receipt = execute(
+        decree,
+        auth,
+        backend=backend,
+        ledger=ledger,
+        admission_probe=_admission_probe(),
+        constitutional_packet=_constitutional_packet(decree, auth),
+        test_runner=lambda _: True,
+        postcondition_checker=lambda _: True,
+    )
+    assert receipt["status"] == "PASS"
