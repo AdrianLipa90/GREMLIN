@@ -355,15 +355,29 @@ def gremlin_hive_research_execute(
     limit_per_provider: int = 6,
     max_species: int = 4,
     max_sources: int = 12,
+    constitutional_packet: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Execute GREMLIN research and atomically project candidate outputs into Hive.
 
     This path never sets closure gates and never latches automatically. Commitment-derived
     phases are deterministic reference addresses only and carry no physical interpretation.
     """
+    effective_providers = providers or ["crossref", "arxiv", "duckduckgo"]
+    require_constitutional_admission(
+        endpoint="gremlin_hive_research_execute",
+        consequence_class="APPEND_ONLY",
+        request_payload={
+            "query": query,
+            "providers": effective_providers,
+            "limit_per_provider": limit_per_provider,
+            "max_species": max_species,
+            "max_sources": max_sources,
+        },
+        constitutional_packet=constitutional_packet,
+    )
     result = execute_research(
         query,
-        providers=providers or ["crossref", "arxiv", "duckduckgo"],
+        providers=effective_providers,
         limit_per_provider=limit_per_provider,
         max_species=max_species,
         max_sources=max_sources,
