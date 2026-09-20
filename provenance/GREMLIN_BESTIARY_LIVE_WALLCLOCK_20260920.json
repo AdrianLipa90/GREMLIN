@@ -1,0 +1,68 @@
+{
+  "schema": "GREMLIN_BESTIARY_LIVE_WALLCLOCK_V0_2",
+  "validation_scope": "LIVE_SAME_RUNTIME_GENERATION_CPU_REPLAY",
+  "surface": "/dev/shm/ciel_noema",
+  "items": 1000,
+  "seed": 616,
+  "workers": 5,
+  "frozen_raw_sha256": "faeeb127f959a18758604ed5e25eb44551303681e0f7312d4229cdeecc8dce7a",
+  "legacy_monolithic_serial": {
+    "wall_s": 3.800875265999821,
+    "items_per_s": 263.09729470613127,
+    "cpu_s": 3.7981570000000007,
+    "peak_rss_kib": 95664,
+    "p50_e2e_latency_ms": 1916.8276865002554,
+    "p95_e2e_latency_ms": 3613.911215999906,
+    "max_queue_depth": 1,
+    "workers": 1
+  },
+  "resource_matched_generalist": {
+    "wall_s": 1.3177287729995442,
+    "items_per_s": 758.8815092226463,
+    "cpu_s": 5.167477,
+    "peak_rss_kib": 98992,
+    "p50_e2e_latency_ms": 658.304081499864,
+    "p95_e2e_latency_ms": 1246.7641849998472,
+    "max_queue_depth": 1000,
+    "workers": 5
+  },
+  "bestiary": {
+    "wall_s": 0.7915668040004675,
+    "items_per_s": 1263.3172524999031,
+    "cpu_s": 2.9123,
+    "peak_rss_kib": 100144,
+    "p50_e2e_latency_ms": 423.6879860004592,
+    "p95_e2e_latency_ms": 738.9286280003944,
+    "max_queue_depth": 1000,
+    "workers": 5
+  },
+  "speedup_vs_legacy_serial": 4.801711298137732,
+  "speedup_vs_resource_matched_generalist": 1.6647094930458528,
+  "candidate_threshold": 10,
+  "candidate": false,
+  "integrity": {
+    "input_items": 1000,
+    "unique_input_ids": 1000,
+    "duplicate_input_ids": 0,
+    "dropped_by_path": [
+      0,
+      0,
+      0
+    ],
+    "output_equivalence_mismatches": 0,
+    "lineage_integrity": "PASS",
+    "output_equivalence": "PASS"
+  },
+  "cpu_count_visible": 5,
+  "note": "resource-matched comparison isolates routing/specialization from extra worker parallelism",
+  "receipt_sha256": "b4188d8657ce9fa6af472d920fb0cd1242ebc0047034e7db7280161a3fbc9ba7",
+  "execution_provenance": {
+    "date": "2026-09-20",
+    "noema_tether_status": "ACTIVE",
+    "source_path": "tools/gremlin_bestiary_live_bench_v02.py",
+    "source_blob_sha": "e78ffd8ded532091adef7b7e4c968a4aa090b53f",
+    "execution_surface": "/dev/shm/ciel_noema",
+    "result_status": "MEASURED_NEGATIVE_CANDIDATE_GATE_WITH_INTEGRITY_PASS",
+    "threshold_interpretation": "historical_candidate_threshold_preserved_not_relaxed"
+  }
+}
