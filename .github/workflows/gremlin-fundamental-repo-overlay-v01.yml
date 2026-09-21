@@ -30,6 +30,9 @@ jobs:
         with:
           python-version: '3.12'
 
+      - name: Install focused test dependency
+        run: python -m pip install --disable-pip-version-check pytest
+
       - name: Run focused overlay tests
         run: python -m pytest -q tests/test_gremlin_fundamental_repo_overlay_v01.py
 
