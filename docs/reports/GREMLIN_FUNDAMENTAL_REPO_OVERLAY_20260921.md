@@ -868,3 +868,64 @@ VERDICT:
 This is the first concrete validation of the intended architecture: GREMLIN
 localizes the shared structure and its firewall; Lean accepts exactly the
 mathematical core without requiring the forbidden semantic promotion.
+
+
+## 17. First Lean arbitration results
+
+The first two GREMLIN-selected seams have now been checked in the source
+repositories with Lean 4 proof gates rather than only Python/graph validation.
+
+### FSI.05 countable-history seam
+
+Infinities draft PR #2 and IDT draft PR #103 are GREEN on their Lean proof
+gates. The admitted theorem scope is deliberately narrow:
+
+```text
+n -> n+k is injective
+n -> n+k preserves order
+0,...,k-1 are outside the shifted image
+append-only finite IDT history preserves the complete previous prefix
+```
+
+This confirms the exact countable-successor structure predicted by GREMLIN.
+It does **not** identify IDT with a Hilbert space and does not import the
+Fredholm index as a physical clock observable.
+
+### FSI.01 affine SE(3) crosswalk
+
+TIR draft PR #175 and RFC draft PR #168 are GREEN on their Lean proof gates.
+
+Lean verifies that under the explicit symbol convention
+
+[
+R_{ba}leftrightarrow A_{qp},qquad
+t_{ba}leftrightarrow t_{qp},
+]
+
+the two source coordinate laws reduce to the same typed composition formula and
+the same inverse-coordinate formula.
+
+This closes the **formal crosswalk** only. Production overlap data,
+continuum curvature/torsion binding and physical spacetime realization remain
+separate source gates.
+
+### Interpretation
+
+GREMLIN and Lean agree on the first two tested seams:
+
+```text
+GREMLIN structural seam detected
+        |
+        v
+PNCS candidate compiles
+        |
+        v
+Lean source theorem PASS
+```
+
+No hidden axiom was required for either crosswalk. This is evidence that the
+graph is locating real formal correspondences rather than merely lexical
+similarities.
+
+Next formal targets remain FSI.04 Collatz block/phase, then FSI.02 cocycle
+spine and FSI.03 quotient/invariant spine.
