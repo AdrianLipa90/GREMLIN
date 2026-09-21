@@ -1083,3 +1083,75 @@ FSI.05  PASS
 FSI.02  next
 FSI.03  next
 ```
+
+
+## 18. FSI.04 Collatz block/phase arbitration
+
+FSI.04 has now passed source-level Lean gates on both sides of the crosswalk.
+
+Infinities proves the local conditional arithmetic statement: if
+
+[
+3n+1=u,2^a,
+]
+
+then the accelerated odd branch
+
+[
+rac{3n+1}{2^a}
+]
+
+returns (u), and the explicit odd/even branch word has length (a+1).
+
+IDT independently proves the lifted doubling iteration
+
+[
+D^k(q)=2^k q,
+]
+
+hence for the same block length,
+
+[
+D^{a+1}(q)=2^{a+1}q.
+]
+
+The projective/modular quotient remains a source-level operation rather than
+being smuggled into the arithmetic theorem.
+
+CI status:
+
+```text
+Infinities Lean proof gate          PASS
+Infinities source validation        PASS
+IDT Lean proof gate                 PASS
+IDT reference suite                 PASS
+IDT 05J production-event contract  PASS
+```
+
+Therefore the exact local seam
+
+```text
+accelerated odd Collatz block
+        |
+        v
+unreduced branch length a+1
+        |
+        v
+a+1 applications of phase doubling
+```
+
+is now Lean-checked.
+
+This does not prove the Collatz conjecture and does not bind iteration count to
+physical elapsed time.
+
+The first three GREMLIN-selected formal seams tested by Lean are now:
+
+```text
+FSI.01  PASS
+FSI.04  PASS
+FSI.05  PASS
+```
+
+The remaining shared structural targets are FSI.02 cocycle/gluing and FSI.03
+representation-quotient/invariant.
