@@ -1155,3 +1155,73 @@ FSI.05  PASS
 
 The remaining shared structural targets are FSI.02 cocycle/gluing and FSI.03
 representation-quotient/invariant.
+
+
+## 19. FSI.02 cocycle/gluing arbitration
+
+The common local-to-global cocycle direction now passes Lean independently in
+TIR, IDT and RFC.
+
+Each source branch checks the same algebra-explicit theorem. For an abstract
+transition algebra with multiplication, inversion and identity laws, define
+
+[
+g_{ba}=p_b,p_a^{-1}.
+]
+
+Then Lean verifies
+
+[
+g_{aa}=e
+]
+
+and
+
+[
+oxed{g_{cb},g_{ba}=g_{ca}}.
+]
+
+The proof is intentionally group-generic and carries no physical
+identification of the three source domains. It captures only the common
+potentialized-transition/cocycle structure.
+
+CI:
+
+```text
+TIR Lean gate   PASS
+IDT Lean gate   PASS
+RFC Lean gate   PASS
+```
+
+What this closes:
+
+```text
+global potential / frame assignment
+ -> local transitions
+ -> exact triple-overlap composition
+ -> identity self-loop
+```
+
+What remains separate:
+
+```text
+cocycle -> global potential on arbitrary topology
+production atlas
+interleaf physical matching
+physical identification of clock, SE(3), Lorentz groups
+```
+
+Thus FSI.02 is validated in its declared structural direction without
+collapsing the distinct source types.
+
+Current Lean-confirmed PNCS seams:
+
+```text
+FSI.01  PASS
+FSI.02  PASS
+FSI.04  PASS
+FSI.05  PASS
+```
+
+FSI.03 representation-quotient/invariant is now the remaining shared formal
+seam in the first GREMLIN batch.
