@@ -1,0 +1,164 @@
+{
+  "schema": "GREMLIN_FUNDAMENTAL_CANDIDATE_OVERLAY_V0_1",
+  "authority": "CANDIDATE_ONLY",
+  "canon_allowed": false,
+  "date": "2026-09-21",
+  "source_heads": {
+    "Infinities": "c1ad8376f9dd4c2daf2c4ea0bf61568d718fd794",
+    "SOH": "41772776dadf837c7a2f8b095b752e586d85c5dc",
+    "MRIF": "ffcd6a31c41ec937882d3d56d08f8ddb9adb0633",
+    "QHTRI": "c59f84ff38084d34d7b6c4a6ec8fcd4b9b75d152"
+  },
+  "nodes": [
+    {
+      "claim_id": "CROSS.REPRESENTATION_QUOTIENT_CONTRACT",
+      "repository": "CROSS_STACK",
+      "status": "CANDIDATE_META_CONTRACT / LOCAL_INSTANCES_PRESENT / CROSS_STACK_EQUIVALENCE_OPEN"
+    },
+    {
+      "claim_id": "CROSS.SLICE_GLUE_COCYCLE_CONTRACT",
+      "repository": "CROSS_STACK",
+      "status": "CANDIDATE_META_CONTRACT / COCYCLE_ALIGNMENT_OPEN / PHYSICAL_SOLDERING_SEPARATE"
+    },
+    {
+      "claim_id": "CROSS.COUNTABLE_HISTORY_CARRIER",
+      "repository": "CROSS_STACK",
+      "status": "CANDIDATE_INTERFACE / COUNTABLE_HISTORY_BINDING_OPEN"
+    },
+    {
+      "claim_id": "INF.HILBERT.SHIFT",
+      "repository": "INFINITIES",
+      "status": "EXACT_IN_SOURCE / FPDG_INTEGRATION_CANDIDATE"
+    },
+    {
+      "claim_id": "INF.COLLATZ.OPERATOR",
+      "repository": "INFINITIES",
+      "status": "EXACT_OPERATOR_ENCODING / COLLATZ_CONJECTURE_NOT_CLAIMED / CROSSWALK_CANDIDATE"
+    },
+    {
+      "claim_id": "INF.RECIPROCAL.INVERSION",
+      "repository": "INFINITIES",
+      "status": "EXACT_GEOMETRIC_COMPARISON / RH_PROOF_NOT_CLAIMED / CROSSWALK_CANDIDATE"
+    },
+    {
+      "claim_id": "INF.SPECTRAL.NUMBER_OPERATOR",
+      "repository": "INFINITIES",
+      "status": "EXACT_RE_S_GT_1_TRACE_IDENTITY / ANALYTIC_CONTINUATION_BINDING_OPEN"
+    },
+    {
+      "claim_id": "SOH.RECIPROCAL_CONJUGATION.ORBIT_GEOMETRY",
+      "repository": "SOH",
+      "status": "EXACT_IN_SOURCE / RH_EQUIVALENT_POINTWISE_COLLAPSE_OPEN / FPDG_COVERAGE_CANDIDATE"
+    },
+    {
+      "claim_id": "MRIF.W_SEMANTIC.U1_HOLONOMY_FIREWALL",
+      "repository": "MRIF",
+      "status": "APPEND_ONLY_CROSSWALK / CHYBA / SEMANTIC_ONLY / PHYSICAL_IDENTIFICATION_FORBIDDEN"
+    },
+    {
+      "claim_id": "QHTRI.FLAVOUR.HOLONOMIC_POTENTIAL_MODEL",
+      "repository": "QHTRI",
+      "status": "DERIVED_IN_MODEL / MATHEMATICAL_CARRIER / PHYSICAL_COUPLING_OPEN"
+    },
+    {
+      "claim_id": "QHTRI.PHYSICAL.HNUQ",
+      "repository": "QHTRI",
+      "status": "PHYSICAL_HYPOTHESIS / OPEN / INDEPENDENT_MEASUREMENT_REQUIRED"
+    }
+  ],
+  "edges": [
+    {
+      "from": "TIR.HOLONOMY.WIJ",
+      "to": "CROSS.REPRESENTATION_QUOTIENT_CONTRACT",
+      "relation": "LOCAL_INSTANCE_EVIDENCE"
+    },
+    {
+      "from": "IDT.NOETHER.GAUGE_COVARIANT_SOURCE",
+      "to": "CROSS.REPRESENTATION_QUOTIENT_CONTRACT",
+      "relation": "LOCAL_INSTANCE_EVIDENCE"
+    },
+    {
+      "from": "RFC.F1.GAUGE_RELATIONAL_PHASE",
+      "to": "CROSS.REPRESENTATION_QUOTIENT_CONTRACT",
+      "relation": "LOCAL_INSTANCE_EVIDENCE"
+    },
+    {
+      "from": "RFC.GSC3B.RELATIONAL_EVENT_PLACEMENT",
+      "to": "CROSS.REPRESENTATION_QUOTIENT_CONTRACT",
+      "relation": "LOCAL_INSTANCE_EVIDENCE"
+    },
+    {
+      "from": "MRIF.W_SEMANTIC.U1_HOLONOMY_FIREWALL",
+      "to": "CROSS.REPRESENTATION_QUOTIENT_CONTRACT",
+      "relation": "TYPE_FIREWALL_EXAMPLE_ONLY"
+    },
+    {
+      "from": "CROSS.REPRESENTATION_QUOTIENT_CONTRACT",
+      "to": "CROSS.SLICE_GLUE_COCYCLE_CONTRACT",
+      "relation": "REQUIRED_META_PREMISE"
+    },
+    {
+      "from": "IDT.CLOCK.GLOBAL_COCYCLE_05E",
+      "to": "CROSS.SLICE_GLUE_COCYCLE_CONTRACT",
+      "relation": "TEMPORAL_COCYCLE_INSTANCE"
+    },
+    {
+      "from": "RFC.E25.SHARED_SPACETIME_ATLAS",
+      "to": "CROSS.SLICE_GLUE_COCYCLE_CONTRACT",
+      "relation": "SPACETIME_OVERLAP_INSTANCE"
+    },
+    {
+      "from": "INF.HILBERT.SHIFT",
+      "to": "CROSS.COUNTABLE_HISTORY_CARRIER",
+      "relation": "COUNTABLE_SELF_EMBEDDING_MODEL"
+    },
+    {
+      "from": "IDT.MEMORY",
+      "to": "CROSS.COUNTABLE_HISTORY_CARRIER",
+      "relation": "HISTORY_TARGET"
+    },
+    {
+      "from": "INF.COLLATZ.OPERATOR",
+      "to": "TIR.COLLATZ_FS.RELATIONAL_PHASE_INTERFACE",
+      "relation": "CANDIDATE_OPERATOR_CROSSWALK"
+    },
+    {
+      "from": "INF.COLLATZ.OPERATOR",
+      "to": "IDT.COLLATZ_FS.PHASE_MAP",
+      "relation": "CANDIDATE_OPERATOR_CROSSWALK"
+    },
+    {
+      "from": "INF.RECIPROCAL.INVERSION",
+      "to": "SOH.RECIPROCAL_CONJUGATION.ORBIT_GEOMETRY",
+      "relation": "GEOMETRIC_CROSSWALK_WITH_CONJUGATION_FIREWALL"
+    },
+    {
+      "from": "INF.SPECTRAL.NUMBER_OPERATOR",
+      "to": "SOH.RECIPROCAL_CONJUGATION.ORBIT_GEOMETRY",
+      "relation": "SPECTRAL_CARRIER_CONTEXT_NOT_PROOF"
+    },
+    {
+      "from": "TIR.FLAVOUR.TERMINAL_SU3_LOOP",
+      "to": "QHTRI.FLAVOUR.HOLONOMIC_POTENTIAL_MODEL",
+      "relation": "FLAVOUR_GEOMETRY_PARENT_CANDIDATE"
+    },
+    {
+      "from": "RFC.F1.GAUGE_RELATIONAL_PHASE",
+      "to": "QHTRI.FLAVOUR.HOLONOMIC_POTENTIAL_MODEL",
+      "relation": "GAUGE_PHASE_PARENT_CANDIDATE"
+    },
+    {
+      "from": "QHTRI.FLAVOUR.HOLONOMIC_POTENTIAL_MODEL",
+      "to": "QHTRI.PHYSICAL.HNUQ",
+      "relation": "MODEL_TO_PHYSICAL_HYPOTHESIS_FIREWALL"
+    }
+  ],
+  "firewalls": [
+    "OVERLAY_NEVER_MUTATES_FPDG",
+    "GRAPH_EDGE_IS_NOT_PROOF",
+    "SEMANTIC_HOLONOMY_IS_NOT_PHYSICAL_HOLONOMY",
+    "INFINITIES_OPERATOR_CROSSWALK_DOES_NOT_PROVE_COLLATZ",
+    "RECIPROCAL_GEOMETRY_DOES_NOT_PROVE_RH",
+    "QHTRI_MODEL_DOES_NOT_ESTABLISH_PHYSICAL_NEUTRINO_COUPLING"
+  ]
+}
