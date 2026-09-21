@@ -1225,3 +1225,57 @@ FSI.05  PASS
 
 FSI.03 representation-quotient/invariant is now the remaining shared formal
 seam in the first GREMLIN batch.
+
+
+## 20. FSI.03 representation/quotient arbitration
+
+The final shared formal seam in the first GREMLIN batch now passes Lean in all
+three source domains.
+
+TIR checks the gauge-transport cancellation law: under local endpoint-frame
+changes, the arbitrary frame at an internal composition point cancels exactly.
+The composed transport retains only the endpoint gauge action.
+
+IDT checks the positive-ray invariant in denominator-cleared form. If a
+normalized coordinate is represented by the ratio (q_i/q_Sigma), then a
+common scale factor multiplies numerator and denominator equally, so the
+cross-multiplied ratio relation is unchanged.
+
+RFC checks the group-level relative-frame theorem: a common left action on two
+frames cancels from the relative observable (a^{-1}b).
+
+Lean status:
+
+```text
+TIR FSI.03   PASS
+IDT FSI.03   PASS
+RFC FSI.03   PASS
+```
+
+The theorem scopes remain typed. No theorem identifies the three gauge groups
+or claims that one universal physical quotient underlies every sector.
+
+### First formal batch complete
+
+All five PNCS/GREMLIN seam candidates selected for the initial arbitration now
+have source-level Lean support:
+
+```text
+FSI.01  affine SE(3) crosswalk                 PASS
+FSI.02  cocycle / gluing structural direction PASS
+FSI.03  representation / quotient invariants  PASS
+FSI.04  Collatz block / phase exponent        PASS
+FSI.05  Hilbert shift / countable history     PASS
+```
+
+This changes the frontier classification. The dominant remaining gaps are no
+longer these shared formal seams. They are now:
+
+```text
+1. source DEPENDENCY_EXPORT freshness,
+2. production/source witness packets,
+3. genuinely open mathematics such as SOH pointwise orbit collapse,
+4. empirical physical bindings.
+```
+
+No new fundamental-theory repository is indicated by the first Lean batch.
