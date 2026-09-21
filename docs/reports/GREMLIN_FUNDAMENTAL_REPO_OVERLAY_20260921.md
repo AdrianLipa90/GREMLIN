@@ -72,6 +72,20 @@ This is an integration gap, not a mathematical refutation. Its Hilbert-shift,
 Collatz-operator, reciprocal-inversion and spectral-carrier structures therefore
 cannot currently participate in automated cross-repository dependency closure.
 
+A wider repository inventory also finds:
+
+- `Metatime`: explicitly historical and points current work to IDT — omission from
+  FPDG is expected.
+- `Informational-Dynamics-of-Metatime`: explicitly marked `TO BE ARCHIVED` —
+  omission from the live fundamental graph is expected.
+- `Metatime-Relation_of_Information_Framework`: active research framework with
+  open validation debts — currently absent from FPDG and should be classified as
+  either an active source lineage or a provenance-only satellite.
+- `QHTRI-Induced-Holonomic-Potentials-for-Neutrino-Flavour-Transport-and-Phase-Optics`:
+  active falsifiable physical-hypothesis repository — absent from FPDG and best
+  represented downstream of the established mathematical carrier, with its
+  physical coupling hypotheses kept explicitly open.
+
 ## 4. SPIDER finding — the core physics stack is already heavily overlapped
 
 The TIR/IDT/RFC overlap is not sparse. Existing cross-repository seams include:
@@ -170,9 +184,10 @@ Therefore repository overlap must not be interpreted as a proof of RH.
 The audit finds four concrete integration gaps before a Lean rollout should be
 used as a completeness arbiter.
 
-### GAP-1 — Infinities is absent from FPDG
+### GAP-1 — active satellite coverage is incomplete
 
-Needed candidate interfaces:
+The first missing active mathematical source is Infinities. Needed candidate
+interfaces include:
 
 ```text
 Infinities.HILBERT.SHIFT
@@ -188,7 +203,17 @@ Infinities.SPECTRAL.N
   -> SOH/TIR spectral carrier crosswalk
 ```
 
-These edges must remain candidate until source-typed.
+The active Metatime-Relation framework needs an ownership decision: either map
+its unique live claims into FPDG or mark them provenance/superseded by current
+TIR/IDT/RFC owners.
+
+QHTRI neutrino/phase-optics should enter only as a downstream physical-
+hypothesis branch; its own README explicitly separates model mathematics from
+unverified physical coupling.
+
+These edges must remain candidate until source-typed. Historical Metatime and
+Informational-Dynamics-of-Metatime do not need live theorem nodes because their
+repositories explicitly mark themselves historical/to-be-archived.
 
 ### GAP-2 — TIR <-> IDT direct seam is underrepresented
 
