@@ -1,0 +1,80 @@
+name: GREMLIN Fundamental Repository Overlay v0.1
+
+on:
+  pull_request:
+    paths:
+      - 'tools/gremlin_fundamental_repo_overlay_v01.py'
+      - 'tests/test_gremlin_fundamental_repo_overlay_v01.py'
+      - 'provenance/FUNDAMENTAL_CANDIDATE_OVERLAY_V0_1.json'
+      - 'provenance/GREMLIN_FUNDAMENTAL_REPO_OVERLAY_SECOND_PASS_V0_1.json'
+      - 'docs/reports/GREMLIN_FUNDAMENTAL_REPO_OVERLAY_20260921.md'
+      - 'docs/reports/GREMLIN_FUNDAMENTAL_REPO_OVERLAY_20260921.mmd'
+      - '.github/workflows/gremlin-fundamental-repo-overlay-v01.yml'
+  workflow_dispatch:
+
+jobs:
+  overlay-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout GREMLIN candidate
+        uses: actions/checkout@v4
+
+      - name: Checkout pinned FPDG
+        uses: actions/checkout@v4
+        with:
+          repository: AdrianLipa90/Fundamental-Physics-Dependency-Graph
+          ref: 4f1d316c5fcee2a29c91e12b8f7157bd07b3ba99
+          path: fpdg
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Run focused overlay tests
+        run: python -m pytest -q tests/test_gremlin_fundamental_repo_overlay_v01.py
+
+      - name: Build baseline audit
+        run: >-
+          python tools/gremlin_fundamental_repo_overlay_v01.py
+          fpdg/dependency_graph.yaml
+          --output fundamental-overlay-baseline.json
+
+      - name: Build candidate second pass
+        run: >-
+          python tools/gremlin_fundamental_repo_overlay_v01.py
+          fpdg/dependency_graph.yaml
+          --candidate-overlay provenance/FUNDAMENTAL_CANDIDATE_OVERLAY_V0_1.json
+          --output fundamental-overlay-second-pass.json
+
+      - name: Verify frozen second-pass invariants
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          row = json.loads(Path('fundamental-overlay-second-pass.json').read_text())
+          assert row['candidate_overlay_applied'] is True
+          assert row['node_count'] == 171
+          assert row['edge_count'] == 236
+          assert row['nontrivial_scc_count'] == 0
+          assert row['repository_node_counts']['INFINITIES'] == 4
+          assert row['repository_node_counts']['CROSS_STACK'] == 3
+          top = row['high_impact_frontier'][0]
+          assert top['claim_id'] == 'TIR.SPACETIME.INTERLEAF_MATCHING_INPUT_CONTRACT'
+          assert top['downstream_count'] == 72
+          print(json.dumps({
+              'status': 'PASS',
+              'node_count': row['node_count'],
+              'edge_count': row['edge_count'],
+              'nontrivial_scc_count': row['nontrivial_scc_count'],
+              'top_bottleneck': top['claim_id'],
+              'top_bottleneck_downstream': top['downstream_count'],
+          }, sort_keys=True))
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gremlin-fundamental-repo-overlay-${{ github.event.pull_request.head.sha || github.sha }}
+          path: |
+            fundamental-overlay-baseline.json
+            fundamental-overlay-second-pass.json
+          if-no-files-found: error
