@@ -1,0 +1,73 @@
+{
+  "schema": "GREMLIN_FUNDAMENTAL_REPO_OVERLAY_THIRD_PASS_V0_1",
+  "date": "2026-09-21",
+  "authority": "CANDIDATE_ONLY",
+  "canon_allowed": false,
+  "source": {
+    "fpdg_commit": "45f7d4b7b6c18d2f595471db2905da41a74c0a26",
+    "fpdg_pr": 23,
+    "fpdg_ci": {
+      "validate_locked_source_exports": "PASS",
+      "validate_dependency_dag": "PASS",
+      "watch_source_drift": "PASS"
+    },
+    "source_export_prs": {
+      "TIR": 176,
+      "IDT": 104,
+      "RFC": 169,
+      "SOH": 81
+    }
+  },
+  "metrics": {
+    "node_count": 183,
+    "edge_count": 260,
+    "frontier_count": 86,
+    "frontier_root_count": 33,
+    "nontrivial_scc_count": 0,
+    "repository_node_counts": {
+      "TIR": 37,
+      "IDT": 30,
+      "RFC": 93,
+      "SOH": 8,
+      "PNCS": 8,
+      "INFINITIES": 4,
+      "MRIF": 1,
+      "QHTRI": 2
+    }
+  },
+  "impact": {
+    "top_bottleneck": {
+      "claim_id": "TIR.SPACETIME.INTERLEAF_MATCHING_INPUT_CONTRACT",
+      "downstream_count": 79,
+      "interpretation": "COUNT_INCREASES_BECAUSE_REFRESHED_3PLUS1_CANDIDATE_ROUTES_ARE_NOW_VISIBLE; THIS_IS_NOT_AN_IMPLEMENTATION_REGRESSION"
+    },
+    "rfc_gsc3h": {
+      "claim_id": "RFC.GSC3H.3PLUS1_TWO_EPOCH_CONSTRUCTOR_V013",
+      "downstream_count": 25
+    },
+    "tir_sp3_bundle": {
+      "claim_id": "TIR.SPACETIME.SP3_3PLUS1_BUNDLE_COMPATIBILITY_V01",
+      "downstream_count": 21
+    },
+    "tir_half_lift": {
+      "claim_id": "TIR.SPACETIME.SP3_DELTA_HERM2_HALF_LIFT_V01",
+      "downstream_count": 20
+    },
+    "idt_02jn": {
+      "claim_id": "IDT.REPRESENTATION.MOD6PI_C3_PAULI_02JN",
+      "downstream_count": 4
+    },
+    "collatz": {
+      "claim_id": "INF.COLLATZ.OPERATOR",
+      "downstream_count": 10
+    }
+  },
+  "findings": [
+    "RFC GSC4F and GSC4G are no longer GREMLIN coverage placeholders; they are source-exported FPDG nodes in the refresh candidate.",
+    "The refreshed graph remains acyclic at claim level.",
+    "The 3+1 archive-derived constructor now exposes a 25-claim downstream candidate corridor without promoting physical production evidence.",
+    "Source-export freshness is staged and green in FPDG CI but remains unmerged because all source refresh PRs and FPDG PR are drafts.",
+    "No new repository ownership class is required."
+  ],
+  "verdict": "THIRD_PASS_GREEN / SOURCE_EXPORT_REFRESH_STAGED / PHYSICAL_EVIDENCE_GATES_REMAIN_OPEN"
+}
