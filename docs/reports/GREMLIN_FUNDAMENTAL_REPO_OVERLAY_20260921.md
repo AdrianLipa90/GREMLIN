@@ -1026,3 +1026,60 @@ GREMLIN_LEAN_AGREEMENT                      PASS
 This is the second consecutive seam where the proof assistant closes exactly
 the mathematical core isolated by GREMLIN without forcing a forbidden physical
 promotion.
+
+
+## 18. FSI.04 Collatz block / phase seam — Lean PASS
+
+The third GREMLIN-selected seam has now passed Lean on both source sides.
+
+Infinities draft PR #2 proves the local accelerated-branch statement under an
+explicit exact factorization
+
+[
+3n+1=u,2^a
+quadLongrightarrowquad
+rac{3n+1}{2^a}=u,
+]
+
+and records the branch word (1,0^a) with length (a+1).
+
+IDT draft PR #103 proves, independently,
+
+[
+D^k(q)=2^k q
+]
+
+for repeated lifted doubling and the finite-modulus analogue
+
+[
+D_m^k(q)equiv 2^k qpmod m.
+]
+
+Therefore the local FSI.04 crosswalk now has kernel-checked support on both
+repositories:
+
+```text
+accelerated odd Collatz block
+       |
+       | a+1 branch operations
+       v
+a+1 phase doublings
+       |
+       v
+2^(a+1) phase multiplier
+```
+
+The firewall is unchanged: this is local exact arithmetic. It does not prove
+global Collatz convergence and it does not identify iteration count with
+physical time.
+
+Three of the five PNCS seam-bank candidates have now passed independent Lean
+arbitration:
+
+```text
+FSI.01  PASS
+FSI.04  PASS
+FSI.05  PASS
+FSI.02  next
+FSI.03  next
+```
