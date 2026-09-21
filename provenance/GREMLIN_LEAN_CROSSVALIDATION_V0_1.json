@@ -1,0 +1,53 @@
+{
+  "schema": "GREMLIN_LEAN_CROSSVALIDATION_V0_1",
+  "date": "2026-09-21",
+  "status": "PASS",
+  "authority": "AUDIT_RECEIPT_NOT_THEOREM_PROMOTION",
+  "canon_allowed": false,
+  "seam": "PNCS.FSI.05.HILBERT.SHIFT.COUNTABLE.HISTORY",
+  "gremlin_prediction": {
+    "invariant": "COUNTABLE_SUCCESSOR_ORDER_EMBEDDING",
+    "exclusions": [
+      "NO_IDT_HILBERT_SPACE_IDENTIFICATION",
+      "NO_FREDHOLM_INDEX_AS_PHYSICAL_TIME_OBSERVABLE",
+      "NO_MEMORY_SEMANTICS_DERIVED_FROM_SHIFT"
+    ]
+  },
+  "lean": {
+    "Infinities": {
+      "repository": "AdrianLipa90/Infinities",
+      "pr": 2,
+      "head": "d8c36abb2e7a10b05afc84b0d6fb98d57c0bdab8",
+      "proof_gate": "PASS",
+      "source_validation": "PASS",
+      "axiom_audit": {
+        "declarations": 7,
+        "status": "PASS",
+        "allowlist": [
+          "propext",
+          "Classical.choice",
+          "Quot.sound"
+        ]
+      }
+    },
+    "IDT": {
+      "repository": "AdrianLipa90/Informational-Dynamics-of-Time",
+      "pr": 103,
+      "head": "345a001dca9a7d5c5e3a22de56a48be9ed632b22",
+      "proof_gate": "PASS",
+      "reference_suite": "PASS",
+      "production_event_gate": "PASS",
+      "axiom_audit": {
+        "declarations": 9,
+        "status": "PASS",
+        "allowlist": [
+          "propext",
+          "Classical.choice",
+          "Quot.sound"
+        ]
+      }
+    }
+  },
+  "verdict": "GREMLIN_LEAN_AGREEMENT_PASS",
+  "next_recommended_seam": "PNCS.FSI.01.SE3.AFFINE.GLUE.TIR.RFC"
+}
