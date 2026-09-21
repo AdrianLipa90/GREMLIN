@@ -5,7 +5,7 @@
   "canon_allowed": false,
   "basis": {
     "formal_seams": "FSI.01..FSI.05 source-level Lean PASS",
-    "fpdg_status": "DECLARED_EXPORTS_FULLY_IMPORTED_BUT_EXPORTS_LAG_CURRENT_SOURCE_HEADS",
+    "fpdg_status": "REFRESH_CANDIDATE_PR23_GREEN / SOURCE_EXPORT_DRAFTS_UNMERGED",
     "rfc_candidate_status": "REPOSITORY_IMPLEMENTATION_COMPLETE_MODEL_LEVEL_OBSERVATIONAL_E2E",
     "physical_production_claim": false
   },
@@ -62,8 +62,8 @@
         "SOH",
         "FPDG"
       ],
-      "status": "OPEN",
-      "required_action": "refresh DEPENDENCY_EXPORT.json at current source heads, then regenerate/import FPDG",
+      "status": "STAGED_GREEN_DRAFTS_MERGE_PENDING",
+      "required_action": "review/merge source export refresh PRs 176/104/169/81, then merge FPDG PR 23 and rerun exact-main GREMLIN audit",
       "new_repository_required": false
     },
     {
