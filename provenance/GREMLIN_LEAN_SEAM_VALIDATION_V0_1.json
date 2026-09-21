@@ -100,6 +100,41 @@
         "phase coordinate is a physical observable without a separate binding"
       ],
       "verdict": "LEAN_PASS_LOCAL_EXACT_CONDITIONAL"
+    },
+    {
+      "seam_id": "FSI.04.COLLATZ.ACCELERATED.BLOCK.PHASE",
+      "repositories": [
+        {
+          "repository": "AdrianLipa90/Infinities",
+          "pr": 2,
+          "head": "669aa7382326daa52dcb08a93779b55c6f108d35",
+          "lean_gate_run": 35593231658,
+          "lean_gate": "PASS",
+          "source_validation": "PASS"
+        },
+        {
+          "repository": "AdrianLipa90/Informational-Dynamics-of-Time",
+          "pr": 103,
+          "head": "43d214a5d189e12a554e9a7c2dc094252cbb63fe",
+          "lean_gate_run": 35593603595,
+          "lean_gate": "PASS",
+          "reference_suite": "PASS",
+          "production_event_contract": "PASS"
+        }
+      ],
+      "theorem_scope": [
+        "conditional accelerated odd-step factorization returns the reduced odd output",
+        "parity-block length is a+1",
+        "repeated lifted phase doubling gives 2^k times the source coordinate",
+        "an accelerated block with exponent a gives a+1 lifted doublings"
+      ],
+      "excluded_claims": [
+        "global Collatz convergence",
+        "iteration count equals physical time",
+        "lifted integer phase coordinate is itself the physical projective phase quotient",
+        "Collatz dynamics constrains Riemann zeros"
+      ],
+      "verdict": "LEAN_PASS_WITH_FIREWALLS"
     }
   ],
   "interpretation": {
