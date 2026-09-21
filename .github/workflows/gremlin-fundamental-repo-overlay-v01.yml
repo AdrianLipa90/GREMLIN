@@ -23,7 +23,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: AdrianLipa90/Fundamental-Physics-Dependency-Graph
-          ref: fbbca075ee6827ec19c68184431e4f804425ba50
+          ref: 45f7d4b7b6c18d2f595471db2905da41a74c0a26
           path: fpdg
 
       - uses: actions/setup-python@v5
