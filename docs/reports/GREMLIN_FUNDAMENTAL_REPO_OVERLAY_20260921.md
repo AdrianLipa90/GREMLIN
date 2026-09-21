@@ -1279,3 +1279,64 @@ longer these shared formal seams. They are now:
 ```
 
 No new fundamental-theory repository is indicated by the first Lean batch.
+
+
+## 21. Residual-gap reclassification against current RFC candidate
+
+The stale FPDG frontier alone overstates one important missing item.
+
+Current RFC candidate evidence shows that the **software/source-wiring
+implementation** of the 3+1 route is substantially further ahead than the
+exported dependency graph indicates:
+
+- archived same-realization observational E2E: PASS;
+- full A5 finite boundary/vertex-link checks: PASS in the candidate route;
+- interleaf matching: PASS, maximum residual
+  `6.938893903907228e-17`;
+- RF-E8 shift: derived downstream;
+- finite Lorentzian ADM metric: PASS;
+- Einstein tensor construction: PASS;
+- analytic contracted-Bianchi sweep: PASS;
+- missing candidate software operators: `0`;
+- missing candidate source-wiring operators: `0`.
+
+This does **not** close the physical-production claim. RFC v0.13 explicitly
+keeps open the binding
+
+```text
+finite observational affine 4-simplex boundary
+        ->
+intended global physical spatial carrier
+```
+
+and the TIR interleaf bridge explicitly keeps open the actual source-owned
+production matching dataset.
+
+Therefore the former top bottleneck should now be split into two statuses:
+
+```text
+IMPLEMENTATION / MODEL-LEVEL WIRING   CLOSED IN RFC CANDIDATE
+PHYSICAL PRODUCTION SOURCE EVIDENCE   OPEN
+```
+
+The same distinction applies to the clock/lapse and global 3+1 route.
+
+### Residual classes after the first Lean batch
+
+The remaining program frontier is now compact:
+
+```text
+source-export freshness
+production spatial/matching witness
+production clock/lapse witness
+global physical spatial-carrier binding
+full physical 3+1 evidence
+SOH pointwise orbit-collapse theorem
+physical G/flavour/QHTRI bindings
+```
+
+None of these requires a new fundamental-theory repository. They already have
+owners in TIR, IDT, RFC, SOH and QHTRI.
+
+The machine-readable classification is frozen in
+`provenance/GREMLIN_FUNDAMENTAL_RESIDUAL_GAPS_V0_2.json`.
