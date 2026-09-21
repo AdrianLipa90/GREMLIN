@@ -462,3 +462,123 @@ axiom merely to make a proof assistant turn green.
 The correct GREMLIN -> Lean handoff is therefore not "formalize every file".
 It is "freeze these typed seams, then ask Lean whether the exact mathematical
 subgraph closes without hidden axioms".
+
+
+## 13. Existing PNCS relational graph adopted as the seam carrier
+
+The earlier idea of a separate neutral relational/formal kernel is withdrawn.
+The repository already exists:
+
+`AdrianLipa90/PhaseNav-Natural-Coding-System`
+
+at source head:
+
+`3aa3393cea390c8703a5bf50209f10939beb9b34`.
+
+PNCS explicitly defines written code as a projection of a **canonical 36D
+relational graph** and already supplies the hierarchy
+
+```text
+KAKU -> RADICAL -> DEFINITION_PATH -> CLASS_PATH -> ... -> SYSTEM_PATH
+```
+
+with exact downward lineage to KAKU and fail-closed handling of missing or
+ambiguous relations.
+
+More importantly, PNCS already contains the exact integration path needed by
+this audit:
+
+```text
+FPDG pain witness
+ -> explicit claim_id -> grammar binding
+ -> GREMLIN relation mining
+ -> canonical KAKU resolver
+ -> relational-isomorphism compiler
+ -> RADICAL
+ -> native PNV operators
+ -> READ_ONLY candidate conformance
+```
+
+Therefore GREMLIN must **reuse PNCS** rather than create a second relational
+compiler or a new Formal-Kernel repository.
+
+The revised authority split is:
+
+```text
+source theorem repos   -> own mathematics and physical claims
+FPDG                   -> owns dependency/status graph
+GREMLIN                -> discovers, overlays, falsifies, localizes seams
+PNCS                    -> owns canonical relational-graph representation,
+                           KAKU/RADICAL lowering and machine-checkable
+                           cross-formalism candidate compilation
+Lean [later]           -> kernel-checks frozen mathematical statements
+```
+
+PNCS is not promoted to theorem authority. Its compiler can preserve an
+isomorphism candidate as executable relational structure while the evidence
+status remains owned by the source repositories.
+
+### Revised second-pass metrics
+
+Replacing the synthetic `CROSS_STACK` carrier with the actual PNCS graph and
+adding its existing compiler/FPDG ingress produces:
+
+```text
+nodes                 174
+edges                 241
+frontier nodes         77
+frontier roots         30
+nontrivial SCCs         0
+```
+
+Repository overlay:
+
+```text
+TIR          35
+IDT          28
+RFC          90
+SOH           8
+PNCS          6
+INFINITIES    4
+MRIF          1
+QHTRI         2
+```
+
+No proof cycle is introduced.
+
+The principal bottleneck remains unchanged:
+
+```text
+TIR.SPACETIME.INTERLEAF_MATCHING_INPUT_CONTRACT
+downstream = 72
+```
+
+and the Infinities Collatz operator crosswalk remains the strongest new
+mathematical satellite:
+
+```text
+INF.COLLATZ.OPERATOR
+downstream = 9
+```
+
+### Repository-creation decision
+
+Current verdict:
+
+```text
+NEW_RELATIONAL_KERNEL_REPOSITORY = NO
+NEW_CROSS_REPO_GRAPH_REPOSITORY = NO
+USE_EXISTING_PNCS_RELATIONAL_GRAPH = YES
+USE_EXISTING_FPDG_DEPENDENCY_GRAPH = YES
+USE_GREMLIN_AS_AUDITOR = YES
+```
+
+A new repository is justified only if a later artifact has a genuinely new
+ownership class that is not representable as:
+
+- source theorem/physics content in TIR, IDT, RFC, SOH, Infinities or QHTRI;
+- dependency/status metadata in FPDG;
+- relational graph structure in PNCS;
+- audit/orchestration in GREMLIN.
+
+At present no such missing ownership class is detected.
