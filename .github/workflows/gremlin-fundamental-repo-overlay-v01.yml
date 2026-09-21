@@ -56,11 +56,11 @@ jobs:
           from pathlib import Path
           row = json.loads(Path('fundamental-overlay-second-pass.json').read_text())
           assert row['candidate_overlay_applied'] is True
-          assert row['node_count'] == 171
-          assert row['edge_count'] == 236
+          assert row['node_count'] == 174
+          assert row['edge_count'] == 241
           assert row['nontrivial_scc_count'] == 0
           assert row['repository_node_counts']['INFINITIES'] == 4
-          assert row['repository_node_counts']['CROSS_STACK'] == 3
+          assert row['repository_node_counts']['PNCS'] == 6
           top = row['high_impact_frontier'][0]
           assert top['claim_id'] == 'TIR.SPACETIME.INTERLEAF_MATCHING_INPUT_CONTRACT'
           assert top['downstream_count'] == 72
