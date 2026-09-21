@@ -11,6 +11,7 @@ on:
       - 'tools/gremlin_bestiary_orbital_scheduler_v02.py'
       - 'tools/gremlin_bestiary_vector_species_v03.py'
       - 'tools/gremlin_client_protocol_v01.py'
+      - 'tools/gremlin_fundamental_repo_overlay_v01.py'
       - 'examples/mcp_worker_spider.py'
       - 'tests/test_gremlin_mcp_v01.py'
       - 'tests/test_gremlin_memory_exchange_v01.py'
@@ -37,6 +38,7 @@ on:
       - 'tests/test_gremlin_mcp_persistence_v03.py'
       - 'tests/test_gremlin_mcp_pipeline_v04.py'
       - 'tests/test_gremlin_mcp_octopus_router_v05.py'
+      - 'tests/test_gremlin_fundamental_repo_overlay_v01.py'
       - 'tests/test_gremlin_orbital_hive_memory_v01.py'
       - 'tests/test_gremlin_hive_authority_v02.py'
       - 'tests/test_gremlin_hive_auto_ingest_v03.py'
@@ -87,6 +89,7 @@ jobs:
           tests/test_gremlin_mcp_persistence_v03.py
           tests/test_gremlin_mcp_pipeline_v04.py
           tests/test_gremlin_mcp_octopus_router_v05.py
+          tests/test_gremlin_fundamental_repo_overlay_v01.py
           tests/test_gremlin_orbital_hive_memory_v01.py
           tests/test_gremlin_hive_authority_v02.py
           tests/test_gremlin_hive_auto_ingest_v03.py
