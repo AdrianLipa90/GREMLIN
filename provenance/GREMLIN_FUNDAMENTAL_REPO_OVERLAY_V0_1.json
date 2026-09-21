@@ -1,0 +1,49 @@
+{
+  "schema": "GREMLIN_FUNDAMENTAL_REPO_OVERLAY_RECEIPT_V0_1",
+  "date": "2026-09-21",
+  "status": "CANDIDATE_ONLY",
+  "canon_allowed": false,
+  "gremlin_head": "86059ead6177fbb5bf33211f674781883a149a57",
+  "sources": {
+    "FPDG": "4f1d316c5fcee2a29c91e12b8f7157bd07b3ba99",
+    "TIR": "f7b754347502f5051d423867f8a8d60627b1f8d7",
+    "IDT": "2960a936e3f74b07a4bf30ebc5cb78b6c1811b4c",
+    "RFC": "786d1e1a9f9c91a4c3174719ed76966aa73edcef",
+    "SOH": "41772776dadf837c7a2f8b095b752e586d85c5dc",
+    "Infinities": "c1ad8376f9dd4c2daf2c4ea0bf61568d718fd794"
+  },
+  "fpdg_snapshot": {
+    "node_count": 160,
+    "edge_count": 219,
+    "repository_node_counts": {
+      "TIR": 35,
+      "IDT": 28,
+      "RFC": 90,
+      "SOH": 7
+    },
+    "cross_repository_edge_counts": {
+      "TIR->IDT": 1,
+      "TIR->RFC": 11,
+      "IDT->RFC": 13,
+      "RFC->IDT": 1,
+      "TIR->SOH": 1,
+      "SOH->IDT": 3
+    },
+    "nontrivial_scc_count": 0,
+    "frontier_count": 65,
+    "frontier_root_count": 26
+  },
+  "top_bottleneck": {
+    "claim_id": "TIR.SPACETIME.INTERLEAF_MATCHING_INPUT_CONTRACT",
+    "downstream_count": 69,
+    "status": "PRODUCTION_MATCHING_FIELD_OPEN"
+  },
+  "findings": [
+    "INFINITIES_ABSENT_FROM_FPDG",
+    "TIR_IDT_DIRECT_SEAM_UNDERREPRESENTED",
+    "SHARED_REPRESENTATION_QUOTIENT_CONTRACT_NOT_EXPLICIT",
+    "PHYSICAL_REALIZATION_INPUTS_DOMINATE_SPACETIME_FRONTIER",
+    "RH_EQUIVALENT_POINTWISE_ORBIT_COLLAPSE_REMAINS_OPEN"
+  ],
+  "lean_gate": "DEFER_UNTIL_GREMLIN_SEAM_SCHEMA_FREEZE"
+}
