@@ -1,0 +1,208 @@
+{
+  "schema": "GREMLIN_FUNDAMENTAL_SEAM_OWNERSHIP_MATRIX_V0_1",
+  "date": "2026-09-21",
+  "authority": "CANDIDATE_ONLY",
+  "canon_allowed": false,
+  "pncs_relational_graph": {
+    "repository": "AdrianLipa90/PhaseNav-Natural-Coding-System",
+    "head": "3aa3393cea390c8703a5bf50209f10939beb9b34",
+    "candidate_branch": "research/fundamental-seam-bank-v0.1",
+    "candidate_pr": 71,
+    "role": "CANONICAL_RELATIONAL_GRAPH_AND_CANDIDATE_COMPILER_NOT_THEOREM_AUTHORITY"
+  },
+  "seams": [
+    {
+      "seam_id": "S1_REPRESENTATION_QUOTIENT",
+      "status": "FORMAL_SEAM_CANDIDATE",
+      "source_owners": [
+        "TIR",
+        "IDT",
+        "RFC"
+      ],
+      "relational_owner": "PNCS",
+      "dependency_owner": "FPDG",
+      "audit_owner": "GREMLIN",
+      "missing": [
+        "explicit source-domain mapping into one PNCS seam candidate",
+        "later proof-assistant theorem statements for each exact local invariant"
+      ],
+      "already_present": [
+        "PNCS XFI.05 positive-ray/projective quotient structural bank",
+        "IDT positive-ray normalization",
+        "TIR local-frame/rephasing loop invariance",
+        "RFC global SE3 quotient"
+      ],
+      "new_repository_required": false,
+      "action": "USE_PNCS_FSI_03_AND_LATER_LEAN_CHECK_LOCAL_THEOREMS"
+    },
+    {
+      "seam_id": "S2_SLICE_COYCLE_GLUE",
+      "status": "FORMAL_SEAM_CANDIDATE",
+      "source_owners": [
+        "TIR",
+        "IDT",
+        "RFC"
+      ],
+      "relational_owner": "PNCS",
+      "dependency_owner": "FPDG",
+      "audit_owner": "GREMLIN",
+      "missing": [
+        "typed cross-formalism cocycle alignment",
+        "explicit statement separating structural cocycle equivalence from physical spacetime soldering"
+      ],
+      "already_present": [
+        "IDT 05E global clock cocycle",
+        "TIR SE3 affine gluing",
+        "RFC E25 atlas/frame cocycle"
+      ],
+      "new_repository_required": false,
+      "action": "USE_PNCS_FSI_02"
+    },
+    {
+      "seam_id": "S3_SE3_AFFINE_GLUE",
+      "status": "NEAR_EXACT_CROSSWALK",
+      "source_owners": [
+        "TIR",
+        "RFC"
+      ],
+      "relational_owner": "PNCS",
+      "dependency_owner": "FPDG",
+      "audit_owner": "GREMLIN",
+      "missing": [
+        "freeze explicit convention map R_ba<->A_qp and t_ba<->t_qp",
+        "prove source formulas are identical under that map"
+      ],
+      "already_present": [
+        "TIR exact semidirect-product composition/inverse",
+        "RFC GSC4G exact rigid overlap composition/inverse"
+      ],
+      "new_repository_required": false,
+      "action": "USE_PNCS_FSI_01_THEN_LEAN_FIRST"
+    },
+    {
+      "seam_id": "S4_COLLATZ_OPERATOR_CROSSWALK",
+      "status": "LOCAL_MATHEMATICS_STRONG / GLOBAL_PHYSICAL_BINDING_OPEN",
+      "source_owners": [
+        "INFINITIES",
+        "TIR",
+        "IDT",
+        "RFC"
+      ],
+      "relational_owner": "PNCS",
+      "dependency_owner": "FPDG",
+      "audit_owner": "GREMLIN",
+      "missing": [
+        "formal proof accelerated odd step equals unreduced parity block 1 0^a",
+        "formal phase-shift consequence q_C(U(n))=2^(a+1)q_C(n) mod 1 on declared domain",
+        "separate physical-time/phase binding if ever claimed"
+      ],
+      "already_present": [
+        "Infinities exact accelerated branch formula",
+        "TIR exact unreduced no-11 language and CP1 carrier",
+        "IDT exact parity doubling map",
+        "RFC Collatz phase fibre downstream interface"
+      ],
+      "new_repository_required": false,
+      "action": "USE_PNCS_FSI_04_THEN_LEAN_LOCAL_BLOCK_THEOREM"
+    },
+    {
+      "seam_id": "S5_INTERLEAF_MATCHING",
+      "status": "PRODUCTION_SOURCE_INPUT_OPEN",
+      "source_owners": [
+        "TIR"
+      ],
+      "consumers": [
+        "RFC"
+      ],
+      "relational_owner": "PNCS_ONLY_AFTER_SOURCE_PACKET_EXISTS",
+      "dependency_owner": "FPDG",
+      "audit_owner": "GREMLIN",
+      "missing": [
+        "actual production beta_match field",
+        "A_qp and v_qp values on admitted overlaps",
+        "same physical realization ID and source provenance"
+      ],
+      "already_present": [
+        "TIR interleaf matching input contract",
+        "RFC beta_match/shift source-binding firewall"
+      ],
+      "new_repository_required": false,
+      "action": "DO_NOT_CREATE_THEORY_REPO; PRODUCE_SOURCE_WITNESS_IN_TIR"
+    },
+    {
+      "seam_id": "S6_GLOBAL_CONTINUUM_AND_ATLAS",
+      "status": "REFERENCE_THEOREMS_PASS / PRODUCTION_INPUTS_OPEN",
+      "source_owners": [
+        "TIR",
+        "IDT",
+        "RFC"
+      ],
+      "relational_owner": "PNCS_FOR_RELATION_GRAPH_ONLY",
+      "dependency_owner": "FPDG",
+      "audit_owner": "GREMLIN",
+      "missing": [
+        "production spatial complex",
+        "physical refining family/global continuum witness",
+        "production event complex/global clock",
+        "production shared smooth spacetime atlas and solution receipts"
+      ],
+      "already_present": [
+        "TIR A2/A3/A5 theorem/certifier chain",
+        "IDT 05E/05G/05H/05I clock/gluing chain",
+        "RFC E25/E26/GSC4 globalization chain"
+      ],
+      "new_repository_required": false,
+      "action": "KEEP_INPUTS_WITH_SOURCE_OWNERS; PNCS_ENCODES_RELATIONS_ONLY"
+    },
+    {
+      "seam_id": "S7_SOH_POINTWISE_ORBIT_COLLAPSE",
+      "status": "OPEN_MATHEMATICS_RH_EQUIVALENT",
+      "source_owners": [
+        "SOH"
+      ],
+      "relational_owner": "PNCS_MAY_ENCODE_FRONTIER_ONLY",
+      "dependency_owner": "FPDG",
+      "audit_owner": "GREMLIN_HOUND",
+      "missing": [
+        "non-circular incoming theorem X(u)=0 => u^-1=conj(u), or another genuinely sufficient route"
+      ],
+      "already_present": [
+        "exact reciprocal/conjugation orbit geometry",
+        "exact RH-equivalent defect formulation",
+        "no-go against quotient/barycentric shortcut"
+      ],
+      "new_repository_required": false,
+      "action": "KEEP_PROOF_WORK_IN_SOH; DO_NOT_AXIOMATIZE_FOR_LEAN"
+    },
+    {
+      "seam_id": "S8_PHYSICAL_BINDINGS",
+      "status": "EMPIRICAL_OR_SOURCE_BINDING_OPEN",
+      "source_owners": [
+        "TIR",
+        "IDT",
+        "RFC",
+        "QHTRI"
+      ],
+      "relational_owner": "PNCS_ONLY_FOR_TYPED_CROSSWALKS",
+      "dependency_owner": "FPDG",
+      "audit_owner": "GREMLIN",
+      "missing": [
+        "physical G universality/scale",
+        "flavour/CKM/PMNS/Yukawa source bindings",
+        "physical clock coupling",
+        "QHTRI neutrino coupling witness"
+      ],
+      "new_repository_required": false,
+      "action": "NO_NEW_FORMAL_REPO; KEEP_EMPIRICAL_BINDINGS_AT_SOURCE"
+    }
+  ],
+  "repository_creation_verdict": {
+    "create_new_relational_graph_repo": false,
+    "create_new_formal_kernel_repo_now": false,
+    "create_new_theory_repo_now": false,
+    "use_existing_pncs": true,
+    "use_existing_fpdg": true,
+    "use_existing_gremlin": true,
+    "only_future_exception": "create a separate immutable witness/data repository only if production datasets outgrow source-repository ownership and are consumed by multiple independent repos"
+  }
+}
