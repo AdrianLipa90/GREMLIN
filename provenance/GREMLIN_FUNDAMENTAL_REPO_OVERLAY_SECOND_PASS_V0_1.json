@@ -1,0 +1,58 @@
+{
+  "schema": "GREMLIN_FUNDAMENTAL_REPO_OVERLAY_SECOND_PASS_V0_1",
+  "date": "2026-09-21",
+  "authority": "CANDIDATE_ONLY",
+  "canon_allowed": false,
+  "source_graph": {
+    "repository": "AdrianLipa90/Fundamental-Physics-Dependency-Graph",
+    "commit": "4f1d316c5fcee2a29c91e12b8f7157bd07b3ba99",
+    "path": "dependency_graph.yaml"
+  },
+  "candidate_overlay": "provenance/FUNDAMENTAL_CANDIDATE_OVERLAY_V0_1.json",
+  "metrics": {
+    "node_count": 171,
+    "edge_count": 236,
+    "frontier_count": 75,
+    "frontier_root_count": 29,
+    "nontrivial_scc_count": 0,
+    "repository_node_counts": {
+      "TIR": 35,
+      "IDT": 28,
+      "RFC": 90,
+      "SOH": 8,
+      "CROSS_STACK": 3,
+      "INFINITIES": 4,
+      "MRIF": 1,
+      "QHTRI": 2
+    }
+  },
+  "findings": {
+    "top_bottleneck": {
+      "claim_id": "TIR.SPACETIME.INTERLEAF_MATCHING_INPUT_CONTRACT",
+      "downstream_count": 72
+    },
+    "collatz_crosswalk": {
+      "claim_id": "INF.COLLATZ.OPERATOR",
+      "downstream_count": 9,
+      "status": "CANDIDATE_CROSSWALK"
+    },
+    "cycle_injection": false,
+    "missing_large_mathematical_sector_detected": false,
+    "pre_lean_seams": [
+      "REPRESENTATION_QUOTIENT_CONTRACT",
+      "SLICE_GLUE_COCYCLE_CONTRACT",
+      "INFINITIES_COLLATZ_OPERATOR_CROSSWALK",
+      "INTERLEAF_MATCHING_PHYSICAL_INPUT",
+      "GLOBAL_CONTINUUM_AND_PRODUCTION_ATLAS_INPUTS",
+      "SOH_POINTWISE_ORBIT_COLLAPSE_INCOMING_THEOREM",
+      "PHYSICAL_BINDINGS_G_FLAVOUR_CLOCKS_QHTRI"
+    ]
+  },
+  "proof_firewalls": {
+    "physical_input_is_not_theorem": true,
+    "candidate_edge_is_not_proof": true,
+    "rh_open": true,
+    "collatz_conjecture_open": true,
+    "qhtri_physical_coupling_open": true
+  }
+}
