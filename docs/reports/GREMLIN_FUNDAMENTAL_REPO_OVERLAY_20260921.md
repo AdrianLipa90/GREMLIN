@@ -722,3 +722,57 @@ post-v1 quarantine boundary PASS
 This removes the last synthetic cross-stack seam placeholder from the current
 GREMLIN overlay. All five shared formal seams are now represented by concrete
 PNCS FSI candidates.
+
+
+## 16. Source-export freshness audit
+
+A direct comparison of each source repository's current main head against the
+`source_commit` embedded in its current `DEPENDENCY_EXPORT.json` changes the
+interpretation of the remaining graph gaps.
+
+FPDG is fully synchronized with the **declared exports**:
+
+```text
+TIR export: 35/35 claims represented in FPDG
+IDT export: 28/28 claims represented in FPDG
+RFC export: 90/90 claims represented in FPDG
+SOH export:  7/7 claims represented in FPDG
+```
+
+The problem is therefore not an FPDG import failure. The source exports lag the
+current source repositories:
+
+```text
+TIR  export source_commit -> current main:  18 commits ahead
+IDT  export source_commit -> current main:  18 commits ahead
+RFC  export source_commit -> current main: 122 commits ahead
+SOH  export source_commit -> current main:   4 commits ahead
+```
+
+Known examples of current source structures outside the exported FPDG surface
+include RFC GSC4F/GSC4G. TIR also contains newer SP3 compatibility/half-lift
+candidate material, while IDT contains newer production-event and mod6pi/C3
+bridge work.
+
+Therefore the correct ownership diagnosis is:
+
+```text
+SOURCE REPOSITORY
+  -> refresh / classify DEPENDENCY_EXPORT
+  -> FPDG import/update
+  -> GREMLIN overlay
+  -> PNCS relational compilation
+```
+
+not:
+
+```text
+GREMLIN invents missing FPDG nodes directly.
+```
+
+The two RFC GSC4F/GSC4G nodes retained in the GREMLIN overlay are consequently
+typed as **source-export coverage candidates**, not evidence that FPDG failed to
+consume a declared export.
+
+No new repository is required to fix this. The missing mechanism is export
+freshness and ownership discipline in the existing source repositories.
