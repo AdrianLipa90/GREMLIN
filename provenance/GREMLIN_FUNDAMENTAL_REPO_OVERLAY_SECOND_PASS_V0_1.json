@@ -10,17 +10,17 @@
   },
   "candidate_overlay": "provenance/FUNDAMENTAL_CANDIDATE_OVERLAY_V0_1.json",
   "metrics": {
-    "node_count": 174,
-    "edge_count": 241,
-    "frontier_count": 77,
-    "frontier_root_count": 30,
+    "node_count": 178,
+    "edge_count": 248,
+    "frontier_count": 81,
+    "frontier_root_count": 32,
     "nontrivial_scc_count": 0,
     "repository_node_counts": {
       "TIR": 35,
       "IDT": 28,
-      "RFC": 90,
+      "RFC": 92,
       "SOH": 8,
-      "PNCS": 6,
+      "PNCS": 8,
       "INFINITIES": 4,
       "MRIF": 1,
       "QHTRI": 2
@@ -33,7 +33,7 @@
     },
     "collatz_crosswalk": {
       "claim_id": "INF.COLLATZ.OPERATOR",
-      "downstream_count": 9,
+      "downstream_count": 10,
       "status": "CANDIDATE_CROSSWALK"
     },
     "cycle_injection": false,
@@ -54,6 +54,21 @@
       "spec/PNCS_GREMLIN_RELATIONAL_ISOMORPHISM_COMPILER_V0_1.md",
       "spec/PNCS_FPDG_GREMLIN_PAIN_INGRESS_V0_1.md",
       "spec/PNCS_GREMLIN_CROSS_FORMALISM_ISOMORPHISM_BANK_V0_2.md"
+    ],
+    "pncs_fsi_bank": {
+      "status": "CI_PASS_CANDIDATE_ONLY_POST_V1",
+      "focused_tests_passed": 5,
+      "quarantine_boundary": "PASS",
+      "entries": [
+        "FSI.01.SE3.AFFINE.GLUE.TIR.RFC",
+        "FSI.02.GLOBAL.COCYCLE.GLUE.SPINE",
+        "FSI.03.REPRESENTATION.QUOTIENT.RELATIONAL.INVARIANT",
+        "FSI.04.COLLATZ.ACCELERATED.BLOCK.PHASE"
+      ]
+    },
+    "fpdg_coverage_gaps": [
+      "RFC.GSC4F.GLOBAL_SE3_GAUGE_QUOTIENT",
+      "RFC.GSC4G.RIGID_OVERLAP_COCYCLE"
     ]
   },
   "proof_firewalls": {
@@ -64,6 +79,10 @@
     "qhtri_physical_coupling_open": true
   },
   "sources": {
-    "PNCS": "3aa3393cea390c8703a5bf50209f10939beb9b34"
+    "PNCS": "3aa3393cea390c8703a5bf50209f10939beb9b34",
+    "PNCS_MAIN": "3aa3393cea390c8703a5bf50209f10939beb9b34",
+    "PNCS_FSI_BRANCH": "research/fundamental-seam-bank-v0.1",
+    "PNCS_FSI_HEAD": "7ae1a16ae7d222df16349307d8b99668f22166c7",
+    "PNCS_FSI_PR": 71
   }
 }
