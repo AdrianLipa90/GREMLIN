@@ -10,17 +10,17 @@
   },
   "candidate_overlay": "provenance/FUNDAMENTAL_CANDIDATE_OVERLAY_V0_1.json",
   "metrics": {
-    "node_count": 171,
-    "edge_count": 236,
-    "frontier_count": 75,
-    "frontier_root_count": 29,
+    "node_count": 174,
+    "edge_count": 241,
+    "frontier_count": 77,
+    "frontier_root_count": 30,
     "nontrivial_scc_count": 0,
     "repository_node_counts": {
       "TIR": 35,
       "IDT": 28,
       "RFC": 90,
       "SOH": 8,
-      "CROSS_STACK": 3,
+      "PNCS": 6,
       "INFINITIES": 4,
       "MRIF": 1,
       "QHTRI": 2
@@ -46,6 +46,14 @@
       "GLOBAL_CONTINUUM_AND_PRODUCTION_ATLAS_INPUTS",
       "SOH_POINTWISE_ORBIT_COLLAPSE_INCOMING_THEOREM",
       "PHYSICAL_BINDINGS_G_FLAVOUR_CLOCKS_QHTRI"
+    ],
+    "relational_graph_owner": "AdrianLipa90/PhaseNav-Natural-Coding-System",
+    "new_relational_kernel_repo_required": false,
+    "pncs_existing_paths": [
+      "spec/PNCS_ARCHITECTURE_V0_1.md",
+      "spec/PNCS_GREMLIN_RELATIONAL_ISOMORPHISM_COMPILER_V0_1.md",
+      "spec/PNCS_FPDG_GREMLIN_PAIN_INGRESS_V0_1.md",
+      "spec/PNCS_GREMLIN_CROSS_FORMALISM_ISOMORPHISM_BANK_V0_2.md"
     ]
   },
   "proof_firewalls": {
@@ -54,5 +62,8 @@
     "rh_open": true,
     "collatz_conjecture_open": true,
     "qhtri_physical_coupling_open": true
+  },
+  "sources": {
+    "PNCS": "3aa3393cea390c8703a5bf50209f10939beb9b34"
   }
 }
