@@ -66,17 +66,51 @@
         "SE3 crosswalk proves spacetime realization"
       ],
       "verdict": "LEAN_PASS_WITH_FIREWALLS"
+    },
+    {
+      "seam_id": "FSI.04.COLLATZ.ACCELERATED.BLOCK.PHASE",
+      "repositories": [
+        {
+          "repository": "AdrianLipa90/Infinities",
+          "pr": 2,
+          "head": "669aa7382326daa52dcb08a93779b55c6f108d35",
+          "lean_gate_run": 35593231658,
+          "lean_gate": "PASS",
+          "source_validation": "PASS"
+        },
+        {
+          "repository": "AdrianLipa90/Informational-Dynamics-of-Time",
+          "pr": 103,
+          "head": "e96af5424b0940db1523e6b97e80b76d4ebaeeb0",
+          "lean_gate_run": 35593397214,
+          "lean_gate": "PASS",
+          "production_event_contract": "PASS"
+        }
+      ],
+      "theorem_scope": [
+        "odd branch with supplied exact factorization 3n+1 = u*2^a returns u after division by 2^a",
+        "declared parity block has one odd label followed by a even labels and length a+1",
+        "k repeated lifted phase doublings multiply the phase lift by 2^k",
+        "finite-modulus doubling iteration equals multiplication by 2^k modulo the declared modulus"
+      ],
+      "excluded_claims": [
+        "global Collatz convergence",
+        "all Collatz trajectories admit the terminal cycle",
+        "iteration count is physical elapsed time",
+        "phase coordinate is a physical observable without a separate binding"
+      ],
+      "verdict": "LEAN_PASS_LOCAL_EXACT_CONDITIONAL"
     }
   ],
   "interpretation": {
     "gremlin_prediction_confirmed_for": [
       "FSI.01",
+      "FSI.04",
       "FSI.05"
     ],
     "hidden_axiom_used_for_crosswalk": false,
     "physical_inputs_closed": false,
     "next_recommended_lean_targets": [
-      "FSI.04.COLLATZ.ACCELERATED.BLOCK.PHASE",
       "FSI.02.GLOBAL.COCYCLE.GLUE.SPINE",
       "FSI.03.REPRESENTATION.QUOTIENT.RELATIONAL.INVARIANT"
     ]
