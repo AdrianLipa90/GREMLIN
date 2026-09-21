@@ -1,0 +1,164 @@
+{
+  "schema": "GREMLIN_FUNDAMENTAL_RESIDUAL_GAPS_V0_2",
+  "date": "2026-09-21",
+  "authority": "CANDIDATE_AUDIT_ONLY",
+  "canon_allowed": false,
+  "basis": {
+    "formal_seams": "FSI.01..FSI.05 source-level Lean PASS",
+    "fpdg_status": "DECLARED_EXPORTS_FULLY_IMPORTED_BUT_EXPORTS_LAG_CURRENT_SOURCE_HEADS",
+    "rfc_candidate_status": "REPOSITORY_IMPLEMENTATION_COMPLETE_MODEL_LEVEL_OBSERVATIONAL_E2E",
+    "physical_production_claim": false
+  },
+  "resolved_or_reclassified": [
+    {
+      "item": "shared representation/quotient seam",
+      "previous": "FORMAL_GAP",
+      "current": "LEAN_PASS_TYPED_LOCAL_INVARIANTS",
+      "owner": "PNCS relational candidate + TIR/IDT/RFC source theorems"
+    },
+    {
+      "item": "shared cocycle/gluing seam",
+      "previous": "FORMAL_GAP",
+      "current": "LEAN_PASS_COMMON_STRUCTURAL_DIRECTION",
+      "owner": "PNCS relational candidate + TIR/IDT/RFC source theorems"
+    },
+    {
+      "item": "SE3 affine TIR/RFC crosswalk",
+      "previous": "FORMAL_GAP",
+      "current": "LEAN_PASS",
+      "owner": "TIR/RFC"
+    },
+    {
+      "item": "Collatz accelerated block/phase seam",
+      "previous": "FORMAL_GAP",
+      "current": "LEAN_PASS_LOCAL_CONDITIONAL",
+      "owner": "Infinities/IDT"
+    },
+    {
+      "item": "Hilbert shift/countable history seam",
+      "previous": "FORMAL_GAP",
+      "current": "LEAN_PASS_INDEX_ORDER_ONLY",
+      "owner": "Infinities/IDT"
+    },
+    {
+      "item": "interleaf matching implementation",
+      "previous": "TOP_FPDG_IMPLEMENTATION_BOTTLENECK",
+      "current": "MODEL_LEVEL_ARCHIVE_DERIVED_E2E_PASS / PHYSICAL_PRODUCTION_EVIDENCE_OPEN",
+      "evidence": [
+        "RFC CONCEPTNAV_CLOSURE_LEDGER_V0_11: interleaf matching PASS max residual 6.938893903907228e-17",
+        "RFC TIR_INTERLEAF_SOURCE_REALIZATION_BRIDGE_V0_10: 8/8 PASS",
+        "actual source-owned TIR interleaf production dataset still OPEN"
+      ]
+    }
+  ],
+  "remaining_gaps": [
+    {
+      "gap_id": "G1_SOURCE_EXPORT_FRESHNESS",
+      "class": "INTEGRATION_METADATA",
+      "owners": [
+        "TIR",
+        "IDT",
+        "RFC",
+        "SOH",
+        "FPDG"
+      ],
+      "status": "OPEN",
+      "required_action": "refresh DEPENDENCY_EXPORT.json at current source heads, then regenerate/import FPDG",
+      "new_repository_required": false
+    },
+    {
+      "gap_id": "G2_GLOBAL_SPATIAL_PHYSICAL_BINDING",
+      "class": "PHYSICAL_SOURCE_EVIDENCE",
+      "owners": [
+        "TIR",
+        "RFC"
+      ],
+      "status": "OPEN",
+      "required_action": "bind the finite observational affine 4-simplex/tetrahedral boundary to the intended global physical spatial carrier with source-owned production evidence",
+      "evidence_boundary": "RFC EVIDENCE_BOUNDARY_AUDIT_V0_13",
+      "new_repository_required": false
+    },
+    {
+      "gap_id": "G3_PRODUCTION_SPATIAL_AND_MATCHING_CAPTURE",
+      "class": "PHYSICAL_PRODUCTION_INPUT",
+      "owners": [
+        "TIR"
+      ],
+      "status": "OPEN",
+      "required_action": "source-owned production GSC1 spatial capture plus A5 edge/refinement/domain witnesses and actual production interleaf matching dataset under one physical_realization_id",
+      "new_repository_required": false
+    },
+    {
+      "gap_id": "G4_PRODUCTION_CLOCK_LAPSE_CAPTURE",
+      "class": "PHYSICAL_PRODUCTION_INPUT",
+      "owners": [
+        "IDT"
+      ],
+      "status": "OPEN",
+      "required_action": "precision-safe production 05K clock/lapse capture bound to the same physical realization/clock contract",
+      "new_repository_required": false
+    },
+    {
+      "gap_id": "G5_FULL_PHYSICAL_3PLUS1_EVIDENCE",
+      "class": "EMPIRICAL_VALIDATION",
+      "owners": [
+        "RFC",
+        "TIR",
+        "IDT"
+      ],
+      "status": "OPEN_SEPARATE_EVIDENCE_GATE",
+      "required_action": "full physical 3+1 production evidence; current archive-derived route is model-level validation only",
+      "new_repository_required": false
+    },
+    {
+      "gap_id": "G6_SOH_POINTWISE_ORBIT_COLLAPSE",
+      "class": "OPEN_MATHEMATICS",
+      "owners": [
+        "SOH"
+      ],
+      "status": "OPEN_RH_EQUIVALENT",
+      "required_action": "non-circular theorem forcing X(u)=0 -> u^-1=conj(u), or an independently sufficient route",
+      "new_repository_required": false
+    },
+    {
+      "gap_id": "G7_PHYSICAL_CONSTANT_AND_FLAVOUR_BINDINGS",
+      "class": "EMPIRICAL_OR_SOURCE_BINDING",
+      "owners": [
+        "RFC",
+        "TIR"
+      ],
+      "status": "OPEN",
+      "required_action": "physical G universality/scale and flavour/CKM/PMNS/Yukawa source bindings",
+      "new_repository_required": false
+    },
+    {
+      "gap_id": "G8_QHTRI_NEUTRINO_PHYSICAL_COUPLING",
+      "class": "EMPIRICAL_PHYSICAL_BINDING",
+      "owners": [
+        "QHTRI",
+        "RFC"
+      ],
+      "status": "OPEN",
+      "required_action": "independent physical witness for the proposed neutrino/holonomic coupling beyond model-state validation",
+      "new_repository_required": false
+    }
+  ],
+  "repository_creation_verdict": {
+    "new_fundamental_theory_repo": false,
+    "new_relational_graph_repo": false,
+    "new_formal_kernel_repo": false,
+    "new_spacetime_repo": false,
+    "use_existing": {
+      "PNCS": "relational graph and candidate compilation",
+      "FPDG": "dependency/status graph",
+      "GREMLIN": "audit and gap localization",
+      "TIR": "space/relations/source physical realization",
+      "IDT": "time/clock/event source data",
+      "RFC": "field/spacetime/globalization and executable ToE candidate",
+      "SOH": "Riemann open mathematics",
+      "Infinities": "infinite/operator mathematics",
+      "QHTRI": "falsifiable physical hypothesis branch"
+    },
+    "conditional_future_exception": "a separate immutable witness/data repository only if production datasets become multi-repository shared assets too large or governance-heavy for source-repository ownership"
+  }
+}
