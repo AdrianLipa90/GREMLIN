@@ -8,7 +8,13 @@
     "head": "3aa3393cea390c8703a5bf50209f10939beb9b34",
     "candidate_branch": "research/fundamental-seam-bank-v0.1",
     "candidate_pr": 71,
-    "role": "CANONICAL_RELATIONAL_GRAPH_AND_CANDIDATE_COMPILER_NOT_THEOREM_AUTHORITY"
+    "role": "CANONICAL_RELATIONAL_GRAPH_AND_CANDIDATE_COMPILER_NOT_THEOREM_AUTHORITY",
+    "candidate_head": "7ae1a16ae7d222df16349307d8b99668f22166c7",
+    "candidate_ci": {
+      "status": "PASS",
+      "focused_tests_passed": 5,
+      "quarantine_boundary": "PASS"
+    }
   },
   "seams": [
     {
@@ -204,5 +210,17 @@
     "use_existing_fpdg": true,
     "use_existing_gremlin": true,
     "only_future_exception": "create a separate immutable witness/data repository only if production datasets outgrow source-repository ownership and are consumed by multiple independent repos"
-  }
+  },
+  "fpdg_coverage_gaps": [
+    {
+      "claim_id": "RFC.GSC4F.GLOBAL_SE3_GAUGE_QUOTIENT",
+      "owner": "RFC",
+      "verdict": "SOURCE_CLAIM_EXISTS / FPDG_NODE_MISSING"
+    },
+    {
+      "claim_id": "RFC.GSC4G.RIGID_OVERLAP_COCYCLE",
+      "owner": "RFC",
+      "verdict": "SOURCE_CLAIM_EXISTS / FPDG_NODE_MISSING"
+    }
+  ]
 }
