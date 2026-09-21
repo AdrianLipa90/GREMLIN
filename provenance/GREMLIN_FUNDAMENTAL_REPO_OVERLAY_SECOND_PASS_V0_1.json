@@ -57,19 +57,27 @@
     ],
     "pncs_fsi_bank": {
       "status": "CI_PASS_CANDIDATE_ONLY_POST_V1",
-      "focused_tests_passed": 5,
+      "focused_tests_passed": 6,
       "quarantine_boundary": "PASS",
       "entries": [
         "FSI.01.SE3.AFFINE.GLUE.TIR.RFC",
         "FSI.02.GLOBAL.COCYCLE.GLUE.SPINE",
         "FSI.03.REPRESENTATION.QUOTIENT.RELATIONAL.INVARIANT",
-        "FSI.04.COLLATZ.ACCELERATED.BLOCK.PHASE"
+        "FSI.04.COLLATZ.ACCELERATED.BLOCK.PHASE",
+        "FSI.05.HILBERT.SHIFT.COUNTABLE.HISTORY"
       ]
     },
     "fpdg_coverage_gaps": [
       "RFC.GSC4F.GLOBAL_SE3_GAUGE_QUOTIENT",
       "RFC.GSC4G.RIGID_OVERLAP_COCYCLE"
-    ]
+    ],
+    "countable_history_seam": {
+      "status": "STRUCTURAL_CANDIDATE_CI_PASS",
+      "invariant": "COUNTABLE_SUCCESSOR_ORDER_EMBEDDING",
+      "physical_time_identification": false,
+      "hilbert_space_identification": false,
+      "fredholm_index_imported_to_idt": false
+    }
   },
   "proof_firewalls": {
     "physical_input_is_not_theorem": true,
@@ -82,7 +90,7 @@
     "PNCS": "3aa3393cea390c8703a5bf50209f10939beb9b34",
     "PNCS_MAIN": "3aa3393cea390c8703a5bf50209f10939beb9b34",
     "PNCS_FSI_BRANCH": "research/fundamental-seam-bank-v0.1",
-    "PNCS_FSI_HEAD": "7ae1a16ae7d222df16349307d8b99668f22166c7",
+    "PNCS_FSI_HEAD": "8e5fd412395ad5724582aba2e614d3b5cd092161",
     "PNCS_FSI_PR": 71
   }
 }
