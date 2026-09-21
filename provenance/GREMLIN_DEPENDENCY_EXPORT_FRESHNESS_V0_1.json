@@ -1,0 +1,67 @@
+{
+  "schema": "GREMLIN_DEPENDENCY_EXPORT_FRESHNESS_V0_1",
+  "date": "2026-09-21",
+  "authority": "CANDIDATE_AUDIT_ONLY",
+  "canon_allowed": false,
+  "conclusion": "FPDG_MATCHES_DECLARED_EXPORTS_BUT_SOURCE_EXPORTS_LAG_CURRENT_MAIN",
+  "repositories": {
+    "TIR": {
+      "repository": "AdrianLipa90/The-Fundamental-Theory-of-Informational-Relations",
+      "export_source_commit": "e4eba64a1cc60e7f67e7d9c8229b05ae6185aa6e",
+      "current_main": "f7b754347502f5051d423867f8a8d60627b1f8d7",
+      "ahead_by": 18,
+      "exported_claims": 35,
+      "represented_in_fpdg": 35,
+      "known_newer_surfaces": [
+        "SP3_3PLUS1_BUNDLE_COMPATIBILITY",
+        "SP3_DELTA_HERM2_HALF_LIFT",
+        "SEMANTIC_U1_HOLONOMY_CROSSWALK"
+      ]
+    },
+    "IDT": {
+      "repository": "AdrianLipa90/Informational-Dynamics-of-Time",
+      "export_source_commit": "58f453a4725bf0304417a5d07730f2dc1765dea5",
+      "current_main": "2960a936e3f74b07a4bf30ebc5cb78b6c1811b4c",
+      "ahead_by": 18,
+      "exported_claims": 28,
+      "represented_in_fpdg": 28,
+      "known_newer_surfaces": [
+        "05J_PRODUCTION_EVENT_COMPLEX_INPUT",
+        "02JN_MOD6PI_C3_PAULI_BRIDGE"
+      ]
+    },
+    "RFC": {
+      "repository": "AdrianLipa90/Relational-Field-Closure",
+      "export_source_commit": "ce4af9ddd480ea40dfb5a3ee26ed396a58cb0e54",
+      "current_main": "786d1e1a9f9c91a4c3174719ed76966aa73edcef",
+      "ahead_by": 122,
+      "exported_claims": 90,
+      "represented_in_fpdg": 90,
+      "known_newer_surfaces": [
+        "RFC.GSC4F.GLOBAL_SE3_GAUGE_QUOTIENT",
+        "RFC.GSC4G.RIGID_OVERLAP_COCYCLE",
+        "SP3_3PLUS1_TWO_EPOCH_CONSTRUCTOR",
+        "QHTRI_TOE_CANDIDATE_STACK"
+      ]
+    },
+    "SOH": {
+      "repository": "AdrianLipa90/secret-of-a-half",
+      "export_source_commit": "d99545aa447ef86bc253d8241a3fee9adb8a42c1",
+      "current_main": "41772776dadf837c7a2f8b095b752e586d85c5dc",
+      "ahead_by": 4,
+      "exported_claims": 7,
+      "represented_in_fpdg": 7,
+      "known_newer_surfaces": [
+        "AI_TRAINING_POLICY_AND_EXPORT_MAINTENANCE_ONLY_IN_COMPARE_SAMPLE"
+      ]
+    }
+  },
+  "routing_rule": [
+    "SOURCE_REPO_OWNS_CLAIM",
+    "SOURCE_REPO_REFRESHES_DEPENDENCY_EXPORT",
+    "FPDG_IMPORTS_DECLARED_EXPORT",
+    "GREMLIN_AUDITS_AND_OVERLAYS",
+    "PNCS_COMPILES_RELATIONAL_CANDIDATES"
+  ],
+  "new_repository_required": false
+}
