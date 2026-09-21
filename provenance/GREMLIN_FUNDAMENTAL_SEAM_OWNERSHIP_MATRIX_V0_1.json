@@ -9,10 +9,10 @@
     "candidate_branch": "research/fundamental-seam-bank-v0.1",
     "candidate_pr": 71,
     "role": "CANONICAL_RELATIONAL_GRAPH_AND_CANDIDATE_COMPILER_NOT_THEOREM_AUTHORITY",
-    "candidate_head": "7ae1a16ae7d222df16349307d8b99668f22166c7",
+    "candidate_head": "8e5fd412395ad5724582aba2e614d3b5cd092161",
     "candidate_ci": {
       "status": "PASS",
-      "focused_tests_passed": 5,
+      "focused_tests_passed": 6,
       "quarantine_boundary": "PASS"
     }
   },
@@ -200,6 +200,29 @@
       ],
       "new_repository_required": false,
       "action": "NO_NEW_FORMAL_REPO; KEEP_EMPIRICAL_BINDINGS_AT_SOURCE"
+    },
+    {
+      "seam_id": "S9_COUNTABLE_HISTORY_SUCCESSOR",
+      "status": "STRUCTURAL_SEAM_CANDIDATE_CI_PASS",
+      "source_owners": [
+        "INFINITIES",
+        "IDT"
+      ],
+      "relational_owner": "PNCS",
+      "dependency_owner": "FPDG",
+      "audit_owner": "GREMLIN",
+      "missing": [
+        "formal proof-assistant statement of the shared successor embedding n -> n+k if this seam is promoted",
+        "no missing physical input is required for the index/order statement"
+      ],
+      "already_present": [
+        "Infinities INF-010 unilateral shift defect-rank/Fredholm-index theorem",
+        "IDT prefix-labelled realized history on N",
+        "IDT append-only residence ledger preserving forward lineage",
+        "PNCS FSI.05 compiled relational candidate with focused CI PASS"
+      ],
+      "new_repository_required": false,
+      "action": "KEEP_FREDHOLM_OPERATOR_THEOREM_TYPED_TO_INFINITIES; FORMALIZE_ONLY_INDEX_ORDER_CROSSWALK_LATER"
     }
   ],
   "repository_creation_verdict": {
