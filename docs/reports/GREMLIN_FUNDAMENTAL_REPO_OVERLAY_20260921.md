@@ -776,3 +776,95 @@ consume a declared export.
 
 No new repository is required to fix this. The missing mechanism is export
 freshness and ownership discipline in the existing source repositories.
+
+
+## 17. First GREMLIN ↔ Lean cross-validation
+
+The first proof-assistant target was selected directly from the PNCS/GREMLIN
+FSI.05 seam rather than from an arbitrary repository file.
+
+GREMLIN/PNCS candidate:
+
+`FSI.05.HILBERT.SHIFT.COUNTABLE.HISTORY`
+
+predicted that the safe shared invariant is only the countable successor/order
+embedding
+
+[
+nmapsto n+k,
+]
+
+while Hilbert-space structure, Fredholm index and physical-time semantics must
+remain outside the crosswalk.
+
+Lean was then attached independently to both source sides.
+
+### Infinities
+
+Draft PR `#2`, branch `formalize/lean-proof-gates-v0.1`.
+
+Lean kernel build: **PASS**.
+
+Axiom audit:
+
+```text
+7 declarations audited
+all within allowlist [propext, Classical.choice, Quot.sound]
+```
+
+Formalized:
+
+- injectivity of (nmapsto n+k);
+- preservation of (le) and (<);
+- exclusion of indices (0,ldots,k-1) from the shifted image;
+- identity of the zero shift.
+
+The Fredholm-index theorem is deliberately not imported into this cross-repo
+formalization.
+
+### IDT
+
+Draft PR `#103`, branch `formalize/lean-proof-gates-v0.1`.
+
+Lean kernel build: **PASS**.
+
+Axiom audit:
+
+```text
+9 declarations audited
+all within allowlist [propext, Classical.choice, Quot.sound]
+```
+
+Formalized:
+
+- injectivity/order preservation of the serial-history successor;
+- exclusion of the initial (k) history indices from the shifted range;
+- append-only finite-history prefix preservation;
+- append-only length accounting.
+
+The ordinary IDT reference suite and the 05J production-event input gate are
+also GREEN on the same PR head.
+
+### Cross-validation verdict
+
+```text
+GREMLIN predicted invariant:
+    COUNTABLE SUCCESSOR / ORDER EMBEDDING
+
+Lean independently closes:
+    COUNTABLE SUCCESSOR / ORDER EMBEDDING
+
+GREMLIN firewall:
+    NO HILBERT-SPACE IDENTIFICATION
+    NO FREDHOLM->PHYSICAL-TIME IMPORT
+
+Lean proof surface:
+    contains neither identification
+
+VERDICT:
+    GREMLIN_LEAN_AGREEMENT_PASS
+```
+
+This is the first concrete validation of the intended architecture: GREMLIN
+localizes the shared structure and its firewall; Lean accepts exactly the
+mathematical core without requiring the forbidden semantic promotion.
