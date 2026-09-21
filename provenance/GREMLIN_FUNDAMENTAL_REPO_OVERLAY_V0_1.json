@@ -10,7 +10,11 @@
     "IDT": "2960a936e3f74b07a4bf30ebc5cb78b6c1811b4c",
     "RFC": "786d1e1a9f9c91a4c3174719ed76966aa73edcef",
     "SOH": "41772776dadf837c7a2f8b095b752e586d85c5dc",
-    "Infinities": "c1ad8376f9dd4c2daf2c4ea0bf61568d718fd794"
+    "Infinities": "c1ad8376f9dd4c2daf2c4ea0bf61568d718fd794",
+    "Metatime": "aa9fe46d2ca0a93e804e78ea843bbc296aeb591d",
+    "Informational-Dynamics-of-Metatime": "19e59794d3bb28e14fb1aeac8fdc5a71ffae5036",
+    "Metatime-Relation_of_Information_Framework": "ffcd6a31c41ec937882d3d56d08f8ddb9adb0633",
+    "QHTRI-Neutrino-Phase-Optics": "c59f84ff38084d34d7b6c4a6ec8fcd4b9b75d152"
   },
   "fpdg_snapshot": {
     "node_count": 160,
@@ -39,11 +43,25 @@
     "status": "PRODUCTION_MATCHING_FIELD_OPEN"
   },
   "findings": [
+    "ACTIVE_SATELLITE_COVERAGE_INCOMPLETE",
     "INFINITIES_ABSENT_FROM_FPDG",
+    "METATIME_RELATION_FRAMEWORK_OWNERSHIP_UNCLASSIFIED",
+    "QHTRI_PHYSICAL_HYPOTHESIS_BRANCH_ABSENT_FROM_FPDG",
     "TIR_IDT_DIRECT_SEAM_UNDERREPRESENTED",
     "SHARED_REPRESENTATION_QUOTIENT_CONTRACT_NOT_EXPLICIT",
     "PHYSICAL_REALIZATION_INPUTS_DOMINATE_SPACETIME_FRONTIER",
     "RH_EQUIVALENT_POINTWISE_ORBIT_COLLAPSE_REMAINS_OPEN"
   ],
-  "lean_gate": "DEFER_UNTIL_GREMLIN_SEAM_SCHEMA_FREEZE"
+  "lean_gate": "DEFER_UNTIL_GREMLIN_SEAM_SCHEMA_FREEZE",
+  "repository_inventory": {
+    "historical_or_archival": [
+      "Metatime",
+      "Informational-Dynamics-of-Metatime"
+    ],
+    "active_unrepresented_or_unclassified": [
+      "Infinities",
+      "Metatime-Relation_of_Information_Framework",
+      "QHTRI-Induced-Holonomic-Potentials-for-Neutrino-Flavour-Transport-and-Phase-Optics"
+    ]
+  }
 }
