@@ -582,3 +582,92 @@ ownership class that is not representable as:
 - audit/orchestration in GREMLIN.
 
 At present no such missing ownership class is detected.
+
+
+## 14. PNCS seam-bank realization
+
+The generic seam placeholders have now been replaced by concrete post-v1 PNCS
+relational-isomorphism candidates on branch
+`research/fundamental-seam-bank-v0.1` / draft PR `#71`.
+
+The PNCS bank contains:
+
+```text
+FSI.01  TIR SE(3) affine glue <-> RFC rigid overlap cocycle
+FSI.02  IDT/TIR/RFC global cocycle/gluing spine
+FSI.03  IDT/TIR/RFC representation-quotient/invariant spine
+FSI.04  Infinities/TIR/IDT accelerated-Collatz block/phase crosswalk
+```
+
+All four compile through the existing
+`PNCS_GREMLIN_RELATIONAL_ISOMORPHISM_COMPILER_V0_1` and remain:
+
+```text
+POST_V1_EXPERIMENTAL
+EPISTEMIC CHYBA
+CANDIDATE_ONLY
+READ_ONLY
+runtime_execution_authority = false
+canon_write_authority = false
+```
+
+Focused PNCS gate:
+
+```text
+5 passed
+quarantine boundary PASS
+```
+
+The active PNCS v1 package does not import the seam bank.
+
+The overlay also exposed two RFC source claims that exist in RFC but were not
+yet represented as FPDG claim nodes:
+
+```text
+RFC.GSC4F.GLOBAL_SE3_GAUGE_QUOTIENT
+RFC.GSC4G.RIGID_OVERLAP_COCYCLE
+```
+
+They are therefore added only as candidate FPDG-coverage nodes in the GREMLIN
+overlay, not as replacements for RFC authority.
+
+Recomputed overlay after using the actual PNCS FSI bank:
+
+```text
+nodes                 178
+edges                 248
+frontier nodes         81
+frontier roots         32
+nontrivial SCCs         0
+```
+
+Repository coverage:
+
+```text
+TIR          35
+IDT          28
+RFC          92   [90 canonical FPDG + 2 candidate coverage nodes]
+SOH           8
+PNCS          8
+INFINITIES    4
+MRIF          1
+QHTRI         2
+```
+
+The leading bottleneck remains
+
+`TIR.SPACETIME.INTERLEAF_MATCHING_INPUT_CONTRACT`
+
+with `72` downstream claims. The Infinities Collatz operator now reaches
+`10` downstream claims after routing through PNCS FSI.04.
+
+This strengthens the repository-creation verdict:
+
+```text
+new relational graph repo      NO
+new formal-kernel repo now     NO
+new theory repo now            NO
+existing PNCS graph            USE
+existing FPDG dependency graph USE
+GREMLIN audit overlay          USE
+```
