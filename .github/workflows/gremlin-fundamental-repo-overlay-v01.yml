@@ -23,7 +23,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: AdrianLipa90/Fundamental-Physics-Dependency-Graph
-          ref: 4f1d316c5fcee2a29c91e12b8f7157bd07b3ba99
+          ref: fbbca075ee6827ec19c68184431e4f804425ba50
           path: fpdg
 
       - uses: actions/setup-python@v5
@@ -56,15 +56,15 @@ jobs:
           from pathlib import Path
           row = json.loads(Path('fundamental-overlay-second-pass.json').read_text())
           assert row['candidate_overlay_applied'] is True
-          assert row['node_count'] == 178
-          assert row['edge_count'] == 248
+          assert row['node_count'] == 183
+          assert row['edge_count'] == 260
           assert row['nontrivial_scc_count'] == 0
           assert row['repository_node_counts']['INFINITIES'] == 4
           assert row['repository_node_counts']['PNCS'] == 8
           top = row['high_impact_frontier'][0]
           assert top['claim_id'] == 'TIR.SPACETIME.INTERLEAF_MATCHING_INPUT_CONTRACT'
-          assert top['downstream_count'] == 72
-          assert row['repository_node_counts']['RFC'] == 92
+          assert top['downstream_count'] == 79
+          assert row['repository_node_counts']['RFC'] == 93
           print(json.dumps({
               'status': 'PASS',
               'node_count': row['node_count'],
