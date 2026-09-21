@@ -1340,3 +1340,60 @@ owners in TIR, IDT, RFC, SOH and QHTRI.
 
 The machine-readable classification is frozen in
 `provenance/GREMLIN_FUNDAMENTAL_RESIDUAL_GAPS_V0_2.json`.
+
+
+## 22. Third GREMLIN pass on refreshed FPDG candidate
+
+The source-export refresh is now machine-valid as a federated candidate.
+
+FPDG draft PR #23 is GREEN on all three relevant gates:
+
+```text
+Validate Locked Source Exports   PASS
+Validate Fundamental DAG         PASS
+Watch Fundamental Source Drift   PASS
+```
+
+The refreshed source-local surfaces are exact matches between export and graph.
+The third GREMLIN pass therefore removes the temporary RFC GSC4F/GSC4G coverage
+placeholders and consumes those claims directly from FPDG.
+
+Combined FPDG + PNCS/GREMLIN candidate metrics:
+
+```text
+nodes                 183
+edges                 260
+frontier nodes         86
+frontier roots         33
+nontrivial SCCs         0
+```
+
+The interleaf input contract now reaches `79` descendants. This increase from
+the earlier count is not a regression: the refreshed graph exposes the new SP3
+3+1 candidate routes that were previously invisible to FPDG.
+
+The newly visible high-impact candidate corridor is:
+
+```text
+RFC.GSC3H.3PLUS1_TWO_EPOCH_CONSTRUCTOR_V013      downstream 25
+  -> TIR.SPACETIME.SP3_3PLUS1_BUNDLE_COMPATIBILITY_V01  21
+     -> TIR.SPACETIME.SP3_DELTA_HERM2_HALF_LIFT_V01      20
+        -> candidate RFC ADM/spacetime route
+```
+
+The candidate remains correctly firewalled:
+
+```text
+archive-derived/model-level 3+1 construction  PRESENT
+exact two-epoch linear transform              PRESENT
+same-parent source association                PRESENT
+Herm(2) half-lift candidate                   PRESENT
+global physical spatial-carrier binding       OPEN
+full physical 3+1 production evidence         OPEN
+```
+
+Source-export freshness is therefore no longer an unspecified gap. It is now
+`STAGED_GREEN_DRAFTS_MERGE_PENDING`.
+
+No source refresh, FPDG refresh, PNCS seam bank, Lean branch or GREMLIN audit
+has been merged to main.
