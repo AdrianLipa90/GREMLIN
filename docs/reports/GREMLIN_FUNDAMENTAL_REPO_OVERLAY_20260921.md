@@ -671,3 +671,54 @@ existing PNCS graph            USE
 existing FPDG dependency graph USE
 GREMLIN audit overlay          USE
 ```
+
+
+## 15. Hilbert-shift / countable-history seam completed as a PNCS candidate
+
+The final generic countable-history placeholder has been replaced by the concrete
+PNCS candidate:
+
+`FSI.05.HILBERT.SHIFT.COUNTABLE.HISTORY`.
+
+The bridge is intentionally narrow. Infinities owns the standard unilateral
+shift result
+
+[
+operatorname{rank}(I-U^kU^{*k})=k,qquad operatorname{ind}(U^k)=-k,
+]
+
+while IDT owns serial realized-prefix history
+
+[
+
+u_0prec_T
+u_1prec_T
+u_2prec_Tcdots.
+]
+
+Under the explicit index identification (e_nleftrightarrow
+u_n), both expose
+the successor embedding
+
+[
+nmapsto n+k,
+]
+
+which is injective, order-preserving and leaves the first (k) labels outside
+the image.
+
+The relational invariant is therefore **countable successor order**, not
+Hilbert-space structure. The Fredholm index remains typed to Infinities and is
+not imported as a physical time observable. IDT memory semantics remain owned
+by IDT.
+
+Updated focused PNCS seam-bank result:
+
+```text
+6 passed
+post-v1 quarantine boundary PASS
+```
+
+This removes the last synthetic cross-stack seam placeholder from the current
+GREMLIN overlay. All five shared formal seams are now represented by concrete
+PNCS FSI candidates.
