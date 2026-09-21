@@ -929,3 +929,100 @@ similarities.
 
 Next formal targets remain FSI.04 Collatz block/phase, then FSI.02 cocycle
 spine and FSI.03 quotient/invariant spine.
+
+
+## 18. Second GREMLIN ↔ Lean cross-validation — FSI.01 affine SE(3) seam
+
+GREMLIN/PNCS selected the next exact seam:
+
+`FSI.01.SE3.AFFINE.GLUE.TIR.RFC`.
+
+The source formulas are:
+
+```text
+TIR:
+(R2,t2) o (R1,t1) = (R2 R1, R2·t1 + t2)
+
+RFC GSC4G:
+A_rp = A_rq A_qp
+t_rp = A_rq t_qp + t_rq
+```
+
+under the explicit convention map
+
+```text
+R_ba <-> A_qp
+t_ba <-> t_qp
+```.
+
+Lean was attached independently to both source repositories.
+
+### TIR
+
+Draft PR `#175`.
+
+Head:
+
+`f2668ad71a192f5cc3ae654f90f552c5381e004a`
+
+Lean proof gate: **PASS**.
+
+Axiom audit:
+
+```text
+25 declarations audited
+all within allowlist [propext, Classical.choice, Quot.sound]
+```
+
+The formal surface defines an abstract typed affine pair and proves by kernel
+reduction that the TIR composition/inverse formulas and the normalized RFC
+formulas coincide under the declared symbol map.
+
+### RFC
+
+Draft PR `#168`.
+
+Head:
+
+`ed2c5f5e6284ae1a80bb4a3f2585c0df87a57fd2`
+
+Lean proof gate: **PASS**.
+
+Axiom audit:
+
+```text
+25 declarations audited
+all within allowlist [propext, Classical.choice, Quot.sound]
+```
+
+The RFC-side formal surface independently exposes the same affine composition
+and inverse crosswalk.
+
+### Exact boundary of the result
+
+Lean has closed the **coordinate/algebraic crosswalk**, not the entire physical
+SE(3) programme.
+
+The following remain outside this theorem and keep their source status:
+
+- membership/validation of the rotational carrier in the intended (SO(3))
+  realization;
+- production numeric overlap cocycle;
+- production coframe/source realization;
+- continuum curvature/torsion interpretation;
+- physical spacetime promotion.
+
+Therefore the correct verdict is:
+
+```text
+FSI.01 coordinate composition crosswalk     PASS
+FSI.01 coordinate inverse crosswalk         PASS
+hidden axiom required                       NO
+production overlap witness                  OPEN SOURCE INPUT
+curvature/torsion physical binding          OPEN
+GREMLIN_LEAN_AGREEMENT                      PASS
+```
+
+This is the second consecutive seam where the proof assistant closes exactly
+the mathematical core isolated by GREMLIN without forcing a forbidden physical
+promotion.
