@@ -329,3 +329,136 @@ GREMLIN says physical bind <=>  Lean exposes it as a premise rather than a proof
 ```
 
 A disagreement between those two systems becomes the next audit target.
+
+
+## 11. GREMLIN second pass — candidate overlay
+
+A second SPIDER/HOUND pass was run conceptually by applying
+`provenance/FUNDAMENTAL_CANDIDATE_OVERLAY_V0_1.json` on top of the frozen FPDG
+snapshot without mutating FPDG.
+
+The candidate overlay adds:
+
+- one shared representation/quotient meta-contract;
+- one shared slice-glue/cocycle meta-contract;
+- one countable-history interface;
+- four Infinities source nodes;
+- one missing SOH reciprocal-conjugation coverage node;
+- one MRIF semantic-holonomy firewall node;
+- one QHTRI model node plus one explicitly open physical-coupling node.
+
+Second-pass graph metrics:
+
+```text
+nodes                 171
+edges                 236
+frontier nodes         75
+frontier roots         29
+nontrivial SCCs         0
+```
+
+Repository coverage becomes:
+
+```text
+TIR          35
+IDT          28
+RFC          90
+SOH           8
+CROSS_STACK   3
+INFINITIES    4
+MRIF          1
+QHTRI         2
+```
+
+The candidate overlay does not create a dependency cycle. This is important:
+adding the missing cross-stack seams did not manufacture a circular proof route.
+
+The strongest new candidate source is:
+
+```text
+INF.COLLATZ.OPERATOR
+    -> TIR.COLLATZ_FS.RELATIONAL_PHASE_INTERFACE
+    -> ...
+    -> RFC.E27.COLLATZ_FS_PHASE_FIBRE
+
+INF.COLLATZ.OPERATOR
+    -> IDT.COLLATZ_FS.PHASE_MAP
+    -> IDT.COLLATZ_FS.TEMPORAL_PHASE_INTERFACE
+    -> RFC.E27.COLLATZ_FS_PHASE_FIBRE
+```
+
+It reaches **9 downstream claims** in the combined candidate graph. This makes
+the Collatz operator crosswalk worth formal checking, but it remains a
+crosswalk candidate and does not imply the Collatz conjecture.
+
+The original leading bottleneck remains unchanged in identity and increases in
+downstream reach after the overlay:
+
+```text
+TIR.SPACETIME.INTERLEAF_MATCHING_INPUT_CONTRACT
+    downstream: 69 -> 72
+```
+
+Thus the overlay strengthens, rather than removes, the diagnosis that physical
+interleaf matching is the dominant spacetime integration gate.
+
+### 11.1 Shared quotient/glue seam
+
+The overlay now makes the common structure explicit:
+
+```text
+TIR.HOLONOMY.WIJ --------------------.
+IDT.NOETHER.GAUGE_COVARIANT_SOURCE --+--> REPRESENTATION_QUOTIENT_CONTRACT
+RFC.F1.GAUGE_RELATIONAL_PHASE -------+
+RFC.GSC3B.RELATIONAL_EVENT_PLACEMENT-+
+MRIF.W_SEMANTIC firewall ------------'   [type example only]
+                                              |
+                                              v
+                                  SLICE_GLUE_COCYCLE_CONTRACT
+                                      ^                 ^
+                                      |                 |
+                         IDT.CLOCK.GLOBAL_COCYCLE   RFC.E25.ATLAS
+```
+
+This is the correct target for later proof-assistant comparison because it
+forces the local representations to expose the same domains, quotient actions,
+transition maps and invariant outputs before any theorem is imported across a
+repository boundary.
+
+### 11.2 Satellite firewalls
+
+The second pass deliberately keeps three boundaries:
+
+1. `MRIF.W_SEMANTIC.U1_HOLONOMY_FIREWALL` may demonstrate a semantic type
+   pattern, but no edge identifies it with physical holonomy.
+2. `QHTRI.FLAVOUR.HOLONOMIC_POTENTIAL_MODEL -> QHTRI.PHYSICAL.HNUQ` is a
+   model-to-hypothesis edge. The physical coupling remains OPEN and requires
+   measurement.
+3. `INF.RECIPROCAL.INVERSION` only crosswalks to SOH reciprocal-conjugation
+   geometry. It does not supply the missing pointwise zero-orbit-collapse
+   theorem.
+
+## 12. Pre-Lean GREMLIN conclusion
+
+The second pass does **not** reveal a missing large mathematical sector.
+
+It reveals a compact set of seams that should be normalized before Lean:
+
+```text
+A. representation quotient contract
+B. slice/cocycle glue contract
+C. Infinities Collatz operator crosswalk
+D. TIR interleaf matching physical input
+E. global continuum / production atlas inputs
+F. SOH pointwise orbit-collapse incoming theorem
+G. physical binding: G, flavour, clocks, QHTRI coupling
+```
+
+Items A-C are suitable for immediate formalization once their exact source
+statements are frozen. Items D, E and G must remain explicit physical/source
+premises. Item F is genuine open mathematics and must not be converted into an
+axiom merely to make a proof assistant turn green.
+
+The correct GREMLIN -> Lean handoff is therefore not "formalize every file".
+It is "freeze these typed seams, then ask Lean whether the exact mathematical
+subgraph closes without hidden axioms".
