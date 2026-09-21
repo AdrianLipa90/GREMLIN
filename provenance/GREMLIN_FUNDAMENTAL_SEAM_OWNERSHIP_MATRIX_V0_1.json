@@ -39,7 +39,8 @@
         "RFC global SE3 quotient"
       ],
       "new_repository_required": false,
-      "action": "USE_PNCS_FSI_03_AND_LATER_LEAN_CHECK_LOCAL_THEOREMS"
+      "action": "USE_PNCS_FSI_03_AND_LATER_LEAN_CHECK_LOCAL_THEOREMS",
+      "lean_arbitration": "PASS_WITH_TYPED_FIREWALLS"
     },
     {
       "seam_id": "S2_SLICE_COYCLE_GLUE",
@@ -62,7 +63,8 @@
         "RFC E25 atlas/frame cocycle"
       ],
       "new_repository_required": false,
-      "action": "USE_PNCS_FSI_02"
+      "action": "USE_PNCS_FSI_02",
+      "lean_arbitration": "PASS_WITH_TYPED_FIREWALLS"
     },
     {
       "seam_id": "S3_SE3_AFFINE_GLUE",
@@ -83,7 +85,8 @@
         "RFC GSC4G exact rigid overlap composition/inverse"
       ],
       "new_repository_required": false,
-      "action": "USE_PNCS_FSI_01_THEN_LEAN_FIRST"
+      "action": "USE_PNCS_FSI_01_THEN_LEAN_FIRST",
+      "lean_arbitration": "PASS_WITH_TYPED_FIREWALLS"
     },
     {
       "seam_id": "S4_COLLATZ_OPERATOR_CROSSWALK",
@@ -109,7 +112,8 @@
         "RFC Collatz phase fibre downstream interface"
       ],
       "new_repository_required": false,
-      "action": "USE_PNCS_FSI_04_THEN_LEAN_LOCAL_BLOCK_THEOREM"
+      "action": "USE_PNCS_FSI_04_THEN_LEAN_LOCAL_BLOCK_THEOREM",
+      "lean_arbitration": "PASS_WITH_TYPED_FIREWALLS"
     },
     {
       "seam_id": "S5_INTERLEAF_MATCHING",
@@ -222,7 +226,8 @@
         "PNCS FSI.05 compiled relational candidate with focused CI PASS"
       ],
       "new_repository_required": false,
-      "action": "KEEP_FREDHOLM_OPERATOR_THEOREM_TYPED_TO_INFINITIES; FORMALIZE_ONLY_INDEX_ORDER_CROSSWALK_LATER"
+      "action": "KEEP_FREDHOLM_OPERATOR_THEOREM_TYPED_TO_INFINITIES; FORMALIZE_ONLY_INDEX_ORDER_CROSSWALK_LATER",
+      "lean_arbitration": "PASS_WITH_TYPED_FIREWALLS"
     }
   ],
   "repository_creation_verdict": {
@@ -245,5 +250,27 @@
       "owner": "RFC",
       "verdict": "SOURCE_CLAIM_EXISTS / FPDG_NODE_MISSING"
     }
-  ]
+  ],
+  "first_lean_batch": {
+    "status": "COMPLETE_PASS_WITH_TYPED_FIREWALLS",
+    "validated_seams": [
+      "FSI.01",
+      "FSI.02",
+      "FSI.03",
+      "FSI.04",
+      "FSI.05"
+    ],
+    "source_prs": {
+      "TIR": 175,
+      "IDT": 103,
+      "RFC": 168,
+      "INFINITIES": 2
+    },
+    "remaining_gap_classes": [
+      "SOURCE_EXPORT_FRESHNESS",
+      "PRODUCTION_INPUT_WITNESSES",
+      "OPEN_MATHEMATICS",
+      "EMPIRICAL_PHYSICAL_BINDINGS"
+    ]
+  }
 }
