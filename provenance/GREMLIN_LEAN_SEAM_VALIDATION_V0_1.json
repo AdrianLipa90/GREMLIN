@@ -135,18 +135,56 @@
         "Collatz dynamics constrains Riemann zeros"
       ],
       "verdict": "LEAN_PASS_WITH_FIREWALLS"
+    },
+    {
+      "seam_id": "FSI.02.GLOBAL.COCYCLE.GLUE.SPINE",
+      "repositories": [
+        {
+          "repository": "AdrianLipa90/The-Fundamental-Theory-of-Informational-Relations",
+          "pr": 175,
+          "head": "2fe311b88f191ac32bae2d3a31e7b9d24c91a4e9",
+          "lean_gate_run": 35594101021,
+          "lean_gate": "PASS"
+        },
+        {
+          "repository": "AdrianLipa90/Informational-Dynamics-of-Time",
+          "pr": 103,
+          "head": "6592b8f7f1acdd5f8a47ee02cec9980915557e7c",
+          "lean_gate_run": 35594106553,
+          "lean_gate": "PASS"
+        },
+        {
+          "repository": "AdrianLipa90/Relational-Field-Closure",
+          "pr": 168,
+          "head": "051220d750815a50594803baa9613500c62f1fd6",
+          "lean_gate_run": 35594113561,
+          "lean_gate": "PASS"
+        }
+      ],
+      "theorem_scope": [
+        "a transition field induced from global potentials has identity self-transition",
+        "the induced transitions satisfy exact ordered triple-overlap cocycle composition",
+        "the theorem is algebra-explicit and does not assume a specific physical group"
+      ],
+      "excluded_claims": [
+        "every source cocycle admits a global potential on an arbitrary topology",
+        "production spacetime atlas exists",
+        "physical interleaf soldering is supplied",
+        "clock, SE3 and Lorentz transition groups are physically identical"
+      ],
+      "verdict": "LEAN_PASS_COMMON_STRUCTURAL_DIRECTION"
     }
   ],
   "interpretation": {
     "gremlin_prediction_confirmed_for": [
       "FSI.01",
+      "FSI.02",
       "FSI.04",
       "FSI.05"
     ],
     "hidden_axiom_used_for_crosswalk": false,
     "physical_inputs_closed": false,
     "next_recommended_lean_targets": [
-      "FSI.02.GLOBAL.COCYCLE.GLUE.SPINE",
       "FSI.03.REPRESENTATION.QUOTIENT.RELATIONAL.INVARIANT"
     ]
   }
