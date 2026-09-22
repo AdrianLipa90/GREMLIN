@@ -140,3 +140,8 @@ Human self-report can serve as one empirical reference series, but the software 
 4. New memory states are append-only derivations or typed proposals.
 5. ELEPHANT and BEES are memory-only candidate roles until separate PhaseNav carrier validation passes.
 6. Current 18-carrier PhaseNav validation remains historically intact and is not retroactively relabeled as 20/20.
+
+
+## Integration baseline after OWL/runtime consolidation
+
+This candidate was revalidated after GREMLIN `main` reached `b40e5b6129516b79ef9c8f98b74115b85aaf2792`, which includes adaptive-runtime final hardening, the fundamental repository overlay audit, and the OWL runtime audit. This note changes no authority or thresholds; it exists to bind the final pre-merge CI to the consolidated main state.
