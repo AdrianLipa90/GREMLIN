@@ -129,7 +129,15 @@ K(R) = max(
 
 For independent parallel operators, work-like quantities are additive while critical latency is the maximum branch latency.
 
-The deterministic route ordering is lexicographic:
+A route is admissible only when
+
+```text
+K(R) <= 1.
+```
+
+If no complete cover satisfies that bound, routing fails closed instead of returning an over-budget plan.
+
+The deterministic route ordering among admissible complete covers is lexicographic:
 
 1. smallest `K(R)`;
 2. fewest operators;
@@ -323,7 +331,7 @@ A future integration can use OCTOPUS evidence to propose obligations, then use t
 v0.1 tests the following software propositions:
 
 1. **Exact cover:** every returned plan covers every declared obligation.
-2. **Fail-closed incompleteness:** an uncovered obligation raises instead of producing a partial route.
+2. **Fail-closed incompleteness/budget:** an uncovered obligation or absence of any complete route with `K(R)<=1` raises instead of producing a partial or over-budget route.
 3. **Lower-tier dominance:** when two same-species tiers cover the same obligation and the lower tier has lower minimax pressure, the exact planner selects the lower tier. Same-species tiers are mutually exclusive within one route step, and non-monotone tier capability declarations fail closed.
 4. **Parallel causal depth:** independent operations occupy the same `tau` layer; a dependent synthesis step increases depth by one.
 5. **Cycle rejection:** cyclic causal dependencies fail closed.
