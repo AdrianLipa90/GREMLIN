@@ -5,8 +5,9 @@ import json
 from pathlib import Path
 import sqlite3
 from threading import RLock
-from typing import Any, Iterable, Mapping
+from typing import Any, Iterable, Mapping, Sequence
 
+from .genetic_memory_codec import build_hypercrystal_expression, decode_memory_record, encode_memory_record
 from .orbital_hive_memory import ClosureGates, HIVE_SCHEMA, HiveRecord, OrbitalHiveMemory, normalize_phase
 
 AUTHORITY_SCHEMA = "GREMLIN_HIVE_AUTHORITY_RUNTIME_V0_2"
@@ -310,6 +311,31 @@ class HiveAuthorityRuntime:
                     self._memory.history(subject_id) if subject_id is not None else self._memory.flat_ring_table()
                 ))
             return self._rows_locked(subject_id)
+
+    def genetic_snapshot(self, subject_id: str) -> dict[str, Any]:
+        """Return an exact, content-addressed genetic representation of one Hive head."""
+        return encode_memory_record(self.head(subject_id))
+
+    def genetic_restore_preview(self, packet: Mapping[str, Any]) -> dict[str, Any]:
+        """Decode and verify a genetic memory packet without mutating Hive state."""
+        return decode_memory_record(packet)
+
+    def genetic_expression(
+        self,
+        subject_id: str,
+        phase36: Sequence[float],
+        *,
+        top_k: int = 16,
+        phase_source: str = "UNSPECIFIED_36D_REFERENCE",
+    ) -> dict[str, Any]:
+        """Project one Hive head through the read-only 36D hypercrystal recall index."""
+        packet = self.genetic_snapshot(subject_id)
+        return build_hypercrystal_expression(
+            packet,
+            phase36,
+            top_k=top_k,
+            phase_source=phase_source,
+        )
 
     def status(self) -> dict[str, Any]:
         table = self.table()
