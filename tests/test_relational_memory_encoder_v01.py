@@ -131,3 +131,23 @@ def test_extended_cross_language_paraphrase_stress_is_18_of_18() -> None:
             passed += 1
     assert total == 18
     assert passed == 18
+
+
+def test_extended_phase36_geometry_alone_ranks_18_of_18() -> None:
+    passed = 0
+    total = 0
+    for expected, cues in EXTENDED_PARAPHRASES.items():
+        for cue in cues:
+            total += 1
+            ranked = sorted(
+                (
+                    memory_similarity(cue, text)["phase_coherence36"],
+                    candidate_id,
+                )
+                for candidate_id, text in MEMORIES.items()
+            )
+            picked = ranked[-1][1]
+            assert picked == expected
+            passed += 1
+    assert total == 18
+    assert passed == 18
