@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import asdict
-
 from gremlin_mcp.hive_authority import HiveAuthorityRuntime
 
 
@@ -22,7 +20,7 @@ def test_hive_genetic_snapshot_round_trips_exact_head_without_mutation(tmp_path)
         restored = runtime.genetic_restore_preview(packet)
         after = runtime.persisted()
 
-        assert restored == asdict(head)
+        assert restored == before[-1]
         assert packet["source_id"] == head.record_id
         assert packet["parent_id"] == head.parent_record_id
         assert before == after
