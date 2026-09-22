@@ -9,6 +9,7 @@ from gremlin_mcp.adaptive_runtime import (
     ResourceBudget,
     ResourceCost,
     causal_tau,
+    continuation_required,
     effective_resistance,
     escalation_required,
     minimal_capability_cover,
@@ -85,8 +86,43 @@ def test_obligation_frontier_closes_and_discovers_without_implicit_escalation() 
     current = {"derive", "provenance"}
     nxt = next_obligations(current, closed={"derive"}, discovered={"contradiction_check"})
     assert nxt == frozenset({"provenance", "contradiction_check"})
-    assert escalation_required(nxt) is True
+    assert continuation_required(nxt) is True
+    assert continuation_required(()) is False
+    assert escalation_required(nxt, {"provenance", "contradiction_check"}) is False
+    assert escalation_required(nxt, {"provenance"}) is True
     assert escalation_required(()) is False
+
+
+
+def test_malformed_runtime_inputs_fail_closed() -> None:
+    with pytest.raises(ValueError, match="tier must be"):
+        OperatorTier("HOUND", True, frozenset({"probe"}))
+    with pytest.raises(ValueError, match="tokens budget must be a real number"):
+        ResourceBudget(tokens="1000", latency=10, calls=10, memory=100)
+    with pytest.raises(ValueError, match="obligations must be an iterable"):
+        minimal_capability_cover(
+            "audit",
+            [OperatorTier("OWL", 0, frozenset({"audit"}), ResourceCost(1, 1, 1, 1))],
+            budget=BUDGET,
+        )
+    with pytest.raises(ValueError, match="capabilities must be an iterable"):
+        OperatorTier("OWL", 0, "audit")
+    with pytest.raises(ValueError, match="dependency parents must be an iterable"):
+        causal_tau({"OWL": {"parent": "SPIDER"}})
+
+
+def test_exact_planner_state_budget_fails_closed() -> None:
+    operators = [
+        OperatorTier("SPIDER", 0, frozenset({"a"}), ResourceCost(1, 1, 1, 1)),
+        OperatorTier("OWL", 0, frozenset({"b"}), ResourceCost(1, 1, 1, 1)),
+    ]
+    with pytest.raises(ValueError, match="exact planner state budget exceeded"):
+        minimal_capability_cover({"a", "b"}, operators, budget=BUDGET, max_states=2)
+
+
+def test_phase_modulation_rejects_boolean_activation_as_non_numeric_policy() -> None:
+    with pytest.raises(ValueError, match="must be a real number"):
+        phase_modulated_edges((("q", "a", 1.0),), {("q", "a"): True})
 
 
 def test_causal_tau_parallel_specialists_then_synthesis() -> None:
@@ -155,6 +191,20 @@ def test_runtime_receipt_never_promotes_authority() -> None:
     assert receipt["execution_admitted"] is False
     assert receipt["memory_mutation_allowed"] is False
     assert receipt["physical_gravity_claim"] is False
+
+
+def test_over_budget_complete_route_fails_closed() -> None:
+    with pytest.raises(ValueError, match="no complete route fits resource budget"):
+        minimal_capability_cover(
+            {"audit"},
+            [OperatorTier("OWL", 0, frozenset({"audit"}), ResourceCost(
+                tokens=1500,
+                latency=5,
+                calls=1,
+                memory=10,
+            ))],
+            budget=BUDGET,
+        )
 
 
 def test_minimax_pressure_uses_tightest_resource_not_weighted_sum() -> None:

@@ -88,7 +88,7 @@ The intended capability relation is monotone:
 C(B_i^0) subseteq C(B_i^1) subseteq C(B_i^2) subseteq C(B_i^3).
 ```
 
-The intended resource relation is likewise non-decreasing for a given species/profile. The executable planner additionally requires capability closure to be monotone across declared tiers and permits at most one tier of a species in a single route step.
+The executable planner requires capability closure to be monotone across declared tiers and permits at most one tier of a species in a single route step. Resource costs are measured inputs rather than assumed to be monotone, so optimization remains empirical and auditable.
 
 ## 3. Exact minimum capability cover
 
@@ -100,7 +100,7 @@ A valid route `R` must satisfy
 union_(B_i^k in R) C(B_i^k) superset O(q).
 ```
 
-The reference implementation performs exact dynamic programming over the finite obligation subsets. It fails closed above 32 declared obligations rather than silently switching to an approximate set-cover heuristic.
+The reference implementation performs exact dynamic programming over the finite obligation subsets. It does not impose an arbitrary obligation-count cutoff. Instead, it exposes an explicit planner state budget (`max_states`, default 65,536); creating a new DP state beyond that budget fails closed rather than silently switching to an approximate set-cover heuristic.
 
 Heterogeneous resources are not collapsed into an arbitrary weighted sum.
 
@@ -129,7 +129,15 @@ K(R) = max(
 
 For independent parallel operators, work-like quantities are additive while critical latency is the maximum branch latency.
 
-The deterministic route ordering is lexicographic:
+A route is admissible only when
+
+```text
+K(R) <= 1.
+```
+
+If no complete cover satisfies that bound, routing fails closed instead of returning an over-budget plan.
+
+The deterministic route ordering among admissible complete covers is lexicographic:
 
 1. smallest `K(R)`;
 2. fewest operators;
@@ -156,7 +164,7 @@ Given current frontier `O_tau`, closed obligations `C_tau`, and newly discovered
 O_(tau+1) = (O_tau - C_tau) union D_tau.
 ```
 
-Escalation is generically required iff the resulting frontier is non-empty.
+A non-empty resulting frontier means continuation is required. Tier escalation is required only when at least one unresolved obligation lies outside the capability set of the currently active tier configuration. Thus unresolved work does not by itself force a higher tier.
 
 Authority checks remain separate: satisfying an obligation never grants write, execution, publication or canon authority.
 
@@ -234,7 +242,7 @@ Unreachable nodes receive zero score. The query node itself is omitted.
 
 This is graph conductance / effective resistance. The term "relational gravity" is a GREMLIN software metaphor and does not assert physical gravity.
 
-Multiple independent paths reduce effective resistance and therefore raise the relational-gravity score naturally, without embedding-similarity weights.
+Multiple independent paths reduce effective resistance and therefore raise the relational-gravity score naturally, without embedding-similarity weights. The reference implementation computes the Moore-Penrose pseudoinverse once per graph/query evaluation and reuses it across candidate memory nodes.
 
 ## 7. Phase / hypercrystal modulation
 
@@ -323,7 +331,7 @@ A future integration can use OCTOPUS evidence to propose obligations, then use t
 v0.1 tests the following software propositions:
 
 1. **Exact cover:** every returned plan covers every declared obligation.
-2. **Fail-closed incompleteness:** an uncovered obligation raises instead of producing a partial route.
+2. **Fail-closed incompleteness/budget:** an uncovered obligation or absence of any complete route with `K(R)<=1` raises instead of producing a partial or over-budget route.
 3. **Lower-tier dominance:** when two same-species tiers cover the same obligation and the lower tier has lower minimax pressure, the exact planner selects the lower tier. Same-species tiers are mutually exclusive within one route step, and non-monotone tier capability declarations fail closed.
 4. **Parallel causal depth:** independent operations occupy the same `tau` layer; a dependent synthesis step increases depth by one.
 5. **Cycle rejection:** cyclic causal dependencies fail closed.
@@ -331,6 +339,8 @@ v0.1 tests the following software propositions:
 7. **Disconnected isolation:** unreachable memory nodes receive zero relational gravity.
 8. **Read-only phase modulation:** phase/expression factors change graph conductances only; they do not mutate a memory object.
 9. **No authority promotion:** runtime receipts remain `COGNITIVE_ROUTING_ONLY / CHYBA / canon_allowed=false`.
+10. **Strict input boundary:** boolean tiers/numeric fields, string-as-iterable obligation sets, malformed dependency parents and malformed graph inputs fail closed instead of being silently coerced.
+11. **Planner complexity bound:** exact search aborts explicitly when its declared DP state budget would be exceeded.
 
 ## 11. Evidence boundary
 
