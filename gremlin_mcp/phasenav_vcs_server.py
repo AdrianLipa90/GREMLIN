@@ -6,6 +6,7 @@ from typing import Any
 from mcp.server import MCPServer
 
 from gremlin_mcp import __version__
+from gremlin_mcp.owl_runtime_audit import owl_runtime_boundary
 from gremlin_mcp.phasenav_vcs_capability import (
     CAPABILITY_SCHEMA,
     branch_prepare,
@@ -39,6 +40,7 @@ mcp = MCPServer(
 
 
 @mcp.tool()
+@owl_runtime_boundary
 def gremlin_vcs_status() -> dict[str, Any]:
     """Return candidate capability status and authority firewalls."""
     return {
@@ -57,6 +59,7 @@ def gremlin_vcs_status() -> dict[str, Any]:
 
 
 @mcp.tool()
+@owl_runtime_boundary
 def gremlin_vcs_preflight(
     action_packet: dict[str, Any],
     gate_receipt: str,
@@ -77,6 +80,7 @@ def gremlin_vcs_preflight(
 
 
 @mcp.tool()
+@owl_runtime_boundary
 def gremlin_vcs_checkpoint_prepare(
     preflight: dict[str, Any],
     repository: str,
@@ -93,6 +97,7 @@ def gremlin_vcs_checkpoint_prepare(
 
 
 @mcp.tool()
+@owl_runtime_boundary
 def gremlin_vcs_branch_prepare(
     checkpoint: dict[str, Any],
     branch_name: str,
@@ -102,6 +107,7 @@ def gremlin_vcs_branch_prepare(
 
 
 @mcp.tool()
+@owl_runtime_boundary
 def gremlin_vcs_writes_prepare(
     branch: dict[str, Any],
     writes: list[dict[str, Any]],
@@ -112,6 +118,7 @@ def gremlin_vcs_writes_prepare(
 
 
 @mcp.tool()
+@owl_runtime_boundary
 def gremlin_vcs_commit_prepare(
     prepared_writes: dict[str, Any],
     message: str,
@@ -121,6 +128,7 @@ def gremlin_vcs_commit_prepare(
 
 
 @mcp.tool()
+@owl_runtime_boundary
 def gremlin_vcs_tag_prepare(
     checkpoint: dict[str, Any],
     tag_name: str,
@@ -130,6 +138,7 @@ def gremlin_vcs_tag_prepare(
 
 
 @mcp.tool()
+@owl_runtime_boundary
 def gremlin_vcs_bundle_prepare(
     checkpoint: dict[str, Any],
     tag: dict[str, Any],
@@ -140,6 +149,7 @@ def gremlin_vcs_bundle_prepare(
 
 
 @mcp.tool()
+@owl_runtime_boundary
 def gremlin_vcs_test_receipt_bind(
     logical_step: str,
     evidence: dict[str, Any],
@@ -149,6 +159,7 @@ def gremlin_vcs_test_receipt_bind(
 
 
 @mcp.tool()
+@owl_runtime_boundary
 def gremlin_vcs_execution_receipt_build(
     preflight: dict[str, Any],
     checkpoint: dict[str, Any],
