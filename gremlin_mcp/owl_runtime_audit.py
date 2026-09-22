@@ -297,6 +297,8 @@ class OwlRuntimeAuditor:
             return dict(stored)
 
     def _append(self, record: Mapping[str, Any]) -> dict[str, Any]:
+        if self._health != "PASS":
+            raise RuntimeError("OWL_AUDIT_DEGRADED: append refused until ledger integrity is repaired")
         body = dict(record)
         body["sequence"] = self._sequence + 1
         body["previous_record_hash"] = self._previous_hash
@@ -345,6 +347,7 @@ class OwlRuntimeAuditor:
         candidate = {
             "schema": CANDIDATE_SCHEMA,
             "record_type": "IMPROVEMENT_CANDIDATE",
+            "created_unix_ns": time.time_ns(),
             "candidate_key": key,
             "tool": tool,
             "kind": kind,
@@ -414,6 +417,12 @@ class OwlRuntimeAuditor:
                 "head_hash": self._previous_hash,
                 "tools": {k: v.snapshot() for k, v in sorted(self._tool_stats.items())},
                 "recent_candidates": [dict(v) for v in self._recent_candidates[-20:]],
+                "capabilities": {
+                    "autobenchmark": True,
+                    "autovalidation_of_runtime_evidence": True,
+                    "error_ledger": True,
+                    "improvement_candidates": True,
+                },
                 "policy": {
                     "raw_payload_persisted": False,
                     "append_only": True,
