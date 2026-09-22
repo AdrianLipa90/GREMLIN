@@ -353,8 +353,8 @@ def test_workspace_http_surface_has_security_headers_and_blocks_cross_origin(tmp
         with urlopen(f"{base}/api/bestiary", timeout=2.0) as response:
             payload = json.loads(response.read().decode("utf-8"))
             assert response.status == 200
-            assert payload["species_count"] == 18
-            assert len(payload["species"]) == 18
+            assert payload["species_count"] == 20
+            assert len(payload["species"]) == 20
 
         body = json.dumps({
             "schema": REQUEST_SCHEMA,
