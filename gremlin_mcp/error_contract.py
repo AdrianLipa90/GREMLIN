@@ -8,6 +8,8 @@ from typing import Any, Callable, TypeVar, cast
 
 from mcp.server.mcpserver.exceptions import ToolError
 
+from gremlin_mcp.owl_runtime_audit import begin_use, finish_use_error, finish_use_success
+
 SCHEMA = "GREMLIN_MCP_ERROR_V0_1"
 _CODE_RE = re.compile(r"^([A-Z][A-Z0-9_]*)(?::.*)?$", re.DOTALL)
 F = TypeVar("F", bound=Callable[..., Any])
@@ -132,15 +134,20 @@ def mcp_error_boundary(tool: str) -> Callable[[F], F]:
     def decorate(fn: F) -> F:
         @wraps(fn)
         def wrapped(*args: Any, **kwargs: Any) -> Any:
+            span = begin_use(tool, args, kwargs)
             try:
-                return fn(*args, **kwargs)
-            except GremlinMCPToolError:
+                result = fn(*args, **kwargs)
+            except GremlinMCPToolError as exc:
+                finish_use_error(span, exc, "GREMLIN_MCP_TOOL_ERROR")
                 raise
             except Exception as exc:
                 raw_request_id = kwargs.get("request_id")
                 request_id = raw_request_id if isinstance(raw_request_id, str) and raw_request_id.strip() else None
                 payload = error_envelope(exc, tool=tool, request_id=request_id)
+                finish_use_error(span, exc, str(payload["error_code"]))
                 raise GremlinMCPToolError(serialize_error_envelope(payload)) from exc
+            finish_use_success(span, result)
+            return result
 
         return cast(F, wrapped)
 
