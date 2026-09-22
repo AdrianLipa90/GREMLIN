@@ -26,7 +26,7 @@ jobs:
           ref: 45f7d4b7b6c18d2f595471db2905da41a74c0a26
           path: fpdg
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
 
