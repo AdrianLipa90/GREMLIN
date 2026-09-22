@@ -206,6 +206,8 @@ def minimal_capability_cover(
                     continue
                 next_chosen = chosen + (operator,)
                 next_cost = cost.combine_parallel(operator.cost)
+                if next_cost.pressure(budget) > 1.0:
+                    continue
                 current = next_states.get(next_covered)
                 if current is None or _plan_key(next_chosen, next_cost, budget) < _plan_key(
                     current[0], current[1], budget
@@ -213,6 +215,8 @@ def minimal_capability_cover(
                     next_states[next_covered] = (next_chosen, next_cost)
         states = next_states
 
+    if required not in states:
+        raise ValueError("no complete route fits resource budget")
     chosen, total_cost = states[required]
     ordered = tuple(sorted(chosen, key=lambda item: (item.species, item.tier)))
     return RoutePlan(
