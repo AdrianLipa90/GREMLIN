@@ -25,11 +25,11 @@ AUTHORITY = {
 CONCEPT_ALIASES: dict[str, tuple[str, ...]] = {
     "geometry.stella": (
         "stella octangula", "stella", "tetrahedral compound",
-        "compound tetrahedral", "tetrahedral geometry",
+        "compound tetrahedral", "tetrahedral geometry", "interpenetrating tetrahedra",
     ),
     "geometry.poles": (
         "poles", "pole pair", "antipodal pole", "antipodal poles",
-        "two poles", "bieguny", "biegun",
+        "two poles", "opposite poles", "bieguny", "biegun",
     ),
     "geometry.lateral": (
         "lateral vertices", "side vertices", "side points", "lateral points",
@@ -91,6 +91,7 @@ CONCEPT_ALIASES: dict[str, tuple[str, ...]] = {
     ),
     "coherence.overlap": (
         "overlap", "overlaps", "overlap coherence", "intersection", "styk",
+        "nakladajacych sie sladow",
     ),
     "coherence.consistency": (
         "coherence", "consistency", "consistent", "spojnosc", "zgodnosc",
@@ -100,7 +101,7 @@ CONCEPT_ALIASES: dict[str, tuple[str, ...]] = {
     ),
     "coherence.reconcile": (
         "reconciliation", "reconcile", "reconciliation proposals",
-        "reconcile proposals",
+        "reconcile proposals", "rekoncyliacje",
     ),
     "distributed.fragments": (
         "distributed fragments", "distributed memory", "fragments", "replicas",
