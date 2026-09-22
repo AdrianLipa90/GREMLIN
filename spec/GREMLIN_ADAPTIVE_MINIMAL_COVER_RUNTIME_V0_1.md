@@ -354,3 +354,8 @@ Implementation:
 Tests:
 
 `tests/test_gremlin_adaptive_minimal_cover_runtime_v01.py`
+
+
+## 12. Integration baseline
+
+This candidate was revalidated against `main` after PR #123 merged the genetic-memory and read-only hypercrystal-expression layer. The adaptive runtime remains separate from durable-memory mutation paths and introduces no additional authority.
