@@ -10,6 +10,7 @@ SCHEMA = "GREMLIN_ADAPTIVE_MINIMAL_COVER_RUNTIME_V0_1"
 VERSION = "0.1.0"
 AUTHORITY = "COGNITIVE_ROUTING_ONLY"
 EPISTEMIC = "CHYBA"
+MAX_EXACT_OBLIGATIONS = 32
 TIERS = {
     0: "PROBE",
     1: "LOCAL_CLOSURE",
@@ -116,8 +117,8 @@ def _obligation_set(values: Iterable[str], field: str) -> frozenset[str]:
     out = frozenset(str(value).strip() for value in values if str(value).strip())
     if not out:
         raise ValueError(f"{field} must be non-empty")
-    if len(out) > 32:
-        raise ValueError(f"{field} is capped at 32 items for exact minimal-cover planning")
+    if len(out) > MAX_EXACT_OBLIGATIONS:
+        raise ValueError(f"{field} is capped at {MAX_EXACT_OBLIGATIONS} items for exact minimal-cover planning")
     return out
 
 
@@ -468,6 +469,7 @@ def runtime_receipt(plan: RoutePlan, tau_result: Mapping[str, object]) -> dict[s
 
 __all__ = [
     "AUTHORITY",
+    "MAX_EXACT_OBLIGATIONS",
     "EPISTEMIC",
     "OperatorTier",
     "ResourceBudget",
