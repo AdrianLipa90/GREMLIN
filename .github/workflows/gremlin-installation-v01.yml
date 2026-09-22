@@ -80,8 +80,8 @@ jobs:
           from gremlin_mcp.server_with_hive import mcp
 
           names = {item["name"] for item in bestiary_manifest()["species"]}
-          assert len(names) == 18
-          assert {"FOX","BEAVER","BAT","CANARY","SERPENT","CHAMELEON"} <= names
+          assert len(names) == 20
+          assert {"FOX","BEAVER","BAT","CANARY","SERPENT","CHAMELEON","ELEPHANT","BEES"} <= names
           s = status()
           assert s["standalone"] is True
           assert s["species_count"] == 18
