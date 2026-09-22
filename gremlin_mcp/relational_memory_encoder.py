@@ -45,30 +45,36 @@ CONCEPT_ALIASES: dict[str, tuple[str, ...]] = {
     ),
     "channel.six": (
         "six lateral channels", "six side channels", "six relational channels",
-        "6 relational channels", "6 channels",
+        "6 relational channels", "6 channels", "szesc bocznych kanalow",
+        "szesc kanalow relacji",
     ),
     "factor.36": (
         "36", "thirty six", "thirty-six", "36d", "36 dimensions",
-        "thirty six dimensions",
+        "thirty six dimensions", "trzydziesci szesc",
+        "trzydziesci szesc wymiarow",
     ),
     "factor.6x6": (
         "6 x 6", "6x6", "six by six", "six views with six",
-        "six projections x six",
+        "six projections x six", "6 by 6", "six relation coordinates",
+        "szesc rzutow po szesc",
     ),
     "relation.channel": (
         "relational channels", "relation channels", "relational channel",
-        "relation channel",
+        "relation channel", "kanalow relacji", "kanaly relacji",
     ),
     "dynamics.frequency": (
         "frequency", "frequencies", "different rates", "oscillating",
-        "oscillate", "czestotliwosci",
+        "oscillate", "czestotliwosci", "carrier rates",
+        "unequal carrier rates", "roznymi czestotliwosciami", "czestotliwosciami",
     ),
     "dynamics.rotation": (
         "rotation", "rotations", "twisted", "twist",
-        "slight relative rotations", "obroty",
+        "slight relative rotations", "obroty", "angular offsets",
+        "small angular offsets", "obrocone", "lekko obrocone",
     ),
     "dynamics.interference": (
-        "interference", "moire", "beat", "beating",
+        "interference", "moire", "beat", "beating", "beat pattern",
+        "interferencja", "interferencje",
     ),
     "memory.core": (
         "memory", "relational memory", "memory trace", "pamiec", "wspomnienie",
