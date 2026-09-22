@@ -62,7 +62,7 @@ jobs:
       - name: Verify installed dependency consistency
         run: python -m pip check
       - name: Preserve exact dependency resolution receipt
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: gremlin-runtime-dependency-report
           path: gremlin-runtime-dependency-report.json
