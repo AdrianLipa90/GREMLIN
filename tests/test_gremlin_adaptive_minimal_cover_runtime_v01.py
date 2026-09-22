@@ -157,6 +157,20 @@ def test_runtime_receipt_never_promotes_authority() -> None:
     assert receipt["physical_gravity_claim"] is False
 
 
+def test_over_budget_complete_route_fails_closed() -> None:
+    with pytest.raises(ValueError, match="no complete route fits resource budget"):
+        minimal_capability_cover(
+            {"audit"},
+            [OperatorTier("OWL", 0, frozenset({"audit"}), ResourceCost(
+                tokens=1500,
+                latency=5,
+                calls=1,
+                memory=10,
+            ))],
+            budget=BUDGET,
+        )
+
+
 def test_minimax_pressure_uses_tightest_resource_not_weighted_sum() -> None:
     plan = minimal_capability_cover(
         {"audit"},
