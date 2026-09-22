@@ -76,8 +76,8 @@ jobs:
 
           manifest = bestiary_manifest()
           names = {item["name"] for item in manifest["species"]}
-          assert len(names) == 18
-          assert {"FOX", "BEAVER", "BAT", "CANARY", "SERPENT", "CHAMELEON"} <= names
+          assert len(names) == 20
+          assert {"FOX", "BEAVER", "BAT", "CANARY", "SERPENT", "CHAMELEON", "ELEPHANT", "BEES"} <= names
 
           s = status()
           assert s["standalone"] is True

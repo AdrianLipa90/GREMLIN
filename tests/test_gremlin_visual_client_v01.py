@@ -39,7 +39,7 @@ class GremlinVisualClientV01Tests(unittest.TestCase):
         dashboard = system_payload(surface="reference")
         self.assertEqual(dashboard["surface"], "reference")
         self.assertEqual(dashboard["mcp"]["tool_count"], 33)
-        self.assertEqual(dashboard["bestiary"]["species_count"], 18)
+        self.assertEqual(dashboard["bestiary"]["species_count"], 20)
         self.assertFalse(dashboard["authority"]["execution_admitted"])
 
     def test_static_surface_is_exact_whitelist(self):
@@ -110,8 +110,8 @@ class GremlinVisualClientV01Tests(unittest.TestCase):
 
         bestiary = bestiary_payload()
         self.assertEqual(bestiary["status"], "READY")
-        self.assertEqual(bestiary["species_count"], 18)
-        self.assertEqual(len(bestiary["species"]), 18)
+        self.assertEqual(bestiary["species_count"], 20)
+        self.assertEqual(len(bestiary["species"]), 20)
         self.assertFalse(bestiary["authority"]["canon_allowed"])
 
         dashboard = system_payload(surface="reference")

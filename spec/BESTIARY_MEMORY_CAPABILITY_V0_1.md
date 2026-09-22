@@ -134,6 +134,8 @@ request, not unilateral canon promotion.
 - ANT: bounded enumeration results;
 - BAT: pattern and harmonic observations;
 - CHAMELEON: transformed representations;
+- ELEPHANT: append-only consolidation, replay and retention proposals;
+- BEES: overlap coherence, anti-entropy deltas and reconciliation proposals;
 - BELZEBUB: defensive synthesis / threat models / quarantine proposals;
 - FERRET: scoped search receipts;
 - GREMLIN: aggregate candidates, orchestration receipts, routes and requests;
@@ -369,7 +371,7 @@ DELETE, OVERWRITE or IN_PLACE_EDIT.
 The implementation establishes:
 
 - deny-by-default capability policy;
-- all 18 Bestiary species plus RAPHAEL represented;
+- all 20 Bestiary roles plus RAPHAEL represented;
 - typed operation and artifact namespaces;
 - scoped content-addressed capability tokens;
 - deterministic ALLOW/DENY access receipts;

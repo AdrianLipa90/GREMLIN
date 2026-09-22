@@ -35,6 +35,8 @@ BESTIARY_ROLES: dict[str, dict[str, str]] = {
     "CANARY": {"stage": "sentinel", "role": "runtime drift and early-warning sentinel"},
     "SERPENT": {"stage": "sensor", "role": "latent-field temperature, taste and novelty sensing"},
     "CHAMELEON": {"stage": "transform", "role": "reversible representation/profile transformation"},
+    "ELEPHANT": {"stage": "memory", "role": "append-only relational memory consolidation, replay and retention planning"},
+    "BEES": {"stage": "coherence", "role": "local overlap coherence, anti-entropy delta and reconciliation proposals"},
     "BELZEBUB": {"stage": "synthesis", "role": "defensive candidate synthesis"},
     "FERRET": {"stage": "actuation", "role": "explicitly authorized interactive web actuator"},
     "GREMLIN": {"stage": "aggregate", "role": "aggregate verified heads and emit research candidates"},
