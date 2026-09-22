@@ -60,7 +60,7 @@ def test_policy_is_deny_by_default_and_has_all_bestiary_principals() -> None:
     assert set(POLICY) == {
         "HUMMINGBIRD", "OCTOPUS", "SPIDER", "RAVEN", "HOUND", "MOLE",
         "OWL", "ANT", "MANTIS", "FOX", "BEAVER", "BAT", "CANARY",
-        "SERPENT", "CHAMELEON", "BELZEBUB", "FERRET", "GREMLIN", "RAPHAEL",
+        "SERPENT", "CHAMELEON", "ELEPHANT", "BEES", "BELZEBUB", "FERRET", "GREMLIN", "RAPHAEL",
     }
     assert manifest["invariants"]["delete_allowed"] is False
     assert manifest["invariants"]["overwrite_allowed"] is False
