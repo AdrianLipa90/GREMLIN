@@ -37,6 +37,8 @@ def test_bestiary_manifest_contains_full_topology() -> None:
         "CANARY",
         "SERPENT",
         "CHAMELEON",
+        "ELEPHANT",
+        "BEES",
         "BELZEBUB",
         "FERRET",
         "GREMLIN",
@@ -46,7 +48,9 @@ def test_bestiary_manifest_contains_full_topology() -> None:
     ferret = species_profile("ferret")
     assert ferret["stage"] == "actuation"
     assert ferret["scheduler_profile"] is None
-    assert len(manifest["species"]) == 18
+    assert species_profile("elephant")["scheduler_profile"] is None
+    assert species_profile("bees")["scheduler_profile"] is None
+    assert len(manifest["species"]) == 20
     assert manifest["governance_topology"][-1] == "RAPHAEL"
     assert manifest["angelic_functions"][0]["name"] == "RAPHAEL"
     assert manifest["angelic_functions"][0]["bestiary_species"] is False
