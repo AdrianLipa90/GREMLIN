@@ -1,0 +1,29 @@
+name: GREMLIN adaptive minimal-cover runtime v0.1
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'gremlin_mcp/adaptive_runtime.py'
+      - 'tests/test_gremlin_adaptive_minimal_cover_runtime_v01.py'
+      - 'spec/GREMLIN_ADAPTIVE_MINIMAL_COVER_RUNTIME_V0_1.md'
+      - '.github/workflows/gremlin-adaptive-minimal-cover-runtime-v01.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  adaptive-minimal-cover:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install GREMLIN MCP and pytest
+        run: python -m pip install -e . pytest
+      - name: Compile adaptive runtime
+        run: python -m py_compile gremlin_mcp/adaptive_runtime.py
+      - name: Run focused adaptive runtime tests
+        run: python -m pytest -q tests/test_gremlin_adaptive_minimal_cover_runtime_v01.py
