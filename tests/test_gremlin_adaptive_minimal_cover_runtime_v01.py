@@ -43,6 +43,36 @@ def test_minimal_cover_uses_multiple_species_only_when_obligations_require_them(
     assert plan.minimax_pressure < 1.0
 
 
+
+def test_same_species_tiers_are_mutually_exclusive_and_monotone() -> None:
+    operators = [
+        OperatorTier("HOUND", 0, frozenset({"probe"}), ResourceCost(10, 1, 1, 1)),
+        OperatorTier("HOUND", 1, frozenset({"probe", "local"}), ResourceCost(20, 2, 1, 2)),
+        OperatorTier("OWL", 0, frozenset({"audit"}), ResourceCost(10, 1, 1, 1)),
+    ]
+    plan = minimal_capability_cover({"probe", "local", "audit"}, operators, budget=BUDGET)
+    assert set(plan.route_ids) == {"HOUND:T1", "OWL:T0"}
+    assert sum(route.startswith("HOUND:") for route in plan.route_ids) == 1
+
+
+def test_nonmonotone_species_tier_family_fails_closed() -> None:
+    operators = [
+        OperatorTier("HOUND", 0, frozenset({"probe"}), ResourceCost(10, 1, 1, 1)),
+        OperatorTier("HOUND", 1, frozenset({"local"}), ResourceCost(20, 2, 1, 2)),
+    ]
+    with pytest.raises(ValueError, match="tier capabilities must be monotone"):
+        minimal_capability_cover({"probe", "local"}, operators, budget=BUDGET)
+
+
+def test_duplicate_species_tier_fails_closed() -> None:
+    operators = [
+        OperatorTier("OWL", 0, frozenset({"audit"}), ResourceCost(10, 1, 1, 1)),
+        OperatorTier("OWL", 0, frozenset({"audit", "source"}), ResourceCost(20, 1, 1, 1)),
+    ]
+    with pytest.raises(ValueError, match="duplicate operator tier"):
+        minimal_capability_cover({"audit"}, operators, budget=BUDGET)
+
+
 def test_uncovered_obligation_fails_closed() -> None:
     operators = [
         OperatorTier("MOLE", 1, frozenset({"derive"}), ResourceCost(20, 1, 1, 1)),
