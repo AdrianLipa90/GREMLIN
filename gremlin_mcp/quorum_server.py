@@ -2,12 +2,15 @@ from __future__ import annotations
 
 from typing import Any
 
+from gremlin_mcp.owl_runtime_audit import owl_runtime_boundary
+
 from gremlin_mcp.evidence_quorum import assess_family_quorum
 from gremlin_mcp.semantic_quorum_bridge import apply_semantic_producer_output_with_quorum
 from gremlin_mcp.server import mcp, main as _server_main
 
 
 @mcp.tool()
+@owl_runtime_boundary
 def gremlin_evidence_family_quorum(
     evidence: list[dict[str, Any]],
     min_unipolar_families: int = 2,
@@ -20,6 +23,7 @@ def gremlin_evidence_family_quorum(
 
 
 @mcp.tool()
+@owl_runtime_boundary
 def gremlin_semantic_quorum_apply(
     execution: dict[str, Any],
     producer_output: dict[str, Any],

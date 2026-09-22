@@ -2,11 +2,14 @@ from __future__ import annotations
 
 from typing import Any
 
+from gremlin_mcp.owl_runtime_audit import owl_runtime_boundary
+
 from gremlin_mcp.dual_use_policy import policy_api
 from gremlin_mcp.server import mcp, main as _server_main
 
 
 @mcp.tool()
+@owl_runtime_boundary
 def gremlin_dual_use_policy(
     operation: str,
     payload: dict[str, Any],

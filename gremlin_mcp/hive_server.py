@@ -8,6 +8,7 @@ from typing import Any
 from mcp.server import MCPServer
 
 from gremlin_mcp import __version__
+from gremlin_mcp.owl_runtime_audit import owl_runtime_boundary
 from gremlin_mcp.hive_authority import HiveAuthorityRuntime
 from gremlin_mcp.constitutional_runtime import require_constitutional_admission
 from gremlin_mcp.memory_exchange import ingest_exchange_bundle, ingest_exchange_envelope
@@ -68,6 +69,7 @@ def configure_state(state_path: str | None) -> None:
 
 
 @mcp.tool()
+@owl_runtime_boundary
 def gremlin_hive_status() -> dict[str, Any]:
     """Return Hive authority, schema and current flat-ring head count."""
     status = runtime.status()
@@ -109,6 +111,7 @@ def gremlin_hive_status() -> dict[str, Any]:
 
 
 @mcp.tool()
+@owl_runtime_boundary
 def gremlin_hive_exchange_ingest(
     envelope: dict[str, Any],
     priority: float = 0.82,
@@ -130,6 +133,7 @@ def gremlin_hive_exchange_ingest(
 
 
 @mcp.tool()
+@owl_runtime_boundary
 def gremlin_hive_exchange_bundle_ingest(
     bundle: dict[str, Any],
     priority: float = 0.82,
@@ -151,6 +155,7 @@ def gremlin_hive_exchange_bundle_ingest(
 
 
 @mcp.tool()
+@owl_runtime_boundary
 def gremlin_hive_sync_inventory(
     node_id: str = "GREMLIN-HIVE",
 ) -> dict[str, Any]:
@@ -158,6 +163,7 @@ def gremlin_hive_sync_inventory(
 
 
 @mcp.tool()
+@owl_runtime_boundary
 def gremlin_hive_sync_manifest(
     prefixes: list[str],
     node_id: str = "GREMLIN-HIVE",
@@ -166,6 +172,7 @@ def gremlin_hive_sync_manifest(
 
 
 @mcp.tool()
+@owl_runtime_boundary
 def gremlin_hive_sync_delta(
     receiver_inventory: dict[str, Any],
     receiver_manifest: dict[str, Any],
@@ -189,6 +196,7 @@ def gremlin_hive_sync_delta(
 
 
 @mcp.tool()
+@owl_runtime_boundary
 def gremlin_hive_sync_apply(
     delta: dict[str, Any],
     node_id: str = "GREMLIN-HIVE",
@@ -210,6 +218,7 @@ def gremlin_hive_sync_apply(
 
 
 @mcp.tool()
+@owl_runtime_boundary
 def gremlin_hive_consolidation_route(
     plan: dict[str, Any],
     receipt: dict[str, Any] | None = None,
@@ -219,6 +228,7 @@ def gremlin_hive_consolidation_route(
 
 
 @mcp.tool()
+@owl_runtime_boundary
 def gremlin_hive_place(
     subject_id: str,
     payload: dict[str, Any],
@@ -257,6 +267,7 @@ def gremlin_hive_place(
 
 
 @mcp.tool()
+@owl_runtime_boundary
 def gremlin_hive_gates(
     subject_id: str,
     evidence_ready: bool | None = None,
@@ -291,6 +302,7 @@ def gremlin_hive_gates(
 
 
 @mcp.tool()
+@owl_runtime_boundary
 def gremlin_hive_dispute(
     subject_id: str,
     contradiction_ref: str,
@@ -308,6 +320,7 @@ def gremlin_hive_dispute(
 
 
 @mcp.tool()
+@owl_runtime_boundary
 def gremlin_hive_latch(
     subject_id: str,
     constitutional_packet: dict[str, Any] | None = None,
@@ -324,12 +337,14 @@ def gremlin_hive_latch(
 
 
 @mcp.tool()
+@owl_runtime_boundary
 def gremlin_hive_head(subject_id: str) -> dict[str, Any]:
     """Return the current append-only head for one information subject."""
     return _record(runtime.head(subject_id))
 
 
 @mcp.tool()
+@owl_runtime_boundary
 def gremlin_hive_table() -> dict[str, Any]:
     """Return the current flat concentric table, sorted inner-to-outer then angle and phase."""
     rows = [_record(record) for record in runtime.table()]
@@ -342,6 +357,7 @@ def gremlin_hive_table() -> dict[str, Any]:
 
 
 @mcp.tool()
+@owl_runtime_boundary
 def gremlin_hive_history(subject_id: str) -> dict[str, Any]:
     """Return the full append-only lineage for one subject."""
     return {
@@ -352,6 +368,7 @@ def gremlin_hive_history(subject_id: str) -> dict[str, Any]:
 
 
 @mcp.tool()
+@owl_runtime_boundary
 def gremlin_hive_persisted(subject_id: str | None = None) -> dict[str, Any]:
     """Read durable WAL rows when a state path was configured."""
     if not runtime.persistent:

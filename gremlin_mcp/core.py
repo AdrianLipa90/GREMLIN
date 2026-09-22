@@ -6,6 +6,7 @@ from typing import Any, Mapping
 from gremlin_mcp.error_contract import SCHEMA as MCP_ERROR_SCHEMA
 from gremlin_mcp.raphael import angelic_manifest
 from gremlin_mcp.memory_capabilities import beast_capabilities, policy_manifest
+from gremlin_mcp.owl_runtime_audit import audit_status
 
 from tools.gremlin_bestiary_orbital_scheduler_v02 import PROFILES, service_omega, service_period
 from tools.gremlin_bestiary_vector_species_v03 import (
@@ -167,6 +168,7 @@ def status(*, surface: str = "reference") -> dict[str, Any]:
             "fields": ["error_code", "detail_code", "category", "retryable", "user_action", "request_id", "request_id_source"],
             "request_id_policy": "CALLER_OR_GENERATED_NONEMPTY",
         },
+        "owl_runtime_audit": audit_status(),
         "topology": list(TOPOLOGY),
         "governance_topology": [*TOPOLOGY, "RAPHAEL"],
         "angelic_functions": {"RAPHAEL": angelic_manifest()},
