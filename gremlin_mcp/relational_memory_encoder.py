@@ -36,17 +36,17 @@ CONCEPT_ALIASES: dict[str, tuple[str, ...]] = {
         "boczne wierzcholki", "boczne punkty",
     ),
     "projection.six": (
-        "six projections", "six views", "6 projections", "6 views",
+        "six projections", "six views", "six slices", "6 projections", "6 views",
         "szesc rzutow", "6 rzutow",
     ),
     "projection.shared": (
         "share the poles", "same two poles", "common poles", "shared poles",
-        "wspolne bieguny",
+        "common axis", "wspolne bieguny",
     ),
     "channel.six": (
         "six lateral channels", "six side channels", "six relational channels",
-        "6 relational channels", "6 channels", "szesc bocznych kanalow",
-        "szesc kanalow relacji",
+        "6 relational channels", "6 channels", "six lateral degrees",
+        "szesc bocznych kanalow", "szesc kanalow relacji",
     ),
     "factor.36": (
         "36", "thirty six", "thirty-six", "36d", "36 dimensions",
@@ -55,8 +55,8 @@ CONCEPT_ALIASES: dict[str, tuple[str, ...]] = {
     ),
     "factor.6x6": (
         "6 x 6", "6x6", "six by six", "six views with six",
-        "six projections x six", "6 by 6", "six relation coordinates",
-        "szesc rzutow po szesc",
+        "six projections x six", "6 projections x 6", "6 projections by 6",
+        "6 by 6", "six relation coordinates", "szesc rzutow po szesc",
     ),
     "relation.channel": (
         "relational channels", "relation channels", "relational channel",
