@@ -17,10 +17,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout GREMLIN candidate
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Checkout pinned FPDG
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: AdrianLipa90/Fundamental-Physics-Dependency-Graph
           ref: 45f7d4b7b6c18d2f595471db2905da41a74c0a26
