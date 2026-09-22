@@ -28,6 +28,40 @@ PARAPHRASES = {
 }
 
 
+EXTENDED_PARAPHRASES = {
+    "stella": [
+        "compound tetrahedral geometry with a common antipodal pole pair and six side points",
+        "two opposite poles organize six remaining vertices of the interpenetrating tetrahedra",
+        "dwa wspólne bieguny i sześć bocznych wierzchołków stella octangula",
+    ],
+    "projections": [
+        "six views use the same two poles, each carrying six side channels",
+        "each of the six slices keeps one common axis and carries six lateral degrees",
+        "sześć rzutów ma te same bieguny, każdy ma sześć bocznych kanałów",
+    ],
+    "36d": [
+        "thirty six dimensions factor into six views with six relation channels per view",
+        "state factorizes into 6 by 6 relation coordinates",
+        "trzydzieści sześć wymiarów to sześć rzutów po sześć kanałów relacji",
+    ],
+    "moire": [
+        "slightly twisted layers oscillating at different rates create the interference pattern",
+        "small angular offsets plus unequal carrier rates produce a beat pattern",
+        "lekko obrócone warstwy z różnymi częstotliwościami tworzą interferencję moire",
+    ],
+    "elephant": [
+        "long-term memory is strengthened through consolidation, replay and retention planning",
+        "rehearsal and retention deepen the memory trace",
+        "słoń odpowiada za konsolidację pamięci, replay i retencję",
+    ],
+    "bees": [
+        "distributed fragments are compared for overlap consistency and proposed anti-entropy reconciliation",
+        "replicas are checked for consistency and an anti entropy repair is only proposed",
+        "pszczoły sprawdzają spójność nakładających się śladów i proponują rekoncyliację",
+    ],
+}
+
+
 def test_relational_encoder_is_exact_6_by_6_and_hash_is_not_semantic_geometry() -> None:
     packet = encode_memory_text(MEMORIES["elephant"])
     assert packet["dimension"] == 36
@@ -83,3 +117,17 @@ def test_elephant_and_bees_emit_candidate_only_non_authoritative_artifacts() -> 
     assert finding["artifact_type"] == "COHERENCE_FINDING"
     assert finding["reconcile_proposal_only"] is True
     assert finding["authority"]["production_runtime_write"] is False
+
+
+def test_extended_cross_language_paraphrase_stress_is_18_of_18() -> None:
+    passed = 0
+    total = 0
+    for expected, cues in EXTENDED_PARAPHRASES.items():
+        for cue in cues:
+            total += 1
+            result = retrieve_memory(cue, MEMORIES)
+            assert result["status"] == "MATCH"
+            assert result["picked"] == expected
+            passed += 1
+    assert total == 18
+    assert passed == 18
