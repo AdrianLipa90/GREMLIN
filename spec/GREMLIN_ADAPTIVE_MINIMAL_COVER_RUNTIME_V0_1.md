@@ -88,7 +88,7 @@ The intended capability relation is monotone:
 C(B_i^0) subseteq C(B_i^1) subseteq C(B_i^2) subseteq C(B_i^3).
 ```
 
-The intended resource relation is likewise non-decreasing for a given species/profile.
+The intended resource relation is likewise non-decreasing for a given species/profile. The executable planner additionally requires capability closure to be monotone across declared tiers and permits at most one tier of a species in a single route step.
 
 ## 3. Exact minimum capability cover
 
@@ -324,7 +324,7 @@ v0.1 tests the following software propositions:
 
 1. **Exact cover:** every returned plan covers every declared obligation.
 2. **Fail-closed incompleteness:** an uncovered obligation raises instead of producing a partial route.
-3. **Lower-tier dominance:** when two same-species tiers cover the same obligation and the lower tier has lower minimax pressure, the exact planner selects the lower tier.
+3. **Lower-tier dominance:** when two same-species tiers cover the same obligation and the lower tier has lower minimax pressure, the exact planner selects the lower tier. Same-species tiers are mutually exclusive within one route step, and non-monotone tier capability declarations fail closed.
 4. **Parallel causal depth:** independent operations occupy the same `tau` layer; a dependent synthesis step increases depth by one.
 5. **Cycle rejection:** cyclic causal dependencies fail closed.
 6. **Resistance path law:** adding a genuinely independent parallel path lowers effective resistance between its endpoints.
