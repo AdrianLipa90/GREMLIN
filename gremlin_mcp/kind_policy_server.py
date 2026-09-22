@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from gremlin_mcp.owl_runtime_audit import owl_runtime_boundary
+
 from gremlin_mcp.evidence_kind import (
     assess_evidence_kind_policy,
     build_evidence_kind_assignment,
@@ -12,6 +14,7 @@ from gremlin_mcp.server import mcp, main as _server_main
 
 
 @mcp.tool()
+@owl_runtime_boundary
 def gremlin_evidence_kind_assign(
     source_receipt: dict[str, Any],
     evidence_kind: str | None,
@@ -34,6 +37,7 @@ def gremlin_evidence_kind_assign(
 
 
 @mcp.tool()
+@owl_runtime_boundary
 def gremlin_evidence_kind_verify(
     assignment: dict[str, Any],
     source_receipts: list[dict[str, Any]],
@@ -46,6 +50,7 @@ def gremlin_evidence_kind_verify(
 
 
 @mcp.tool()
+@owl_runtime_boundary
 def gremlin_evidence_kind_policy(
     guard_evidence: list[dict[str, Any]],
     assignments: list[dict[str, Any]],
@@ -62,6 +67,7 @@ def gremlin_evidence_kind_policy(
 
 
 @mcp.tool()
+@owl_runtime_boundary
 def gremlin_semantic_kind_apply(
     execution: dict[str, Any],
     producer_output: dict[str, Any],
