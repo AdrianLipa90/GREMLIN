@@ -1,0 +1,96 @@
+{
+  "schema": "GREMLIN_FUNDAMENTAL_REPO_OVERLAY_SECOND_PASS_V0_1",
+  "date": "2026-09-21",
+  "authority": "CANDIDATE_ONLY",
+  "canon_allowed": false,
+  "source_graph": {
+    "repository": "AdrianLipa90/Fundamental-Physics-Dependency-Graph",
+    "commit": "4f1d316c5fcee2a29c91e12b8f7157bd07b3ba99",
+    "path": "dependency_graph.yaml"
+  },
+  "candidate_overlay": "provenance/FUNDAMENTAL_CANDIDATE_OVERLAY_V0_1.json",
+  "metrics": {
+    "node_count": 178,
+    "edge_count": 248,
+    "frontier_count": 81,
+    "frontier_root_count": 32,
+    "nontrivial_scc_count": 0,
+    "repository_node_counts": {
+      "TIR": 35,
+      "IDT": 28,
+      "RFC": 92,
+      "SOH": 8,
+      "PNCS": 8,
+      "INFINITIES": 4,
+      "MRIF": 1,
+      "QHTRI": 2
+    }
+  },
+  "findings": {
+    "top_bottleneck": {
+      "claim_id": "TIR.SPACETIME.INTERLEAF_MATCHING_INPUT_CONTRACT",
+      "downstream_count": 72
+    },
+    "collatz_crosswalk": {
+      "claim_id": "INF.COLLATZ.OPERATOR",
+      "downstream_count": 10,
+      "status": "CANDIDATE_CROSSWALK"
+    },
+    "cycle_injection": false,
+    "missing_large_mathematical_sector_detected": false,
+    "pre_lean_seams": [
+      "REPRESENTATION_QUOTIENT_CONTRACT",
+      "SLICE_GLUE_COCYCLE_CONTRACT",
+      "INFINITIES_COLLATZ_OPERATOR_CROSSWALK",
+      "INTERLEAF_MATCHING_PHYSICAL_INPUT",
+      "GLOBAL_CONTINUUM_AND_PRODUCTION_ATLAS_INPUTS",
+      "SOH_POINTWISE_ORBIT_COLLAPSE_INCOMING_THEOREM",
+      "PHYSICAL_BINDINGS_G_FLAVOUR_CLOCKS_QHTRI"
+    ],
+    "relational_graph_owner": "AdrianLipa90/PhaseNav-Natural-Coding-System",
+    "new_relational_kernel_repo_required": false,
+    "pncs_existing_paths": [
+      "spec/PNCS_ARCHITECTURE_V0_1.md",
+      "spec/PNCS_GREMLIN_RELATIONAL_ISOMORPHISM_COMPILER_V0_1.md",
+      "spec/PNCS_FPDG_GREMLIN_PAIN_INGRESS_V0_1.md",
+      "spec/PNCS_GREMLIN_CROSS_FORMALISM_ISOMORPHISM_BANK_V0_2.md"
+    ],
+    "pncs_fsi_bank": {
+      "status": "CI_PASS_CANDIDATE_ONLY_POST_V1",
+      "focused_tests_passed": 6,
+      "quarantine_boundary": "PASS",
+      "entries": [
+        "FSI.01.SE3.AFFINE.GLUE.TIR.RFC",
+        "FSI.02.GLOBAL.COCYCLE.GLUE.SPINE",
+        "FSI.03.REPRESENTATION.QUOTIENT.RELATIONAL.INVARIANT",
+        "FSI.04.COLLATZ.ACCELERATED.BLOCK.PHASE",
+        "FSI.05.HILBERT.SHIFT.COUNTABLE.HISTORY"
+      ]
+    },
+    "fpdg_coverage_gaps": [
+      "RFC.GSC4F.GLOBAL_SE3_GAUGE_QUOTIENT",
+      "RFC.GSC4G.RIGID_OVERLAP_COCYCLE"
+    ],
+    "countable_history_seam": {
+      "status": "STRUCTURAL_CANDIDATE_CI_PASS",
+      "invariant": "COUNTABLE_SUCCESSOR_ORDER_EMBEDDING",
+      "physical_time_identification": false,
+      "hilbert_space_identification": false,
+      "fredholm_index_imported_to_idt": false
+    }
+  },
+  "proof_firewalls": {
+    "physical_input_is_not_theorem": true,
+    "candidate_edge_is_not_proof": true,
+    "rh_open": true,
+    "collatz_conjecture_open": true,
+    "qhtri_physical_coupling_open": true
+  },
+  "sources": {
+    "PNCS": "3aa3393cea390c8703a5bf50209f10939beb9b34",
+    "PNCS_MAIN": "3aa3393cea390c8703a5bf50209f10939beb9b34",
+    "PNCS_FSI_BRANCH": "research/fundamental-seam-bank-v0.1",
+    "PNCS_FSI_HEAD": "8e5fd412395ad5724582aba2e614d3b5cd092161",
+    "PNCS_FSI_PR": 71
+  }
+}

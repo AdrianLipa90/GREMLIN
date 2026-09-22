@@ -1,0 +1,235 @@
+{
+  "schema": "GREMLIN_LEAN_SEAM_VALIDATION_V0_1",
+  "date": "2026-09-21",
+  "authority": "CANDIDATE_AUDIT_ONLY",
+  "canon_allowed": false,
+  "proofs": [
+    {
+      "seam_id": "FSI.05.HILBERT.SHIFT.COUNTABLE.HISTORY",
+      "repositories": [
+        {
+          "repository": "AdrianLipa90/Infinities",
+          "pr": 2,
+          "head": "ad51269b50ac84701c8a6f1b310a6e5e9d534ff9",
+          "lean_gate_run": 35592410938,
+          "lean_gate": "PASS",
+          "source_validation": "PASS"
+        },
+        {
+          "repository": "AdrianLipa90/Informational-Dynamics-of-Time",
+          "pr": 103,
+          "head": "3649c9018c7a0b3ea89452cfeee1c392daae970e",
+          "lean_gate_run": 35592416776,
+          "lean_gate": "PASS",
+          "reference_suite": "PASS",
+          "production_event_contract": "PASS"
+        }
+      ],
+      "theorem_scope": [
+        "countable successor map n -> n+k is injective",
+        "order is preserved",
+        "first k indices are outside shifted image",
+        "IDT append-only finite history preserves its prior prefix"
+      ],
+      "excluded_claims": [
+        "IDT is a Hilbert space",
+        "Fredholm index is physical time",
+        "Hilbert shift derives memory semantics"
+      ],
+      "verdict": "LEAN_PASS_WITH_FIREWALLS"
+    },
+    {
+      "seam_id": "FSI.01.SE3.AFFINE.GLUE.TIR.RFC",
+      "repositories": [
+        {
+          "repository": "AdrianLipa90/The-Fundamental-Theory-of-Informational-Relations",
+          "pr": 175,
+          "head": "f2668ad71a192f5cc3ae654f90f552c5381e004a",
+          "lean_gate_run": 35592637205,
+          "lean_gate": "PASS"
+        },
+        {
+          "repository": "AdrianLipa90/Relational-Field-Closure",
+          "pr": 168,
+          "head": "ed2c5f5e6284ae1a80bb4a3f2585c0df87a57fd2",
+          "lean_gate_run": 35592641898,
+          "lean_gate": "PASS"
+        }
+      ],
+      "theorem_scope": [
+        "TIR and RFC affine composition coordinate laws are identical under explicit symbol map",
+        "TIR and RFC inverse coordinate laws are identical under explicit symbol map"
+      ],
+      "excluded_claims": [
+        "production overlap data exists",
+        "curvature/torsion physical binding follows",
+        "SE3 crosswalk proves spacetime realization"
+      ],
+      "verdict": "LEAN_PASS_WITH_FIREWALLS"
+    },
+    {
+      "seam_id": "FSI.04.COLLATZ.ACCELERATED.BLOCK.PHASE",
+      "repositories": [
+        {
+          "repository": "AdrianLipa90/Infinities",
+          "pr": 2,
+          "head": "669aa7382326daa52dcb08a93779b55c6f108d35",
+          "lean_gate_run": 35593231658,
+          "lean_gate": "PASS",
+          "source_validation": "PASS"
+        },
+        {
+          "repository": "AdrianLipa90/Informational-Dynamics-of-Time",
+          "pr": 103,
+          "head": "e96af5424b0940db1523e6b97e80b76d4ebaeeb0",
+          "lean_gate_run": 35593397214,
+          "lean_gate": "PASS",
+          "production_event_contract": "PASS"
+        }
+      ],
+      "theorem_scope": [
+        "odd branch with supplied exact factorization 3n+1 = u*2^a returns u after division by 2^a",
+        "declared parity block has one odd label followed by a even labels and length a+1",
+        "k repeated lifted phase doublings multiply the phase lift by 2^k",
+        "finite-modulus doubling iteration equals multiplication by 2^k modulo the declared modulus"
+      ],
+      "excluded_claims": [
+        "global Collatz convergence",
+        "all Collatz trajectories admit the terminal cycle",
+        "iteration count is physical elapsed time",
+        "phase coordinate is a physical observable without a separate binding"
+      ],
+      "verdict": "LEAN_PASS_LOCAL_EXACT_CONDITIONAL"
+    },
+    {
+      "seam_id": "FSI.04.COLLATZ.ACCELERATED.BLOCK.PHASE",
+      "repositories": [
+        {
+          "repository": "AdrianLipa90/Infinities",
+          "pr": 2,
+          "head": "669aa7382326daa52dcb08a93779b55c6f108d35",
+          "lean_gate_run": 35593231658,
+          "lean_gate": "PASS",
+          "source_validation": "PASS"
+        },
+        {
+          "repository": "AdrianLipa90/Informational-Dynamics-of-Time",
+          "pr": 103,
+          "head": "43d214a5d189e12a554e9a7c2dc094252cbb63fe",
+          "lean_gate_run": 35593603595,
+          "lean_gate": "PASS",
+          "reference_suite": "PASS",
+          "production_event_contract": "PASS"
+        }
+      ],
+      "theorem_scope": [
+        "conditional accelerated odd-step factorization returns the reduced odd output",
+        "parity-block length is a+1",
+        "repeated lifted phase doubling gives 2^k times the source coordinate",
+        "an accelerated block with exponent a gives a+1 lifted doublings"
+      ],
+      "excluded_claims": [
+        "global Collatz convergence",
+        "iteration count equals physical time",
+        "lifted integer phase coordinate is itself the physical projective phase quotient",
+        "Collatz dynamics constrains Riemann zeros"
+      ],
+      "verdict": "LEAN_PASS_WITH_FIREWALLS"
+    },
+    {
+      "seam_id": "FSI.02.GLOBAL.COCYCLE.GLUE.SPINE",
+      "repositories": [
+        {
+          "repository": "AdrianLipa90/The-Fundamental-Theory-of-Informational-Relations",
+          "pr": 175,
+          "head": "2fe311b88f191ac32bae2d3a31e7b9d24c91a4e9",
+          "lean_gate_run": 35594101021,
+          "lean_gate": "PASS"
+        },
+        {
+          "repository": "AdrianLipa90/Informational-Dynamics-of-Time",
+          "pr": 103,
+          "head": "6592b8f7f1acdd5f8a47ee02cec9980915557e7c",
+          "lean_gate_run": 35594106553,
+          "lean_gate": "PASS"
+        },
+        {
+          "repository": "AdrianLipa90/Relational-Field-Closure",
+          "pr": 168,
+          "head": "051220d750815a50594803baa9613500c62f1fd6",
+          "lean_gate_run": 35594113561,
+          "lean_gate": "PASS"
+        }
+      ],
+      "theorem_scope": [
+        "a transition field induced from global potentials has identity self-transition",
+        "the induced transitions satisfy exact ordered triple-overlap cocycle composition",
+        "the theorem is algebra-explicit and does not assume a specific physical group"
+      ],
+      "excluded_claims": [
+        "every source cocycle admits a global potential on an arbitrary topology",
+        "production spacetime atlas exists",
+        "physical interleaf soldering is supplied",
+        "clock, SE3 and Lorentz transition groups are physically identical"
+      ],
+      "verdict": "LEAN_PASS_COMMON_STRUCTURAL_DIRECTION"
+    },
+    {
+      "seam_id": "FSI.03.REPRESENTATION.QUOTIENT.RELATIONAL.INVARIANT",
+      "repositories": [
+        {
+          "repository": "AdrianLipa90/The-Fundamental-Theory-of-Informational-Relations",
+          "pr": 175,
+          "head": "a1f8ec2432b4b586c245c09b91d50a26a6b6f3f2",
+          "lean_gate_run": 35594398518,
+          "lean_gate": "PASS"
+        },
+        {
+          "repository": "AdrianLipa90/Informational-Dynamics-of-Time",
+          "pr": 103,
+          "head": "b11b2fe314bdb7e6687af8f56267e53582056d4f",
+          "lean_gate_run": 35594419413,
+          "lean_gate": "PASS"
+        },
+        {
+          "repository": "AdrianLipa90/Relational-Field-Closure",
+          "pr": 168,
+          "head": "a4b394e3911bb01dc59946d37d6891d8731f2990",
+          "lean_gate_run": 35594445151,
+          "lean_gate": "PASS"
+        }
+      ],
+      "theorem_scope": [
+        "TIR: intermediate local-frame gauge cancels from composed transport, leaving endpoint-frame action",
+        "IDT: common scaling preserves the denominator-cleared normalized-shape ratio relation",
+        "RFC: common left frame action cancels from the relative-frame observable"
+      ],
+      "excluded_claims": [
+        "the three gauge groups are physically identical",
+        "all source quotients are one universal quotient object",
+        "physical observables follow from quotient structure alone",
+        "open source bindings are closed"
+      ],
+      "verdict": "LEAN_PASS_TYPED_LOCAL_INVARIANTS"
+    }
+  ],
+  "interpretation": {
+    "gremlin_prediction_confirmed_for": [
+      "FSI.01",
+      "FSI.02",
+      "FSI.03",
+      "FSI.04",
+      "FSI.05"
+    ],
+    "hidden_axiom_used_for_crosswalk": false,
+    "physical_inputs_closed": false,
+    "next_recommended_lean_targets": [],
+    "first_batch_complete": true,
+    "remaining_gap_classes": [
+      "SOURCE_EXPORT_FRESHNESS",
+      "PRODUCTION_INPUT_WITNESSES",
+      "OPEN_MATHEMATICS",
+      "EMPIRICAL_PHYSICAL_BINDINGS"
+    ]
+  }
+}

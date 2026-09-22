@@ -1,0 +1,61 @@
+{
+  "schema": "GREMLIN_LEAN_CROSSVALIDATION_V0_2",
+  "date": "2026-09-21",
+  "status": "PASS",
+  "authority": "AUDIT_RECEIPT_NOT_THEOREM_PROMOTION",
+  "canon_allowed": false,
+  "seam": "PNCS.FSI.01.SE3.AFFINE.GLUE.TIR.RFC",
+  "gremlin_prediction": {
+    "exact_core": [
+      "SE3_STYLE_AFFINE_COMPOSITION_COORDINATE_LAW",
+      "AFFINE_INVERSE_COORDINATE_LAW",
+      "EXPLICIT_SYMBOL_CROSSWALK"
+    ],
+    "excluded": [
+      "PRODUCTION_NUMERIC_OVERLAP_COCYCLE",
+      "PRODUCTION_COFRAME",
+      "CONTINUUM_CURVATURE_TORSION_IDENTIFICATION",
+      "PHYSICAL_SPACETIME_PROMOTION"
+    ]
+  },
+  "lean": {
+    "TIR": {
+      "repository": "AdrianLipa90/The-Fundamental-Theory-of-Informational-Relations",
+      "pr": 175,
+      "head": "f2668ad71a192f5cc3ae654f90f552c5381e004a",
+      "proof_gate": "PASS",
+      "axiom_audit": {
+        "declarations": 25,
+        "status": "PASS",
+        "allowlist": [
+          "propext",
+          "Classical.choice",
+          "Quot.sound"
+        ]
+      }
+    },
+    "RFC": {
+      "repository": "AdrianLipa90/Relational-Field-Closure",
+      "pr": 168,
+      "head": "ed2c5f5e6284ae1a80bb4a3f2585c0df87a57fd2",
+      "proof_gate": "PASS",
+      "axiom_audit": {
+        "declarations": 25,
+        "status": "PASS",
+        "allowlist": [
+          "propext",
+          "Classical.choice",
+          "Quot.sound"
+        ]
+      }
+    }
+  },
+  "verdict": "GREMLIN_LEAN_AGREEMENT_PASS",
+  "proven_scope": "ABSTRACT_AFFINE_COORDINATE_COMPOSITION_AND_INVERSE_CROSSWALK",
+  "remaining_open": [
+    "RFC_GSC4G_PRODUCTION_NUMERIC_OVERLAP_COCYCLE",
+    "TIR_RFC_PRODUCTION_COFRAME_SOURCE_BINDING",
+    "CONTINUUM_CURVATURE_TORSION_PHYSICAL_IDENTIFICATION"
+  ],
+  "next_recommended_seam": "PNCS.FSI.04.COLLATZ.ACCELERATED.BLOCK.PHASE"
+}

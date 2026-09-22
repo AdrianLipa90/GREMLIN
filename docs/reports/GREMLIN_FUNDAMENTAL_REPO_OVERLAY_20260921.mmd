@@ -1,0 +1,56 @@
+flowchart LR
+  TIR["TIR"]
+  IDT["IDT"]
+  RFC["RFC"]
+  SOH["SOH"]
+  INF["Infinities"]
+  PNCS["PNCS canonical 36D relational graph"]
+  COMP["PNCS relational-isomorphism compiler"]
+  INGRESS["PNCS FPDG pain ingress"]
+  MRIF["Metatime-Relation Framework"]
+  QHTRI["QHTRI neutrino / phase optics"]
+  Q["PNCS candidate: representation / quotient seam"]
+  G["PNCS candidate: slice / cocycle glue"]
+  H["PNCS candidate: countable-history carrier"]
+  M["TIR interleaf matching field"]
+  RH["SOH pointwise orbit-collapse target"]
+
+  TIR -->|1 canonical edge| IDT
+  TIR -->|11 canonical edges| RFC
+  IDT -->|13 canonical edges| RFC
+  RFC -->|1 canonical edge| IDT
+  TIR -->|1 canonical edge| SOH
+  SOH -->|3 candidate-source edges| IDT
+
+  PNCS --> COMP
+  INGRESS --> COMP
+  COMP -. candidate lowering .-> Q
+  COMP -. candidate lowering .-> G
+  COMP -. candidate lowering .-> H
+
+  TIR -. local invariant instance .-> Q
+  IDT -. local invariant instances .-> Q
+  RFC -. local invariant instances .-> Q
+  MRIF -. semantic type firewall only .-> Q
+
+  Q -. candidate seam .-> G
+  IDT -. temporal cocycle .-> G
+  RFC -. atlas overlap .-> G
+
+  INF -. Hilbert shift .-> H
+  IDT -. memory/history target .-> H
+  INF -. Collatz operator crosswalk .-> TIR
+  INF -. Collatz operator crosswalk .-> IDT
+  INF -. reciprocal geometry context .-> SOH
+
+  TIR --> M
+  IDT --> M
+  M --> RFC
+
+  TIR -. flavour geometry parent .-> QHTRI
+  RFC -. gauge phase parent .-> QHTRI
+
+  SOH --> RH
+
+  classDef open stroke-dasharray: 5 5;
+  class Q,G,H,M,RH,QHTRI open;
