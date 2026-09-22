@@ -208,8 +208,8 @@ def test_workspace_system_payload_is_safe_exact_product_dashboard() -> None:
     }
     assert payload["mcp"]["tool_count"] == 29
     assert payload["mcp"]["capability_contract"] == "EXACT_PRODUCT_REGISTRY_V0_1"
-    assert payload["bestiary"]["species_count"] == 18
-    assert len(payload["bestiary"]["species"]) == 18
+    assert payload["bestiary"]["species_count"] == 20
+    assert len(payload["bestiary"]["species"]) == 20
     assert {row["name"] for row in payload["bestiary"]["species"]} >= {
         "HUMMINGBIRD", "OCTOPUS", "SPIDER", "BELZEBUB", "FERRET", "GREMLIN"
     }
@@ -233,8 +233,8 @@ def test_workspace_status_and_bestiary_reauthorize_read_only_surfaces() -> None:
     assert status["capabilities"]["surface"] == "product"
     assert status["capabilities"]["tool_count"] == 29
     assert bestiary["status"] == "READY"
-    assert bestiary["species_count"] == 18
-    assert len(bestiary["species"]) == 18
+    assert bestiary["species_count"] == 20
+    assert len(bestiary["species"]) == 20
     serialized = json.dumps(status, sort_keys=True)
     assert "TEST-SECRET-ID" not in serialized
     assert "test-client-secret-id" not in serialized
@@ -290,7 +290,7 @@ def test_reference_dashboard_uses_reference_registry_without_product_identity() 
     assert payload["product"]["status"] == "UNLICENSED_RESEARCH"
     assert payload["mcp"]["tool_count"] == 33
     assert payload["mcp"]["capability_contract"] == "EXACT_REFERENCE_REGISTRY_V0_1"
-    assert payload["bestiary"]["species_count"] == 18
+    assert payload["bestiary"]["species_count"] == 20
     assert payload["product"]["license"]["edition"] is None
 
 
@@ -340,7 +340,7 @@ def test_workspace_http_surface_has_security_headers_and_blocks_cross_origin(tmp
             assert payload["schema"] == workspace.SYSTEM_SCHEMA
             assert payload["surface"] == "product"
             assert payload["mcp"]["tool_count"] == 29
-            assert payload["bestiary"]["species_count"] == 18
+            assert payload["bestiary"]["species_count"] == 20
             assert "TEST-SECRET-ID" not in json.dumps(payload)
 
         with urlopen(f"{base}/api/status", timeout=2.0) as response:
