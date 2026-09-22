@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from itertools import count
 import math
 from typing import Iterable, Mapping, Sequence
 
@@ -158,7 +157,13 @@ def minimal_capability_cover(
 
     useful: list[OperatorTier] = []
     universe: set[str] = set()
+    by_species: dict[str, list[OperatorTier]] = {}
+    seen_operator_ids: set[str] = set()
     for operator in available:
+        if operator.operator_id in seen_operator_ids:
+            raise ValueError(f"duplicate operator tier: {operator.operator_id}")
+        seen_operator_ids.add(operator.operator_id)
+        by_species.setdefault(operator.species, []).append(operator)
         hit = operator.capabilities & required
         if hit:
             useful.append(operator)
@@ -167,25 +172,45 @@ def minimal_capability_cover(
     if missing:
         raise ValueError(f"uncovered obligations: {sorted(missing)!r}")
 
-    # Exact dynamic programming on obligation subsets. State stores the best
-    # route for each covered subset. With <=32 obligations this remains bounded
-    # for normal GREMLIN routing surfaces and fails closed above that bound.
+    # Tier semantics are closure expansion, not unrelated modes. Fail closed if
+    # a higher declared tier drops capabilities from a lower tier.
+    for species, family in by_species.items():
+        ordered_family = sorted(family, key=lambda item: item.tier)
+        prior_caps: frozenset[str] | None = None
+        for operator in ordered_family:
+            if prior_caps is not None and not prior_caps <= operator.capabilities:
+                raise ValueError(
+                    f"{species} tier capabilities must be monotone by closure scope"
+                )
+            prior_caps = operator.capabilities
+
+    useful_by_species: dict[str, tuple[OperatorTier, ...]] = {}
+    for operator in useful:
+        useful_by_species.setdefault(operator.species, ())
+        useful_by_species[operator.species] = useful_by_species[operator.species] + (operator,)
+
+    # Exact dynamic programming on obligation subsets, grouped by species.
+    # Each route step may choose at most one tier of any species.
     states: dict[frozenset[str], tuple[tuple[OperatorTier, ...], ResourceCost]] = {
         frozenset(): ((), ResourceCost())
     }
-    for operator in sorted(useful, key=lambda item: item.operator_id):
-        prior = list(states.items())
-        for covered, (chosen, cost) in prior:
-            next_covered = covered | (operator.capabilities & required)
-            if next_covered == covered:
-                continue
-            next_chosen = chosen + (operator,)
-            next_cost = cost.combine_parallel(operator.cost)
-            current = states.get(next_covered)
-            if current is None or _plan_key(next_chosen, next_cost, budget) < _plan_key(
-                current[0], current[1], budget
-            ):
-                states[next_covered] = (next_chosen, next_cost)
+    for species in sorted(useful_by_species):
+        options = tuple(sorted(useful_by_species[species], key=lambda item: item.tier))
+        prior_states = list(states.items())
+        next_states = dict(states)  # skipping this species remains a valid option
+        for covered, (chosen, cost) in prior_states:
+            for operator in options:
+                next_covered = covered | (operator.capabilities & required)
+                if next_covered == covered:
+                    continue
+                next_chosen = chosen + (operator,)
+                next_cost = cost.combine_parallel(operator.cost)
+                current = next_states.get(next_covered)
+                if current is None or _plan_key(next_chosen, next_cost, budget) < _plan_key(
+                    current[0], current[1], budget
+                ):
+                    next_states[next_covered] = (next_chosen, next_cost)
+        states = next_states
 
     chosen, total_cost = states[required]
     ordered = tuple(sorted(chosen, key=lambda item: (item.species, item.tier)))
