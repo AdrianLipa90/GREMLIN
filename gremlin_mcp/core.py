@@ -26,7 +26,7 @@ BESTIARY_ROLES: dict[str, dict[str, str]] = {
     "RAVEN": {"stage": "specialist", "role": "memory and similarity scan"},
     "HOUND": {"stage": "specialist", "role": "contradiction, anomaly and test-target scan"},
     "MOLE": {"stage": "specialist", "role": "deep local derivation"},
-    "OWL": {"stage": "specialist", "role": "epistemic and runtime evidence audit"},
+    "OWL": {"stage": "specialist", "role": "epistemic audit"},
     "ANT": {"stage": "specialist", "role": "bounded combinatorial scan"},
     "MANTIS": {"stage": "specialist", "role": "duplicate and dead-branch pruning"},
     "FOX": {"stage": "specialist", "role": "strategic planning and decomposition"},
