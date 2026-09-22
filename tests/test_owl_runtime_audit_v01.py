@@ -84,6 +84,22 @@ def test_tampered_ledger_is_reported_degraded(tmp_path) -> None:
     assert "hash mismatch" in snapshot["last_error"]
 
 
+def test_degraded_ledger_refuses_new_receipts(tmp_path) -> None:
+    path = tmp_path / "owl.jsonl"
+    auditor = OwlRuntimeAuditor(path)
+    span = auditor.begin("tool.tamper", (), {})
+    auditor.finish_success(span, {"ok": True})
+
+    record = json.loads(path.read_text(encoding="utf-8").strip())
+    record["status"] = "ERROR"
+    path.write_text(json.dumps(record) + "\n", encoding="utf-8")
+
+    replay = OwlRuntimeAuditor(path)
+    blocked = replay.begin("tool.tamper", (), {})
+    with pytest.raises(RuntimeError, match="OWL_AUDIT_DEGRADED"):
+        replay.finish_success(blocked, {"ok": True})
+
+
 def test_error_rate_emits_candidate_without_auto_apply(tmp_path) -> None:
     auditor = OwlRuntimeAuditor(tmp_path / "owl.jsonl")
     for index in range(20):
