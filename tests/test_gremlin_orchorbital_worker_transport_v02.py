@@ -177,3 +177,38 @@ def test_invalid_context_cache_commitment_fails_closed_before_lease() -> None:
         raise AssertionError("invalid cache commitment must fail closed")
 
     assert broker._tasks["ctx-invalid"].state == "QUEUED"
+
+
+def test_malformed_context_packet_cannot_strand_task_in_lease() -> None:
+    broker = WorkerBroker()
+    broker.register_worker("ctx-worker-malformed", ["SPIDER"])
+    broker.enqueue(
+        "SPIDER",
+        {
+            PACKET_PAYLOAD_KEY: {
+                "schema": "GREMLIN_ORCHORBITAL_CONTEXT_PACKET_V0_1",
+                "target_node_id": "BROKEN",
+                "target_frame_commitment": "0" * 64,
+                "target_materialized_commitment": "0" * 64,
+                "required_base_frame_commitment": None,
+                "frames": [],
+                "packet_commitment": "0" * 64,
+                "materialized_context_bytes": 1,
+                "packet_bytes": 1,
+            }
+        },
+        task_id="ctx-malformed",
+    )
+
+    try:
+        broker.claim("ctx-worker-malformed", species="SPIDER", limit=1)
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("malformed context packet must fail closed")
+
+    assert broker._tasks["ctx-malformed"].state == "QUEUED"
+    assert broker._tasks["ctx-malformed"].lease_id is None
+    assert broker._tasks["ctx-malformed"].leased_to is None
+    assert broker._tasks["ctx-malformed"].lease_expires_ns is None
+    assert broker.queue_status()["active_leases"] == 0
