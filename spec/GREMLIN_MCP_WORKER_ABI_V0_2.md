@@ -1,6 +1,6 @@
 # GREMLIN MCP Worker ABI v0.2
 
-Status: CANDIDATE / standalone MCP worker contract / geometry-phase-state scheduling extension active.
+Status: CANDIDATE / standalone MCP worker contract / geometry-phase-state scheduling and receiver-owned orbital context cache negotiation active.
 
 ## Goal
 
@@ -162,13 +162,26 @@ Only the MCP contract and candidate/authority boundary are normative here.
 
 ## Persistence scope
 
-v0.2 worker registry, leases, queued tasks and results are process-resident:
+The reference in-memory broker remains available, while the standalone/product
+runtime may use the validated SQLite WAL broker.
+
+Persisted state includes worker registrations, task commitments, task/result
+state and active lease lineage. Expired leases are returned to QUEUED during
+recovery.
+
+Receiver context-cache hints are intentionally **not persisted** by GREMLIN.
+They are supplied by the worker on each claim and therefore remain
+receiver-owned capability state.
+
+This separation preserves:
 
 ```text
-state_persistence = PROCESS_MEMORY_V0_2
+durable canonical task/lease state
+!=
+ephemeral receiver transport cache
 ```
 
-Restarting the standalone MCP server therefore resets Worker ABI state. Durable append-only/WAL-backed worker state is a later gate and must preserve the same task commitments, exact lease lineage and fail-closed authority rules.
+A broker restart cannot falsely claim that a worker still holds a context frame.
 
 ## MCP tools added in v0.2
 
@@ -195,3 +208,48 @@ NOEMA + PhaseNav native path -> separate native admission authority
 ```
 
 No MCP worker call may grant production runtime write, execution admission or canon promotion.
+
+
+## ABI v0.2.2 — orbital context cache negotiation
+
+`gremlin_worker_claim` accepts an optional:
+
+```text
+known_context_frames: list[BLAKE2b-256 commitment]
+```
+
+with a hard bound of 4096 commitments.
+
+The list is a receiver declaration only. It is never inserted into the canonical
+task payload, task commitment, result commitment or persisted WorkerBroker
+state.
+
+If a queued task contains a verified full orchorbital context packet, GREMLIN
+may create a receiver-specific transport view by removing already-known base
+frames. The canonical stored task remains byte-for-byte unchanged.
+
+The claim boundary is therefore:
+
+```text
+canonical task payload
+    |
+    | verify full packet
+    v
+receiver-specific transport projection
+    |
+    +-- task_commitment remains canonical
+```
+
+All transport projection is completed **before** task state is changed to
+LEASED. A malformed context packet therefore fails closed while the task
+remains QUEUED and no lease is created.
+
+Unknown but well-formed cache commitments are harmless: they produce no cache
+hit and the full required frame chain is delivered.
+
+The worker SDK validates every received packet before using it, keeps a bounded
+local verified context cache, and advertises only commitments actually present
+in that cache on the next claim.
+
+No model-token reduction claim is made by this ABI. Receipts expose byte counts
+only; token/runtime gains require separate benchmarks.
