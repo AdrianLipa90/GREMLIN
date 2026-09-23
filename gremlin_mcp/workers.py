@@ -201,6 +201,31 @@ def _receiver_queue_locality(
     return 0.0 if not scores else max(scores)
 
 
+def _context_affinity_for_payload(
+    payload: Mapping[str, Any],
+) -> tuple[str, ...]:
+    packet = payload.get(PACKET_PAYLOAD_KEY)
+    if not isinstance(packet, Mapping):
+        return ()
+    frames = packet.get("frames")
+    if not isinstance(frames, list):
+        return ()
+    commitments: list[str] = []
+    for frame in frames:
+        if not isinstance(frame, Mapping):
+            continue
+        commitment = frame.get("frame_commitment")
+        if not isinstance(commitment, str) or len(commitment) != 64:
+            continue
+        try:
+            int(commitment, 16)
+        except ValueError:
+            continue
+        if commitment not in commitments:
+            commitments.append(commitment)
+    return tuple(commitments)
+
+
 def _context_affinity_by_task(
     rows: Iterable[Mapping[str, Any]],
 ) -> dict[str, tuple[str, ...]]:
@@ -212,27 +237,9 @@ def _context_affinity_by_task(
         payload = row.get("payload")
         if not isinstance(task_id, str) or not isinstance(payload, Mapping):
             continue
-        packet = payload.get(PACKET_PAYLOAD_KEY)
-        if not isinstance(packet, Mapping):
-            continue
-        frames = packet.get("frames")
-        if not isinstance(frames, list):
-            continue
-        commitments: list[str] = []
-        for frame in frames:
-            if not isinstance(frame, Mapping):
-                continue
-            commitment = frame.get("frame_commitment")
-            if not isinstance(commitment, str) or len(commitment) != 64:
-                continue
-            try:
-                int(commitment, 16)
-            except ValueError:
-                continue
-            if commitment not in commitments:
-                commitments.append(commitment)
-        if commitments:
-            out[task_id] = tuple(commitments)
+        affinity = _context_affinity_for_payload(payload)
+        if affinity:
+            out[task_id] = affinity
     return out
 
 
@@ -326,7 +333,59 @@ class WorkerBroker:
         self._workers: dict[str, WorkerRecord] = {}
         self._tasks: dict[str, TaskRecord] = {}
         self._leases: dict[str, LeaseRecord] = {}
+        self._queued_by_species: dict[str, dict[str, None]] = {
+            name: {} for name in WORKER_SPECIES
+        }
+        self._task_context_affinity: dict[str, tuple[str, ...]] = {}
+        self._unfinished_count = 0
         self._lock = RLock()
+
+    def _index_task_metadata(self, task: TaskRecord) -> None:
+        affinity = _context_affinity_for_payload(task.payload)
+        if affinity:
+            self._task_context_affinity[task.task_id] = affinity
+        else:
+            self._task_context_affinity.pop(task.task_id, None)
+
+    def _queue_index_add(self, task: TaskRecord) -> None:
+        if task.state != "QUEUED":
+            raise RuntimeError("only queued tasks may enter the queue index")
+        bucket = self._queued_by_species.get(task.species)
+        if bucket is None:
+            raise RuntimeError("task species has no queue index")
+        bucket[task.task_id] = None
+
+    def _queue_index_remove(self, task: TaskRecord) -> None:
+        bucket = self._queued_by_species.get(task.species)
+        if bucket is None:
+            raise RuntimeError("task species has no queue index")
+        bucket.pop(task.task_id, None)
+
+    def _rebuild_indexes(self) -> None:
+        self._queued_by_species = {name: {} for name in WORKER_SPECIES}
+        self._task_context_affinity = {}
+        self._unfinished_count = 0
+        for task in self._tasks.values():
+            self._index_task_metadata(task)
+            if task.state != "DONE":
+                self._unfinished_count += 1
+            if task.state == "QUEUED":
+                self._queue_index_add(task)
+
+    def _queued_rows(self, species: str) -> list[dict[str, Any]]:
+        bucket = self._queued_by_species.get(species)
+        if bucket is None:
+            raise RuntimeError("species has no queue index")
+        rows: list[dict[str, Any]] = []
+        for task_id in tuple(bucket):
+            task = self._tasks.get(task_id)
+            if task is None:
+                raise RuntimeError("queue index references a missing task")
+            if task.species != species or task.state != "QUEUED":
+                raise RuntimeError("queue index/task state drift detected")
+            self._validate_task_memory_authorization(task)
+            rows.append(self._scheduler_task_view(task))
+        return rows
 
     def register_worker(
         self,
@@ -406,11 +465,13 @@ class WorkerBroker:
                 if old.task_commitment != commitment:
                     raise ValueError("task_id already exists with different content")
                 return self._task_view(old, include_payload=True)
-            unfinished = sum(task.state != "DONE" for task in self._tasks.values())
-            if unfinished >= self._max_pending:
+            if self._unfinished_count >= self._max_pending:
                 raise RuntimeError("GREMLIN worker queue is full")
             record = TaskRecord(tid, name, body, commitment, now)
             self._tasks[tid] = record
+            self._index_task_metadata(record)
+            self._queue_index_add(record)
+            self._unfinished_count += 1
             return self._task_view(record, include_payload=True)
 
     def claim(
@@ -448,12 +509,7 @@ class WorkerBroker:
 
             queue_rows: dict[str, list[dict[str, Any]]] = {}
             for name in candidate_names:
-                rows: list[dict[str, Any]] = []
-                for task in self._tasks.values():
-                    if task.species != name or task.state != "QUEUED":
-                        continue
-                    self._validate_task_memory_authorization(task)
-                    rows.append(self._scheduler_task_view(task))
+                rows = self._queued_rows(name)
                 if rows:
                     queue_rows[name] = rows
 
@@ -463,7 +519,11 @@ class WorkerBroker:
                 if name in PROFILES
             }
             affinity_by_species = {
-                name: _context_affinity_by_task(rows)
+                name: {
+                    row["task_id"]: self._task_context_affinity[row["task_id"]]
+                    for row in rows
+                    if row["task_id"] in self._task_context_affinity
+                }
                 for name, rows in queue_rows.items()
             }
             receiver_locality_hint = {
@@ -536,12 +596,17 @@ class WorkerBroker:
                     "authority": _authority_state(),
                 }
 
-            by_id = {
-                task.task_id: task
-                for task in self._tasks.values()
-                if task.species == selected_species and task.state == "QUEUED"
-            }
-            chosen = [by_id[task_id] for task_id in selected_ids]
+            chosen: list[TaskRecord] = []
+            for task_id in selected_ids:
+                task = self._tasks.get(task_id)
+                if (
+                    task is None
+                    or task.species != selected_species
+                    or task.state != "QUEUED"
+                    or task_id not in self._queued_by_species[selected_species]
+                ):
+                    raise RuntimeError("scheduler selection is not present in queue index")
+                chosen.append(task)
             batch_size = len(chosen)
 
             # Build and validate the receiver-specific transport view before
@@ -636,6 +701,7 @@ class WorkerBroker:
             lease_id = uuid.uuid4().hex
             expires = now + ttl * 1_000_000_000
             for task in chosen:
+                self._queue_index_remove(task)
                 task.state = "LEASED"
                 task.lease_id = lease_id
                 task.leased_to = wid
@@ -791,6 +857,9 @@ class WorkerBroker:
                 task.lease_id = None
                 task.leased_to = None
                 task.lease_expires_ns = None
+                self._unfinished_count -= 1
+                if self._unfinished_count < 0:
+                    raise RuntimeError("unfinished task counter underflow")
             del self._leases[lid]
             self._workers[wid].last_seen_ns = now
             return {
@@ -826,6 +895,12 @@ class WorkerBroker:
                 "state_persistence": "PROCESS_MEMORY_V0_2",
                 "registered_workers": len(self._workers),
                 "active_leases": len(self._leases),
+                "unfinished_task_count": self._unfinished_count,
+                "queue_indexed": True,
+                "queued_index_counts": {
+                    name: len(self._queued_by_species[name])
+                    for name in WORKER_SPECIES
+                },
                 "tasks": counts,
                 "scheduler": scheduler_manifest(),
                 "authority": _authority_state(),
@@ -867,6 +942,7 @@ class WorkerBroker:
                 task.lease_id = None
                 task.leased_to = None
                 task.lease_expires_ns = None
+                self._queue_index_add(task)
 
     @staticmethod
     def _scheduler_task_view(record: TaskRecord) -> dict[str, Any]:
