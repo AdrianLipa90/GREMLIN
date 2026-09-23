@@ -159,6 +159,17 @@ class SpawnRequest:
             )
 
 
+@dataclass(frozen=True)
+class CoordinationPoint:
+    """Non-causal n-node rendezvous used only for execution locality."""
+
+    point_id: str
+    member_ids: tuple[str, ...]
+    weight: float
+    created_seq: int
+    physical_claim: bool = False
+
+
 class OrchorbitalFabric:
     """Dynamic execution topology with stable authority and mutable locality.
 
@@ -191,6 +202,7 @@ class OrchorbitalFabric:
         self._causal: dict[str, set[str]] = {}
         self._joins: dict[str, set[str]] = {}
         self._coordination: set[tuple[str, str]] = set()
+        self._coordination_points: dict[str, CoordinationPoint] = {}
         self._events: list[dict[str, Any]] = []
 
         root = NodeInstance(
@@ -314,6 +326,18 @@ class OrchorbitalFabric:
         for edge in self._coordination:
             if len(edge) != 2 or not set(edge) <= self._nodes.keys():
                 raise RuntimeError("coordination edge invariant violated")
+
+        for point_id, point in self._coordination_points.items():
+            if point.point_id != point_id:
+                raise RuntimeError("coordination point registry drift detected")
+            if len(point.member_ids) < 2 or len(set(point.member_ids)) != len(point.member_ids):
+                raise RuntimeError("coordination point membership invariant violated")
+            if not set(point.member_ids) <= self._nodes.keys():
+                raise RuntimeError("coordination point points outside fabric")
+            if not math.isfinite(point.weight) or point.weight <= 0.0:
+                raise RuntimeError("coordination point weight invariant violated")
+            if point.physical_claim:
+                raise RuntimeError("coordination point cannot assert a physical claim")
 
         if self._barycenter_id not in self._nodes:
             raise RuntimeError("computational barycenter is missing")
@@ -508,6 +532,69 @@ class OrchorbitalFabric:
             )
             self._assert_invariants()
 
+    def create_coordination_point(
+        self,
+        member_ids: Iterable[str],
+        *,
+        point_id: str | None = None,
+        weight: float = 1.0,
+    ) -> CoordinationPoint:
+        """Create a non-causal n-node rendezvous / Lagrange-style software point."""
+
+        if isinstance(member_ids, (str, bytes, Mapping)) or not isinstance(
+            member_ids, Iterable
+        ):
+            raise ValueError("member_ids must be an iterable")
+        raw_members = tuple(member_ids)
+        members = tuple(
+            _strict_text(value, f"member_ids[{index}]")
+            for index, value in enumerate(raw_members)
+        )
+        if len(members) < 2:
+            raise ValueError("coordination point requires at least two members")
+        if len(set(members)) != len(members):
+            raise ValueError("coordination point members must be unique")
+        if isinstance(weight, bool) or not isinstance(weight, (int, float)):
+            raise ValueError("coordination point weight must be numeric")
+        normalized_weight = float(weight)
+        if not math.isfinite(normalized_weight) or normalized_weight <= 0.0:
+            raise ValueError("coordination point weight must be finite and positive")
+
+        with self._lock:
+            for member_id in members:
+                self._require_open(member_id)
+            if point_id is None:
+                pid = f"LAGRANGE:{len(self._coordination_points) + 1:06d}"
+            else:
+                pid = _strict_text(point_id, "point_id")
+            if pid in self._coordination_points:
+                raise ValueError("coordination point_id already exists")
+            point = CoordinationPoint(
+                point_id=pid,
+                member_ids=members,
+                weight=normalized_weight,
+                created_seq=self._seq + 1,
+                physical_claim=False,
+            )
+            self._coordination_points[pid] = point
+            self._record(
+                "COORDINATION_POINT_CREATE",
+                self._authority_root_id,
+                point_id=pid,
+                member_ids=list(members),
+                weight=normalized_weight,
+                physical_claim=False,
+            )
+            self._assert_invariants()
+            return point
+
+    def coordination_points(self) -> tuple[CoordinationPoint, ...]:
+        with self._lock:
+            return tuple(
+                self._coordination_points[point_id]
+                for point_id in sorted(self._coordination_points)
+            )
+
     def recenter(
         self,
         node_id: str,
@@ -582,6 +669,17 @@ class OrchorbitalFabric:
             if left in open_ids and right in open_ids:
                 adjacency[left].add(right)
                 adjacency[right].add(left)
+
+        for point in self._coordination_points.values():
+            members = [
+                member_id
+                for member_id in point.member_ids
+                if member_id in open_ids
+            ]
+            for index, left in enumerate(members):
+                for right in members[index + 1 :]:
+                    adjacency[left].add(right)
+                    adjacency[right].add(left)
 
         return adjacency
 
@@ -847,6 +945,7 @@ class OrchorbitalFabric:
                     len(value) for value in self._joins.values()
                 ),
                 "coordination_edge_count": len(self._coordination),
+                "coordination_point_count": len(self._coordination_points),
                 "caller_is_provenance_not_center": True,
                 "caller_cycles_allowed": False,
                 "caller_chain_reaches_authority_root": True,
@@ -866,6 +965,7 @@ class OrchorbitalFabric:
 __all__ = [
     "DEFAULT_MAX_NODES",
     "DIM",
+    "CoordinationPoint",
     "NodeInstance",
     "OPEN",
     "OrchorbitalFabric",
