@@ -1645,3 +1645,47 @@ serialization, memory bandwidth or model inference latency.
 A uniform-cost control fixture must produce exactly 1.0 span ratio. That control
 prevents the benchmark from manufacturing a gain when no barrier/straggler
 interaction exists.
+
+
+## Finite-worker span capacity gate
+
+The unlimited-parallelism span model is now complemented by a deterministic
+finite-worker scheduler model.
+
+For each listed worker count the benchmark executes the same rotating-straggler
+cost matrix under:
+
+- stage-global barriers; and
+- local per-branch dependencies.
+
+Both policies use deterministic work-conserving list scheduling. The finite
+worker model therefore exposes the concurrency requirement that the unlimited
+span bound hides.
+
+For the default 256-branch / 256-stage fixture:
+
+```text
+1 worker:
+    global/local span ratio = 1.0
+
+256 workers:
+    global/local modeled span ratio > 200
+```
+
+With the tested intermediate worker counts, the first pool size crossing a
+200x modeled makespan ratio is 256.
+
+This is a capacity result for that fixture, not a claim that GREMLIN currently
+has 256 independent physical workers or that observed end-to-end runtime will
+improve by 200x.
+
+The finite-worker benchmark still omits:
+
+- scheduler CPU overhead;
+- IPC/network transport latency;
+- serialization/deserialization;
+- model inference latency;
+- memory bandwidth and cache pressure;
+- load variance beyond the explicit synthetic cost matrix.
+
+Accordingly all runtime/end-to-end 200x claim fields remain false.
