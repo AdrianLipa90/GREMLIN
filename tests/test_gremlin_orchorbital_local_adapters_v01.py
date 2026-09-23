@@ -138,7 +138,7 @@ def test_bees_adapter_runs_from_local_frontier_and_closes_without_worker() -> No
     assert seen["node_id"] == node.node_id
     assert seen["context"]["shared"] == "root-context"
     assert seen["adapter"]["implementation_commitment"] == BEES_IMPL
-    assert broker.queue_status()["queued"] == 0
+    assert broker.queue_status()["unfinished_task_count"] == 0
     assert contexts.materialize(node.node_id)["shared"] == "root-context"
 
 
@@ -258,7 +258,7 @@ def test_missing_local_adapter_is_reported_without_silent_fallback() -> None:
     assert node.node_id in step["local_execution"]["adapter_required"]
     assert fabric.node(node.node_id).status == "OPEN"
     assert fabric.node(node.node_id).execution_started is False
-    assert broker.queue_status()["queued"] == 0
+    assert broker.queue_status()["unfinished_task_count"] == 0
 
 
 def test_local_adapter_failure_terminalizes_node_fail_closed() -> None:
