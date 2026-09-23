@@ -96,6 +96,8 @@ class NodeInstance:
     obligations: tuple[str, ...]
     phase36: tuple[float, ...] | None
     status: str
+    self_complete: bool
+    result_commitment: str | None
     spawned_seq: int
     invocation_depth: int
 
@@ -182,6 +184,8 @@ class OrchorbitalFabric:
             obligations=(),
             phase36=None,
             status=OPEN,
+            self_complete=False,
+            result_commitment=None,
             spawned_seq=0,
             invocation_depth=0,
         )
@@ -369,6 +373,8 @@ class OrchorbitalFabric:
                         obligations=row.obligations,
                         phase36=row.phase36,
                         status=OPEN,
+                        self_complete=False,
+                        result_commitment=None,
                         spawned_seq=self._seq + 1,
                         invocation_depth=caller.invocation_depth + 1,
                     )
@@ -521,6 +527,7 @@ class OrchorbitalFabric:
                     node_id
                     for node_id, node in self._nodes.items()
                     if node.status == OPEN
+                    and not node.self_complete
                     and all(
                         self._nodes[dependency].status == "CLOSED"
                         for dependency in self._causal[node_id]
@@ -532,17 +539,65 @@ class OrchorbitalFabric:
         """Ready nodes whose local join dependencies are also CLOSED."""
 
         with self._lock:
-            ready = set(self.ready_nodes())
             return tuple(
                 sorted(
                     node_id
-                    for node_id in ready
-                    if all(
+                    for node_id, node in self._nodes.items()
+                    if node.status == OPEN
+                    and node.self_complete
+                    and all(
+                        self._nodes[dependency].status == "CLOSED"
+                        for dependency in self._causal[node_id]
+                    )
+                    and all(
                         self._nodes[child].status == "CLOSED"
                         for child in self._joins[node_id]
                     )
                 )
             )
+
+    def mark_self_complete(
+        self,
+        node_id: str,
+        *,
+        result_commitment: str | None = None,
+    ) -> NodeInstance:
+        """Record completion of local work without closing the local subtree."""
+
+        with self._lock:
+            node = self._require_open(node_id)
+            if not node.self_complete:
+                raise RuntimeError("node local work is not complete")
+            unresolved_causal = sorted(
+                dependency
+                for dependency in self._causal[node.node_id]
+                if self._nodes[dependency].status != "CLOSED"
+            )
+            if unresolved_causal:
+                raise RuntimeError(
+                    f"causal dependencies are not closed: {unresolved_causal!r}"
+                )
+            commitment = (
+                None
+                if result_commitment is None
+                else _strict_text(result_commitment, "result_commitment")
+            )
+            if node.self_complete:
+                if commitment == node.result_commitment:
+                    return node
+                raise RuntimeError("node local work is already complete")
+            self._nodes[node.node_id] = replace(
+                node,
+                self_complete=True,
+                result_commitment=commitment,
+            )
+            self._record(
+                "NODE_SELF_COMPLETE",
+                node.node_id,
+                result_commitment=commitment,
+            )
+            self._assert_invariants()
+            return self._nodes[node.node_id]
 
     def close(self, node_id: str) -> NodeInstance:
         with self._lock:
@@ -608,6 +663,9 @@ class OrchorbitalFabric:
                 "node_count": len(self._nodes),
                 "open_node_count": sum(
                     node.status == OPEN for node in self._nodes.values()
+                ),
+                "self_complete_node_count": sum(
+                    node.self_complete for node in self._nodes.values()
                 ),
                 "max_nodes": self._max_nodes,
                 "max_invocation_depth": max(
