@@ -1,0 +1,194 @@
+{
+  "schema": "GREMLIN_EXTERNAL_SAME_MODEL_AB_TASK_SUITE_V0_3",
+  "version": "0.3.0",
+  "status": "FROZEN_CANDIDATE",
+  "canon_allowed": false,
+  "claim_boundary": "Original synthetic tool-use tasks for same-model architecture comparison; not tau-bench and not a public leaderboard substitute.",
+  "arms": [
+    "MONOLITHIC_ALL_CONTEXT",
+    "SUPERVISOR_SAME_MODEL",
+    "GREMLIN_SELECTIVE_CONE"
+  ],
+  "domain_counts": [
+    1,
+    3,
+    7
+  ],
+  "trials_per_task": 8,
+  "distractor_tools_per_domain": 19,
+  "distractor_domains": [
+    "human_resources",
+    "legal_compliance",
+    "pharmacy",
+    "automotive",
+    "restaurant",
+    "playlist_management"
+  ],
+  "common_config": {
+    "temperature": 0,
+    "network_policy": "OFF",
+    "retry_budget": 0,
+    "max_output_tokens": 1024
+  },
+  "tasks": [
+    {
+      "task_id": "retail_cancel_processing",
+      "domain": "retail",
+      "prompt": "Cancel order O-100 if policy permits. Do not issue a refund unless policy explicitly requires it.",
+      "initial_state": {
+        "order_id": "O-100",
+        "status": "processing",
+        "paid": true,
+        "refund": 0
+      },
+      "expected_state": {
+        "order_id": "O-100",
+        "status": "cancelled",
+        "paid": true,
+        "refund": 0
+      },
+      "required_tools": [
+        "get_order",
+        "cancel_order"
+      ],
+      "forbidden_tools": [
+        "issue_refund"
+      ]
+    },
+    {
+      "task_id": "retail_refuse_shipped_cancel",
+      "domain": "retail",
+      "prompt": "Cancel order O-200 if policy permits.",
+      "initial_state": {
+        "order_id": "O-200",
+        "status": "shipped",
+        "paid": true,
+        "refund": 0
+      },
+      "expected_state": {
+        "order_id": "O-200",
+        "status": "shipped",
+        "paid": true,
+        "refund": 0
+      },
+      "required_tools": [
+        "get_order"
+      ],
+      "forbidden_tools": [
+        "cancel_order",
+        "issue_refund"
+      ]
+    },
+    {
+      "task_id": "retail_return_delivered",
+      "domain": "retail",
+      "prompt": "Return delivered order O-300 and refund it if it is eligible under the stated return policy.",
+      "initial_state": {
+        "order_id": "O-300",
+        "status": "delivered",
+        "days_since_delivery": 12,
+        "paid_amount": 79,
+        "refund": 0
+      },
+      "expected_state": {
+        "order_id": "O-300",
+        "status": "returned",
+        "days_since_delivery": 12,
+        "paid_amount": 79,
+        "refund": 79
+      },
+      "required_tools": [
+        "get_order",
+        "create_return",
+        "issue_refund"
+      ],
+      "forbidden_tools": [
+        "cancel_order"
+      ]
+    },
+    {
+      "task_id": "calendar_first_free_slot",
+      "domain": "calendar",
+      "prompt": "Schedule a 30 minute meeting with A at the first free slot between 13:00 and 15:00.",
+      "initial_state": {
+        "busy": [
+          "13:00-13:30"
+        ],
+        "event": null
+      },
+      "expected_state": {
+        "busy": [
+          "13:00-13:30"
+        ],
+        "event": "13:30-14:00"
+      },
+      "required_tools": [
+        "get_calendar",
+        "create_event"
+      ],
+      "forbidden_tools": [
+        "delete_event"
+      ]
+    },
+    {
+      "task_id": "calendar_reschedule",
+      "domain": "calendar",
+      "prompt": "Move event E-5 to 16:00-16:30 if that slot is free.",
+      "initial_state": {
+        "event_id": "E-5",
+        "event": "15:00-15:30",
+        "busy": []
+      },
+      "expected_state": {
+        "event_id": "E-5",
+        "event": "16:00-16:30",
+        "busy": []
+      },
+      "required_tools": [
+        "get_calendar",
+        "update_event"
+      ],
+      "forbidden_tools": [
+        "delete_event"
+      ]
+    },
+    {
+      "task_id": "support_add_seats",
+      "domain": "support",
+      "prompt": "Increase customer C-7 seat count by exactly 3 after checking the current account state.",
+      "initial_state": {
+        "customer_id": "C-7",
+        "seats": 12,
+        "active": true
+      },
+      "expected_state": {
+        "customer_id": "C-7",
+        "seats": 15,
+        "active": true
+      },
+      "required_tools": [
+        "get_customer_info",
+        "set_seats"
+      ],
+      "forbidden_tools": [
+        "disable_account"
+      ]
+    }
+  ],
+  "policies": {
+    "retail": [
+      "processing orders may be cancelled without refund mutation",
+      "shipped orders may not be cancelled",
+      "delivered orders within 30 days may be returned and refunded after creating a return"
+    ],
+    "calendar": [
+      "read availability before creating or moving an event",
+      "never delete an event unless explicitly requested"
+    ],
+    "support": [
+      "read customer state before mutating seats",
+      "seat changes must match the requested delta exactly",
+      "do not disable an account unless explicitly requested"
+    ]
+  }
+}
