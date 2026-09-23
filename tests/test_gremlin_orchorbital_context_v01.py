@@ -233,3 +233,137 @@ def test_set_and_delete_same_key_fails_closed() -> None:
             set_values={"x": 2},
             delete_keys=("x",),
         )
+
+
+def test_shared_context_frame_can_fan_out_to_multiple_nodes_losslessly() -> None:
+    fabric, a, b = fabric_with_chain()
+    sibling = fabric.spawn(
+        a.node_id,
+        "OWL",
+        node_id="SIBLING",
+        join_to_caller=False,
+    )
+    store = OrbitalContextStore(fabric)
+    store.bind_root({"root": "shared"})
+    store.inherit_from_caller(a.node_id, set_values={"branch": "A"})
+    shared = store.bind_shared_frame(
+        "CTX:DISC:test-shared",
+        base_frame_id=a.node_id,
+        set_values={"handoff": {"summary": "once"}},
+    )
+    store.bind_node(
+        b.node_id,
+        base_node_id=shared.node_id,
+        set_values={"child": "B"},
+    )
+    store.bind_node(
+        sibling.node_id,
+        base_node_id=shared.node_id,
+        set_values={"child": "S"},
+    )
+
+    assert store.frame(b.node_id).base_node_id == shared.node_id
+    assert store.frame(sibling.node_id).base_node_id == shared.node_id
+    assert store.materialize(b.node_id) == {
+        "root": "shared",
+        "branch": "A",
+        "handoff": {"summary": "once"},
+        "child": "B",
+    }
+    assert store.materialize(sibling.node_id) == {
+        "root": "shared",
+        "branch": "A",
+        "handoff": {"summary": "once"},
+        "child": "S",
+    }
+
+
+def test_shared_context_frame_binding_is_idempotent_but_immutable() -> None:
+    fabric, a, _ = fabric_with_chain()
+    store = OrbitalContextStore(fabric)
+    store.bind_root({"root": 1})
+    store.inherit_from_caller(a.node_id, set_values={"a": 1})
+
+    first = store.bind_shared_frame(
+        "CTX:DISC:idempotent",
+        base_frame_id=a.node_id,
+        set_values={"handoff": 1},
+    )
+    replay = store.bind_shared_frame(
+        "CTX:DISC:idempotent",
+        base_frame_id=a.node_id,
+        set_values={"handoff": 1},
+    )
+    assert replay.frame_commitment == first.frame_commitment
+
+    with pytest.raises(RuntimeError, match="immutable"):
+        store.bind_shared_frame(
+            "CTX:DISC:idempotent",
+            base_frame_id=a.node_id,
+            set_values={"handoff": 2},
+        )
+
+
+def test_shared_context_frame_id_cannot_collide_with_fabric_node() -> None:
+    fabric, a, _ = fabric_with_chain()
+    store = OrbitalContextStore(fabric)
+    store.bind_root({"root": True})
+
+    with pytest.raises(ValueError, match="must not collide"):
+        store.bind_shared_frame(
+            a.node_id,
+            base_frame_id="AUTH:ROOT",
+            set_values={"x": 1},
+        )
+
+
+def test_packet_reconstructs_through_shared_context_frame() -> None:
+    fabric, a, b = fabric_with_chain()
+    store = OrbitalContextStore(fabric)
+    store.bind_root({"root": "R"})
+    store.inherit_from_caller(a.node_id, set_values={"a": "A"})
+    shared = store.bind_shared_frame(
+        "CTX:DISC:packet",
+        base_frame_id=a.node_id,
+        set_values={"handoff": "H"},
+    )
+    store.bind_node(
+        b.node_id,
+        base_node_id=shared.node_id,
+        set_values={"b": "B"},
+    )
+
+    packet = store.packet(b.node_id)
+    decoded = apply_context_packet(packet)
+
+    assert [frame["node_id"] for frame in packet["frames"]] == [
+        "AUTH:ROOT",
+        a.node_id,
+        shared.node_id,
+        b.node_id,
+    ]
+    assert decoded["materialized_context"] == store.materialize(b.node_id)
+
+
+def test_snapshot_marks_shared_frames_without_exposing_values() -> None:
+    fabric, a, _ = fabric_with_chain()
+    store = OrbitalContextStore(fabric)
+    store.bind_root({"root-secret": "never-show"})
+    store.inherit_from_caller(a.node_id)
+    store.bind_shared_frame(
+        "CTX:DISC:snapshot",
+        base_frame_id=a.node_id,
+        set_values={"handoff-secret": "never-show-either"},
+    )
+
+    snapshot = store.snapshot()
+    shared = next(
+        row for row in snapshot["frames"]
+        if row["node_id"] == "CTX:DISC:snapshot"
+    )
+
+    assert shared["frame_kind"] == "SHARED"
+    assert snapshot["raw_values_included"] is False
+    serialized = repr(snapshot)
+    assert "never-show" not in serialized
+    assert "never-show-either" not in serialized
