@@ -1689,3 +1689,70 @@ The finite-worker benchmark still omits:
 - load variance beyond the explicit synthetic cost matrix.
 
 Accordingly all runtime/end-to-end 200x claim fields remain false.
+
+
+## Immutable per-node backend binding
+
+Species selection and execution backend are separate decisions.
+
+For backend-modular roles such as BEES and ELEPHANT, an unstarted node may be
+eligible for either:
+
+```text
+WORKER
+LOCAL
+```
+
+depending on whether a matching replay-safe local adapter is available.
+
+Once execution is about to start, the selected backend is bound to the node.
+The binding is immutable for that node.
+
+The same rule is applied independently to local-join reduction:
+
+```text
+execution_backend_binding[node_id]
+reduction_backend_binding[node_id]
+```
+
+This permits combinations such as:
+
+```text
+BEES execution = LOCAL
+BEES reduction = WORKER
+```
+
+without changing the species.
+
+Backend binding occurs only after the corresponding execution/reduction input
+has been successfully constructed, but before lifecycle mutation or task
+dispatch.
+
+### Late adapter availability
+
+Registering a new local adapter after a node has already been bound to
+WorkerBroker does not move the running node.
+
+Likewise, registering a local reducer after a worker reduction continuation has
+already been dispatched does not replace that continuation.
+
+The new adapter may affect only still-unbound future work.
+
+This prevents duplicate execution caused by live backend availability changes.
+
+### Restart semantics
+
+Executor checkpoints now include both backend-binding maps.
+
+Restore validates semantically that:
+
+- every started/self-complete node has an execution binding;
+- WORKER execution/reduction bindings are legal for that species;
+- LOCAL bindings for WorkerBroker-capable species have the matching registered
+  local adapter/reducer;
+- local result payloads require a LOCAL execution binding;
+- completed WorkerBroker results require a WORKER execution binding.
+
+These checks are performed even when a modified checkpoint has a freshly
+recomputed valid checkpoint hash. The hash protects bytes; semantic validation
+protects lifecycle meaning.
