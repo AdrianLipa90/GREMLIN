@@ -1271,6 +1271,142 @@ class OrchorbitalExecutor:
             "execution_admitted": False,
         }
 
+    def _local_reduction_request(self, node_id: str) -> dict[str, object]:
+        if self.local_adapters is None:
+            raise RuntimeError("local adapter registry is not configured")
+        node = self.fabric.node(node_id)
+        if node.species not in LOCAL_EXECUTION_SPECIES:
+            raise RuntimeError(
+                f"species is not a local execution module: {node.species}"
+            )
+        adapter = self.local_adapters.adapter(node.species)
+        if adapter.reducer is None:
+            raise RuntimeError(
+                f"local reduction adapter is not registered for {node.species}"
+            )
+        packet = self.build_reduction_packet(node.node_id)
+        key_core = {
+            "execution_id": self.execution_id,
+            "node_id": node.node_id,
+            "species": node.species,
+            "adapter": adapter.public_view(),
+            "reduction_input_commitment": packet["reduction_input_commitment"],
+        }
+        reduction_key = hashlib.blake2b(
+            LOCAL_REDUCTION_DOMAIN + _canonical(key_core),
+            digest_size=32,
+        ).hexdigest()
+        return {
+            "schema": "GREMLIN_ORCHORBITAL_LOCAL_REDUCTION_REQUEST_V0_1",
+            "reduction_key": reduction_key,
+            "execution_id": self.execution_id,
+            "node_id": node.node_id,
+            "species": node.species,
+            "adapter": adapter.public_view(),
+            "reduction": packet,
+            "replay_safe": True,
+            "side_effects_allowed": False,
+            "canon_allowed": False,
+        }
+
+    def execute_local_reduction(self, node_id: str) -> dict[str, object]:
+        node = self.fabric.node(node_id)
+        if node.status != "OPEN":
+            raise RuntimeError("local reduction target must remain open")
+        if node.species not in LOCAL_EXECUTION_SPECIES:
+            raise RuntimeError(
+                f"species is not eligible for local adapter reduction: {node.species}"
+            )
+        if self.local_adapters is None or not self.local_adapters.has_reducer(
+            node.species
+        ):
+            raise RuntimeError(
+                f"local reduction adapter is not registered for {node.species}"
+            )
+
+        request = self._local_reduction_request(node.node_id)
+        try:
+            output = self.local_adapters.reduce(node.species, request)
+        except Exception as exc:
+            self.fabric.fail(
+                node.node_id,
+                reason=f"local adapter reduction failed: {type(exc).__name__}: {exc}",
+            )
+            return {
+                "node_id": node.node_id,
+                "state": "FAILED_LOCAL_REDUCTION_ADAPTER",
+                "changed": True,
+                "error": f"{type(exc).__name__}: {exc}",
+            }
+
+        try:
+            receipt = self.complete_reduction(node.node_id, output)
+        except Exception as exc:
+            current = self.fabric.node(node.node_id)
+            if current.status == "OPEN":
+                self.fabric.quarantine(
+                    node.node_id,
+                    reason=(
+                        "local reduction output/integration failed: "
+                        f"{type(exc).__name__}: {exc}"
+                    ),
+                )
+            return {
+                "node_id": node.node_id,
+                "state": "QUARANTINED_LOCAL_REDUCTION_OUTPUT",
+                "changed": True,
+                "error": f"{type(exc).__name__}: {exc}",
+            }
+
+        return {
+            **receipt,
+            "reduction_key": request["reduction_key"],
+            "adapter": request["adapter"],
+            "local_adapter": True,
+        }
+
+    def execute_local_reduction_frontier(self) -> dict[str, object]:
+        completed: list[dict[str, object]] = []
+        failures: list[dict[str, str]] = []
+        adapter_required: list[str] = []
+        core_boundary_required: list[str] = []
+
+        for node_id in self.fabric.reduction_candidates():
+            node = self.fabric.node(node_id)
+            if node.species in WORKER_DISPATCHABLE_SPECIES:
+                continue
+            if node.species in CORE_BOUNDARY_SPECIES:
+                core_boundary_required.append(node.node_id)
+                continue
+            if (
+                node.species not in LOCAL_EXECUTION_SPECIES
+                or self.local_adapters is None
+                or not self.local_adapters.has_reducer(node.species)
+            ):
+                adapter_required.append(node.node_id)
+                continue
+            try:
+                completed.append(self.execute_local_reduction(node.node_id))
+            except Exception as exc:
+                failures.append(
+                    {
+                        "node_id": node.node_id,
+                        "error": f"{type(exc).__name__}: {exc}",
+                    }
+                )
+
+        return {
+            "schema": REDUCTION_SCHEMA,
+            "execution_id": self.execution_id,
+            "completed": completed,
+            "adapter_required": sorted(set(adapter_required)),
+            "core_boundary_required": sorted(set(core_boundary_required)),
+            "failures": failures,
+            "global_synthesis_barrier_required": False,
+            "canon_allowed": False,
+            "execution_admitted": False,
+        }
+
     def deterministic_reduction_task_id(self, node_id: str) -> str:
         packet = self.build_reduction_packet(node_id)
         return _reduction_task_id(
@@ -1580,8 +1716,10 @@ class OrchorbitalExecutor:
 
         before = self.fabric.topology_commitment()
         worker_reconcile = self.reconcile_frontier()
-        settle_after_workers = self.settle_local_joins()
+        local_execution = self.execute_local_frontier(payload_overrides)
+        settle_after_execution = self.settle_local_joins()
         reduction_reconcile = self.reconcile_reduction_frontier()
+        local_reduction = self.execute_local_reduction_frontier()
         settle_after_reductions = self.settle_local_joins()
         reduction_dispatch = self.dispatch_reduction_frontier()
         worker_dispatch = self.dispatch_ready(payload_overrides)
@@ -1591,8 +1729,10 @@ class OrchorbitalExecutor:
             "version": VERSION,
             "execution_id": self.execution_id,
             "worker_reconcile": worker_reconcile,
-            "settle_after_workers": settle_after_workers,
+            "local_execution": local_execution,
+            "settle_after_execution": settle_after_execution,
             "reduction_reconcile": reduction_reconcile,
+            "local_reduction": local_reduction,
             "settle_after_reductions": settle_after_reductions,
             "reduction_dispatch": reduction_dispatch,
             "worker_dispatch": worker_dispatch,
