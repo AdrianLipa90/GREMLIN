@@ -82,3 +82,13 @@ def test_max_species_seven_is_admitted() -> None:
     )
     assert out["status"] == "READY"
     assert len(out["octopus"]["final_species_membership"]) <= 7
+
+
+def test_router_metadata_does_not_force_spider_on_simple_task() -> None:
+    out = build_user_task_plan(
+        "What is twelve times seventeen?",
+        surface_root="/definitely/missing/noema",
+    )
+    assert out["mode"] == "DIRECT"
+    assert out["octopus"]["semantic_route"] == []
+    assert out["execution"]["route_species"] == []
