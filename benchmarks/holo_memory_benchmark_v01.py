@@ -59,7 +59,7 @@ def main():
                 memory_id=mid,
                 ledger_record_id="hive:" + mid,
                 packet=p,
-                orbit_index=row,
+                priority_orbit_index=row,
                 priority=0.5,
             )
     build_s = time.perf_counter() - t0
