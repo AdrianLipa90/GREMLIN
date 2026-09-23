@@ -24,7 +24,7 @@ TOPOLOGY = ("RAW", "HUMMINGBIRD", "OCTOPUS", "SPECIALISTS", "BELZEBUB", "GREMLIN
 
 REFERENCE_MCP_TOOLS = [
     "gremlin_status", "gremlin_bestiary", "gremlin_species",
-    "gremlin_plan", "gremlin_route", "gremlin_relation_parse", "gremlin_relation_signature",
+    "gremlin_handle_user_task", "gremlin_plan", "gremlin_route", "gremlin_relation_parse", "gremlin_relation_signature",
     "gremlin_web_fetch", "gremlin_web_search", "gremlin_research", "gremlin_research_execute",
     "gremlin_research_hound_provenance", "gremlin_research_guarded", "gremlin_research_relational",
     "gremlin_auto_fanout", "gremlin_fanout", "gremlin_collect", "gremlin_synthesize", "gremlin_prototype",
