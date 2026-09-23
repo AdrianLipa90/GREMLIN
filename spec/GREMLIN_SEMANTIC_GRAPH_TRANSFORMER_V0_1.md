@@ -31,3 +31,24 @@ Repeated identical relations are represented once with multiplicity. Untouched s
 ## Claim boundary
 
 This prototype demonstrates the storage/execution architecture and deterministic compression. It does **not** establish semantic completeness, universal compression, neural-model superiority, or a new complexity class. Arbitrary incompressible information remains expensive.
+
+
+## Bestiary/Hive integration
+
+The candidate handoff is capability-scoped and ordered:
+
+SPIDER -> ELEPHANT -> BEES
+
+SPIDER receives typed graph/edge/dependency-link requests. ELEPHANT receives bounded consolidation/memory-orbit/replay-plan requests. BEES receives coherence, anti-entropy, and reconciliation requests. The handoff itself never mutates Hive.
+
+A content-addressed PHASENAV_MEMORY_INFORMATION_EXCHANGE_V0_1 candidate can be emitted with target_layer=RELATIONAL. Existing GREMLIN memory_exchange validation and Hive ingestion remain the authority boundary.
+
+## Local validation, 2026-09-23
+
+- deterministic local unit tests: 11/11 PASS;
+- live NOEMA/GREMLIN A/B: causal-cone routing cut median dispatch fan-out from 4 to 2 in all three tested corpus sizes;
+- at 550 sentences, median live GREMLIN route latency fell from 21.44 ms to 18.28 ms and context bytes fell 31.7%;
+- at 1100 sentences, context bytes fell 65.9%;
+- reference 5000-sentence repeated-structure fixture: 2,068,027 input bytes -> 15,778 relation-bytecode bytes, with 2,944 unique relation tokens representing 1,125,000 relation occurrences.
+
+These are architecture/runtime measurements, not a semantic-quality or trained-model benchmark. GitHub Actions was not executed because the repository account has no available GHA billing minutes.
