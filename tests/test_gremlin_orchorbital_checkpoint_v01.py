@@ -14,7 +14,10 @@ from gremlin_mcp.orchorbital_executor import (
     EXECUTOR_CHECKPOINT_DOMAIN,
     OrchorbitalExecutor,
 )
-from gremlin_mcp.orchorbital_fabric import OrchorbitalFabric
+from gremlin_mcp.orchorbital_fabric import (
+    CHECKPOINT_DOMAIN as FABRIC_CHECKPOINT_DOMAIN,
+    OrchorbitalFabric,
+)
 from gremlin_mcp.persistent_workers import PersistentWorkerBroker
 from gremlin_mcp.workers import WorkerBroker
 
@@ -330,3 +333,53 @@ def test_restore_rejects_recommitted_started_node_without_backend_binding(
             )
     finally:
         broker.close()
+
+
+def _recommit_fabric_checkpoint(checkpoint: dict) -> None:
+    core = {
+        key: deepcopy(value)
+        for key, value in checkpoint.items()
+        if key != "checkpoint_commitment"
+    }
+    encoded = json.dumps(
+        core,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+        allow_nan=False,
+    ).encode("utf-8")
+    checkpoint["checkpoint_commitment"] = hashlib.blake2b(
+        FABRIC_CHECKPOINT_DOMAIN + encoded,
+        digest_size=32,
+    ).hexdigest()
+
+
+def test_restore_rejects_recommitted_executor_version_drift(tmp_path) -> None:
+    state_path, checkpoints, _ = _build_checkpointed_runtime(tmp_path)
+    fabric = OrchorbitalFabric.from_checkpoint(checkpoints["fabric"])
+    contexts = OrbitalContextStore.from_checkpoint(fabric, checkpoints["context"])
+    broker = PersistentWorkerBroker(str(state_path))
+    try:
+        forged = deepcopy(checkpoints["executor"])
+        forged["executor_version"] = "0.0.0-forged"
+        _recommit_executor_checkpoint(forged)
+
+        with pytest.raises(ValueError, match="executor checkpoint version mismatch"):
+            OrchorbitalExecutor.from_checkpoint(
+                forged,
+                fabric=fabric,
+                broker=broker,
+                context_store=contexts,
+            )
+    finally:
+        broker.close()
+
+
+def test_restore_rejects_recommitted_fabric_version_drift(tmp_path) -> None:
+    _, checkpoints, _ = _build_checkpointed_runtime(tmp_path)
+    forged = deepcopy(checkpoints["fabric"])
+    forged["fabric_version"] = "0.0.0-forged"
+    _recommit_fabric_checkpoint(forged)
+
+    with pytest.raises(ValueError, match="fabric checkpoint version mismatch"):
+        OrchorbitalFabric.from_checkpoint(forged)
