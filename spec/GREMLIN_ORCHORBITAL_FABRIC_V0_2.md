@@ -278,6 +278,50 @@ not by a species-specific hierarchy or fixed semantic depth. Each node records
 
 The authority root may close only after every other OPEN node is closed.
 
+## Fail-closed recovery and replacement
+
+`FAILED` and `QUARANTINED` are terminal historical states, but they are
+**not successful closure**.
+
+A causal or join dependency pointing at one of those states remains unresolved
+until an explicit replacement is bound:
+
+```text
+FAILED(source)
+    |
+    +-- replacement --> replacement-node
+```
+
+The replacement must cover every obligation carried by the failed/quarantined
+source. The old node and all of its original edges remain in the audit history;
+nothing is rewritten in place.
+
+A failed/quarantined source is considered successfully resolved only when:
+
+1. its explicit replacement resolves successfully; and
+2. every local join child already spawned by the source also resolves
+   successfully.
+
+Replacement edges participate in the same blocking-cycle audit as causal and
+join edges. The effective blocking graph is:
+
+```text
+E_block = E_causal ∪ E_join ∪ E_replacement
+```
+
+and it must remain acyclic. This catches mixed deadlocks such as a causal edge
+in one direction and a join/replacement edge in the other.
+
+Failure/quarantine also performs explicit failover of live orbital locality:
+open satellites are rehomed to the nearest open caller ancestor (or the
+authority root), and a failed computational barycenter is moved with an
+auditable `BARYCENTER_FAILOVER` event. The authority root itself cannot be
+silently failed or replaced by this candidate runtime.
+
+The authority root cannot close while any other node remains unresolved,
+including terminal failed/quarantined nodes without a successful recovery
+chain.
+
 ## Phase boundary
 
 `phase36` is optional.
@@ -325,6 +369,11 @@ the current architecture. It is explicitly not a physical claim.
 New coordination points require at least two unique OPEN members and a finite
 positive weight. Historical points may remain in the audit trail after member
 nodes later close, but only OPEN members participate in live locality ranking.
+
+The `weight` field is reserved metadata in v0.2 and is **not yet consumed by
+routing distance**. Current locality is unweighted hop distance. This is
+reported explicitly in the runtime receipt so a future weighted scheduler
+cannot be mistaken for current behavior.
 
 ## Dynamic center selection
 
@@ -389,7 +438,13 @@ The v0.2 contract suite checks:
 - locality-first/T^36-tiebreak center ranking;
 - non-causal n-node coordination-point locality;
 - non-authoritative allocation receipts;
-- fail-loud rejection of routing metadata for unselected operators.
+- fail-loud rejection of routing metadata for unselected operators;
+- self-complete spawn/join sealing;
+- mixed causal/join/replacement deadlock rejection;
+- failed/quarantined nodes never satisfying closure implicitly;
+- explicit obligation-covering replacement recovery;
+- failure-driven satellite and barycenter failover;
+- root closure blocked by unrecovered terminal work.
 
 ## Migration path
 
