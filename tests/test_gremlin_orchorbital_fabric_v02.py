@@ -968,3 +968,72 @@ def test_quarantined_node_requires_same_explicit_recovery_semantics() -> None:
     quarantined = fabric.quarantine(source.node_id, reason="suspect output")
     assert quarantined.status == "QUARANTINED"
     assert fabric.receipt()["failed_or_quarantined_counts_as_closed"] is False
+
+
+def test_default_topology_snapshot_does_not_expose_raw_obligations() -> None:
+    fabric = OrchorbitalFabric()
+    fabric.spawn(
+        "AUTH:ROOT",
+        "SPIDER",
+        obligations=("sensitive-local-obligation",),
+        node_id="A",
+        join_to_caller=False,
+    )
+
+    snapshot = fabric.topology_snapshot()
+    row = next(item for item in snapshot["nodes"] if item["node_id"] == "A")
+
+    assert "obligations" not in row
+    assert row["obligation_commitments"]
+    assert "sensitive-local-obligation" not in str(snapshot)
+    assert snapshot["worker_payloads_included"] is False
+    assert snapshot["raw_obligations_included"] is False
+
+
+def test_explicit_snapshot_can_include_obligations_for_local_audit() -> None:
+    fabric = OrchorbitalFabric()
+    fabric.spawn(
+        "AUTH:ROOT",
+        "SPIDER",
+        obligations=("graph",),
+        node_id="A",
+        join_to_caller=False,
+    )
+
+    snapshot = fabric.topology_snapshot(include_obligations=True)
+    row = next(item for item in snapshot["nodes"] if item["node_id"] == "A")
+    assert row["obligations"] == ["graph"]
+    assert snapshot["raw_obligations_included"] is True
+
+
+def test_topology_commitment_is_deterministic_and_changes_with_topology() -> None:
+    left = OrchorbitalFabric()
+    right = OrchorbitalFabric()
+
+    left.spawn(
+        "AUTH:ROOT",
+        "SPIDER",
+        obligations=("graph",),
+        node_id="A",
+        join_to_caller=False,
+    )
+    right.spawn(
+        "AUTH:ROOT",
+        "SPIDER",
+        obligations=("graph",),
+        node_id="A",
+        join_to_caller=False,
+    )
+
+    assert left.topology_commitment() == right.topology_commitment()
+
+    anchor = left.spawn(
+        "AUTH:ROOT",
+        "BEES",
+        node_id="B",
+        join_to_caller=False,
+    )
+    left.recenter("A", anchor.node_id)
+
+    assert left.topology_commitment() != right.topology_commitment()
+    assert left.receipt()["topology_commitment"] == left.topology_commitment()
