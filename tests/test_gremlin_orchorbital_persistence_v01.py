@@ -16,6 +16,7 @@ from gremlin_mcp.orchorbital_executor import (
 )
 from gremlin_mcp.orchorbital_fabric import OrchorbitalFabric
 from gremlin_mcp.orchorbital_persistence import (
+    DurableOrchorbitalRuntime,
     SQLiteOrchorbitalRuntimeStore,
     build_runtime_checkpoint,
     restore_runtime_checkpoint,
@@ -314,3 +315,62 @@ def test_restore_fails_closed_when_completed_worker_result_is_missing() -> None:
             deepcopy(checkpoint),
             broker=empty_broker,
         )
+
+
+def test_durable_runtime_checkpoints_after_each_orchestration_step(tmp_path) -> None:
+    worker_path = tmp_path / "worker-step.sqlite3"
+    runtime_path = tmp_path / "runtime-step.sqlite3"
+
+    broker, fabric, _, executor = _runtime_with_persistent_worker(worker_path)
+    parent = executor.allocate(
+        "AUTH:ROOT",
+        ("graph",),
+        allocation_key="durable-step-root",
+    ).nodes[0]
+    executor.ensure_dispatched(parent.node_id, {"query": "graph"})
+    _submit_one(
+        broker,
+        species="SPIDER",
+        output={
+            "graph": "candidate",
+            DISCOVERY_KEY: {
+                "schema": DISCOVERY_SCHEMA,
+                "obligations": ["audit"],
+            },
+        },
+    )
+
+    store = SQLiteOrchorbitalRuntimeStore(runtime_path)
+    durable = DurableOrchorbitalRuntime(executor, store)
+    receipt = durable.orchestration_step()
+
+    assert receipt["checkpoint_after_step"] is True
+    assert receipt["checkpoint"]["fabric_topology_commitment"] == (
+        executor.fabric.topology_commitment()
+    )
+    persisted = store.load_checkpoint("restart-flow")
+    assert persisted["fabric_topology_commitment"] == (
+        executor.fabric.topology_commitment()
+    )
+
+    child_id = receipt["step"]["worker_dispatch"]["dispatched"][0]["node_id"]
+    broker.close()
+    store.close()
+
+    broker2 = PersistentWorkerBroker(str(worker_path))
+    store2 = SQLiteOrchorbitalRuntimeStore(runtime_path)
+    restored = DurableOrchorbitalRuntime.restore(
+        store2,
+        "restart-flow",
+        broker=broker2,
+    )
+
+    assert restored.execution_id == "restart-flow"
+    assert restored.executor.fabric.node(parent.node_id).self_complete is True
+    assert restored.executor.fabric.node(child_id).status == "OPEN"
+    assert restored.executor.fabric.topology_commitment() == persisted[
+        "fabric_topology_commitment"
+    ]
+
+    store2.close()
+    broker2.close()
