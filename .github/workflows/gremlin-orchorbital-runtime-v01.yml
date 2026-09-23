@@ -1,0 +1,25 @@
+name: GREMLIN Orchorbital Runtime v0.1
+
+on:
+  pull_request:
+    paths:
+      - 'gremlin_mcp/orchorbital_runtime.py'
+      - 'tests/test_gremlin_orchorbital_runtime_v01.py'
+      - 'spec/GREMLIN_ORCHORBITAL_RUNTIME_V0_1.md'
+      - '.github/workflows/gremlin-orchorbital-runtime-v01.yml'
+  workflow_dispatch:
+
+jobs:
+  orchorbital-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install package and pytest
+        run: python -m pip install -e . pytest
+      - name: Compile runtime module
+        run: python -m py_compile gremlin_mcp/orchorbital_runtime.py
+      - name: Run orchorbital contract suite
+        run: python -m pytest -q tests/test_gremlin_orchorbital_runtime_v01.py
