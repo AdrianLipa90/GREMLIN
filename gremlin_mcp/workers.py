@@ -167,6 +167,41 @@ def _normalize_species(values: Iterable[str]) -> tuple[str, ...]:
     return tuple(names)
 
 
+def _context_affinity_by_task(
+    rows: Iterable[Mapping[str, Any]],
+) -> dict[str, tuple[str, ...]]:
+    """Extract privacy-safe context ancestry commitments for scheduler locality."""
+
+    out: dict[str, tuple[str, ...]] = {}
+    for row in rows:
+        task_id = row.get("task_id")
+        payload = row.get("payload")
+        if not isinstance(task_id, str) or not isinstance(payload, Mapping):
+            continue
+        packet = payload.get(PACKET_PAYLOAD_KEY)
+        if not isinstance(packet, Mapping):
+            continue
+        frames = packet.get("frames")
+        if not isinstance(frames, list):
+            continue
+        commitments: list[str] = []
+        for frame in frames:
+            if not isinstance(frame, Mapping):
+                continue
+            commitment = frame.get("frame_commitment")
+            if not isinstance(commitment, str) or len(commitment) != 64:
+                continue
+            try:
+                int(commitment, 16)
+            except ValueError:
+                continue
+            if commitment not in commitments:
+                commitments.append(commitment)
+        if commitments:
+            out[task_id] = tuple(commitments)
+    return out
+
+
 def _normalize_context_frames(values: Iterable[str]) -> tuple[str, ...]:
     if isinstance(values, (str, bytes, Mapping)):
         raise ValueError("known_context_frames must be an iterable of commitments")
@@ -426,7 +461,13 @@ class WorkerBroker:
                 limit, field="limit", minimum=1
             )
             batch_limit = min(requested_limit, worker.max_batch, lane, int(metrics["eligible_count"]))
-            selected_ids, batch_scheduler = select_batch(rows, limit=batch_limit, now_ns=now)
+            context_affinity = _context_affinity_by_task(rows)
+            selected_ids, batch_scheduler = select_batch(
+                rows,
+                limit=batch_limit,
+                now_ns=now,
+                affinity_by_task=context_affinity,
+            )
             if not selected_ids:
                 return {
                     "schema": WORKER_SCHEMA,
