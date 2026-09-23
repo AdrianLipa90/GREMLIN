@@ -560,8 +560,6 @@ class OrchorbitalFabric:
 
         with self._lock:
             node = self._require_open(node_id)
-            if not node.execution_started:
-                raise RuntimeError("node local execution has not started")
             unresolved_causal = sorted(
                 dependency
                 for dependency in self._causal[node.node_id]
@@ -611,6 +609,8 @@ class OrchorbitalFabric:
 
         with self._lock:
             node = self._require_open(node_id)
+            if not node.execution_started:
+                raise RuntimeError("node local execution has not started")
             unresolved_causal = sorted(
                 dependency
                 for dependency in self._causal[node.node_id]
