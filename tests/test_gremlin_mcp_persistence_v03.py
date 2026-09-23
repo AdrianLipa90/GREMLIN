@@ -178,6 +178,8 @@ def test_sqlite_hydration_rebuilds_ephemeral_queue_indexes_and_counters(tmp_path
         assert restored["queued_index_counts"]["SPIDER"] == 1
         assert restored["queued_index_counts"]["OWL"] == 0
         assert restored["queue_indexed"] is True
+        assert restored["precomputed_phase_state_cache"] is True
+        assert restored["precomputed_phase_state_count"] == 2
 
         second.submit(
             "owl-indexed",
