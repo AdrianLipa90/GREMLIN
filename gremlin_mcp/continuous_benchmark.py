@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from contextvars import ContextVar
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, is_dataclass
 import hashlib
 import json
 import math
@@ -49,11 +49,8 @@ def _normalize(value: Any, depth: int = 0) -> Any:
     if isinstance(value, (set, frozenset)):
         rows = [_normalize(v, depth + 1) for v in value]
         return sorted(rows, key=lambda row: json.dumps(row, sort_keys=True, ensure_ascii=False))
-    if hasattr(value, "__dataclass_fields__"):
-        try:
-            return _normalize(asdict(value), depth + 1)
-        except Exception:
-            pass
+    if is_dataclass(value) and not isinstance(value, type):
+        return _normalize(asdict(value), depth + 1)
     return {
         "type": type(value).__name__,
         "repr_digest": _digest(repr(value).encode("utf-8", "replace")),
@@ -264,6 +261,7 @@ class ContinuousBenchmarkLedger:
                 self._open[prompt_id] = {
                     "started_unix_ns": int(record.get("created_unix_ns") or 0),
                     "prompt_commitment": record.get("prompt_commitment"),
+                    "generation": record.get("generation"),
                 }
         elif event == "OCTOPUS_ROUTE":
             self._routes += 1
@@ -366,11 +364,15 @@ class ContinuousBenchmarkLedger:
                     ranked.append(
                         {"species": str(row.get("species") or ""), "score": float(score)}
                     )
+        prompt_key = str(prompt_id)
+        inherited_generation = generation
+        if inherited_generation is None:
+            inherited_generation = self._open.get(prompt_key, {}).get("generation")
         record = {
             "event_type": "OCTOPUS_ROUTE",
             "created_unix_ns": time.time_ns(),
-            "prompt_id": str(prompt_id),
-            "generation": generation,
+            "prompt_id": prompt_key,
+            "generation": inherited_generation,
             "route_status": str(decision.get("status") or ""),
             "route_mask": route_mask,
             "fanout_count": len(route_mask),
