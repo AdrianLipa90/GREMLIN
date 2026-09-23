@@ -1483,6 +1483,11 @@ class OrchorbitalFabric:
         ).hexdigest()
         if supplied_commitment != expected_commitment:
             raise ValueError("fabric checkpoint commitment mismatch")
+        if core.get("fabric_version") != VERSION:
+            raise ValueError(
+                f"fabric checkpoint version mismatch: "
+                f"{core.get('fabric_version')!r} != {VERSION!r}"
+            )
 
         def nonnegative_int(value: Any, field: str) -> int:
             if isinstance(value, bool) or not isinstance(value, int) or value < 0:
