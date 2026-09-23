@@ -1,0 +1,15 @@
+{
+  "schema": "GREMLIN_HOLO_MEMORY_BENCHMARK_V0_1",
+  "dataset": "SYNTHETIC_6_PHASE_PATCHES_6000",
+  "queries": 30,
+  "memories": 6000,
+  "build_seconds": 0.7861036419999436,
+  "full_scan_seconds": 9.425498328999765,
+  "holo_scan_seconds": 1.5493809919998967,
+  "wallclock_speedup": 6.083396128949279,
+  "top1_agreement": 1.0,
+  "mean_fraction_evaluated": 0.15267777777777777,
+  "mean_candidates_evaluated": 916.0666666666667,
+  "full_candidates_per_query": 6000,
+  "claim_scope": "synthetic structural benchmark only; not a general semantic-recall claim"
+}
