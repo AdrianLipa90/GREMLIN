@@ -743,3 +743,227 @@ def test_octopus_center_ranking_can_use_n_node_coordination_point() -> None:
     )
 
     assert allocation.nodes[0].center_id == preferred.node_id
+
+
+def test_self_complete_node_cannot_spawn_new_work() -> None:
+    fabric = OrchorbitalFabric()
+    parent = fabric.spawn(
+        "AUTH:ROOT",
+        "MOLE",
+        node_id="PARENT",
+        join_to_caller=False,
+    )
+    finish_local(fabric, parent.node_id, "parent-local")
+
+    with pytest.raises(RuntimeError, match="self-complete node cannot spawn"):
+        fabric.spawn(
+            parent.node_id,
+            "SPIDER",
+            node_id="LATE",
+        )
+
+
+def test_join_set_is_sealed_after_self_completion() -> None:
+    fabric = OrchorbitalFabric()
+    consumer = fabric.spawn(
+        "AUTH:ROOT",
+        "MOLE",
+        node_id="CONSUMER",
+        join_to_caller=False,
+    )
+    child = fabric.spawn(
+        "AUTH:ROOT",
+        "OWL",
+        node_id="CHILD",
+        join_to_caller=False,
+    )
+    finish_local(fabric, consumer.node_id, "consumer-local")
+
+    with pytest.raises(RuntimeError, match="join dependencies are sealed"):
+        fabric.add_join_dependency(consumer.node_id, child.node_id)
+
+
+def test_cross_relation_causal_join_deadlock_fails_closed() -> None:
+    fabric = OrchorbitalFabric()
+    a = fabric.spawn(
+        "AUTH:ROOT",
+        "SPIDER",
+        node_id="A",
+        join_to_caller=False,
+    )
+    b = fabric.spawn(
+        "AUTH:ROOT",
+        "OWL",
+        node_id="B",
+        join_to_caller=False,
+    )
+    fabric.add_causal_dependency(a.node_id, b.node_id)
+
+    with pytest.raises(ValueError, match="cross-relation cycle"):
+        fabric.add_join_dependency(b.node_id, a.node_id)
+
+
+def test_failed_node_never_satisfies_join_without_explicit_replacement() -> None:
+    fabric = OrchorbitalFabric()
+    parent = fabric.spawn(
+        "AUTH:ROOT",
+        "MOLE",
+        node_id="PARENT",
+        join_to_caller=False,
+    )
+    child = fabric.spawn(
+        parent.node_id,
+        "SPIDER",
+        obligations=("graph",),
+        node_id="CHILD",
+    )
+    finish_local(fabric, parent.node_id, "parent-local")
+
+    fabric.fail(child.node_id, reason="worker crash")
+
+    assert child.node_id not in fabric.closable_nodes()
+    assert parent.node_id not in fabric.closable_nodes()
+    assert fabric.replacement_for(child.node_id) is None
+
+    replacement = fabric.spawn(
+        "AUTH:ROOT",
+        "SPIDER",
+        obligations=("graph",),
+        node_id="REPLACEMENT",
+        join_to_caller=False,
+    )
+    fabric.bind_replacement(child.node_id, replacement.node_id)
+    finish_local(fabric, replacement.node_id, "replacement-result")
+    fabric.close(replacement.node_id)
+
+    assert parent.node_id in fabric.closable_nodes()
+
+
+def test_replacement_must_cover_failed_obligations() -> None:
+    fabric = OrchorbitalFabric()
+    source = fabric.spawn(
+        "AUTH:ROOT",
+        "SPIDER",
+        obligations=("graph", "relations"),
+        node_id="SOURCE",
+        join_to_caller=False,
+    )
+    fabric.fail(source.node_id, reason="worker crash")
+
+    replacement = fabric.spawn(
+        "AUTH:ROOT",
+        "SPIDER",
+        obligations=("graph",),
+        node_id="REPLACEMENT",
+        join_to_caller=False,
+    )
+
+    with pytest.raises(ValueError, match="does not cover source obligations"):
+        fabric.bind_replacement(source.node_id, replacement.node_id)
+
+
+def test_replacement_cannot_create_cross_relation_cycle() -> None:
+    fabric = OrchorbitalFabric()
+    source = fabric.spawn(
+        "AUTH:ROOT",
+        "SPIDER",
+        obligations=("graph",),
+        node_id="SOURCE",
+        join_to_caller=False,
+    )
+    replacement = fabric.spawn(
+        "AUTH:ROOT",
+        "OWL",
+        obligations=("graph",),
+        node_id="REPLACEMENT",
+        join_to_caller=False,
+    )
+    fabric.add_causal_dependency(replacement.node_id, source.node_id)
+    fabric.fail(source.node_id, reason="worker crash")
+
+    with pytest.raises(ValueError, match="blocking cycle"):
+        fabric.bind_replacement(source.node_id, replacement.node_id)
+
+
+def test_failure_rehomes_live_satellites_and_barycenter() -> None:
+    fabric = OrchorbitalFabric()
+    center = fabric.spawn(
+        "AUTH:ROOT",
+        "MOLE",
+        node_id="CENTER",
+        join_to_caller=False,
+    )
+    satellite = fabric.spawn(
+        "AUTH:ROOT",
+        "SPIDER",
+        center_id=center.node_id,
+        node_id="SATELLITE",
+        join_to_caller=False,
+    )
+    fabric.move_barycenter(center.node_id)
+
+    failed = fabric.fail(center.node_id, reason="worker lost")
+
+    assert failed.status == "FAILED"
+    assert fabric.computational_barycenter_id == "AUTH:ROOT"
+    assert fabric.node(satellite.node_id).center_id == "AUTH:ROOT"
+
+
+def test_failure_uses_nearest_open_caller_when_direct_caller_is_closed() -> None:
+    fabric = OrchorbitalFabric()
+    ancestor = fabric.spawn(
+        "AUTH:ROOT",
+        "MOLE",
+        node_id="ANCESTOR",
+        join_to_caller=False,
+    )
+    child = fabric.spawn(
+        ancestor.node_id,
+        "SPIDER",
+        node_id="CHILD",
+        join_to_caller=False,
+    )
+    satellite = fabric.spawn(
+        "AUTH:ROOT",
+        "OWL",
+        center_id=child.node_id,
+        node_id="SATELLITE",
+        join_to_caller=False,
+    )
+
+    finish_local(fabric, ancestor.node_id, "ancestor")
+    fabric.close(ancestor.node_id)
+    fabric.fail(child.node_id, reason="child crash after caller close")
+
+    assert fabric.node(satellite.node_id).center_id == "AUTH:ROOT"
+
+
+def test_authority_root_cannot_close_over_unrecovered_failed_node() -> None:
+    fabric = OrchorbitalFabric()
+    child = fabric.spawn(
+        "AUTH:ROOT",
+        "SPIDER",
+        obligations=("graph",),
+        node_id="CHILD",
+        join_to_caller=False,
+    )
+    fabric.fail(child.node_id, reason="unrecovered failure")
+    fabric.mark_started("AUTH:ROOT")
+    fabric.mark_self_complete("AUTH:ROOT", result_commitment="root-local")
+
+    with pytest.raises(RuntimeError, match="other nodes are unresolved"):
+        fabric.close("AUTH:ROOT")
+
+
+def test_quarantined_node_requires_same_explicit_recovery_semantics() -> None:
+    fabric = OrchorbitalFabric()
+    source = fabric.spawn(
+        "AUTH:ROOT",
+        "SPIDER",
+        obligations=("graph",),
+        node_id="SOURCE",
+        join_to_caller=False,
+    )
+    quarantined = fabric.quarantine(source.node_id, reason="suspect output")
+    assert quarantined.status == "QUARANTINED"
+    assert fabric.receipt()["failed_or_quarantined_counts_as_closed"] is False
