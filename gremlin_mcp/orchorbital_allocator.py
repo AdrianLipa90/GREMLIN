@@ -19,7 +19,7 @@ from gremlin_mcp.orchorbital_fabric import (
 
 SCHEMA = "GREMLIN_OCTOPUS_ORCHORBITAL_ALLOCATOR_V0_2"
 VERSION = "0.2.1"
-ALLOCATION_DOMAIN = b"GREMLIN-ORCHORBITAL-ALLOCATION/v0.2\\x00"
+ALLOCATION_DOMAIN = b"GREMLIN-ORCHORBITAL-ALLOCATION/v0.2\x00"
 
 
 def _strict_text(value: Any, field: str) -> str:
@@ -81,7 +81,7 @@ def _operator_for_obligation(plan: RoutePlan, obligation: str) -> OperatorTier:
 
 
 def _deterministic_node_id(caller_id: str, allocation_key: str, operator_id: str) -> str:
-    raw = "\\x00".join((caller_id, allocation_key, operator_id)).encode("utf-8")
+    raw = "\x00".join((caller_id, allocation_key, operator_id)).encode("utf-8")
     digest = hashlib.blake2b(ALLOCATION_DOMAIN + raw, digest_size=16).hexdigest()
     return f"ORCHD:{digest}"
 
