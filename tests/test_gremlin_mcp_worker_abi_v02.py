@@ -4,7 +4,7 @@ import asyncio
 
 import pytest
 
-from gremlin_mcp.workers import WORKER_SCHEMA, WorkerBroker
+from gremlin_mcp.workers import WORKER_ABI_VERSION, WORKER_SCHEMA, WorkerBroker
 from tools.gremlin_bestiary_vector_species_v03 import lane_width
 
 
@@ -421,3 +421,7 @@ def test_worker_claim_reuses_precomputed_phase_state_after_enqueue_and_reap(
     assert second["scheduler"]["batch_selection"][
         "precomputed_state_cache_used"
     ] is True
+
+
+def test_worker_abi_version_marks_dynamic_role_surface_change() -> None:
+    assert WORKER_ABI_VERSION == "0.2.4"
