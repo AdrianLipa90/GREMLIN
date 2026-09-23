@@ -245,7 +245,7 @@ def test_local_bees_reducer_closes_parent_after_worker_child_returns() -> None:
     assert step2["global_synthesis_barrier_required"] is False
 
 
-def test_missing_local_adapter_is_reported_without_silent_fallback() -> None:
+def test_missing_optional_local_adapter_uses_same_species_worker_backend() -> None:
     fabric, broker, _, executor = make_executor(None)
     node = executor.allocate(
         "AUTH:ROOT",
@@ -255,10 +255,14 @@ def test_missing_local_adapter_is_reported_without_silent_fallback() -> None:
 
     step = executor.orchestration_step()
 
-    assert node.node_id in step["local_execution"]["adapter_required"]
+    assert node.node_id not in step["local_execution"]["adapter_required"]
+    assert any(
+        row["node_id"] == node.node_id and row["species"] == "BEES"
+        for row in step["worker_dispatch"]["dispatched"]
+    )
     assert fabric.node(node.node_id).status == "OPEN"
-    assert fabric.node(node.node_id).execution_started is False
-    assert broker.queue_status()["unfinished_task_count"] == 0
+    assert fabric.node(node.node_id).execution_started is True
+    assert broker.queue_status()["tasks"]["BEES"]["QUEUED"] == 1
 
 
 def test_local_adapter_failure_terminalizes_node_fail_closed() -> None:
