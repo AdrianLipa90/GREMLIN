@@ -424,4 +424,4 @@ def test_worker_claim_reuses_precomputed_phase_state_after_enqueue_and_reap(
 
 
 def test_worker_abi_version_includes_indexed_routing_contract() -> None:
-    assert WORKER_ABI_VERSION == "0.2.5"
+    assert WORKER_ABI_VERSION == "0.2.6"
