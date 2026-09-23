@@ -327,3 +327,35 @@ before task states are mutated to LEASED.
 
 Bundle receipts expose byte counts and unique-frame counts. They do not imply a
 token, latency, throughput or end-to-end speedup claim.
+
+
+## Receiver-cache-aware routing
+
+The worker cache declaration is now used before transport projection as a
+bounded scheduling-locality hint.
+
+WorkerBroker derives privacy-safe context ancestry from frame commitments only.
+Raw context values are not exposed to the geometry scheduler.
+
+The hint may influence:
+
+1. selection among otherwise comparable species queues;
+2. seed selection inside the chosen queue;
+3. subsequent same-species batch construction.
+
+The locality weights are deliberately bounded below the existing phase/state
+terms. Readiness and the canonical T^36/state scheduler remain active.
+
+The intended behavior is:
+
+```text
+same/comparable geometry
++ worker already owns branch-A context
+=> prefer branch-A work over an equivalent cold branch
+```
+
+The claim receipt reports whether receiver-cache affinity was active and its
+bounded weight.
+
+This is a routing optimization only. It grants no authority and makes no
+end-to-end latency or speedup claim.
