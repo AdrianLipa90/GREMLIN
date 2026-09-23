@@ -501,6 +501,7 @@ def select_batch(
     affinity_by_task: Mapping[str, Iterable[str]] | None = None,
     receiver_known_affinity: Iterable[str] | None = None,
     precomputed_states: Mapping[str, TaskPhaseState] | None = None,
+    precomputed_centroid: Sequence[float] | None = None,
 ) -> tuple[list[str], dict[str, Any]]:
     if isinstance(limit, bool) or not isinstance(limit, int) or limit <= 0:
         raise GeometryPhaseSchedulerError("limit must be a positive integer")
@@ -514,7 +515,10 @@ def select_batch(
             "reason": "NO_READY_GEOMETRIC_STATE",
         }
 
-    centroid = phase_centroid(eligible)
+    if precomputed_centroid is None:
+        centroid = phase_centroid(eligible)
+    else:
+        centroid = _phase36(list(precomputed_centroid))
     priority = {s.task_id: task_priority(s, centroid, now_ns=now_ns) for s in eligible}
     affinity = _normalize_affinity(
         affinity_by_task,
@@ -644,6 +648,7 @@ def select_batch(
         "queued_count": len(states),
         "fifo_used_for_selection": False,
         "precomputed_state_cache_used": precomputed_states is not None,
+        "precomputed_centroid_used": precomputed_centroid is not None,
         "authority": {
             "production_runtime_write": False,
             "execution_admitted": False,
