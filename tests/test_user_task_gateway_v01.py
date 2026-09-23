@@ -92,3 +92,26 @@ def test_router_metadata_does_not_force_spider_on_simple_task() -> None:
     assert out["mode"] == "DIRECT"
     assert out["octopus"]["semantic_route"] == []
     assert out["execution"]["route_species"] == []
+
+
+def test_continuation_prompt_uses_context_for_routing() -> None:
+    out = build_user_task_plan(
+        "Kontynuuj",
+        context=["Audit graph dependencies, benchmark the router, and inspect contradictions."],
+        surface_root="/definitely/missing/noema",
+    )
+    assert out["context_routing"]["mode"] == "CONTINUATION_CONTEXT"
+    assert out["mode"] == "GREMLIN_ROUTED"
+    assert set(out["octopus"]["final_species_membership"]) & {"SPIDER", "HOUND"}
+
+
+def test_explicit_new_task_is_not_contaminated_by_stale_context() -> None:
+    out = build_user_task_plan(
+        "What is twelve times seventeen?",
+        context=["Audit graph dependencies, benchmark the router, and inspect contradictions."],
+        surface_root="/definitely/missing/noema",
+    )
+    assert out["context_routing"]["mode"] == "TASK_ONLY"
+    assert out["octopus"]["semantic_route"] == []
+    assert out["execution"]["route_species"] == []
+    assert out["mode"] == "DIRECT"
