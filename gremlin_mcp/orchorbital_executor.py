@@ -25,8 +25,10 @@ TASK_DOMAIN = b"GREMLIN-ORCHORBITAL-WORKER-TASK/v0.2\x00"
 LOCAL_RESULT_DOMAIN = b"GREMLIN-ORCHORBITAL-LOCAL-RESULT/v0.2\x00"
 REDUCTION_INPUT_DOMAIN = b"GREMLIN-ORCHORBITAL-REDUCTION-INPUT/v0.2\x00"
 REDUCTION_OUTPUT_DOMAIN = b"GREMLIN-ORCHORBITAL-REDUCTION-OUTPUT/v0.2\x00"
+REDUCTION_TASK_DOMAIN = b"GREMLIN-ORCHORBITAL-REDUCTION-TASK/v0.2\x00"
 RECOVERY_EFFECTIVE_DOMAIN = b"GREMLIN-ORCHORBITAL-RECOVERY-EFFECTIVE/v0.2\x00"
 REDUCTION_SCHEMA = "GREMLIN_ORCHORBITAL_REDUCTION_V0_1"
+REDUCTION_TASK_KEY = "_gremlin_orchorbital_reduction"
 MAX_DISCOVERED_OBLIGATIONS = 64
 WORKER_DISPATCHABLE_SPECIES = frozenset(WORKER_SPECIES)
 
@@ -81,6 +83,21 @@ def _task_id(execution_id: str, node: NodeInstance) -> str:
     ).encode("utf-8")
     digest = hashlib.blake2b(TASK_DOMAIN + raw, digest_size=20).hexdigest()
     return f"orch-v02-{digest}"
+
+
+def _reduction_task_id(
+    execution_id: str,
+    node_id: str,
+    reduction_input_commitment: str,
+) -> str:
+    raw = "\x00".join(
+        (execution_id, node_id, reduction_input_commitment)
+    ).encode("utf-8")
+    digest = hashlib.blake2b(
+        REDUCTION_TASK_DOMAIN + raw,
+        digest_size=20,
+    ).hexdigest()
+    return f"orch-red-v02-{digest}"
 
 
 def _local_result_commitment(
@@ -830,6 +847,213 @@ class OrchorbitalExecutor:
             "execution_admitted": False,
         }
 
+    def deterministic_reduction_task_id(self, node_id: str) -> str:
+        packet = self.build_reduction_packet(node_id)
+        return _reduction_task_id(
+            self.execution_id,
+            node_id,
+            str(packet["reduction_input_commitment"]),
+        )
+
+    def ensure_reduction_dispatched(self, node_id: str) -> DispatchRecord:
+        """Dispatch one local join reduction back to the owning Bestiary species."""
+
+        node = self.fabric.node(node_id)
+        if node.status != "OPEN":
+            raise RuntimeError("reduction target must remain open")
+        if node.species not in WORKER_DISPATCHABLE_SPECIES:
+            raise RuntimeError(
+                f"reduction requires local/core adapter for species: {node.species}"
+            )
+        if node.reduction_complete:
+            raise RuntimeError("node reduction is already complete")
+
+        packet = self.build_reduction_packet(node.node_id)
+        input_commitment = str(packet["reduction_input_commitment"])
+        task_id = _reduction_task_id(
+            self.execution_id,
+            node.node_id,
+            input_commitment,
+        )
+        payload = self._worker_payload(
+            node,
+            {
+                "kind": "ORCHORBITAL_LOCAL_REDUCTION",
+                REDUCTION_TASK_KEY: packet,
+            },
+        )
+        task = self.broker.enqueue(
+            node.species,
+            payload,
+            task_id=task_id,
+        )
+        state = task.get("state")
+        commitment = task.get("task_commitment")
+        if not isinstance(state, str):
+            raise RuntimeError("worker broker returned invalid reduction task state")
+        if not isinstance(commitment, str) or not commitment:
+            raise RuntimeError(
+                "worker broker returned invalid reduction task commitment"
+            )
+        return DispatchRecord(
+            node_id=node.node_id,
+            task_id=task_id,
+            species=node.species,
+            task_commitment=commitment,
+            state=state,
+            topology_commitment=self.fabric.topology_commitment(),
+        )
+
+    def dispatch_reduction_frontier(self) -> dict[str, object]:
+        dispatched: list[dict[str, object]] = []
+        failures: list[dict[str, str]] = []
+        local_required: list[str] = []
+        for node_id in self.fabric.reduction_candidates():
+            node = self.fabric.node(node_id)
+            if node.species not in WORKER_DISPATCHABLE_SPECIES:
+                local_required.append(node.node_id)
+                continue
+            try:
+                record = self.ensure_reduction_dispatched(node.node_id)
+            except Exception as exc:
+                failures.append(
+                    {
+                        "node_id": node.node_id,
+                        "error": f"{type(exc).__name__}: {exc}",
+                    }
+                )
+                continue
+            dispatched.append(
+                {
+                    "node_id": record.node_id,
+                    "task_id": record.task_id,
+                    "species": record.species,
+                    "task_commitment": record.task_commitment,
+                    "state": record.state,
+                }
+            )
+        return {
+            "schema": REDUCTION_SCHEMA,
+            "execution_id": self.execution_id,
+            "dispatched": dispatched,
+            "local_reduction_required": local_required,
+            "failures": failures,
+            "global_synthesis_barrier_required": False,
+            "canon_allowed": False,
+            "execution_admitted": False,
+        }
+
+    def reconcile_reduction(self, node_id: str) -> dict[str, object]:
+        node = self.fabric.node(node_id)
+        if node.status != "OPEN":
+            return {
+                "node_id": node.node_id,
+                "state": node.status,
+                "changed": False,
+            }
+        if node.reduction_complete:
+            return {
+                "node_id": node.node_id,
+                "state": "REDUCTION_COMPLETE",
+                "changed": False,
+                "reduction_commitment": node.reduction_commitment,
+            }
+        if node.species not in WORKER_DISPATCHABLE_SPECIES:
+            raise RuntimeError("node requires local/core reduction adapter")
+
+        packet = self.build_reduction_packet(node.node_id)
+        task_id = _reduction_task_id(
+            self.execution_id,
+            node.node_id,
+            str(packet["reduction_input_commitment"]),
+        )
+        try:
+            task = self.broker.task_result(task_id)
+        except ValueError as exc:
+            if "unknown task_id" in str(exc):
+                return {
+                    "node_id": node.node_id,
+                    "task_id": task_id,
+                    "state": "MISSING_REDUCTION_TASK_RETRY_REQUIRED",
+                    "changed": False,
+                }
+            raise
+
+        state = task.get("state")
+        if state in {"QUEUED", "LEASED"}:
+            return {
+                "node_id": node.node_id,
+                "task_id": task_id,
+                "state": state,
+                "changed": False,
+            }
+        if state != "DONE":
+            raise RuntimeError(f"unsupported reduction task state: {state!r}")
+        if "result" not in task:
+            raise RuntimeError("DONE reduction task is missing result")
+
+        output = task["result"]
+        try:
+            discovered = _discovered_obligations(output)
+        except ValueError as exc:
+            self.fabric.quarantine(
+                node.node_id,
+                reason=f"invalid reduction discovery envelope: {exc}",
+            )
+            return {
+                "node_id": node.node_id,
+                "task_id": task_id,
+                "state": "QUARANTINED_INVALID_REDUCTION",
+                "changed": True,
+            }
+        if discovered:
+            self.fabric.quarantine(
+                node.node_id,
+                reason=(
+                    "reduction attempted recursive discovery after local join seal"
+                ),
+            )
+            return {
+                "node_id": node.node_id,
+                "task_id": task_id,
+                "state": "QUARANTINED_REDUCTION_DISCOVERY_AFTER_SEAL",
+                "changed": True,
+                "discovered_obligations": list(discovered),
+            }
+
+        receipt = self.complete_reduction(node.node_id, output)
+        return {
+            **receipt,
+            "task_id": task_id,
+            "worker_result_commitment": task.get("result_commitment"),
+            "changed": True,
+        }
+
+    def reconcile_reduction_frontier(self) -> dict[str, object]:
+        rows: list[dict[str, object]] = []
+        failures: list[dict[str, str]] = []
+        for node_id in self.fabric.reduction_candidates():
+            node = self.fabric.node(node_id)
+            if node.species not in WORKER_DISPATCHABLE_SPECIES:
+                continue
+            try:
+                rows.append(self.reconcile_reduction(node.node_id))
+            except Exception as exc:
+                failures.append(
+                    {
+                        "node_id": node.node_id,
+                        "error": f"{type(exc).__name__}: {exc}",
+                    }
+                )
+        return {
+            "schema": REDUCTION_SCHEMA,
+            "execution_id": self.execution_id,
+            "nodes": rows,
+            "failures": failures,
+            "canon_allowed": False,
+            "execution_admitted": False,
+        }
+
     def _fallback_center(self, node: NodeInstance) -> str:
         for candidate in (
             node.caller_id,
@@ -937,6 +1161,7 @@ class OrchorbitalExecutor:
             "local_running_count": len(frontier["local_running"]),
             "topology_commitment": self.fabric.topology_commitment(),
             "recursive_worker_discovery": True,
+            "worker_local_reduction_continuations": True,
             "orbital_context_packets": self.context_store is not None,
             "worker_context_cache_negotiation": self.context_store is not None,
             "worker_context_lease_bundle": self.context_store is not None,
@@ -964,6 +1189,7 @@ __all__ = [
     "DISCOVERY_SCHEMA",
     "DispatchRecord",
     "MAX_DISCOVERED_OBLIGATIONS",
+    "REDUCTION_TASK_KEY",
     "ORBITAL_CONTEXT_PACKET_KEY",
     "REDUCTION_SCHEMA",
     "OrchorbitalExecutor",
