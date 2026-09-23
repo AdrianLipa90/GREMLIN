@@ -5,6 +5,8 @@ on:
     branches: [main]
     paths:
       - 'gremlin_mcp/holo_memory.py'
+      - 'gremlin_mcp/holo_memory_hive_bridge.py'
+      - 'gremlin_mcp/holo_memory_noema_bridge.py'
       - 'tests/test_holo_memory_v01.py'
       - 'benchmarks/holo_memory_benchmark_v01.py'
       - 'benchmarks/holo_memory_orbital_benchmark_v01.py'
@@ -30,6 +32,8 @@ jobs:
         run: >
           python -m py_compile
           gremlin_mcp/holo_memory.py
+          gremlin_mcp/holo_memory_hive_bridge.py
+          gremlin_mcp/holo_memory_noema_bridge.py
           tests/test_holo_memory_v01.py
       - name: Unit tests
         run: >
