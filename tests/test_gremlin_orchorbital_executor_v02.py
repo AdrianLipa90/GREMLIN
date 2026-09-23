@@ -426,3 +426,122 @@ def test_context_store_from_different_fabric_is_rejected() -> None:
             budget=BUDGET,
             context_store=contexts,
         )
+
+
+def test_executor_allocate_binds_child_context_from_caller() -> None:
+    fabric = OrchorbitalFabric()
+    broker = WorkerBroker()
+    contexts = OrbitalContextStore(fabric)
+    contexts.bind_root({"shared": "root-context", "mode": "root"})
+    executor = OrchorbitalExecutor(
+        execution_id="ctx-allocate",
+        fabric=fabric,
+        broker=broker,
+        operators=operators(),
+        budget=BUDGET,
+        context_store=contexts,
+    )
+
+    allocation = executor.allocate(
+        "AUTH:ROOT",
+        ("graph",),
+        allocation_key="initial-graph",
+    )
+    child = allocation.nodes[0]
+
+    assert child.caller_id == "AUTH:ROOT"
+    assert contexts.frame(child.node_id).base_node_id == "AUTH:ROOT"
+    assert contexts.materialize(child.node_id) == contexts.materialize("AUTH:ROOT")
+
+
+def test_recursive_discovery_binds_child_context_and_child_is_dispatchable() -> None:
+    fabric = OrchorbitalFabric()
+    broker = WorkerBroker()
+    broker.register_worker(
+        "worker-1",
+        ["SPIDER", "OWL"],
+        vector_width=2,
+        max_batch=2,
+    )
+    contexts = OrbitalContextStore(fabric)
+    contexts.bind_root({"shared": "root", "request": "audit graph"})
+    executor = OrchorbitalExecutor(
+        execution_id="ctx-recursive",
+        fabric=fabric,
+        broker=broker,
+        operators=operators(),
+        budget=BUDGET,
+        context_store=contexts,
+    )
+    parent = executor.allocate(
+        "AUTH:ROOT",
+        ("graph",),
+        allocation_key="root-graph",
+    ).nodes[0]
+    executor.ensure_dispatched(parent.node_id, {"query": "graph"})
+
+    _claim_and_submit(
+        broker,
+        species="SPIDER",
+        output={
+            DISCOVERY_KEY: {
+                "schema": DISCOVERY_SCHEMA,
+                "obligations": ["audit"],
+            }
+        },
+    )
+    receipt = executor.reconcile_node(parent.node_id)
+    child_id = receipt["allocation"]["node_ids"][0]
+
+    assert contexts.frame(child_id).base_node_id == parent.node_id
+    assert contexts.materialize(child_id) == contexts.materialize(parent.node_id)
+
+    dispatched = executor.ensure_dispatched(child_id, {"query": "audit"})
+    assert dispatched.species == "OWL"
+    assert broker.task_result(dispatched.task_id)["state"] == "QUEUED"
+
+
+def test_context_binding_recovers_after_crash_without_duplicate_deterministic_nodes(
+    monkeypatch,
+) -> None:
+    fabric = OrchorbitalFabric()
+    contexts = OrbitalContextStore(fabric)
+    contexts.bind_root({"root": "context"})
+    executor = OrchorbitalExecutor(
+        execution_id="ctx-bind-recovery",
+        fabric=fabric,
+        broker=WorkerBroker(),
+        operators=operators(),
+        budget=BUDGET,
+        context_store=contexts,
+    )
+
+    original = contexts.inherit_from_caller
+    calls = 0
+
+    def fail_once(node_id, **kwargs):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise RuntimeError("simulated crash before context bind")
+        return original(node_id, **kwargs)
+
+    monkeypatch.setattr(contexts, "inherit_from_caller", fail_once)
+    with pytest.raises(RuntimeError, match="simulated crash"):
+        executor.allocate(
+            "AUTH:ROOT",
+            ("graph",),
+            allocation_key="recoverable-allocation",
+        )
+    count_after_crash = fabric.receipt()["node_count"]
+
+    monkeypatch.setattr(contexts, "inherit_from_caller", original)
+    recovered = executor.allocate(
+        "AUTH:ROOT",
+        ("graph",),
+        allocation_key="recoverable-allocation",
+    )
+
+    assert fabric.receipt()["node_count"] == count_after_crash
+    assert len(recovered.nodes) == 1
+    assert contexts.frame(recovered.nodes[0].node_id).base_node_id == "AUTH:ROOT"
