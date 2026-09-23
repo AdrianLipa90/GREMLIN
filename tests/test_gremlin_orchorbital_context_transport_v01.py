@@ -307,3 +307,75 @@ def test_worker_sdk_rejects_unverifiable_context_before_handler(monkeypatch) -> 
 
     asyncio.run(exercise())
     assert called is False
+
+
+
+def test_reduced_delivery_packet_reconstructs_exact_context_from_cached_base() -> None:
+    fabric, contexts, first, _ = build_two_siblings()
+    broker = WorkerBroker()
+    broker.register_worker("worker", ["SPIDER"], vector_width=1, max_batch=1)
+    executor = OrchorbitalExecutor(
+        execution_id="reconstruct-cache",
+        fabric=fabric,
+        broker=broker,
+        operators=operators(),
+        budget=BUDGET,
+        context_store=contexts,
+    )
+    executor.ensure_dispatched(first.node_id, {"query": "x"})
+
+    root_frame = contexts.frame("AUTH:ROOT")
+    lease = broker.claim(
+        "worker",
+        species="SPIDER",
+        limit=1,
+        known_context_frames=(root_frame.frame_commitment,),
+    )
+    reduced = lease["tasks"][0]["payload"][PACKET_PAYLOAD_KEY]
+    decoded = apply_context_packet(
+        reduced,
+        known_contexts={
+            root_frame.frame_commitment: contexts.materialize("AUTH:ROOT")
+        },
+    )
+
+    assert decoded["materialized_context"] == contexts.materialize(first.node_id)
+
+
+def test_worker_broker_deepcopies_nested_payload_before_commitment_boundary() -> None:
+    broker = WorkerBroker()
+    nested = {"nested": {"values": [1, 2, 3]}}
+    queued = broker.enqueue("SPIDER", nested, task_id="deep-payload")
+
+    nested["nested"]["values"].append(999)
+
+    assert broker._tasks["deep-payload"].payload == {
+        "nested": {"values": [1, 2, 3]}
+    }
+    replay = broker.enqueue(
+        "SPIDER",
+        {"nested": {"values": [1, 2, 3]}},
+        task_id="deep-payload",
+    )
+    assert replay["task_commitment"] == queued["task_commitment"]
+
+
+def test_worker_broker_deepcopies_submitted_and_returned_candidate_results() -> None:
+    broker = WorkerBroker()
+    broker.register_worker("deep-worker", ["SPIDER"])
+    broker.enqueue("SPIDER", {"input": 1}, task_id="deep-result")
+    lease = broker.claim("deep-worker", species="SPIDER", limit=1)
+
+    output = {"candidate": {"edges": [["a", "b"]]}}
+    broker.submit(
+        "deep-worker",
+        lease["lease_id"],
+        [{"task_id": "deep-result", "output": output}],
+    )
+    output["candidate"]["edges"].append(["corrupt", "outside"])
+
+    first = broker.task_result("deep-result")
+    assert first["result"] == {"candidate": {"edges": [["a", "b"]]}}
+    first["result"]["candidate"]["edges"].append(["mutate", "view"])
+    second = broker.task_result("deep-result")
+    assert second["result"] == {"candidate": {"edges": [["a", "b"]]}}

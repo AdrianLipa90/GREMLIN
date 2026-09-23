@@ -18,7 +18,6 @@ on:
       - 'tests/test_gremlin_orchorbital_fabric_v02.py'
       - 'tests/test_gremlin_orchorbital_executor_v02.py'
       - 'tests/test_gremlin_orchorbital_context_v01.py'
-      - 'tests/test_gremlin_orchorbital_worker_transport_v02.py'
       - 'tests/test_gremlin_orchorbital_context_transport_v01.py'
       - 'tests/test_gremlin_mcp_worker_client_v02.py'
       - 'tests/test_gremlin_mcp_worker_abi_v02.py'
@@ -57,7 +56,6 @@ jobs:
           tests/test_gremlin_orchorbital_fabric_v02.py
           tests/test_gremlin_orchorbital_executor_v02.py
           tests/test_gremlin_orchorbital_context_v01.py
-          tests/test_gremlin_orchorbital_worker_transport_v02.py
           tests/test_gremlin_orchorbital_context_transport_v01.py
           tests/test_gremlin_mcp_worker_client_v02.py
           tests/test_gremlin_mcp_worker_abi_v02.py
