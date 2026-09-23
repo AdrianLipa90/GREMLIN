@@ -761,3 +761,117 @@ transport commitment       -> exact delivered task projection
 ```
 
 The optimization is permitted only when lossless reconstruction is verified.
+
+
+## Lease-level context bundle
+
+Per-worker cache reuse removes repeated ancestor frames across consecutive
+claims, but without another layer a multi-task lease could still carry the same
+shared ancestor once per task.
+
+v0.2 therefore supports a lease-level context bundle.
+
+When a lease contains at least two tasks with committed orchorbital context
+packets, WorkerBroker:
+
+1. verifies every canonical full packet before changing task state;
+2. deduplicates identical frame commitments across the selected tasks;
+3. emits every required unique frame at most once in a deterministic
+   topological order;
+4. emits one compact task-local reference per context-bearing task;
+5. binds the projected task payload to its canonical task with a separate
+   domain-separated transport commitment;
+6. only then mutates tasks to LEASED.
+
+The canonical task payload and canonical task commitment remain unchanged in
+broker storage.
+
+Single-task leases retain the existing packet path for compatibility.
+
+The bundle is itself commitment-bound and the worker SDK verifies it
+transactionally before exposing any materialized context to the handler.
+If any task reference, frame, bundle commitment or projected payload is
+invalid, the handler is not called and the verified context cache is not
+partially updated.
+
+## Context-aware batch routing
+
+The geometry/phase scheduler now accepts an optional privacy-safe context
+affinity map.
+
+For each queued task WorkerBroker may derive only the ordered set of committed
+context-frame hashes. No raw context text is passed into the affinity layer.
+
+The original seed selection remains unchanged. During subsequent same-species
+batch construction, context ancestry adds a bounded locality bonus:
+
+```text
+geometry / state score
++ bounded context-ancestry affinity
+```
+
+The current context-affinity weight is deliberately small relative to the
+existing phase/state score. It is intended to break or gently steer comparable
+routing choices, not to bypass readiness, phase geometry, noise or urgency.
+
+This creates the intended execution behavior:
+
+```text
+A1 selected as seed
+A2 shares A-parent context
+B1 has comparable phase but different branch
+
+=> prefer A2 when the phase/state costs are comparable
+```
+
+The scheduler receipt exposes:
+
+- whether context affinity was active;
+- the configured affinity weight;
+- mean selected context affinity.
+
+This is now a routing property, not merely a post-selection compression trick.
+
+## Transport commitment boundary
+
+Receiver-specific transport projection is intentionally distinct from the
+canonical task commitment.
+
+Every delivered task view may carry:
+
+```text
+transport_commitment
+```
+
+which binds:
+
+- task id;
+- worker species;
+- canonical task commitment;
+- delivered payload projection;
+- lease context-bundle commitment when present.
+
+The worker SDK verifies this commitment before context materialization or
+handler invocation. Mutation of either a bundle reference or any other
+projected payload field after claim is therefore detected fail-closed.
+
+## Additional validation targets
+
+The v0.2 suite additionally checks:
+
+- multi-task leases deduplicate common context frames;
+- single-task leases preserve packet compatibility;
+- bundle reconstruction equals canonical materialized context exactly;
+- bundle validation is transactional in the worker SDK;
+- handler mutation cannot alias back into verified cache state;
+- projected-payload tampering is rejected before handler invocation;
+- per-task packet cache updates are claim-transactional;
+- optional scheduler context affinity leaves the legacy path inactive when no
+  affinity is supplied;
+- equal-geometry routing prefers the sibling sharing more committed orbital
+  ancestry;
+- WorkerBroker uses that affinity in the real claim path;
+- bundle and cache optimization do not alter canonical task commitments.
+
+No 200x, token, billing or end-to-end latency claim follows from these
+structural and byte-transport results alone.
