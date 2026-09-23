@@ -16,6 +16,7 @@ DIM = 36
 OPEN = "OPEN"
 TERMINAL_STATES = frozenset({"CLOSED", "FAILED", "QUARANTINED"})
 MAX_IDENTIFIER_CHARS = 128
+DEFAULT_MAX_NODES = 10_000
 
 
 def _strict_text(value: Any, field: str) -> str:
@@ -96,6 +97,7 @@ class NodeInstance:
     phase36: tuple[float, ...] | None
     status: str
     spawned_seq: int
+    invocation_depth: int
 
 
 @dataclass(frozen=True)
@@ -155,9 +157,13 @@ class OrchorbitalFabric:
         *,
         root_species: str = "GREMLIN",
         root_id: str = "AUTH:ROOT",
+        max_nodes: int = DEFAULT_MAX_NODES,
     ) -> None:
         rid = _strict_text(root_id, "root_id")
         species = _strict_species(root_species)
+        if isinstance(max_nodes, bool) or not isinstance(max_nodes, int) or max_nodes < 1:
+            raise ValueError("max_nodes must be a positive integer")
+        self._max_nodes = max_nodes
         self._lock = RLock()
         self._seq = 0
         self._node_counter = 0
@@ -177,6 +183,7 @@ class OrchorbitalFabric:
             phase36=None,
             status=OPEN,
             spawned_seq=0,
+            invocation_depth=0,
         )
         self._nodes[rid] = root
         self._causal[rid] = set()
@@ -321,6 +328,9 @@ class OrchorbitalFabric:
 
         with self._lock:
             caller = self._require_open(caller_id)
+            if len(self._nodes) + len(rows) > self._max_nodes:
+                raise RuntimeError("orchorbital node budget exceeded")
+
             explicit_ids = [row.node_id for row in rows if row.node_id is not None]
             if len(explicit_ids) != len(set(explicit_ids)):
                 raise ValueError("duplicate explicit node_id in batch")
@@ -360,6 +370,7 @@ class OrchorbitalFabric:
                         phase36=row.phase36,
                         status=OPEN,
                         spawned_seq=self._seq + 1,
+                        invocation_depth=caller.invocation_depth + 1,
                     )
                     self._nodes[node_id] = node
                     self._causal[node_id] = set(row.causal_dependencies)
@@ -554,6 +565,15 @@ class OrchorbitalFabric:
                 raise RuntimeError(
                     f"join dependencies are not closed: {unresolved_join!r}"
                 )
+            open_satellites = sorted(
+                other_id
+                for other_id, other in self._nodes.items()
+                if other.status == OPEN and other.center_id == node.node_id
+            )
+            if open_satellites:
+                raise RuntimeError(
+                    f"recenter open satellites before closing center: {open_satellites!r}"
+                )
             if (
                 node.node_id == self._barycenter_id
                 and node.node_id != self._authority_root_id
@@ -589,6 +609,10 @@ class OrchorbitalFabric:
                 "open_node_count": sum(
                     node.status == OPEN for node in self._nodes.values()
                 ),
+                "max_nodes": self._max_nodes,
+                "max_invocation_depth": max(
+                    node.invocation_depth for node in self._nodes.values()
+                ),
                 "causal_edge_count": sum(
                     len(value) for value in self._causal.values()
                 ),
@@ -610,6 +634,7 @@ class OrchorbitalFabric:
 
 
 __all__ = [
+    "DEFAULT_MAX_NODES",
     "DIM",
     "NodeInstance",
     "OPEN",
