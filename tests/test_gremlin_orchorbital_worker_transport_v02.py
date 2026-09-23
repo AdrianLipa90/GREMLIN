@@ -323,3 +323,95 @@ def test_single_context_task_keeps_backward_compatible_packet_transport() -> Non
     assert PACKET_PAYLOAD_KEY in lease["tasks"][0]["payload"]
     assert BUNDLE_REF_PAYLOAD_KEY not in lease["tasks"][0]["payload"]
     assert lease["orchorbital_context_transport"]["bundle_used"] is False
+
+
+def test_worker_claim_prefers_same_orbital_context_branch_when_geometry_ties() -> None:
+    fabric = OrchorbitalFabric()
+    parent_a = fabric.spawn(
+        "AUTH:ROOT",
+        "BEES",
+        node_id="PARENT-A",
+        join_to_caller=False,
+    )
+    parent_b = fabric.spawn(
+        "AUTH:ROOT",
+        "BEES",
+        node_id="PARENT-B",
+        join_to_caller=False,
+    )
+    a1 = fabric.spawn(
+        parent_a.node_id,
+        "SPIDER",
+        node_id="A1",
+        join_to_caller=False,
+    )
+    a2 = fabric.spawn(
+        parent_a.node_id,
+        "SPIDER",
+        node_id="A2",
+        join_to_caller=False,
+    )
+    b1 = fabric.spawn(
+        parent_b.node_id,
+        "SPIDER",
+        node_id="B1",
+        join_to_caller=False,
+    )
+
+    store = OrbitalContextStore(fabric)
+    store.bind_root({"shared": "root"})
+    store.inherit_from_caller(parent_a.node_id, set_values={"branch": "A"})
+    store.inherit_from_caller(parent_b.node_id, set_values={"branch": "B"})
+    store.inherit_from_caller(a1.node_id, set_values={"leaf": "A1"})
+    store.inherit_from_caller(a2.node_id, set_values={"leaf": "A2"})
+    store.inherit_from_caller(b1.node_id, set_values={"leaf": "B1"})
+
+    broker = WorkerBroker()
+    broker.register_worker("affinity-worker", ["SPIDER"], vector_width=64, max_batch=2)
+
+    common_phase = [0.75] * 36
+    broker.enqueue(
+        "SPIDER",
+        {
+            "_gremlin_scheduler": {
+                "phase36": common_phase,
+                "urgency": 1.0,
+                "ready": True,
+            },
+            PACKET_PAYLOAD_KEY: store.packet(a1.node_id),
+        },
+        task_id="A1",
+    )
+    broker.enqueue(
+        "SPIDER",
+        {
+            "_gremlin_scheduler": {
+                "phase36": common_phase,
+                "urgency": 0.0,
+                "ready": True,
+            },
+            PACKET_PAYLOAD_KEY: store.packet(a2.node_id),
+        },
+        task_id="A2",
+    )
+    broker.enqueue(
+        "SPIDER",
+        {
+            "_gremlin_scheduler": {
+                "phase36": common_phase,
+                "urgency": 0.0,
+                "ready": True,
+            },
+            PACKET_PAYLOAD_KEY: store.packet(b1.node_id),
+        },
+        task_id="B1",
+    )
+
+    lease = broker.claim("affinity-worker", species="SPIDER", limit=2)
+    ids = [task["task_id"] for task in lease["tasks"]]
+
+    assert ids == ["A1", "A2"]
+    scheduler = lease["scheduler"]["batch_selection"]
+    assert scheduler["context_affinity_active"] is True
+    assert scheduler["mean_context_affinity"] > 0.5
+    assert lease["orchorbital_context_transport"]["bundle_used"] is True
