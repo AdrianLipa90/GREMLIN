@@ -4,6 +4,8 @@ from collections import deque
 from collections.abc import Iterable, Mapping, Sequence
 from copy import deepcopy
 from dataclasses import dataclass, replace
+import hashlib
+import json
 import math
 from threading import RLock
 from typing import Any
@@ -18,6 +20,8 @@ OPEN = "OPEN"
 TERMINAL_STATES = frozenset({"CLOSED", "FAILED", "QUARANTINED"})
 MAX_IDENTIFIER_CHARS = 128
 DEFAULT_MAX_NODES = 10_000
+SNAPSHOT_DOMAIN = b"GREMLIN-ORCHORBITAL-TOPOLOGY/v0.2\\x00"
+OBLIGATION_DOMAIN = b"GREMLIN-ORCHORBITAL-OBLIGATION/v0.2\\x00"
 
 
 def _strict_text(value: Any, field: str) -> str:
@@ -1167,6 +1171,97 @@ class OrchorbitalFabric:
             self._assert_invariants()
             return self._nodes[node.node_id]
 
+    def topology_snapshot(
+        self,
+        *,
+        include_obligations: bool = False,
+    ) -> dict[str, object]:
+        """Deterministic audit snapshot of topology, not worker payload data."""
+
+        if not isinstance(include_obligations, bool):
+            raise ValueError("include_obligations must be boolean")
+        with self._lock:
+            self._assert_invariants()
+            nodes: list[dict[str, object]] = []
+            for node_id in sorted(self._nodes):
+                node = self._nodes[node_id]
+                obligation_commitments = [
+                    hashlib.blake2b(
+                        OBLIGATION_DOMAIN + obligation.encode("utf-8"),
+                        digest_size=16,
+                    ).hexdigest()
+                    for obligation in node.obligations
+                ]
+                row: dict[str, object] = {
+                    "node_id": node.node_id,
+                    "species": node.species,
+                    "authority_root_id": node.authority_root_id,
+                    "caller_id": node.caller_id,
+                    "center_id": node.center_id,
+                    "status": node.status,
+                    "execution_started": node.execution_started,
+                    "self_complete": node.self_complete,
+                    "result_commitment": node.result_commitment,
+                    "spawned_seq": node.spawned_seq,
+                    "invocation_depth": node.invocation_depth,
+                    "phase36": None if node.phase36 is None else list(node.phase36),
+                    "obligation_commitments": obligation_commitments,
+                }
+                if include_obligations:
+                    row["obligations"] = list(node.obligations)
+                nodes.append(row)
+
+            return {
+                "schema": "GREMLIN_ORCHORBITAL_TOPOLOGY_SNAPSHOT_V0_2",
+                "version": VERSION,
+                "authority_root_id": self._authority_root_id,
+                "computational_barycenter_id": self._barycenter_id,
+                "event_seq": self._seq,
+                "nodes": nodes,
+                "causal": {
+                    node_id: sorted(self._causal[node_id])
+                    for node_id in sorted(self._causal)
+                },
+                "joins": {
+                    node_id: sorted(self._joins[node_id])
+                    for node_id in sorted(self._joins)
+                },
+                "coordination_edges": [
+                    list(edge) for edge in sorted(self._coordination)
+                ],
+                "coordination_points": [
+                    {
+                        "point_id": point.point_id,
+                        "member_ids": list(point.member_ids),
+                        "weight": point.weight,
+                        "created_seq": point.created_seq,
+                        "physical_claim": point.physical_claim,
+                    }
+                    for point in self.coordination_points()
+                ],
+                "replacements": dict(sorted(self._replacements.items())),
+                "raw_obligations_included": include_obligations,
+                "worker_payloads_included": False,
+                "authority": "COGNITIVE_ROUTING_ONLY",
+                "canon_allowed": False,
+            }
+
+    def topology_commitment(self) -> str:
+        """BLAKE2b commitment to the privacy-safer default topology snapshot."""
+
+        snapshot = self.topology_snapshot(include_obligations=False)
+        encoded = json.dumps(
+            snapshot,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+            allow_nan=False,
+        ).encode("utf-8")
+        return hashlib.blake2b(
+            SNAPSHOT_DOMAIN + encoded,
+            digest_size=32,
+        ).hexdigest()
+
     def receipt(self) -> dict[str, object]:
         with self._lock:
             self._assert_invariants()
@@ -1215,6 +1310,7 @@ class OrchorbitalFabric:
                 "execution_admitted": False,
                 "memory_mutation_allowed": False,
                 "speedup_claim": False,
+                "topology_commitment": self.topology_commitment(),
             }
 
 
@@ -1223,9 +1319,11 @@ __all__ = [
     "DIM",
     "CoordinationPoint",
     "NodeInstance",
+    "OBLIGATION_DOMAIN",
     "OPEN",
     "OrchorbitalFabric",
     "SCHEMA",
+    "SNAPSHOT_DOMAIN",
     "SpawnRequest",
     "TAU",
     "TERMINAL_STATES",
