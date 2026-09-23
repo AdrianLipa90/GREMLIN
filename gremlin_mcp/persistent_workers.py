@@ -66,8 +66,13 @@ class PersistentWorkerBroker(WorkerBroker):
         *,
         lease_seconds: int = 30,
         max_pending: int = 10_000,
+        vector_distance_shadow: bool = False,
     ) -> None:
-        super().__init__(lease_seconds=lease_seconds, max_pending=max_pending)
+        super().__init__(
+            lease_seconds=lease_seconds,
+            max_pending=max_pending,
+            vector_distance_shadow=vector_distance_shadow,
+        )
         self._store = SQLiteWorkerStore(state_path)
         self._hydrate()
 
