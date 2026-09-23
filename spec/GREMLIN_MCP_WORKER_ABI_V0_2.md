@@ -1,6 +1,6 @@
 # GREMLIN MCP Worker ABI v0.2
 
-Status: CANDIDATE / standalone MCP worker contract / geometry-phase-state scheduling extension active.
+Status: CANDIDATE / standalone MCP worker contract / geometry-phase-state scheduling and receiver-owned orbital context cache negotiation active.
 
 ## Goal
 
@@ -22,7 +22,8 @@ GREMLIN never calls a worker-supplied URL. This avoids callback trust, SSRF and 
 
 ## External worker species
 
-The external Worker ABI accepts scheduler-backed specialist, sensor, transform and synthesis roles:
+The external Worker ABI accepts the 16 dynamic workload roles from the
+canonical 20-role Bestiary registry:
 
 ```text
 SPIDER
@@ -38,10 +39,25 @@ BAT
 CANARY
 SERPENT
 CHAMELEON
+ELEPHANT
+BEES
 BELZEBUB
 ```
 
-`HUMMINGBIRD` remains the capture stage and `OCTOPUS` remains the routing stage inside GREMLIN. `GREMLIN` remains the aggregate root.
+The four control-plane roles remain outside ordinary workload queues:
+
+```text
+HUMMINGBIRD  capture ingress
+OCTOPUS      routing/allocation
+GREMLIN      authority/aggregate root
+FERRET       explicitly authorized actuation boundary
+```
+
+ELEPHANT and BEES are worker-schedulable even though the current validated
+PhaseNav species-carrier surface still contains 18 legacy roles and does not
+yet provide dedicated carriers for them. For explicit T^36 scheduling they use
+an anchor-neutral contribution; GREMLIN does not invent or silently validate a
+carrier.
 
 ## Registration
 
@@ -162,13 +178,26 @@ Only the MCP contract and candidate/authority boundary are normative here.
 
 ## Persistence scope
 
-v0.2 worker registry, leases, queued tasks and results are process-resident:
+The reference in-memory broker remains available, while the standalone/product
+runtime may use the validated SQLite WAL broker.
+
+Persisted state includes worker registrations, task commitments, task/result
+state and active lease lineage. Expired leases are returned to QUEUED during
+recovery.
+
+Receiver context-cache hints are intentionally **not persisted** by GREMLIN.
+They are supplied by the worker on each claim and therefore remain
+receiver-owned capability state.
+
+This separation preserves:
 
 ```text
-state_persistence = PROCESS_MEMORY_V0_2
+durable canonical task/lease state
+!=
+ephemeral receiver transport cache
 ```
 
-Restarting the standalone MCP server therefore resets Worker ABI state. Durable append-only/WAL-backed worker state is a later gate and must preserve the same task commitments, exact lease lineage and fail-closed authority rules.
+A broker restart cannot falsely claim that a worker still holds a context frame.
 
 ## MCP tools added in v0.2
 
@@ -195,3 +224,374 @@ NOEMA + PhaseNav native path -> separate native admission authority
 ```
 
 No MCP worker call may grant production runtime write, execution admission or canon promotion.
+
+
+## ABI v0.2.2 — orbital context cache negotiation
+
+`gremlin_worker_claim` accepts an optional:
+
+```text
+known_context_frames: list[BLAKE2b-256 commitment]
+```
+
+with a hard bound of 4096 commitments.
+
+The list is a receiver declaration only. It is never inserted into the canonical
+task payload, task commitment, result commitment or persisted WorkerBroker
+state.
+
+If a queued task contains a verified full orchorbital context packet, GREMLIN
+may create a receiver-specific transport view by removing already-known base
+frames. The canonical stored task remains byte-for-byte unchanged.
+
+The claim boundary is therefore:
+
+```text
+canonical task payload
+    |
+    | verify full packet
+    v
+receiver-specific transport projection
+    |
+    +-- task_commitment remains canonical
+```
+
+All transport projection is completed **before** task state is changed to
+LEASED. A malformed context packet therefore fails closed while the task
+remains QUEUED and no lease is created.
+
+Unknown but well-formed cache commitments are harmless: they produce no cache
+hit and the full required frame chain is delivered.
+
+The worker SDK validates every received packet before using it, keeps a bounded
+local verified context cache, and advertises only commitments actually present
+in that cache on the next claim.
+
+No model-token reduction claim is made by this ABI. Receipts expose byte counts
+only; token/runtime gains require separate benchmarks.
+
+
+## ABI v0.2.3 — lease context bundles and transport commitments
+
+When two or more tasks in the same lease carry full orchorbital context
+packets, GREMLIN may replace repeated per-task frame chains with one
+lease-scoped bundle:
+
+```text
+_gremlin_orchorbital_context_bundle
+```
+
+The bundle is a domain-separated BLAKE2b commitment over:
+
+- one deterministic topological sequence of unique context frames;
+- the exact task -> target-frame mapping.
+
+Each affected task receives only a compact committed target reference:
+
+```text
+_gremlin_orchorbital_context_ref
+```
+
+A frame shared by several sibling tasks therefore appears at most once in the
+lease bundle.
+
+A one-task lease keeps the v0.2.2 packet path for backwards compatibility.
+
+### Canonical task vs transport projection
+
+Context bundling changes the payload delivered to the worker but does not
+rewrite the canonical queued task.
+
+Therefore each delivered task view now carries a separate:
+
+```text
+transport_commitment
+```
+
+bound to:
+
+```text
+task_id
+species
+canonical task_commitment
+delivered payload projection
+lease bundle commitment (or null)
+```
+
+The canonical task commitment continues to bind the stored task. The transport
+commitment binds exactly what the worker receives.
+
+The worker SDK verifies the transport commitment before interpreting any
+context reference or invoking the handler.
+
+### Transactionality
+
+Lease bundle validation and task-reference validation are staged before the SDK
+commits new context frames to its local cache.
+
+If any bundle, reference or transport commitment fails verification:
+
+```text
+handler_not_called = true
+receiver_cache_unchanged = true
+```
+
+At the broker boundary, the bundle and every projected task view are built
+before task states are mutated to LEASED.
+
+### Performance claim boundary
+
+Bundle receipts expose byte counts and unique-frame counts. They do not imply a
+token, latency, throughput or end-to-end speedup claim.
+
+
+## Receiver-cache-aware routing
+
+The worker cache declaration is now used before transport projection as a
+bounded scheduling-locality hint.
+
+WorkerBroker derives privacy-safe context ancestry from frame commitments only.
+Raw context values are not exposed to the geometry scheduler.
+
+The hint may influence:
+
+1. selection among otherwise comparable species queues;
+2. seed selection inside the chosen queue;
+3. subsequent same-species batch construction.
+
+The locality weights are deliberately bounded below the existing phase/state
+terms. Readiness and the canonical T^36/state scheduler remain active.
+
+The intended behavior is:
+
+```text
+same/comparable geometry
++ worker already owns branch-A context
+=> prefer branch-A work over an equivalent cold branch
+```
+
+The claim receipt reports whether receiver-cache affinity was active and its
+bounded weight.
+
+This is a routing optimization only. It grants no authority and makes no
+end-to-end latency or speedup claim.
+
+
+## ABI v0.2.4 — canonical Bestiary workload partition
+
+The public worker-species enum now derives from the canonical 20-role Bestiary
+registry rather than the older 18-role PhaseNav carrier list.
+
+The partition is:
+
+```text
+20 Bestiary roles
+= 16 dynamic workload species
++ 4 control-plane species
+```
+
+Control-plane:
+
+```text
+HUMMINGBIRD
+OCTOPUS
+GREMLIN
+FERRET
+```
+
+Dynamic workload:
+
+```text
+SPIDER RAVEN HOUND MOLE OWL ANT MANTIS
+FOX BEAVER BAT CANARY SERPENT CHAMELEON
+ELEPHANT BEES BELZEBUB
+```
+
+The worker scheduler therefore admits ELEPHANT and BEES.
+
+This does **not** claim that those two roles have validated PhaseNav species
+carriers. The current carrier surface remains 18 legacy roles. When ELEPHANT or
+BEES provides explicit T^36 state, the species-anchor term is neutral until a
+separate carrier validation exists.
+
+The runtime must fail loudly if:
+
+- the Bestiary registry is not exactly partitioned by dynamic/control-plane
+  role sets;
+- a control-plane role is supplied as an adaptive workload operator;
+- a dynamic role disappears from WorkerBroker admission because of carrier
+  registry drift.
+
+
+## ABI v0.2.5 — exact routing indexes and cached immutable scheduler state
+
+v0.2.5 removes repeated routing work without changing task semantics.
+
+The broker now keeps derived, rebuildable runtime indexes:
+
+```text
+queued_by_species
+lease_expiry_min_heap
+task_context_affinity
+task_phase_state
+unfinished_task_count
+```
+
+These are **not** new canonical state. Canonical task, lease and result records
+remain the source of truth. SQLite restore rebuilds the indexes and verifies the
+persisted task/context/memory contracts before routing resumes.
+
+### Species queue index
+
+Claim no longer scans every task to find one species queue.
+
+```text
+old structural candidate search:
+all broker tasks -> filter requested species
+
+v0.2.5:
+requested species -> queued task ids directly
+```
+
+A synthetic skew fixture with 4 target tasks and 1024 unrelated tasks yields:
+
+```text
+naive candidate inspections proxy = 1028
+indexed candidate inspections      = 4
+structural scan reduction ratio    = 257x
+```
+
+This is a candidate-inspection count only. It is **not** a 257x wall-clock,
+latency, throughput or end-to-end GREMLIN speedup claim.
+
+### Indexed lease expiry
+
+Active lease expiry is maintained in a min-heap.
+
+Claim/reap no longer scans every active lease. Completed leases may leave stale
+heap entries, which are ignored by lease-id/expiry verification and periodically
+compacted. SQLite hydration rebuilds the heap from canonical active leases before
+expiry processing.
+
+### Immutable task phase-state cache
+
+Scheduler parsing of immutable task payloads now occurs at admission/hydration.
+The resulting `TaskPhaseState` is reused by:
+
+- species queue scoring;
+- geometry lane metrics;
+- batch selection.
+
+Lineage checks bind cached state to task id, species, task commitment and
+creation timestamp. Any mismatch fails closed.
+
+The selected species metrics and 36D centroid computed during species selection
+are reused by batch selection instead of being recomputed.
+
+These changes are exact-path optimizations: no approximate nearest-neighbor or
+heuristic candidate truncation is enabled by v0.2.5.
+
+
+## ABI v0.2.6 — same-species orbital ancestry index
+
+The queue index now has an additional privacy-safe ancestry layer for warm
+receiver claims.
+
+Canonical tasks remain indexed by species. When a canonical task contains a
+verified full orchorbital context packet, GREMLIN also indexes the deepest
+bounded context-frame commitments:
+
+```text
+species
+  -> context frame commitment
+      -> queued task ids
+```
+
+Only BLAKE2b frame commitments are used as index keys. Raw context values never
+enter the routing index.
+
+### Activation boundary
+
+The ancestry index is intentionally conservative.
+
+It is used only when:
+
+1. the worker requests an explicit species; and
+2. the worker supplies one or more verified-format `known_context_frames`.
+
+Cold claims and multi-species claims retain the complete species-queue
+candidate semantics.
+
+### Smallest warm bucket
+
+If several receiver-known frame commitments are present in the selected
+species queue, GREMLIN chooses the smallest non-empty matching bucket.
+
+This matters for nested orbital context:
+
+```text
+root commitment       -> potentially thousands of tasks
+branch commitment     -> tens of tasks
+local parent frame    -> a few tasks
+```
+
+A warm worker therefore begins routing from the narrowest known local branch
+rather than scanning every queued task of the species.
+
+### Fairness window
+
+Warm locality is not an exclusive filter.
+
+The candidate set also receives a bounded oldest-task fairness window from the
+same species queue:
+
+```text
+warm ancestry bucket
++
+up to min(32, max(4, requested_limit)) oldest non-local queued tasks
+```
+
+This keeps unrelated work visible to the normal phase/state/urgency scoring
+instead of silently starving it.
+
+The ancestry index reduces candidate materialization; it does not bypass the
+existing geometry/phase/state scheduler.
+
+### Queue lifecycle
+
+An ancestry membership exists only while a task is QUEUED.
+
+```text
+enqueue  -> species index + ancestry index
+claim    -> remove from both indexes before LEASED
+expiry   -> return to both indexes
+submit   -> remain absent because DONE
+restart  -> rebuild both indexes from durable canonical task payloads
+```
+
+The index itself is ephemeral and is not persisted as authority-bearing state.
+
+### Measurement boundary
+
+The v0.2.6 routing benchmark uses one species only:
+
+```text
+SPIDER warm orbit tasks
+SPIDER unrelated orbit tasks
+```
+
+The worker advertises a warm parent-frame commitment and the benchmark counts
+how many task scheduler views must be materialized before selecting its batch.
+
+A structural ratio above 200x therefore means:
+
+```text
+full same-species queue candidate inspections
+------------------------------------------------
+ancestry-index candidate inspections
+```
+
+for that synthetic fixture.
+
+It is explicitly **not** a 200x wall-clock, model, token, or end-to-end runtime
+claim.

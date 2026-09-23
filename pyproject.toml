@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=84.0.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -13,17 +13,17 @@ authors = [
   { name = "Adrian Lipa / Intention Lab" }
 ]
 dependencies = [
-  "mcp>=2,<3",
+  "mcp>=2.2.0,<3",
   "cryptography>=50.0.1,<51",
-  "sympy>=1.12,<2",
+  "sympy>=1.14.0,<2",
   "PyMuPDF>=1.24,<2",
-  "numpy>=1.26,<3",
+  "numpy>=2.2.6,<3",
   "tomli>=2,<3; python_version < '3.11'"
 ]
 
 [project.optional-dependencies]
 ferret = [
-  "playwright>=1.62,<2"
+  "playwright>=1.63.0,<2"
 ]
 
 [project.scripts]
@@ -36,7 +36,8 @@ gremlin-bundle = "gremlin_mcp.product.bundle_cli:main"
 gremlinctl = "gremlin_mcp.install.cli:main"
 gremlin-ferret = "gremlin_mcp.ferret_cli:main"
 gremlin-workspace = "gremlin_mcp.workspace:main"
-gremlin-openai-tunnel = "gremlin_mcp.openai_tunnel:main"\ngremlin-semantic-graph-mcp = "gremlin_mcp.semantic_graph_server:main"
+gremlin-openai-tunnel = "gremlin_mcp.openai_tunnel:main"
+gremlin-semantic-graph-mcp = "gremlin_mcp.semantic_graph_server:main"
 
 [tool.setuptools.packages.find]
 include = ["gremlin_mcp*", "tools*"]

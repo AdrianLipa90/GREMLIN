@@ -18,7 +18,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
       - name: Install GREMLIN and test dependency
@@ -37,7 +37,7 @@ jobs:
         run: python -c "import json; r=json.load(open('artifacts/gremlin_evidence_origin_lineage_probe.json')); assert r['status']=='PASS'; assert all(r['checks'].values()); assert r['external_benchmark_claimed'] is False; assert r['automatic_origin_inference_executed'] is False; assert r['independence_proof_claimed'] is False"
       - name: Upload origin lineage receipt
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: gremlin-evidence-origin-lineage
           path: artifacts/gremlin_evidence_origin_lineage_probe.json

@@ -7,6 +7,12 @@ import math
 import re
 from typing import Any, Iterable, Mapping, Sequence
 
+try:
+    import numpy as np
+except ImportError:  # scalar production path remains dependency-independent
+    np = None  # type: ignore[assignment]
+
+from gremlin_mcp.role_registry import CONTROL_PLANE_SPECIES, DYNAMIC_WORKLOAD_SPECIES
 from tools.gremlin_bestiary_phasenav_phase_gates_v01 import DIM, TAU, PhaseGate36, SPECIES
 
 SCHEMA = "GREMLIN_GEOMETRY_PHASE_STATE_SCHEDULER_V0_1"
@@ -14,10 +20,16 @@ MODE = "GEOMETRY_PHASE_STATE_CLUSTERED_V0_1"
 SCHEDULER_KEY = "_gremlin_scheduler"
 DERIVED_PHASE_DOMAIN = b"GREMLIN-GEOMETRY-PHASE-SCHEDULER/v0.1\x00"
 TOKEN_RE = re.compile(r"[A-Za-z0-9_./:+-]+", re.UNICODE)
+CONTEXT_AFFINITY_WEIGHT = 0.08
+RECEIVER_CACHE_AFFINITY_WEIGHT = 0.06
+RECEIVER_SPECIES_AFFINITY_WEIGHT = 0.04
+SCALAR_DISTANCE_KERNEL = "SCALAR_EXACT_V0_1"
+NUMPY_DISTANCE_KERNEL_CANDIDATE = "NUMPY_EQUIVALENCE_CANDIDATE_V0_1"
 
-# These roles remain inside the GREMLIN root/boundary rather than external worker queues.
-CORE_ONLY_SPECIES = frozenset({"HUMMINGBIRD", "OCTOPUS", "GREMLIN", "FERRET"})
-SCHEDULER_SPECIES = tuple(name for name in SPECIES if name not in CORE_ONLY_SPECIES)
+# Control-plane classification comes from the canonical 20-role registry.
+CORE_ONLY_SPECIES = CONTROL_PLANE_SPECIES
+SCHEDULER_SPECIES = tuple(sorted(DYNAMIC_WORKLOAD_SPECIES))
+PHASENAV_CARRIER_SPECIES = frozenset(SPECIES)
 
 
 class GeometryPhaseSchedulerError(ValueError):
@@ -176,6 +188,50 @@ def state_distance(left: TaskPhaseState, right: TaskPhaseState) -> float:
     return min(1.0, 0.76 * geometry + 0.14 * temperature + 0.10 * readiness)
 
 
+def _vector_state_distances_candidate(
+    current: TaskPhaseState,
+    candidates: Sequence[TaskPhaseState],
+) -> dict[str, float]:
+    """Candidate-only vector distance kernel; never selected by default."""
+
+    if np is None:
+        raise GeometryPhaseSchedulerError(
+            "NumPy is required for the candidate vector distance kernel"
+        )
+    if not candidates:
+        return {}
+    phases = np.asarray(
+        [state.phase36 for state in candidates],
+        dtype=np.float64,
+    )
+    current_phase = np.asarray(current.phase36, dtype=np.float64)
+    delta = np.remainder(phases - current_phase + math.pi, TAU) - math.pi
+    rms = np.sqrt(np.mean(delta * delta, axis=1))
+    geometry = np.minimum(1.0, rms / math.pi)
+    temperature = np.abs(
+        np.asarray(
+            [state.temperature for state in candidates],
+            dtype=np.float64,
+        )
+        - current.temperature
+    )
+    readiness = np.abs(
+        np.asarray(
+            [state.readiness for state in candidates],
+            dtype=np.float64,
+        )
+        - current.readiness
+    )
+    distances = np.minimum(
+        1.0,
+        0.76 * geometry + 0.14 * temperature + 0.10 * readiness,
+    )
+    return {
+        state.task_id: float(distance)
+        for state, distance in zip(candidates, distances.tolist())
+    }
+
+
 def _task_state(row: Mapping[str, Any]) -> TaskPhaseState:
     task_id = row.get("task_id")
     species = row.get("species")
@@ -240,6 +296,37 @@ def task_phase_state(row: Mapping[str, Any]) -> TaskPhaseState:
     return _task_state(row)
 
 
+def _states_for_rows(
+    rows: Sequence[Mapping[str, Any]],
+    precomputed_states: Mapping[str, TaskPhaseState] | None = None,
+) -> list[TaskPhaseState]:
+    if precomputed_states is None:
+        return [_task_state(row) for row in rows]
+    if not isinstance(precomputed_states, Mapping):
+        raise GeometryPhaseSchedulerError("precomputed_states must be a mapping")
+
+    states: list[TaskPhaseState] = []
+    for row in rows:
+        task_id = row.get("task_id")
+        if not isinstance(task_id, str) or not task_id:
+            raise GeometryPhaseSchedulerError("scheduler task requires task_id")
+        state = precomputed_states.get(task_id)
+        if not isinstance(state, TaskPhaseState):
+            raise GeometryPhaseSchedulerError(
+                f"precomputed state is unavailable for task: {task_id}"
+            )
+        if (
+            row.get("species") != state.species
+            or row.get("task_commitment") != state.task_commitment
+            or row.get("created_ns") != state.created_ns
+        ):
+            raise GeometryPhaseSchedulerError(
+                f"precomputed state lineage mismatch for task: {task_id}"
+            )
+        states.append(state)
+    return states
+
+
 def _age_boost(state: TaskPhaseState, now_ns: int) -> float:
     if now_ns < state.created_ns:
         return 0.0
@@ -252,6 +339,11 @@ def _anchor_resonance(state: TaskPhaseState) -> float:
     # Explicit PhaseNav states are allowed to use the species carrier as a real
     # scheduling coordinate. Fallback content fingerprints remain anchor-neutral.
     if state.phase_source != "EXPLICIT_T36":
+        return 0.5
+    # ELEPHANT/BEES are valid dynamic Bestiary roles but do not yet have
+    # validated PhaseNav species carriers. Keep their anchor contribution
+    # neutral rather than inventing a carrier.
+    if state.species not in PHASENAV_CARRIER_SPECIES:
         return 0.5
     anchor = PhaseGate36(state.species).phase_bias
     return 1.0 - phase_distance(state.phase36, anchor)
@@ -271,10 +363,15 @@ def task_priority(state: TaskPhaseState, centroid: Sequence[float], *, now_ns: i
     )
 
 
-def queue_metrics(rows: Sequence[Mapping[str, Any]], *, now_ns: int) -> dict[str, Any]:
+def queue_metrics(
+    rows: Sequence[Mapping[str, Any]],
+    *,
+    now_ns: int,
+    precomputed_states: Mapping[str, TaskPhaseState] | None = None,
+) -> dict[str, Any]:
     if not rows:
         raise GeometryPhaseSchedulerError("queue metrics require at least one task")
-    states = [_task_state(row) for row in rows]
+    states = _states_for_rows(rows, precomputed_states)
     eligible = [s for s in states if s.readiness > 0.0]
     if not eligible:
         return {
@@ -326,21 +423,34 @@ def choose_species(
     *,
     now_ns: int,
     cadence_hint: Mapping[str, float] | None = None,
+    locality_hint: Mapping[str, float] | None = None,
+    precomputed_states: Mapping[str, TaskPhaseState] | None = None,
 ) -> tuple[str | None, dict[str, Any]]:
     metrics: dict[str, dict[str, Any]] = {}
     candidates: list[tuple[float, float, str]] = []
     for species, rows in queues.items():
         if species not in SCHEDULER_SPECIES or not rows:
             continue
-        m = queue_metrics(rows, now_ns=now_ns)
+        m = queue_metrics(
+            rows,
+            now_ns=now_ns,
+            precomputed_states=precomputed_states,
+        )
         metrics[species] = m
         if not m["eligible"]:
             continue
         cadence = 0.0 if cadence_hint is None else float(cadence_hint.get(species, 0.0))
         if not math.isfinite(cadence) or cadence < 0.0:
             raise GeometryPhaseSchedulerError("cadence hints must be finite and non-negative")
-        # Cadence is only a deterministic secondary hint after geometry/state.
-        candidates.append((float(m["queue_score"]), cadence, species))
+        locality = 0.0 if locality_hint is None else float(locality_hint.get(species, 0.0))
+        if not math.isfinite(locality) or not (0.0 <= locality <= 1.0):
+            raise GeometryPhaseSchedulerError("locality hints must be finite and in [0,1]")
+        # Receiver locality is a bounded additive bias. Cadence remains a
+        # deterministic secondary hint after geometry/state + locality.
+        effective = float(m["queue_score"]) + RECEIVER_SPECIES_AFFINITY_WEIGHT * locality
+        m["receiver_locality_hint"] = locality
+        m["effective_queue_score"] = effective
+        candidates.append((effective, cadence, species))
     if not candidates:
         return None, {"schema": SCHEMA, "mode": MODE, "queues": metrics, "selected_species": None}
     selected = max(candidates, key=lambda row: (row[0], row[1], row[2]))[2]
@@ -349,7 +459,14 @@ def choose_species(
         "mode": MODE,
         "queues": metrics,
         "selected_species": selected,
-        "selection_basis": "GEOMETRY_PHASE_STATE_THEN_CADENCE_TIEBREAK",
+        "selection_basis": (
+            "GEOMETRY_PHASE_STATE_PLUS_RECEIVER_LOCALITY_THEN_CADENCE"
+            if locality_hint
+            else "GEOMETRY_PHASE_STATE_THEN_CADENCE_TIEBREAK"
+        ),
+        "receiver_species_affinity_weight": (
+            RECEIVER_SPECIES_AFFINITY_WEIGHT if locality_hint else 0.0
+        ),
     }
 
 
@@ -389,15 +506,67 @@ def _noise_cost(states: Sequence[TaskPhaseState]) -> float:
     return 0.60 * intrinsic + 0.40 * transition
 
 
+
+def _normalize_affinity(
+    affinity_by_task: Mapping[str, Iterable[str]] | None,
+    eligible_ids: set[str],
+) -> dict[str, frozenset[str]]:
+    if affinity_by_task is None:
+        return {}
+    if not isinstance(affinity_by_task, Mapping):
+        raise GeometryPhaseSchedulerError("affinity_by_task must be a mapping")
+    out: dict[str, frozenset[str]] = {}
+    for task_id, values in affinity_by_task.items():
+        if task_id not in eligible_ids:
+            continue
+        if isinstance(values, (str, bytes, Mapping)) or not isinstance(values, Iterable):
+            raise GeometryPhaseSchedulerError("task affinity must be an iterable")
+        normalized = frozenset(str(value) for value in values if str(value))
+        out[task_id] = normalized
+    return out
+
+
+def _context_affinity(
+    task_id: str,
+    chosen_ids: Sequence[str],
+    affinity: Mapping[str, frozenset[str]],
+) -> float:
+    candidate = affinity.get(task_id, frozenset())
+    if not candidate or not chosen_ids:
+        return 0.0
+    active: set[str] = set()
+    for chosen_id in chosen_ids:
+        active.update(affinity.get(chosen_id, frozenset()))
+    if not active:
+        return 0.0
+    overlap = len(candidate & active)
+    scale = min(len(candidate), len(active))
+    return 0.0 if scale <= 0 else overlap / scale
+
+
 def select_batch(
     rows: Sequence[Mapping[str, Any]],
     *,
     limit: int,
     now_ns: int,
+    affinity_by_task: Mapping[str, Iterable[str]] | None = None,
+    receiver_known_affinity: Iterable[str] | None = None,
+    precomputed_states: Mapping[str, TaskPhaseState] | None = None,
+    precomputed_centroid: Sequence[float] | None = None,
+    distance_kernel: str = SCALAR_DISTANCE_KERNEL,
 ) -> tuple[list[str], dict[str, Any]]:
     if isinstance(limit, bool) or not isinstance(limit, int) or limit <= 0:
         raise GeometryPhaseSchedulerError("limit must be a positive integer")
-    states = [_task_state(row) for row in rows]
+    if distance_kernel not in {
+        SCALAR_DISTANCE_KERNEL,
+        NUMPY_DISTANCE_KERNEL_CANDIDATE,
+    }:
+        raise GeometryPhaseSchedulerError("unsupported distance_kernel")
+    if distance_kernel == NUMPY_DISTANCE_KERNEL_CANDIDATE and np is None:
+        raise GeometryPhaseSchedulerError(
+            "NumPy candidate distance kernel is unavailable"
+        )
+    states = _states_for_rows(rows, precomputed_states)
     eligible = [s for s in states if s.readiness > 0.0]
     if not eligible:
         return [], {
@@ -407,26 +576,149 @@ def select_batch(
             "reason": "NO_READY_GEOMETRIC_STATE",
         }
 
-    centroid = phase_centroid(eligible)
+    if precomputed_centroid is None:
+        centroid = phase_centroid(eligible)
+    else:
+        centroid = _phase36(list(precomputed_centroid))
     priority = {s.task_id: task_priority(s, centroid, now_ns=now_ns) for s in eligible}
+    affinity = _normalize_affinity(
+        affinity_by_task,
+        {state.task_id for state in eligible},
+    )
+    affinity_active = any(affinity.values())
+    affinity_commitments = sorted(
+        {
+            commitment
+            for signature in affinity.values()
+            for commitment in signature
+        }
+    )
+    affinity_bit_index = {
+        commitment: index
+        for index, commitment in enumerate(affinity_commitments)
+    }
+    affinity_bits: dict[str, int] = {}
+    affinity_sizes: dict[str, int] = {}
+    if affinity_active:
+        for task_id, signature in affinity.items():
+            bits = 0
+            for commitment in signature:
+                bits |= 1 << affinity_bit_index[commitment]
+            affinity_bits[task_id] = bits
+            affinity_sizes[task_id] = len(signature)
+    if receiver_known_affinity is None:
+        receiver_known = frozenset()
+    else:
+        if isinstance(receiver_known_affinity, (str, bytes, Mapping)) or not isinstance(
+            receiver_known_affinity, Iterable
+        ):
+            raise GeometryPhaseSchedulerError(
+                "receiver_known_affinity must be an iterable"
+            )
+        receiver_known = frozenset(
+            str(value) for value in receiver_known_affinity if str(value)
+        )
+
+    receiver_affinity_active = bool(receiver_known) and affinity_active
+    receiver_scores: dict[str, float] = {}
+    if receiver_affinity_active:
+        receiver_known_bits = 0
+        for commitment in receiver_known:
+            index = affinity_bit_index.get(commitment)
+            if index is not None:
+                receiver_known_bits |= 1 << index
+        for task_id, bits in affinity_bits.items():
+            size = affinity_sizes.get(task_id, 0)
+            if size > 0:
+                receiver_scores[task_id] = (
+                    (bits & receiver_known_bits).bit_count() / size
+                )
+
+    def receiver_score(task_id: str) -> float:
+        return receiver_scores.get(task_id, 0.0)
     seed = max(
         eligible,
-        key=lambda s: (priority[s.task_id], -s.noise, s.urgency, s.task_commitment, s.task_id),
+        key=lambda s: (
+            priority[s.task_id]
+            + (
+                RECEIVER_CACHE_AFFINITY_WEIGHT * receiver_score(s.task_id)
+                if receiver_affinity_active
+                else 0.0
+            ),
+            -s.noise,
+            s.urgency,
+            s.task_commitment,
+            s.task_id,
+        ),
     )
     chosen = [seed]
     remaining = {s.task_id: s for s in eligible if s.task_id != seed.task_id}
+    greedy_pairwise_distance_evaluations = 0
 
     while remaining and len(chosen) < limit:
         current = chosen[-1]
+        remaining_states = list(remaining.values())
+        vector_distances: dict[str, float] = {}
+        if distance_kernel == NUMPY_DISTANCE_KERNEL_CANDIDATE:
+            vector_distances = _vector_state_distances_candidate(
+                current,
+                remaining_states,
+            )
+        active_affinity_bits = 0
+        if affinity_active:
+            for selected_state in chosen:
+                active_affinity_bits |= affinity_bits.get(
+                    selected_state.task_id,
+                    0,
+                )
+        active_affinity_size = active_affinity_bits.bit_count()
+
+        def active_context_affinity(task_id: str) -> float:
+            candidate_bits = affinity_bits.get(task_id, 0)
+            candidate_size = affinity_sizes.get(task_id, 0)
+            if (
+                candidate_bits == 0
+                or candidate_size <= 0
+                or active_affinity_size <= 0
+            ):
+                return 0.0
+            overlap = (candidate_bits & active_affinity_bits).bit_count()
+            scale = min(candidate_size, active_affinity_size)
+            return 0.0 if scale <= 0 else overlap / scale
+
+        def candidate_score(state: TaskPhaseState) -> float:
+            nonlocal greedy_pairwise_distance_evaluations
+            greedy_pairwise_distance_evaluations += 1
+            distance = (
+                vector_distances[state.task_id]
+                if distance_kernel == NUMPY_DISTANCE_KERNEL_CANDIDATE
+                else state_distance(current, state)
+            )
+            return (
+                0.58 * (1.0 - distance)
+                + 0.25 * priority[state.task_id]
+                + 0.10 * (1.0 - state.noise)
+                + 0.07 * state.urgency
+                + (
+                    CONTEXT_AFFINITY_WEIGHT
+                    * active_context_affinity(state.task_id)
+                    if affinity_active
+                    else 0.0
+                )
+                + (
+                    RECEIVER_CACHE_AFFINITY_WEIGHT
+                    * receiver_score(state.task_id)
+                    if receiver_affinity_active
+                    else 0.0
+                )
+            )
+
         next_state = max(
             remaining.values(),
-            key=lambda s: (
-                0.58 * (1.0 - state_distance(current, s))
-                + 0.25 * priority[s.task_id]
-                + 0.10 * (1.0 - s.noise)
-                + 0.07 * s.urgency,
-                s.task_commitment,
-                s.task_id,
+            key=lambda state: (
+                candidate_score(state),
+                state.task_commitment,
+                state.task_id,
             ),
         )
         chosen.append(next_state)
@@ -441,12 +733,38 @@ def select_batch(
     for state in chosen:
         phase_sources[state.phase_source] = phase_sources.get(state.phase_source, 0) + 1
 
+    selected_affinities = [
+        _context_affinity(
+            chosen[index].task_id,
+            [state.task_id for state in chosen[:index]],
+            affinity,
+        )
+        for index in range(1, len(chosen))
+    ]
     receipt = {
         "schema": SCHEMA,
         "mode": MODE,
         "selected_task_ids": [s.task_id for s in chosen],
         "fifo_task_ids_proxy": [s.task_id for s in fifo],
         "phase_sources": phase_sources,
+        "context_affinity_active": affinity_active,
+        "context_affinity_weight": (
+            CONTEXT_AFFINITY_WEIGHT if affinity_active else 0.0
+        ),
+        "mean_context_affinity": (
+            0.0
+            if not selected_affinities
+            else sum(selected_affinities) / len(selected_affinities)
+        ),
+        "receiver_cache_affinity_active": receiver_affinity_active,
+        "receiver_cache_affinity_weight": (
+            RECEIVER_CACHE_AFFINITY_WEIGHT if receiver_affinity_active else 0.0
+        ),
+        "mean_receiver_cache_affinity": (
+            0.0
+            if not chosen
+            else sum(receiver_score(state.task_id) for state in chosen) / len(chosen)
+        ),
         "mean_priority": sum(priority[s.task_id] for s in chosen) / len(chosen),
         "transition_cost_selected": selected_transition,
         "transition_cost_fifo_proxy": fifo_transition,
@@ -459,9 +777,25 @@ def select_batch(
             0.0 if fifo_noise <= 1e-15 else 1.0 - selected_noise / fifo_noise
         ),
         "estimated_payload_tokens": sum(s.token_estimate for s in chosen),
+        "greedy_pairwise_state_distance_evaluations": (
+            greedy_pairwise_distance_evaluations
+        ),
+        "greedy_phase_axis_evaluations_proxy": (
+            greedy_pairwise_distance_evaluations * DIM
+        ),
+        "distance_kernel": distance_kernel,
+        "distance_kernel_candidate_only": (
+            distance_kernel == NUMPY_DISTANCE_KERNEL_CANDIDATE
+        ),
+        "active_context_affinity_union_reused": True,
+        "receiver_cache_affinity_precomputed": receiver_affinity_active,
+        "context_affinity_bitset_used": affinity_active,
+        "context_affinity_commitment_count": len(affinity_commitments),
         "ready_count": len(eligible),
         "queued_count": len(states),
         "fifo_used_for_selection": False,
+        "precomputed_state_cache_used": precomputed_states is not None,
+        "precomputed_centroid_used": precomputed_centroid is not None,
         "authority": {
             "production_runtime_write": False,
             "execution_admitted": False,
@@ -484,7 +818,17 @@ def scheduler_manifest() -> dict[str, Any]:
         "fifo_primary": False,
         "fifo_proxy_only": True,
         "explicit_phase_supported": True,
+        "dynamic_workload_species": list(SCHEDULER_SPECIES),
+        "validated_phasenav_carrier_species": sorted(
+            PHASENAV_CARRIER_SPECIES & frozenset(SCHEDULER_SPECIES)
+        ),
+        "anchor_neutral_dynamic_species": sorted(
+            frozenset(SCHEDULER_SPECIES) - PHASENAV_CARRIER_SPECIES
+        ),
         "derived_phase": "LOCALITY_ORIENTED_STRUCTURAL_TEXT_PHASE_V0_1",
+        "default_distance_kernel": SCALAR_DISTANCE_KERNEL,
+        "candidate_distance_kernel": NUMPY_DISTANCE_KERNEL_CANDIDATE,
+        "candidate_distance_kernel_enabled_by_default": False,
         "token_saving_claim": False,
         "noise_reduction_metric": "PROXY_UNTIL_END_TO_END_TOKEN_BENCHMARK",
         "external_effects": False,

@@ -32,7 +32,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
       - name: Install GREMLIN and pytest
@@ -87,7 +87,7 @@ jobs:
           print(runtime["policy_sha256"])
           PY
       - name: Upload canonical capability manifest
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: bestiary-memory-capability-v01
           path: build/memory-capabilities/BESTIARY_MEMORY_CAPABILITY_V0_1.json

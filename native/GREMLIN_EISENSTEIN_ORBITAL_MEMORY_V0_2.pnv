@@ -1,0 +1,79 @@
+EPISTEMIC CHYBA
+MODE ANALYTIC_NON_ACTUATING
+
+# CLASS MEMORY_DERIVED_INDEX
+# TITLE GREMLIN_EISENSTEIN_ORBITAL_MEMORY_V0_2
+# CANON_ALLOWED FALSE
+# SOURCE_OF_TRUTH FALSE
+# LEDGER_MUTATION FALSE
+
+SCHEMA GREMLIN_EISENSTEIN_ORBITAL_MEMORY_V0_2
+
+CONST DIM = 36
+CONST PROJECTIONS = 6
+CONST CHANNELS = 6
+CONST MIN_RECURSIVE_BASE = 4
+CONST PRIME_FILTER_DEFAULT = OFF
+
+# EISENSTEIN RING
+# omega^2 + omega + 1 = 0
+# N(a+b*omega) = a^2 - a*b + b^2
+# units = +/-1, +/-omega, +/-omega^2
+
+# CENTERED HEX LAW
+# H_n = 3*n^2 + 3*n + 1
+# pi_n = (n+1) - n*omega
+# N(pi_n) = H_n
+
+# RECURSIVE ADDRESS
+# Z_0 = 0
+# Z_(k+1) = B*Z_k + unit(direction_k)
+# B >= 4
+# exact word remains provenance-bearing address component
+
+# POINCARE NORMALIZATION
+# xi(w) = ((B-1)/B^depth) * Z_w
+# finite non-empty route => |xi| < 1
+# empty route => xi = 0
+# infinite constant direction => boundary only as limit
+
+# TYPED ORBITS
+# priority_orbit_index != semantic_orbit_id
+# semantic_orbit_id != recursive_eisenstein_address
+# NOEMA M-layer != semantic_orbit_id
+
+# PRIME CHANNEL
+# q must be prime and q == 1 mod 6
+# H_n == 0 mod q has exactly two radial roots
+# root_1 + root_2 == -1 mod q
+# PRIME FILTER IS EXPERIMENTAL AND FAILS OPEN TO PRE-PRIME CANDIDATES
+
+# HOLOGRAPHIC ROUTE BUNDLE
+# semantic atom -> one recursive Eisenstein route
+# memory -> bundle of atom routes
+# shared explicit atom -> shared exact route
+# hash selects deterministic unit partition only
+# hash distance has NO semantic meaning
+# lexical fallback is a separate typed route class
+# phase-only memory uses 6x6 row-resultant route
+
+# RETRIEVAL
+# typed route bundle -> union of overlapping prefixes
+# -> local angular tolerance -> bounded prefix backoff
+# -> same-route-class fail-open when no overlap
+# -> explicit semantic orbit if available
+# -> optional prime channel
+# -> existing GREMLIN relational-memory scorer
+
+INVARIANT LEDGER_REMAINS_SOURCE_OF_TRUTH
+INVARIANT ADDRESS_IS_DERIVED_AND_REGENERABLE
+INVARIANT HASH_IS_NOT_SEMANTIC_COORDINATE
+INVARIANT HASH_DISTANCE_IS_NOT_SEMANTIC_DISTANCE
+INVARIANT MEMORY_MAY_HAVE_MULTIPLE_EISENSTEIN_ROUTES
+INVARIANT ROUTE_CLASS_IS_TYPED
+INVARIANT PRIORITY_ORBIT_IS_NOT_SEMANTIC_ORBIT
+INVARIANT M_LAYER_IS_NOT_SEMANTIC_ORBIT
+INVARIANT B_BELOW_4_FAILS_CLOSED
+INVARIANT PRIME_FILTER_DEFAULT_OFF
+INVARIANT PRIME_EMPTY_INTERSECTION_DOES_NOT_FORCE_FALSE_NEGATIVE
+INVARIANT FINAL_SEMANTIC_SCORER_REUSED

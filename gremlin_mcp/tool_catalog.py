@@ -36,7 +36,7 @@ TOOL_DESCRIPTIONS: dict[str, str] = {
     "gremlin_worker_heartbeat": "Refresh a registered GREMLIN worker heartbeat.",
     "gremlin_worker_list": "List currently registered external GREMLIN animal workers.",
     "gremlin_worker_enqueue": "Queue one JSON task for a scheduler-backed GREMLIN animal worker.",
-    "gremlin_worker_claim": "Claim one bounded same-species batch using GREMLIN orbit/vector lane limits.",
+    "gremlin_worker_claim": "Claim one bounded same-species batch with orbit/vector limits and optional receiver-owned orbital context cache hints.",
     "gremlin_worker_submit": "Submit exact lease results; the MCP envelope remains CANDIDATE and fail-closed.",
     "gremlin_worker_result": "Read current state or candidate output for one GREMLIN worker task.",
     "gremlin_worker_queue": "Return per-species queue counts, active leases and persistence scope.",

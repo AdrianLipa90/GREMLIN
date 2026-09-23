@@ -13,6 +13,7 @@ from gremlin_mcp.workers import (
     _normalize_id,
     _normalize_species,
     _strict_int,
+    _validate_canonical_context_payload,
 )
 
 
@@ -65,8 +66,13 @@ class PersistentWorkerBroker(WorkerBroker):
         *,
         lease_seconds: int = 30,
         max_pending: int = 10_000,
+        vector_distance_shadow: bool = False,
     ) -> None:
-        super().__init__(lease_seconds=lease_seconds, max_pending=max_pending)
+        super().__init__(
+            lease_seconds=lease_seconds,
+            max_pending=max_pending,
+            vector_distance_shadow=vector_distance_shadow,
+        )
         self._store = SQLiteWorkerStore(state_path)
         self._hydrate()
 
@@ -155,7 +161,10 @@ class PersistentWorkerBroker(WorkerBroker):
                 self._leases[key] = record
 
             self._validate_hydrated_state()
-            # Expired leases are safely returned to QUEUED on restart.
+            # Rebuild all derived indexes from canonical persisted state before
+            # any expiry processing. Expired leases are then safely returned to
+            # QUEUED through the indexed heap path.
+            self._rebuild_indexes()
             import time
 
             self._reap_expired(time.time_ns())
@@ -182,6 +191,8 @@ class PersistentWorkerBroker(WorkerBroker):
             )
             if expected != task.task_commitment:
                 raise ValueError("persisted task commitment mismatch")
+            _validate_canonical_context_payload(task.payload)
+            self._validate_task_memory_authorization(task)
             if task.state == "QUEUED":
                 if task.lease_id is not None or task.leased_to is not None or task.lease_expires_ns is not None:
                     raise ValueError("queued persisted task contains lease lineage")
@@ -311,12 +322,14 @@ class PersistentWorkerBroker(WorkerBroker):
         species: str | None = None,
         limit: int | None = None,
         lease_seconds: int | None = None,
+        known_context_frames: Iterable[str] = (),
     ) -> dict[str, Any]:
         result = super().claim(
             worker_id,
             species=species,
             limit=limit,
             lease_seconds=lease_seconds,
+            known_context_frames=known_context_frames,
         )
         wid = _normalize_id(worker_id, field="worker_id")
         self._store.save_worker(wid, self._worker_store_view(self._workers[wid]))

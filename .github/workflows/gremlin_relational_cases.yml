@@ -15,7 +15,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
       - name: Install test dependency
@@ -26,7 +26,7 @@ jobs:
         run: python -m tools.gremlin_relational_cases_probe_v01 --out artifacts/gremlin_relational_cases_probe.json
       - name: Upload relational case receipt
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: gremlin-relational-cases
           path: artifacts/gremlin_relational_cases_probe.json
@@ -37,7 +37,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
       - name: Run case-typed live internet research probe
@@ -47,7 +47,7 @@ jobs:
           --out artifacts/gremlin_relational_research_live.json
       - name: Upload relational research receipt
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: gremlin-relational-research-live
           path: artifacts/gremlin_relational_research_live.json

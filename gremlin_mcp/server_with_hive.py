@@ -9,6 +9,13 @@ from .hive_authority import HiveAuthorityRuntime
 from .constitutional_runtime import require_constitutional_admission
 from .constitutional_runtime import require_constitutional_admission
 from .hive_ingest import ingest_research_execution
+from .holographic_orbital_memory import (
+    AUTHORITY as HOLOGRAPHIC_MEMORY_AUTHORITY,
+    HolographicOrbitalIndex,
+    apply_phase_carrier,
+    holographic_address,
+    project_hologram,
+)
 from .memory_exchange import ingest_exchange_bundle, ingest_exchange_envelope
 from .memory_consolidation import build_consolidation_route
 from .memory_anti_entropy import (
@@ -76,6 +83,16 @@ def gremlin_hive_status() -> dict[str, Any]:
         "derived_layer": "SEMANTIC",
         "direct_hive_ingest_allowed": False,
     }
+    result["holographic_orbital_memory"] = {
+        "status": "AVAILABLE_READ_ONLY_DERIVED",
+        "schema": "GREMLIN_HOLOGRAPHIC_ORBITAL_MEMORY_V0_1",
+        "project_tool": "gremlin_hive_holographic_project",
+        "remap_tool": "gremlin_hive_holographic_remap",
+        "retrieve_tool": "gremlin_hive_holographic_retrieve",
+        "phase_transport_tool": "gremlin_hive_holographic_phase_transport",
+        "ledger_mutation": False,
+        "rebuildable_from_ledger": True,
+    }
     result["integrated_research_ingest"] = {
         "status": "AVAILABLE",
         "tool": "gremlin_hive_research_execute",
@@ -83,6 +100,100 @@ def gremlin_hive_status() -> dict[str, Any]:
         "phase_basis": "COMMITMENT_REFERENCE_PHASE_NOT_PHYSICAL",
     }
     return result
+
+
+@mcp.tool()
+@owl_runtime_boundary
+def gremlin_hive_holographic_project(
+    cells: list[list[float]],
+    weights: list[float] | None = None,
+    relation_phases: list[float] | None = None,
+) -> dict[str, Any]:
+    """Build a non-authoritative 36D holographic projection from explicit memory cells."""
+    return asdict(
+        project_hologram(
+            cells,
+            weights=weights,
+            relation_phases=relation_phases,
+        )
+    )
+
+
+@mcp.tool()
+@owl_runtime_boundary
+def gremlin_hive_holographic_remap(
+    records: dict[str, list[float]],
+    orbit_count: int = 9,
+    hex_scale: float = 16.0,
+) -> dict[str, Any]:
+    """Rebuild the derived orbital/BEES-hex index from explicit 36D attachments."""
+    index = HolographicOrbitalIndex.remap(
+        records,
+        orbit_count=orbit_count,
+        hex_scale=hex_scale,
+    )
+    return {
+        "schema": "GREMLIN_HOLOGRAPHIC_ORBITAL_MEMORY_REMAP_V0_1",
+        "status": "DERIVED_REBUILD_ONLY",
+        "record_count": index.size,
+        "mapping_commitment": index.mapping_commitment(),
+        "addresses": {
+            record_id: asdict(
+                holographic_address(
+                    cell,
+                    orbit_count=orbit_count,
+                    hex_scale=hex_scale,
+                )
+            )
+            for record_id, cell in sorted(records.items())
+        },
+        "authority": dict(HOLOGRAPHIC_MEMORY_AUTHORITY),
+    }
+
+
+@mcp.tool()
+@owl_runtime_boundary
+def gremlin_hive_holographic_retrieve(
+    query: list[float],
+    records: dict[str, list[float]],
+    orbit_count: int = 9,
+    hex_scale: float = 16.0,
+    min_candidates: int = 12,
+    max_hex_ring: int = 3,
+    orbit_radius: int = 1,
+) -> dict[str, Any]:
+    """Prefilter by orbital/hex address and rerank by exact memory-moire overlap."""
+    index = HolographicOrbitalIndex.remap(
+        records,
+        orbit_count=orbit_count,
+        hex_scale=hex_scale,
+    )
+    return asdict(
+        index.retrieve(
+            query,
+            min_candidates=min_candidates,
+            max_hex_ring=max_hex_ring,
+            orbit_radius=orbit_radius,
+        )
+    )
+
+
+@mcp.tool()
+@owl_runtime_boundary
+def gremlin_hive_holographic_phase_transport(
+    cell: list[float],
+    carrier_36d: list[float],
+    gain: float = 1.0,
+) -> dict[str, Any]:
+    """Apply explicit reversible 36D phase transport to a derived working-memory cell."""
+    transported = apply_phase_carrier(cell, carrier_36d, gain=gain)
+    return {
+        "schema": "GREMLIN_HOLOGRAPHIC_ORBITAL_MEMORY_PHASE_TRANSPORT_V0_1",
+        "phase_36d": list(transported),
+        "gain": float(gain),
+        "authority": dict(HOLOGRAPHIC_MEMORY_AUTHORITY),
+        "physical_qhtri_claim": False,
+    }
 
 
 @mcp.tool()
