@@ -366,3 +366,58 @@ def test_lease_expiry_heap_compacts_stale_entries_under_repeated_short_leases() 
     assert status["active_leases"] == 0
     assert status["unfinished_task_count"] == 0
     assert status["lease_expiry_heap_entries"] <= 64
+
+
+def test_worker_claim_reuses_precomputed_phase_state_after_enqueue_and_reap(
+    monkeypatch,
+) -> None:
+    import tools.gremlin_geometry_phase_scheduler_v01 as scheduler
+
+    broker = WorkerBroker()
+    broker.register_worker(
+        "phase-cache-worker",
+        ["OWL"],
+        vector_width=1,
+        max_batch=1,
+    )
+    broker.enqueue(
+        "OWL",
+        {
+            "text": "cached-phase",
+            "_gremlin_scheduler": {
+                "phase36": [0.25] * 36,
+                "ready": True,
+                "urgency": 0.5,
+            },
+        },
+        task_id="phase-cache-task",
+    )
+    assert broker.queue_status()["precomputed_phase_state_count"] == 1
+
+    def forbidden_reparse(row):
+        raise AssertionError("claim must not reparse immutable task phase state")
+
+    monkeypatch.setattr(scheduler, "_task_state", forbidden_reparse)
+
+    first = broker.claim(
+        "phase-cache-worker",
+        species="OWL",
+        limit=1,
+        lease_seconds=1,
+    )
+    assert first["scheduler"]["batch_selection"][
+        "precomputed_state_cache_used"
+    ] is True
+
+    broker._reap_expired(first["expires_ns"] + 1)
+
+    second = broker.claim(
+        "phase-cache-worker",
+        species="OWL",
+        limit=1,
+        lease_seconds=60,
+    )
+    assert second["tasks"][0]["task_id"] == "phase-cache-task"
+    assert second["scheduler"]["batch_selection"][
+        "precomputed_state_cache_used"
+    ] is True
