@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping, Sequence
+from copy import deepcopy
 from dataclasses import dataclass
 import hashlib
 import json
@@ -22,6 +23,9 @@ DISCOVERY_KEY = "_gremlin_orchorbital_discovery"
 ORBITAL_CONTEXT_PACKET_KEY = PACKET_PAYLOAD_KEY
 TASK_DOMAIN = b"GREMLIN-ORCHORBITAL-WORKER-TASK/v0.2\x00"
 LOCAL_RESULT_DOMAIN = b"GREMLIN-ORCHORBITAL-LOCAL-RESULT/v0.2\x00"
+REDUCTION_INPUT_DOMAIN = b"GREMLIN-ORCHORBITAL-REDUCTION-INPUT/v0.2\x00"
+REDUCTION_OUTPUT_DOMAIN = b"GREMLIN-ORCHORBITAL-REDUCTION-OUTPUT/v0.2\x00"
+REDUCTION_SCHEMA = "GREMLIN_ORCHORBITAL_REDUCTION_V0_1"
 MAX_DISCOVERED_OBLIGATIONS = 64
 WORKER_DISPATCHABLE_SPECIES = frozenset(WORKER_SPECIES)
 
@@ -172,6 +176,9 @@ class OrchorbitalExecutor:
         self.operators = rows
         self.budget = budget
         self.max_states = max_states
+        self._local_results: dict[str, Any] = {}
+        self._reduction_results: dict[str, Any] = {}
+        self._reduction_input_commitments: dict[str, str] = {}
 
     def deterministic_task_id(self, node_id: str) -> str:
         return _task_id(self.execution_id, self.fabric.node(node_id))
@@ -552,12 +559,188 @@ class OrchorbitalExecutor:
             node.node_id,
             result_commitment=commitment,
         )
+        prior = self._local_results.get(node.node_id)
+        if prior is not None and _canonical(prior) != _canonical(output):
+            raise RuntimeError("local result payload drift detected")
+        self._local_results[node.node_id] = deepcopy(output)
         return {
             "node_id": node.node_id,
             "state": "SELF_COMPLETE",
             "result_commitment": commitment,
             "discovered_obligations": list(discovered),
             "allocation": allocation_receipt,
+        }
+
+    def _resolved_success_node_id(self, node_id: str) -> str:
+        current = self.fabric.node(node_id)
+        seen: set[str] = set()
+        while current.status in {"FAILED", "QUARANTINED"}:
+            if current.node_id in seen:
+                raise RuntimeError("replacement chain contains a cycle")
+            seen.add(current.node_id)
+            replacement_id = self.fabric.replacement_for(current.node_id)
+            if replacement_id is None:
+                raise RuntimeError(
+                    f"node has no successful replacement: {current.node_id}"
+                )
+            current = self.fabric.node(replacement_id)
+        if current.status != "CLOSED":
+            raise RuntimeError(
+                f"resolved result node is not closed: {current.node_id}"
+            )
+        return current.node_id
+
+    def _self_result(self, node_id: str) -> tuple[str, Any]:
+        node = self.fabric.node(node_id)
+        commitment = node.result_commitment
+        if not isinstance(commitment, str) or not commitment:
+            raise RuntimeError(f"node result commitment is unavailable: {node.node_id}")
+
+        if node.species in WORKER_DISPATCHABLE_SPECIES:
+            task = self.broker.task_result(_task_id(self.execution_id, node))
+            if task.get("state") != "DONE" or "result" not in task:
+                raise RuntimeError(f"worker result is unavailable: {node.node_id}")
+            task_commitment = task.get("result_commitment")
+            if task_commitment != commitment:
+                raise RuntimeError(
+                    f"worker/fabric result commitment mismatch: {node.node_id}"
+                )
+            return commitment, deepcopy(task["result"])
+
+        if node.node_id not in self._local_results:
+            raise RuntimeError(
+                f"local result payload is unavailable: {node.node_id}"
+            )
+        output = deepcopy(self._local_results[node.node_id])
+        expected = _local_result_commitment(
+            self.execution_id,
+            node.node_id,
+            output,
+        )
+        if expected != commitment:
+            raise RuntimeError(
+                f"local result commitment mismatch: {node.node_id}"
+            )
+        return commitment, output
+
+    def _effective_result(self, node_id: str) -> dict[str, object]:
+        resolved_id = self._resolved_success_node_id(node_id)
+        node = self.fabric.node(resolved_id)
+        if node.reduction_complete:
+            commitment = node.reduction_commitment
+            if not isinstance(commitment, str) or not commitment:
+                raise RuntimeError(
+                    f"reduction commitment is unavailable: {resolved_id}"
+                )
+            if resolved_id not in self._reduction_results:
+                raise RuntimeError(
+                    f"reduction payload is unavailable: {resolved_id}"
+                )
+            output = deepcopy(self._reduction_results[resolved_id])
+        else:
+            commitment, output = self._self_result(resolved_id)
+        return {
+            "requested_node_id": node_id,
+            "resolved_node_id": resolved_id,
+            "species": node.species,
+            "effective_result_commitment": commitment,
+            "output": output,
+        }
+
+    def build_reduction_packet(self, node_id: str) -> dict[str, object]:
+        """Build explicit semantic inputs for one completed local join."""
+
+        node = self.fabric.node(node_id)
+        if node.status != "OPEN":
+            raise RuntimeError("reduction target must remain open")
+        if not node.self_complete:
+            raise RuntimeError("reduction target local work is not complete")
+        child_ids = self.fabric.join_dependencies(node.node_id)
+        if not child_ids:
+            raise RuntimeError("reduction target has no join children")
+        unresolved = [
+            child_id
+            for child_id in child_ids
+            if not self.fabric.is_resolved(child_id)
+        ]
+        if unresolved:
+            raise RuntimeError(
+                f"join dependencies are not closed: {sorted(unresolved)!r}"
+            )
+
+        own_commitment, own_output = self._self_result(node.node_id)
+        children = [
+            self._effective_result(child_id)
+            for child_id in child_ids
+        ]
+        core = {
+            "schema": REDUCTION_SCHEMA,
+            "execution_id": self.execution_id,
+            "node_id": node.node_id,
+            "species": node.species,
+            "self_result_commitment": own_commitment,
+            "self_output": own_output,
+            "join_results": children,
+        }
+        input_commitment = hashlib.blake2b(
+            REDUCTION_INPUT_DOMAIN + _canonical(core),
+            digest_size=32,
+        ).hexdigest()
+        return {
+            **core,
+            "reduction_input_commitment": input_commitment,
+            "authority": "COGNITIVE_ROUTING_ONLY",
+            "canon_allowed": False,
+        }
+
+    def complete_reduction(
+        self,
+        node_id: str,
+        output: Any,
+    ) -> dict[str, object]:
+        """Bind a semantic local reduction to the exact joined result set."""
+
+        packet = self.build_reduction_packet(node_id)
+        _canonical(output)
+        core = {
+            "reduction_input_commitment": packet[
+                "reduction_input_commitment"
+            ],
+            "output": output,
+        }
+        commitment = hashlib.blake2b(
+            REDUCTION_OUTPUT_DOMAIN + _canonical(core),
+            digest_size=32,
+        ).hexdigest()
+
+        node = self.fabric.node(node_id)
+        if node.reduction_complete:
+            if node.reduction_commitment != commitment:
+                raise RuntimeError("node reduction is already complete")
+            prior = self._reduction_results.get(node.node_id)
+            if prior is not None and _canonical(prior) != _canonical(output):
+                raise RuntimeError("reduction payload drift detected")
+        else:
+            self.fabric.mark_reduction_complete(
+                node.node_id,
+                reduction_commitment=commitment,
+            )
+
+        self._reduction_results[node.node_id] = deepcopy(output)
+        self._reduction_input_commitments[node.node_id] = str(
+            packet["reduction_input_commitment"]
+        )
+        return {
+            "schema": REDUCTION_SCHEMA,
+            "node_id": node.node_id,
+            "state": "REDUCTION_COMPLETE",
+            "join_child_count": len(packet["join_results"]),
+            "reduction_input_commitment": packet[
+                "reduction_input_commitment"
+            ],
+            "reduction_commitment": commitment,
+            "canon_allowed": False,
+            "execution_admitted": False,
         }
 
     def _fallback_center(self, node: NodeInstance) -> str:
@@ -638,6 +821,7 @@ class OrchorbitalExecutor:
             "execution_id": self.execution_id,
             "closed": closed,
             "blocked": dict(sorted(blocked.items())),
+            "reduction_required": list(self.fabric.reduction_candidates()),
             "authority_root_closed": (
                 self.fabric.node(self.fabric.authority_root_id).status == "CLOSED"
             ),
@@ -671,6 +855,10 @@ class OrchorbitalExecutor:
             "deterministic_task_ids": True,
             "deterministic_discovery_allocations": True,
             "global_synthesis_barrier_required": False,
+            "explicit_local_reduction_required": True,
+            "automatic_semantic_reduction": False,
+            "reduction_result_persistence": "EXECUTOR_PROCESS_MEMORY_V0_1",
+            "reduction_candidate_count": len(self.fabric.reduction_candidates()),
             "authority": "COGNITIVE_ROUTING_ONLY",
             "epistemic": "CHYBA",
             "canon_allowed": False,
@@ -688,6 +876,7 @@ __all__ = [
     "DispatchRecord",
     "MAX_DISCOVERED_OBLIGATIONS",
     "ORBITAL_CONTEXT_PACKET_KEY",
+    "REDUCTION_SCHEMA",
     "OrchorbitalExecutor",
     "SCHEMA",
     "VERSION",
