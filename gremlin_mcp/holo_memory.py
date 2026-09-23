@@ -176,7 +176,8 @@ class HoloCell:
     amplitude36: tuple[float, ...]
     hex_q: int
     hex_r: int
-    orbit_index: int
+    priority_orbit_index: int
+    semantic_orbit_id: str | None
     priority: float
     semantic_commitment: str
     source_commitment: str
@@ -201,7 +202,8 @@ class HoloMemoryIndex:
         memory_id: str,
         ledger_record_id: str,
         packet: Mapping[str, Any],
-        orbit_index: int = 0,
+        priority_orbit_index: int = 0,
+        semantic_orbit_id: str | None = None,
         priority: float = 0.5,
     ) -> HoloCell:
         mid = str(memory_id).strip()
@@ -213,8 +215,17 @@ class HoloMemoryIndex:
         if mid in self._cells:
             raise HoloMemoryError("duplicate memory_id")
         p, a = _phase_packet(packet)
-        if orbit_index < 0:
-            raise HoloMemoryError("orbit_index must be >=0")
+        if priority_orbit_index < 0:
+            raise HoloMemoryError("priority_orbit_index must be >=0")
+        semantic_id = (
+            None
+            if semantic_orbit_id is None
+            else str(semantic_orbit_id).strip()
+        )
+        if semantic_orbit_id is not None and not semantic_id:
+            raise HoloMemoryError(
+                "semantic_orbit_id must be non-empty when supplied"
+            )
         pr = float(priority)
         if not math.isfinite(pr) or not 0.0 <= pr <= 1.0:
             raise HoloMemoryError("priority must be in [0,1]")
@@ -233,6 +244,8 @@ class HoloMemoryIndex:
                 "semantic_commitment": sem,
                 "phase36": p,
                 "amplitude36": a,
+                "priority_orbit_index": int(priority_orbit_index),
+                "semantic_orbit_id": semantic_id,
             },
             person=b"GRMLN-HOLO-SRC",
         )
@@ -243,7 +256,8 @@ class HoloMemoryIndex:
             a,
             coord[0],
             coord[1],
-            int(orbit_index),
+            int(priority_orbit_index),
+            semantic_id,
             pr,
             sem,
             src,
@@ -268,7 +282,13 @@ class HoloMemoryIndex:
                 memory_id=str(row["memory_id"]),
                 ledger_record_id=str(row["ledger_record_id"]),
                 packet=row["packet"],
-                orbit_index=int(row.get("orbit_index", 0)),
+                priority_orbit_index=int(
+                    row.get(
+                        "priority_orbit_index",
+                        row.get("orbit_index", 0),
+                    )
+                ),
+                semantic_orbit_id=row.get("semantic_orbit_id"),
                 priority=float(row.get("priority", 0.5)),
             )
             normalized.append(asdict(cell))
@@ -285,21 +305,38 @@ class HoloMemoryIndex:
         cue: Mapping[str, Any],
         *,
         patch_radius: int = 1,
-        orbit_radius: int | None = None,
-        orbit_index: int = 0,
+        semantic_orbit_ids: Sequence[str] | None = None,
+        priority_orbit_radius: int | None = None,
+        priority_orbit_index: int = 0,
     ) -> tuple[str, ...]:
         center = hex_embedding(cue, scale=self.hex_scale)
         ids: list[str] = []
         for coord in hex_neighborhood(center, patch_radius):
             ids.extend(self._hex.get(coord, ()))
-        if orbit_radius is not None:
+        if semantic_orbit_ids is not None:
+            allowed = {
+                str(x).strip()
+                for x in semantic_orbit_ids
+                if str(x).strip()
+            }
+            if not allowed:
+                raise HoloMemoryError(
+                    "semantic_orbit_ids must contain a non-empty id"
+                )
+            ids = [
+                mid
+                for mid in ids
+                if self._cells[mid].semantic_orbit_id in allowed
+            ]
+        if priority_orbit_radius is not None:
             ids = [
                 mid
                 for mid in ids
                 if abs(
-                    self._cells[mid].orbit_index - int(orbit_index)
+                    self._cells[mid].priority_orbit_index
+                    - int(priority_orbit_index)
                 )
-                <= int(orbit_radius)
+                <= int(priority_orbit_radius)
             ]
         return tuple(dict.fromkeys(sorted(ids)))
 
@@ -316,8 +353,9 @@ class HoloMemoryIndex:
             self.shortlist(
                 cue,
                 patch_radius=patch_radius,
-                orbit_radius=orbit_radius,
-                orbit_index=orbit_index,
+                semantic_orbit_ids=semantic_orbit_ids,
+                priority_orbit_radius=priority_orbit_radius,
+                priority_orbit_index=priority_orbit_index,
             )
         )
         fallback_used = False
@@ -465,7 +503,8 @@ def remap_hive_record(
         "memory_id": subject,
         "ledger_record_id": rid,
         "packet": dict(packet),
-        "orbit_index": orbit_index,
+        "priority_orbit_index": orbit_index,
+        "semantic_orbit_id": None,
         "priority": float(get("priority", 0.5)),
     }
 
