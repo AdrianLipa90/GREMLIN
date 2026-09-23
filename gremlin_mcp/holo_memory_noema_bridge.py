@@ -176,7 +176,7 @@ def packet_from_noema_trace(
 def materialize_noema_traces(
     traces: Sequence[Mapping[str, Any]],
     *,
-    orbit_map: Mapping[str, int] | None = None,
+    semantic_orbit_map: Mapping[str, str] | None = None,
     hex_scale: float = 9.0,
 ) -> tuple[HoloMemoryIndex, dict[str, Any]]:
     if not traces:
@@ -197,20 +197,22 @@ def materialize_noema_traces(
 
         packet, provenance = packet_from_noema_trace(trace)
 
-        if orbit_map is None:
-            orbit_index = 0
-            orbit_source = "UNBOUND_DEFAULT_ZERO"
+        if semantic_orbit_map is None:
+            semantic_orbit_id = None
+            orbit_source = "SEMANTIC_ORBIT_UNBOUND"
         else:
-            if trace_id not in orbit_map:
+            if trace_id not in semantic_orbit_map:
                 raise NoemaTraceBridgeError(
-                    f"orbit_map missing trace: {trace_id}"
+                    f"semantic_orbit_map missing trace: {trace_id}"
                 )
-            orbit_index = int(orbit_map[trace_id])
-            if orbit_index < 0:
+            semantic_orbit_id = str(
+                semantic_orbit_map[trace_id]
+            ).strip()
+            if not semantic_orbit_id:
                 raise NoemaTraceBridgeError(
-                    "orbit index must be non-negative"
+                    "semantic orbit id must be non-empty"
                 )
-            orbit_source = "EXPLICIT_CALLER_MAP"
+            orbit_source = "EXPLICIT_SEMANTIC_ORBIT_MAP"
 
         ledger_record_id = f"noema-trace:{trace_sha}"
         rows.append(
@@ -218,7 +220,8 @@ def materialize_noema_traces(
                 "memory_id": trace_id,
                 "ledger_record_id": ledger_record_id,
                 "packet": packet,
-                "orbit_index": orbit_index,
+                "priority_orbit_index": 0,
+                "semantic_orbit_id": semantic_orbit_id,
                 "priority": 0.5,
             }
         )
@@ -234,7 +237,8 @@ def materialize_noema_traces(
                 "exact_legacy_phase_recovered": provenance[
                     "exact_legacy_phase_recovered"
                 ],
-                "orbit_source": orbit_source,
+                "semantic_orbit_id": semantic_orbit_id,
+                "semantic_orbit_source": orbit_source,
             }
         )
 
@@ -246,7 +250,7 @@ def materialize_noema_traces(
         "mapped_count": index.count,
         "origins": origins,
         "hex_scale": float(hex_scale),
-        "orbit_map_bound": orbit_map is not None,
+        "semantic_orbit_map_bound": semantic_orbit_map is not None,
         "rebuild_commitment": rebuild_commitment,
         "source_of_truth": "NOEMA_LIBRARY_TRACES",
         "derived_index_only": True,
