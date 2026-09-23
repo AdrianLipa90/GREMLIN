@@ -338,6 +338,53 @@ class OrchorbitalExecutor:
             "canon_allowed": False,
         }
 
+    def allocate(
+        self,
+        caller_id: str,
+        obligations: Iterable[str],
+        *,
+        center_by_operator: Mapping[str, str] | None = None,
+        candidate_centers_by_operator: Mapping[str, Iterable[str]] | None = None,
+        phase36_by_operator: Mapping[str, Iterable[float]] | None = None,
+        join_to_caller: bool = True,
+        allocation_key: str | None = None,
+    ) -> OctopusAllocation:
+        """Allocate through OCTOPUS and bind inherited context as one flow.
+
+        Topology allocation remains owned by the allocator. When an orbital
+        context store is configured, the caller context must already exist and
+        every returned child receives an immutable empty-delta frame based on
+        that caller. Replays are idempotent for deterministic allocations.
+        """
+
+        caller = self.fabric.node(caller_id)
+        if caller.status != "OPEN":
+            raise RuntimeError("caller node must be open")
+        if self.context_store is not None:
+            # Precondition before topology mutation.
+            self.context_store.frame(caller.node_id)
+
+        allocation = allocate_invocation(
+            self.fabric,
+            caller.node_id,
+            obligations,
+            self.operators,
+            budget=self.budget,
+            center_by_operator=center_by_operator,
+            candidate_centers_by_operator=candidate_centers_by_operator,
+            phase36_by_operator=phase36_by_operator,
+            join_to_caller=join_to_caller,
+            allocation_key=allocation_key,
+            max_states=self.max_states,
+        )
+
+        if self.context_store is not None:
+            for node in allocation.nodes:
+                if node.caller_id != caller.node_id:
+                    raise RuntimeError("allocation caller/context lineage mismatch")
+                self.context_store.inherit_from_caller(node.node_id)
+        return allocation
+
     def apply_discovery(
         self,
         caller_id: str,
@@ -351,15 +398,11 @@ class OrchorbitalExecutor:
             allow_empty=False,
         )
         key = _strict_text(discovery_key, "discovery_key", maximum=256)
-        return allocate_invocation(
-            self.fabric,
+        return self.allocate(
             caller_id,
             ordered,
-            self.operators,
-            budget=self.budget,
             join_to_caller=True,
             allocation_key=f"{self.execution_id}:{key}",
-            max_states=self.max_states,
         )
 
     def reconcile_node(self, node_id: str) -> dict[str, object]:
