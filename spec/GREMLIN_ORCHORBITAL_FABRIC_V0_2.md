@@ -446,24 +446,35 @@ The v0.2 contract suite checks:
 - failure-driven satellite and barycenter failover;
 - root closure blocked by unrecovered terminal work.
 
-## Migration path
+## Migration status and next gate
 
-v0.2 intentionally does not yet replace the current WorkerBroker or production
-compatible flat pipeline.
-
-The next integration gate is:
+The dynamic execution bridge is now implemented on this branch:
 
 ```text
 dynamic fabric
   -> executable frontier
   -> WorkerBroker enqueue/claim
   -> node completion receipt
-  -> local join closure
-  -> recursive continuation
+  -> recursive allocation
+  -> local join reduction continuation
+  -> subtree closure
 ```
 
-Only after that bridge is validated should the global flat synthesis path be
-removed from the critical path.
+The old flat/global path remains available for compatibility, but it is no
+longer architecturally required by the candidate orchorbital path.
+
+The next gate is measurement and runtime hardening rather than another routing
+bridge:
+
+```text
+frozen workloads
+  -> recursive-vs-flat critical-path benchmark
+  -> resident worker/shared-memory benchmark
+  -> failure/restart benchmark
+  -> only then decide production cut-over
+```
+
+No 200x claim is admitted before those measurements.
 
 
 ## WorkerBroker execution bridge
@@ -594,14 +605,33 @@ without duplicate subtrees.
 
 ### Local/core execution boundary
 
-The current external WorkerBroker continues to admit only the validated
-scheduler species.
+The canonical Bestiary split is now explicit:
 
-Roles outside that set, including GREMLIN core boundaries and roles not yet
-promoted onto the external scheduler carrier, appear explicitly in the local
-frontier. They are never silently dispatched to an unsupported worker queue.
+```text
+16 dynamic workload species
+4 control-plane species
+```
 
-Local execution uses the same lifecycle contract:
+The dynamic worker set is every Bestiary role except:
+
+```text
+HUMMINGBIRD
+OCTOPUS
+GREMLIN
+FERRET
+```
+
+ELEPHANT and BEES therefore belong to the WorkerBroker frontier. Their lack of
+dedicated validated PhaseNav carriers does not demote them to local-core;
+instead their carrier-anchor contribution is neutral until separately
+validated.
+
+Adaptive operator sets are fail-fast validated and cannot contain control-plane
+or unknown species. This prevents OCTOPUS/GREMLIN/FERRET/HUMMINGBIRD from being
+accidentally allocated as ordinary workload nodes.
+
+The local frontier is reserved for explicit control-plane nodes. Local
+execution uses the same lifecycle contract:
 
 ```text
 mark_started
