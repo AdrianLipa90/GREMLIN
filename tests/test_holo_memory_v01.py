@@ -5,6 +5,11 @@ import unittest
 from gremlin_mcp.relational_memory_encoder import encode_memory_text, retrieve_memory
 from gremlin_mcp.orbital_hive_memory import OrbitalHiveMemory
 from gremlin_mcp.holo_memory_hive_bridge import HoloMemoryBridgeError, materialize_orbital_hive
+from gremlin_mcp.holo_memory_noema_bridge import (
+    NoemaTraceBridgeError,
+    materialize_noema_traces,
+    packet_from_noema_trace,
+)
 
 from gremlin_mcp.holo_memory import (
     HoloMemoryError,
@@ -334,6 +339,114 @@ class HoloMemoryTests(unittest.TestCase):
         )
         with self.assertRaises(HoloMemoryBridgeError):
             materialize_orbital_hive(hive, strict=True)
+
+
+    def test_noema_trace_bridge_derives_phase_from_semantic_body_not_hash(self):
+        trace = {
+            "schema": "NOEMA_MEMORY_TRACE_V1",
+            "trace_id": "V18:M3:CURRENT_HALF:EXPANDED_V1",
+            "layer": "M3",
+            "content": {
+                "binding_semantics": {
+                    "control": "semantic command class and learned constraints",
+                    "cognition": "concept claim semantics and hypothesis identities",
+                },
+                "source_fragments": {
+                    "theory_hotset": [
+                        "CP1 Bloch Euler tetrahedra Poincare holonomy 36D crystal",
+                        "ethics relational scalar",
+                    ]
+                },
+            },
+            "semantic_tags": ["m0-m11", "m3"],
+            "phase_binding": {
+                "status": "UNAVAILABLE",
+                "vector": None,
+            },
+            "epistemic_state": "RECONSTRUCTED_FROM_VERIFIED_CANONICAL_SOURCES",
+            "trace_sha256": "a" * 64,
+        }
+        packet, provenance = packet_from_noema_trace(trace)
+        self.assertEqual(len(packet["phase36"]), 36)
+        self.assertEqual(len(packet["amplitude36"]), 36)
+        self.assertEqual(
+            provenance["native_phase_binding_status"],
+            "UNAVAILABLE",
+        )
+        self.assertFalse(provenance["exact_legacy_phase_recovered"])
+        self.assertFalse(provenance["hash_used_as_semantic_coordinate"])
+        self.assertTrue(
+            provenance["phase_source"].startswith(
+                "DERIVED_FROM_RECEIPTED_TRACE_TEXT/"
+            )
+        )
+
+    def test_noema_trace_bridge_does_not_conflate_layer_with_orbit(self):
+        traces = []
+        for layer in ("M1", "M3"):
+            traces.append(
+                {
+                    "schema": "NOEMA_MEMORY_TRACE_V1",
+                    "trace_id": f"V18:{layer}:CURRENT_HALF:EXPANDED_V1",
+                    "layer": layer,
+                    "content": {
+                        "binding_semantics": {
+                            "control": f"{layer} control semantics",
+                            "cognition": f"{layer} cognition semantics",
+                        },
+                        "source_fragments": {
+                            "memory": ["memory", "relational context"]
+                        },
+                    },
+                    "semantic_tags": ["m0-m11", layer.lower()],
+                    "phase_binding": {
+                        "status": "UNAVAILABLE",
+                        "vector": None,
+                    },
+                    "epistemic_state": "RECONSTRUCTED",
+                    "trace_sha256": (
+                        "1" * 64 if layer == "M1" else "3" * 64
+                    ),
+                }
+            )
+        index, receipt = materialize_noema_traces(
+            traces,
+            hex_scale=2.0,
+        )
+        self.assertEqual(index.count, 2)
+        self.assertFalse(receipt["orbit_map_bound"])
+        self.assertTrue(
+            all(
+                origin["orbit_source"] == "UNBOUND_DEFAULT_ZERO"
+                for origin in receipt["origins"]
+            )
+        )
+        self.assertFalse(receipt["hash_used_as_semantic_coordinate"])
+        self.assertFalse(receipt["ledger_mutation"])
+        self.assertFalse(receipt["canon_allowed"])
+
+    def test_noema_trace_bridge_requires_complete_explicit_orbit_map(self):
+        trace = {
+            "schema": "NOEMA_MEMORY_TRACE_V1",
+            "trace_id": "V18:M1:CURRENT_HALF:EXPANDED_V1",
+            "layer": "M1",
+            "content": {
+                "binding_semantics": {
+                    "control": "active gate working set",
+                    "cognition": "active thought state",
+                },
+                "source_fragments": {"memory": ["memory context"]},
+            },
+            "semantic_tags": ["m1"],
+            "phase_binding": {"status": "UNAVAILABLE"},
+            "epistemic_state": "RECONSTRUCTED",
+            "trace_sha256": "1" * 64,
+        }
+        with self.assertRaises(NoemaTraceBridgeError):
+            materialize_noema_traces(
+                [trace],
+                orbit_map={},
+            )
 
 
 if __name__ == "__main__":
