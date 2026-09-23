@@ -4,6 +4,11 @@ import math
 
 import pytest
 
+from gremlin_mcp.role_registry import (
+    BESTIARY_ROLE_NAMES,
+    CONTROL_PLANE_SPECIES,
+    DYNAMIC_WORKLOAD_SPECIES,
+)
 from gremlin_mcp.workers import WorkerBroker, WORKER_SPECIES
 from tools.gremlin_geometry_phase_scheduler_v01 import (
     GeometryPhaseSchedulerError,
@@ -594,3 +599,12 @@ def test_precomputed_state_lineage_mismatch_fails_closed() -> None:
             now_ns=10,
             precomputed_states={"cached-one": state},
         )
+
+
+def test_bestiary_registry_partitions_exactly_into_dynamic_and_control_plane() -> None:
+    assert len(BESTIARY_ROLE_NAMES) == 20
+    assert len(DYNAMIC_WORKLOAD_SPECIES) == 16
+    assert len(CONTROL_PLANE_SPECIES) == 4
+    assert DYNAMIC_WORKLOAD_SPECIES.isdisjoint(CONTROL_PLANE_SPECIES)
+    assert DYNAMIC_WORKLOAD_SPECIES | CONTROL_PLANE_SPECIES == BESTIARY_ROLE_NAMES
+    assert set(WORKER_SPECIES) == set(DYNAMIC_WORKLOAD_SPECIES)
