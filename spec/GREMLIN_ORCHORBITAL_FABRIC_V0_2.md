@@ -875,3 +875,140 @@ The v0.2 suite additionally checks:
 
 No 200x, token, billing or end-to-end latency claim follows from these
 structural and byte-transport results alone.
+
+
+## Parent-species reduction continuation
+
+A local join is no longer allowed to collapse into closure without semantic
+integration.
+
+For any node with join children:
+
+```text
+self_complete(parent)
+children resolved
+    !=
+subtree closed
+```
+
+The fabric requires an explicit `reduction_complete` commitment before the
+joined parent may close.
+
+For WorkerBroker-dispatchable species the executor now returns the completed
+join to the **same parent species** as a deterministic continuation task.
+
+Example:
+
+```text
+SPIDER
+  -> invokes OWL
+OWL
+  -> returns audit candidate
+SPIDER
+  <- receives reduction packet:
+       own SPIDER result
+       + exact OWL effective result
+       + commitment of the joined input set
+SPIDER
+  -> emits integrated reduction candidate
+subtree may close
+```
+
+This does not require BELZEBUB as a global barrier. BELZEBUB may still be
+selected as an ordinary capability module when the route requires synthesis,
+but local join semantics do not hard-code it.
+
+The reduction worker task ID is deterministically derived from:
+
+```text
+execution_id
+parent node id
+reduction_input_commitment
+```
+
+so enqueue/reconcile is replay-safe.
+
+Reduction tasks may not recursively discover new children after the original
+join set has been sealed by parent self-completion. Such an output is
+quarantined fail-closed rather than mutating the completed join contract.
+
+## Automatic recursive obligation dispatch
+
+Dynamically allocated child nodes no longer require an external caller to
+invent a new ad-hoc payload before they can execute.
+
+The executor can generate a canonical obligation envelope containing:
+
+- execution id;
+- node id;
+- species;
+- obligations;
+- caller provenance;
+- current center reference;
+- invocation depth;
+- authority root.
+
+Domain context remains in the committed orbital context packet.
+
+Explicit per-node payload overrides remain supported. Automatic dispatch does
+not overwrite or re-enqueue an already-existing custom task: an execution-
+started node is retried automatically only when its deterministic task is
+actually absent.
+
+## Non-blocking orchestration step
+
+`orchestration_step()` advances exactly one deterministic runtime iteration.
+It does not wait for workers and performs no background work.
+
+One step:
+
+1. reconciles completed ordinary worker tasks;
+2. closes every locally resolvable subtree;
+3. reconciles completed parent reduction continuations;
+4. closes newly reduced subtrees;
+5. dispatches newly eligible reduction continuations;
+6. dispatches newly ready ordinary worker nodes with automatic obligation
+   envelopes or explicit overrides;
+7. returns the new frontier and topology commitments.
+
+Repeated calls therefore advance the recursive fabric without a central
+global synchronization barrier.
+
+The integration test covers the complete sequence:
+
+```text
+parent worker result + discovery
+ -> automatic child allocation
+ -> automatic child dispatch
+ -> child worker result
+ -> child close
+ -> automatic parent reduction dispatch
+ -> parent reduction result
+ -> parent close
+```
+
+with the authority root remaining open.
+
+## Routing locality layers now implemented
+
+The current v0.2 routing path now composes four distinct locality mechanisms:
+
+```text
+1. fabric graph locality
+   caller / center / coordination points
+
+2. T^36 phase-state locality
+   geometry scheduler
+
+3. committed context ancestry affinity
+   sibling/subtree batch preference
+
+4. receiver-cache locality
+   species + task preference for already-held verified frames
+```
+
+Context affinity and receiver-cache affinity are bounded scheduler biases, not
+authority signals and not semantic truth claims.
+
+Dynamic center migration remains separate from immutable context lineage.
+Already committed worker tasks are not silently rewritten when a center moves.
