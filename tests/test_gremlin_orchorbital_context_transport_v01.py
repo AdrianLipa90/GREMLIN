@@ -452,3 +452,61 @@ def test_worker_sdk_rejects_any_projected_payload_tamper_before_handler(monkeypa
     asyncio.run(exercise())
     assert worker._context_cache == {}
     assert called is False
+
+
+def test_worker_sdk_per_task_context_cache_is_claim_transactional(monkeypatch) -> None:
+    fabric, contexts, first, second = build_two_siblings()
+    first_packet = contexts.packet(first.node_id)
+    second_packet = contexts.packet(second.node_id)
+    broken = deepcopy(second_packet)
+    broken["frames"][-1]["set_values"]["local"] = "tampered"
+
+    tasks = [
+        {
+            "task_id": "tx-a",
+            "species": "SPIDER",
+            "task_commitment": "1" * 64,
+            "payload": {PACKET_PAYLOAD_KEY: first_packet},
+        },
+        {
+            "task_id": "tx-b",
+            "species": "SPIDER",
+            "task_commitment": "2" * 64,
+            "payload": {PACKET_PAYLOAD_KEY: broken},
+        },
+    ]
+
+    called = False
+
+    def handler(batch):
+        nonlocal called
+        called = True
+        return []
+
+    worker = GremlinWorkerClient(
+        object(),
+        worker_id="sdk-tx",
+        species=["SPIDER"],
+        handler=handler,
+        max_batch=2,
+        max_context_frames=16,
+    )
+
+    async def fake_call(client, tool, arguments):
+        if tool == "gremlin_worker_claim":
+            return {
+                "lease_id": "lease-tx",
+                "species": "SPIDER",
+                "tasks": tasks,
+            }
+        raise AssertionError("submit must not be reached")
+
+    monkeypatch.setattr(worker, "_call", fake_call)
+
+    async def exercise():
+        with pytest.raises(Exception, match="context verification failed"):
+            await worker._run_once(object(), species="SPIDER")
+
+    asyncio.run(exercise())
+    assert worker._context_cache == {}
+    assert called is False
