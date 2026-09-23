@@ -13,6 +13,9 @@ SCHEMA = "GREMLIN_ORCHORBITAL_CONTEXT_V0_1"
 PACKET_SCHEMA = "GREMLIN_ORCHORBITAL_CONTEXT_PACKET_V0_1"
 BUNDLE_SCHEMA = "GREMLIN_ORCHORBITAL_CONTEXT_BUNDLE_V0_1"
 PACKET_PAYLOAD_KEY = "_gremlin_orchorbital_context_packet"
+BUNDLE_PAYLOAD_KEY = "_gremlin_orchorbital_context_bundle"
+BUNDLE_REF_PAYLOAD_KEY = "_gremlin_orchorbital_context_ref"
+BUNDLE_REF_SCHEMA = "GREMLIN_ORCHORBITAL_CONTEXT_BUNDLE_REF_V0_1"
 FRAME_DOMAIN = b"GREMLIN-ORCHORBITAL-CONTEXT-FRAME/v0.1\x00"
 MATERIALIZED_DOMAIN = b"GREMLIN-ORCHORBITAL-CONTEXT-MATERIALIZED/v0.1\x00"
 PACKET_DOMAIN = b"GREMLIN-ORCHORBITAL-CONTEXT-PACKET/v0.1\x00"
@@ -732,6 +735,40 @@ def apply_context_bundle(
     }
 
 
+
+def context_bundle_reference(
+    bundle: Mapping[str, Any],
+    task_id: str,
+) -> dict[str, str]:
+    """Return a compact task-local reference into a verified-shaped bundle."""
+
+    if not isinstance(bundle, Mapping) or bundle.get("schema") != BUNDLE_SCHEMA:
+        raise ValueError("invalid context bundle schema")
+    tid = _strict_text(task_id, "task_id", maximum=128)
+    targets = bundle.get("task_targets")
+    if not isinstance(targets, Mapping):
+        raise ValueError("context bundle task_targets must be a mapping")
+    raw_target = targets.get(tid)
+    if not isinstance(raw_target, Mapping):
+        raise ValueError("context bundle has no target for task")
+    return {
+        "schema": BUNDLE_REF_SCHEMA,
+        "target_node_id": _strict_text(
+            raw_target.get("target_node_id"),
+            "target_node_id",
+            maximum=128,
+        ),
+        "target_frame_commitment": _strict_commitment(
+            raw_target.get("target_frame_commitment"),
+            "target_frame_commitment",
+        ),
+        "target_materialized_commitment": _strict_commitment(
+            raw_target.get("target_materialized_commitment"),
+            "target_materialized_commitment",
+        ),
+    }
+
+
 def apply_context_packet(
     packet: Mapping[str, Any],
     *,
@@ -843,6 +880,9 @@ def apply_context_packet(
 
 
 __all__ = [
+    "BUNDLE_PAYLOAD_KEY",
+    "BUNDLE_REF_PAYLOAD_KEY",
+    "BUNDLE_REF_SCHEMA",
     "BUNDLE_SCHEMA",
     "ContextFrame",
     "MAX_CONTEXT_KEYS",
@@ -853,5 +893,6 @@ __all__ = [
     "apply_context_bundle",
     "apply_context_packet",
     "bundle_context_packets",
+    "context_bundle_reference",
     "reduce_context_packet",
 ]
