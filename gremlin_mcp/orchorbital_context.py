@@ -11,10 +11,12 @@ from gremlin_mcp.orchorbital_fabric import OrchorbitalFabric
 
 SCHEMA = "GREMLIN_ORCHORBITAL_CONTEXT_V0_1"
 PACKET_SCHEMA = "GREMLIN_ORCHORBITAL_CONTEXT_PACKET_V0_1"
+BUNDLE_SCHEMA = "GREMLIN_ORCHORBITAL_CONTEXT_BUNDLE_V0_1"
 PACKET_PAYLOAD_KEY = "_gremlin_orchorbital_context_packet"
 FRAME_DOMAIN = b"GREMLIN-ORCHORBITAL-CONTEXT-FRAME/v0.1\x00"
 MATERIALIZED_DOMAIN = b"GREMLIN-ORCHORBITAL-CONTEXT-MATERIALIZED/v0.1\x00"
 PACKET_DOMAIN = b"GREMLIN-ORCHORBITAL-CONTEXT-PACKET/v0.1\x00"
+BUNDLE_DOMAIN = b"GREMLIN-ORCHORBITAL-CONTEXT-BUNDLE/v0.1\x00"
 MAX_CONTEXT_KEYS = 4096
 
 
@@ -465,6 +467,271 @@ def reduce_context_packet(
     }
 
 
+
+def bundle_context_packets(
+    packets: Mapping[str, Mapping[str, Any]],
+    *,
+    receiver_known_frames: Iterable[str] = (),
+) -> dict[str, object]:
+    """Deduplicate full context packet frames across one worker lease."""
+
+    if not isinstance(packets, Mapping) or not packets:
+        raise ValueError("packets must be a non-empty mapping")
+    if isinstance(receiver_known_frames, (str, bytes, Mapping)) or not isinstance(
+        receiver_known_frames, Iterable
+    ):
+        raise ValueError("receiver_known_frames must be an iterable")
+    known = {
+        _strict_commitment(value, "receiver_known_frame")
+        for value in receiver_known_frames
+    }
+
+    normalized_packets: dict[str, Mapping[str, Any]] = {}
+    frames_by_commitment: dict[str, dict[str, Any]] = {}
+    targets: dict[str, dict[str, str]] = {}
+    full_packet_bytes = 0
+
+    for raw_task_id, packet in packets.items():
+        task_id = _strict_text(raw_task_id, "task_id", maximum=128)
+        if task_id in normalized_packets:
+            raise ValueError("duplicate normalized task_id in context bundle")
+        if not isinstance(packet, Mapping) or packet.get("schema") != PACKET_SCHEMA:
+            raise ValueError("invalid context packet schema")
+        if packet.get("required_base_frame_commitment") is not None:
+            raise ValueError("context bundle requires full self-contained packets")
+
+        # Full packet verification is mandatory before any frame is deduplicated.
+        apply_context_packet(packet)
+        normalized_packets[task_id] = packet
+
+        packet_bytes = packet.get("packet_bytes")
+        if isinstance(packet_bytes, bool) or not isinstance(packet_bytes, int):
+            raise ValueError("context packet packet_bytes must be an integer")
+        full_packet_bytes += packet_bytes
+
+        target = _strict_commitment(
+            packet.get("target_frame_commitment"),
+            "target_frame_commitment",
+        )
+        target_materialized = _strict_commitment(
+            packet.get("target_materialized_commitment"),
+            "target_materialized_commitment",
+        )
+        target_node_id = _strict_text(
+            packet.get("target_node_id"),
+            "target_node_id",
+            maximum=128,
+        )
+        targets[task_id] = {
+            "target_node_id": target_node_id,
+            "target_frame_commitment": target,
+            "target_materialized_commitment": target_materialized,
+        }
+
+        raw_frames = packet.get("frames")
+        if not isinstance(raw_frames, list):
+            raise ValueError("context packet frames must be a list")
+        for index, raw_frame in enumerate(raw_frames):
+            if not isinstance(raw_frame, Mapping):
+                raise ValueError(f"context packet frame {index} must be an object")
+            commitment = _strict_commitment(
+                raw_frame.get("frame_commitment"),
+                f"frame[{index}].frame_commitment",
+            )
+            if commitment in known:
+                continue
+            frame = deepcopy(dict(raw_frame))
+            prior = frames_by_commitment.get(commitment)
+            if prior is not None and _canonical(prior) != _canonical(frame):
+                raise ValueError("same context frame commitment has conflicting content")
+            frames_by_commitment[commitment] = frame
+
+    # Emit one deterministic topological frame sequence. Every base must be
+    # already held by the receiver or emitted earlier in the same bundle.
+    pending = dict(frames_by_commitment)
+    emitted: list[dict[str, Any]] = []
+    available = set(known)
+    while pending:
+        ready: list[str] = []
+        for commitment, frame in pending.items():
+            base = frame.get("base_frame_commitment")
+            if base is None or base in available:
+                ready.append(commitment)
+        if not ready:
+            raise ValueError("context bundle frame graph is disconnected or cyclic")
+        for commitment in sorted(ready):
+            emitted.append(pending.pop(commitment))
+            available.add(commitment)
+
+    core = {
+        "schema": BUNDLE_SCHEMA,
+        "frames": emitted,
+        "task_targets": dict(sorted(targets.items())),
+    }
+    commitment = hashlib.blake2b(
+        BUNDLE_DOMAIN + _canonical(core),
+        digest_size=32,
+    ).hexdigest()
+    bundle_bytes = len(_canonical(core))
+    return {
+        **core,
+        "bundle_commitment": commitment,
+        "receiver_known_frame_count": len(known),
+        "unique_frame_count": len(emitted),
+        "full_packet_bytes": full_packet_bytes,
+        "bundle_bytes": bundle_bytes,
+        "byte_saving_fraction_vs_full_packets": (
+            0.0
+            if full_packet_bytes <= 0
+            else 1.0 - bundle_bytes / full_packet_bytes
+        ),
+        "lossless": True,
+        "actual_model_token_accounting": False,
+        "token_saving_claim": False,
+    }
+
+
+def apply_context_bundle(
+    bundle: Mapping[str, Any],
+    *,
+    known_contexts: Mapping[str, Mapping[str, Any]] | None = None,
+) -> dict[str, object]:
+    """Verify one lease-level context bundle and return cache updates."""
+
+    if not isinstance(bundle, Mapping) or bundle.get("schema") != BUNDLE_SCHEMA:
+        raise ValueError("invalid context bundle schema")
+    contexts: Mapping[str, Mapping[str, Any]] = (
+        {} if known_contexts is None else known_contexts
+    )
+    if not isinstance(contexts, Mapping):
+        raise ValueError("known_contexts must be a mapping")
+
+    raw_frames = bundle.get("frames")
+    if not isinstance(raw_frames, list):
+        raise ValueError("context bundle frames must be a list")
+    raw_targets = bundle.get("task_targets")
+    if not isinstance(raw_targets, Mapping):
+        raise ValueError("context bundle task_targets must be a mapping")
+
+    updates: dict[str, dict[str, Any]] = {}
+    seen: set[str] = set()
+    normalized_frames: list[dict[str, Any]] = []
+    for index, raw_frame in enumerate(raw_frames):
+        if not isinstance(raw_frame, Mapping):
+            raise ValueError(f"context bundle frame {index} must be an object")
+        node_id = _strict_text(
+            raw_frame.get("node_id"),
+            f"bundle.frame[{index}].node_id",
+        )
+        base = raw_frame.get("base_frame_commitment")
+        if base is not None:
+            base = _strict_commitment(
+                base,
+                f"bundle.frame[{index}].base_frame_commitment",
+            )
+            base_context = updates.get(base)
+            if base_context is None:
+                candidate = contexts.get(base)
+                if not isinstance(candidate, Mapping):
+                    raise ValueError("context bundle base frame is unavailable")
+                current = _strict_mapping(candidate, "known bundle base context")
+            else:
+                current = deepcopy(base_context)
+        else:
+            current = {}
+
+        set_values = _strict_mapping(
+            raw_frame.get("set_values", {}),
+            f"bundle.frame[{index}].set_values",
+        )
+        delete_keys = _strict_delete_keys(raw_frame.get("delete_keys", ()))
+        if set(set_values) & set(delete_keys):
+            raise ValueError("context bundle frame set/delete overlap")
+        for key in delete_keys:
+            current.pop(key, None)
+        current.update(deepcopy(set_values))
+
+        materialized = _materialized_commitment(current)
+        claimed_materialized = _strict_commitment(
+            raw_frame.get("materialized_commitment"),
+            f"bundle.frame[{index}].materialized_commitment",
+        )
+        if materialized != claimed_materialized:
+            raise ValueError("context bundle materialized commitment mismatch")
+        expected_frame = _frame_commitment(
+            node_id=node_id,
+            base_frame_commitment=base,
+            set_values=set_values,
+            delete_keys=delete_keys,
+            materialized_commitment=materialized,
+        )
+        claimed_frame = _strict_commitment(
+            raw_frame.get("frame_commitment"),
+            f"bundle.frame[{index}].frame_commitment",
+        )
+        if expected_frame != claimed_frame:
+            raise ValueError("context bundle frame commitment mismatch")
+        if claimed_frame in seen:
+            raise ValueError("duplicate context frame in bundle")
+        seen.add(claimed_frame)
+        updates[claimed_frame] = deepcopy(current)
+        normalized_frames.append(deepcopy(dict(raw_frame)))
+
+    targets: dict[str, dict[str, str]] = {}
+    for raw_task_id, raw_target in raw_targets.items():
+        task_id = _strict_text(raw_task_id, "bundle task_id", maximum=128)
+        if not isinstance(raw_target, Mapping):
+            raise ValueError("context bundle target must be an object")
+        target_node_id = _strict_text(
+            raw_target.get("target_node_id"),
+            "bundle target_node_id",
+            maximum=128,
+        )
+        target_frame = _strict_commitment(
+            raw_target.get("target_frame_commitment"),
+            "bundle target_frame_commitment",
+        )
+        target_materialized = _strict_commitment(
+            raw_target.get("target_materialized_commitment"),
+            "bundle target_materialized_commitment",
+        )
+        materialized_context = updates.get(target_frame)
+        if materialized_context is None:
+            candidate = contexts.get(target_frame)
+            if not isinstance(candidate, Mapping):
+                raise ValueError("context bundle target frame is unavailable")
+            materialized_context = _strict_mapping(
+                candidate,
+                "known bundle target context",
+            )
+        if _materialized_commitment(materialized_context) != target_materialized:
+            raise ValueError("context bundle target materialized mismatch")
+        targets[task_id] = {
+            "target_node_id": target_node_id,
+            "target_frame_commitment": target_frame,
+            "target_materialized_commitment": target_materialized,
+        }
+
+    core = {
+        "schema": BUNDLE_SCHEMA,
+        "frames": normalized_frames,
+        "task_targets": dict(sorted(targets.items())),
+    }
+    expected_bundle = hashlib.blake2b(
+        BUNDLE_DOMAIN + _canonical(core),
+        digest_size=32,
+    ).hexdigest()
+    if bundle.get("bundle_commitment") != expected_bundle:
+        raise ValueError("context bundle commitment mismatch")
+
+    return {
+        "schema": BUNDLE_SCHEMA,
+        "cache_updates": updates,
+        "task_targets": targets,
+        "lossless": True,
+    }
+
+
 def apply_context_packet(
     packet: Mapping[str, Any],
     *,
@@ -576,12 +843,15 @@ def apply_context_packet(
 
 
 __all__ = [
+    "BUNDLE_SCHEMA",
     "ContextFrame",
     "MAX_CONTEXT_KEYS",
     "OrbitalContextStore",
     "PACKET_PAYLOAD_KEY",
     "PACKET_SCHEMA",
     "SCHEMA",
+    "apply_context_bundle",
     "apply_context_packet",
+    "bundle_context_packets",
     "reduce_context_packet",
 ]
