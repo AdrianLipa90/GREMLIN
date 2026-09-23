@@ -48,8 +48,19 @@ CONST PRIME_FILTER_DEFAULT = OFF
 # root_1 + root_2 == -1 mod q
 # PRIME FILTER IS EXPERIMENTAL AND FAILS OPEN TO PRE-PRIME CANDIDATES
 
+# HOLOGRAPHIC ROUTE BUNDLE
+# semantic atom -> one recursive Eisenstein route
+# memory -> bundle of atom routes
+# shared explicit atom -> shared exact route
+# hash selects deterministic unit partition only
+# hash distance has NO semantic meaning
+# lexical fallback is a separate typed route class
+# phase-only memory uses 6x6 row-resultant route
+
 # RETRIEVAL
-# recursive prefix -> local angular tolerance -> prefix backoff
+# typed route bundle -> union of overlapping prefixes
+# -> local angular tolerance -> bounded prefix backoff
+# -> same-route-class fail-open when no overlap
 # -> explicit semantic orbit if available
 # -> optional prime channel
 # -> existing GREMLIN relational-memory scorer
@@ -57,6 +68,9 @@ CONST PRIME_FILTER_DEFAULT = OFF
 INVARIANT LEDGER_REMAINS_SOURCE_OF_TRUTH
 INVARIANT ADDRESS_IS_DERIVED_AND_REGENERABLE
 INVARIANT HASH_IS_NOT_SEMANTIC_COORDINATE
+INVARIANT HASH_DISTANCE_IS_NOT_SEMANTIC_DISTANCE
+INVARIANT MEMORY_MAY_HAVE_MULTIPLE_EISENSTEIN_ROUTES
+INVARIANT ROUTE_CLASS_IS_TYPED
 INVARIANT PRIORITY_ORBIT_IS_NOT_SEMANTIC_ORBIT
 INVARIANT M_LAYER_IS_NOT_SEMANTIC_ORBIT
 INVARIANT B_BELOW_4_FAILS_CLOSED
