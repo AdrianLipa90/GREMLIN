@@ -33,6 +33,11 @@ def phase(value: float) -> tuple[float, ...]:
     return tuple((value + index * 0.01) % (2.0 * math.pi) for index in range(36))
 
 
+def finish_local(fabric: OrchorbitalFabric, node_id: str, commitment: str) -> None:
+    fabric.mark_started(node_id)
+    fabric.mark_self_complete(node_id, result_commitment=commitment)
+
+
 def test_species_has_no_fixed_hierarchical_position() -> None:
     fabric = OrchorbitalFabric()
 
@@ -163,9 +168,9 @@ def test_local_child_join_blocks_only_its_consumer() -> None:
         join_to_caller=False,
     )
     child = fabric.spawn(a.node_id, "OWL", node_id="A1")
-    fabric.mark_self_complete(a.node_id, result_commitment="a-local")
-    fabric.mark_self_complete(b.node_id, result_commitment="b-local")
-    fabric.mark_self_complete(child.node_id, result_commitment="a1-local")
+    finish_local(fabric, a.node_id, "a-local")
+    finish_local(fabric, b.node_id, "b-local")
+    finish_local(fabric, child.node_id, "a1-local")
 
     assert b.node_id in fabric.closable_nodes()
     assert a.node_id not in fabric.closable_nodes()
@@ -224,7 +229,7 @@ def test_barycenter_must_move_before_hot_node_closes() -> None:
         join_to_caller=False,
     )
     fabric.move_barycenter(node.node_id)
-    fabric.mark_self_complete(node.node_id, result_commitment="hot-local")
+    finish_local(fabric, node.node_id, "hot-local")
 
     with pytest.raises(RuntimeError, match="move computational barycenter"):
         fabric.close(node.node_id)
@@ -382,7 +387,7 @@ def test_open_satellites_must_be_recentered_before_center_closes() -> None:
         join_to_caller=False,
     )
 
-    fabric.mark_self_complete(center.node_id, result_commitment="center-local")
+    finish_local(fabric, center.node_id, "center-local")
     with pytest.raises(RuntimeError, match="recenter open satellites"):
         fabric.close(center.node_id)
 
@@ -405,6 +410,7 @@ def test_node_cannot_close_before_local_work_is_complete() -> None:
     with pytest.raises(RuntimeError, match="local work is not complete"):
         fabric.close(node.node_id)
 
+    fabric.mark_started(node.node_id)
     completed = fabric.mark_self_complete(
         node.node_id,
         result_commitment="result-a",
@@ -426,6 +432,7 @@ def test_self_completion_is_idempotent_only_for_same_commitment() -> None:
         join_to_caller=False,
     )
 
+    fabric.mark_started(node.node_id)
     first = fabric.mark_self_complete(
         node.node_id,
         result_commitment="same",
@@ -441,3 +448,52 @@ def test_self_completion_is_idempotent_only_for_same_commitment() -> None:
             node.node_id,
             result_commitment="different",
         )
+
+
+def test_local_execution_must_start_before_result_is_accepted() -> None:
+    fabric = OrchorbitalFabric()
+    node = fabric.spawn(
+        "AUTH:ROOT",
+        "SPIDER",
+        node_id="A",
+        join_to_caller=False,
+    )
+
+    with pytest.raises(RuntimeError, match="execution has not started"):
+        fabric.mark_self_complete(
+            node.node_id,
+            result_commitment="premature",
+        )
+
+    started = fabric.mark_started(node.node_id)
+    assert started.execution_started is True
+    assert node.node_id in fabric.running_nodes()
+
+    fabric.mark_self_complete(
+        node.node_id,
+        result_commitment="valid",
+    )
+    assert node.node_id not in fabric.running_nodes()
+
+
+def test_causal_dependencies_are_sealed_after_execution_starts() -> None:
+    fabric = OrchorbitalFabric()
+    dependency = fabric.spawn(
+        "AUTH:ROOT",
+        "OWL",
+        node_id="DEP",
+        join_to_caller=False,
+    )
+    finish_local(fabric, dependency.node_id, "dep")
+    fabric.close(dependency.node_id)
+
+    node = fabric.spawn(
+        "AUTH:ROOT",
+        "SPIDER",
+        node_id="A",
+        join_to_caller=False,
+    )
+    fabric.mark_started(node.node_id)
+
+    with pytest.raises(RuntimeError, match="causal dependencies are sealed"):
+        fabric.add_causal_dependency(node.node_id, dependency.node_id)
