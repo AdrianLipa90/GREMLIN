@@ -640,3 +640,99 @@ The execution bridge adds tests for:
 - deepest-first local subtree closure;
 - execution-id task namespace separation;
 - exactly-once deterministic OCTOPUS allocation.
+
+
+## Orbital base+delta context lineage
+
+The dynamic execution topology is now paired with an immutable context lineage.
+
+A node context is not defined by its current orbital center. Instead each node
+binds once to a committed base frame and a local delta:
+
+```text
+materialized(node)
+  = materialized(base)
+  - explicit deletes
+  + explicit sets
+```
+
+The frame records:
+
+- node id;
+- base node id;
+- base frame commitment;
+- set-values delta;
+- explicit delete keys;
+- materialized-context commitment;
+- frame commitment;
+- lineage depth.
+
+This makes context reproducible even when the execution topology later
+`recenter()`s the node.
+
+### Context and topology are deliberately different graphs
+
+```text
+execution center: mutable
+caller provenance: immutable
+context base: immutable after binding
+```
+
+A node may move from center A to center B while continuing to use the same
+committed context base. Recentring therefore changes scheduling locality, not
+the historical meaning of the node input.
+
+### Receiver-owned delta transport
+
+The canonical WorkerBroker task stores a full self-contained context packet.
+At claim time the worker may declare verified frame commitments already held in
+its local cache.
+
+GREMLIN validates the canonical full packet first, then derives a
+receiver-specific shortened packet. The shortened packet may contain only the
+frames after the deepest known base.
+
+The task commitment never changes.
+
+The worker SDK verifies the shortened packet against its local committed base
+before materialization and only then adds newly verified frames to its bounded
+cache.
+
+This makes the intended orbital-context flow executable:
+
+```text
+root shared context
+  -> child delta
+      -> grandchild delta
+          -> worker cache reuse
+```
+
+rather than repeatedly serializing the complete ancestor context for every
+node.
+
+### Claim atomicity
+
+Transport reduction precedes lease mutation.
+
+If packet verification or reduction fails:
+
+```text
+task.state = QUEUED
+lease_id   = None
+```
+
+No malformed transport projection can strand a task inside an active lease.
+
+### Claim boundary
+
+Current receipts report:
+
+- full context packet bytes;
+- transported context packet bytes;
+- cache-hit task count;
+- receiver-known frame count;
+- byte saving fraction;
+- canonical task commitment unchanged = true;
+- token saving claim = false.
+
+The byte metric is a transport fact, not an end-to-end speedup claim.
