@@ -718,17 +718,25 @@ class OrchorbitalFabric:
                 created_seq=self._seq + 1,
                 physical_claim=False,
             )
-            self._coordination_points[pid] = point
-            self._record(
-                "COORDINATION_POINT_CREATE",
-                self._authority_root_id,
-                point_id=pid,
-                member_ids=list(members),
-                weight=normalized_weight,
-                physical_claim=False,
-            )
-            self._assert_invariants()
-            return point
+            checkpoint_events = deepcopy(self._events)
+            checkpoint_seq = self._seq
+            try:
+                self._coordination_points[pid] = point
+                self._record(
+                    "COORDINATION_POINT_CREATE",
+                    self._authority_root_id,
+                    point_id=pid,
+                    member_ids=list(members),
+                    weight=normalized_weight,
+                    physical_claim=False,
+                )
+                self._assert_invariants()
+                return point
+            except Exception:
+                self._coordination_points.pop(pid, None)
+                self._events = checkpoint_events
+                self._seq = checkpoint_seq
+                raise
 
     def coordination_points(self) -> tuple[CoordinationPoint, ...]:
         with self._lock:
@@ -1131,17 +1139,25 @@ class OrchorbitalFabric:
             if replacement.node_id in self._replacements.values():
                 raise RuntimeError("replacement target is already bound to another source")
 
-            self._replacements[source.node_id] = replacement.node_id
-            if _has_cycle(self._blocking_graph()):
-                del self._replacements[source.node_id]
-                raise ValueError("replacement would create a blocking cycle")
+            checkpoint_events = deepcopy(self._events)
+            checkpoint_seq = self._seq
+            try:
+                self._replacements[source.node_id] = replacement.node_id
+                if _has_cycle(self._blocking_graph()):
+                    raise ValueError("replacement would create a blocking cycle")
 
-            self._record(
-                "NODE_REPLACEMENT_BIND",
-                source.node_id,
-                replacement_id=replacement.node_id,
-            )
-            self._assert_invariants()
+                self._record(
+                    "NODE_REPLACEMENT_BIND",
+                    source.node_id,
+                    replacement_id=replacement.node_id,
+                )
+                self._assert_invariants()
+            except Exception:
+                if self._replacements.get(source.node_id) == replacement.node_id:
+                    del self._replacements[source.node_id]
+                self._events = checkpoint_events
+                self._seq = checkpoint_seq
+                raise
 
     def replacement_for(self, source_id: str) -> str | None:
         with self._lock:
