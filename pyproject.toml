@@ -17,7 +17,7 @@ dependencies = [
   "cryptography>=50.0.1,<51",
   "sympy>=1.14.0,<2",
   "PyMuPDF>=1.24,<2",
-  "numpy>=1.26,<3",
+  "numpy>=2.2.6,<3",
   "tomli>=2,<3; python_version < '3.11'"
 ]
 
