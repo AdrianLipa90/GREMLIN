@@ -15,6 +15,8 @@ SCHEDULER_KEY = "_gremlin_scheduler"
 DERIVED_PHASE_DOMAIN = b"GREMLIN-GEOMETRY-PHASE-SCHEDULER/v0.1\x00"
 TOKEN_RE = re.compile(r"[A-Za-z0-9_./:+-]+", re.UNICODE)
 CONTEXT_AFFINITY_WEIGHT = 0.08
+RECEIVER_CACHE_AFFINITY_WEIGHT = 0.06
+RECEIVER_SPECIES_AFFINITY_WEIGHT = 0.04
 
 # These roles remain inside the GREMLIN root/boundary rather than external worker queues.
 CORE_ONLY_SPECIES = frozenset({"HUMMINGBIRD", "OCTOPUS", "GREMLIN", "FERRET"})
@@ -327,6 +329,7 @@ def choose_species(
     *,
     now_ns: int,
     cadence_hint: Mapping[str, float] | None = None,
+    locality_hint: Mapping[str, float] | None = None,
 ) -> tuple[str | None, dict[str, Any]]:
     metrics: dict[str, dict[str, Any]] = {}
     candidates: list[tuple[float, float, str]] = []
@@ -340,8 +343,15 @@ def choose_species(
         cadence = 0.0 if cadence_hint is None else float(cadence_hint.get(species, 0.0))
         if not math.isfinite(cadence) or cadence < 0.0:
             raise GeometryPhaseSchedulerError("cadence hints must be finite and non-negative")
-        # Cadence is only a deterministic secondary hint after geometry/state.
-        candidates.append((float(m["queue_score"]), cadence, species))
+        locality = 0.0 if locality_hint is None else float(locality_hint.get(species, 0.0))
+        if not math.isfinite(locality) or not (0.0 <= locality <= 1.0):
+            raise GeometryPhaseSchedulerError("locality hints must be finite and in [0,1]")
+        # Receiver locality is a bounded additive bias. Cadence remains a
+        # deterministic secondary hint after geometry/state + locality.
+        effective = float(m["queue_score"]) + RECEIVER_SPECIES_AFFINITY_WEIGHT * locality
+        m["receiver_locality_hint"] = locality
+        m["effective_queue_score"] = effective
+        candidates.append((effective, cadence, species))
     if not candidates:
         return None, {"schema": SCHEMA, "mode": MODE, "queues": metrics, "selected_species": None}
     selected = max(candidates, key=lambda row: (row[0], row[1], row[2]))[2]
@@ -350,7 +360,14 @@ def choose_species(
         "mode": MODE,
         "queues": metrics,
         "selected_species": selected,
-        "selection_basis": "GEOMETRY_PHASE_STATE_THEN_CADENCE_TIEBREAK",
+        "selection_basis": (
+            "GEOMETRY_PHASE_STATE_PLUS_RECEIVER_LOCALITY_THEN_CADENCE"
+            if locality_hint
+            else "GEOMETRY_PHASE_STATE_THEN_CADENCE_TIEBREAK"
+        ),
+        "receiver_species_affinity_weight": (
+            RECEIVER_SPECIES_AFFINITY_WEIGHT if locality_hint else 0.0
+        ),
     }
 
 
@@ -434,6 +451,7 @@ def select_batch(
     limit: int,
     now_ns: int,
     affinity_by_task: Mapping[str, Iterable[str]] | None = None,
+    receiver_known_affinity: Iterable[str] | None = None,
 ) -> tuple[list[str], dict[str, Any]]:
     if isinstance(limit, bool) or not isinstance(limit, int) or limit <= 0:
         raise GeometryPhaseSchedulerError("limit must be a positive integer")
@@ -454,9 +472,40 @@ def select_batch(
         {state.task_id for state in eligible},
     )
     affinity_active = any(affinity.values())
+    if receiver_known_affinity is None:
+        receiver_known = frozenset()
+    else:
+        if isinstance(receiver_known_affinity, (str, bytes, Mapping)) or not isinstance(
+            receiver_known_affinity, Iterable
+        ):
+            raise GeometryPhaseSchedulerError(
+                "receiver_known_affinity must be an iterable"
+            )
+        receiver_known = frozenset(
+            str(value) for value in receiver_known_affinity if str(value)
+        )
+
+    def receiver_score(task_id: str) -> float:
+        signature = affinity.get(task_id, frozenset())
+        if not signature or not receiver_known:
+            return 0.0
+        return len(signature & receiver_known) / len(signature)
+
+    receiver_affinity_active = bool(receiver_known) and affinity_active
     seed = max(
         eligible,
-        key=lambda s: (priority[s.task_id], -s.noise, s.urgency, s.task_commitment, s.task_id),
+        key=lambda s: (
+            priority[s.task_id]
+            + (
+                RECEIVER_CACHE_AFFINITY_WEIGHT * receiver_score(s.task_id)
+                if receiver_affinity_active
+                else 0.0
+            ),
+            -s.noise,
+            s.urgency,
+            s.task_commitment,
+            s.task_id,
+        ),
     )
     chosen = [seed]
     remaining = {s.task_id: s for s in eligible if s.task_id != seed.task_id}
@@ -475,6 +524,11 @@ def select_batch(
                     CONTEXT_AFFINITY_WEIGHT
                     * _context_affinity(s.task_id, chosen_ids, affinity)
                     if affinity_active
+                    else 0.0
+                )
+                + (
+                    RECEIVER_CACHE_AFFINITY_WEIGHT * receiver_score(s.task_id)
+                    if receiver_affinity_active
                     else 0.0
                 ),
                 s.task_commitment,
@@ -515,6 +569,15 @@ def select_batch(
             0.0
             if not selected_affinities
             else sum(selected_affinities) / len(selected_affinities)
+        ),
+        "receiver_cache_affinity_active": receiver_affinity_active,
+        "receiver_cache_affinity_weight": (
+            RECEIVER_CACHE_AFFINITY_WEIGHT if receiver_affinity_active else 0.0
+        ),
+        "mean_receiver_cache_affinity": (
+            0.0
+            if not chosen
+            else sum(receiver_score(state.task_id) for state in chosen) / len(chosen)
         ),
         "mean_priority": sum(priority[s.task_id] for s in chosen) / len(chosen),
         "transition_cost_selected": selected_transition,
