@@ -30,6 +30,8 @@ from tools.gremlin_bestiary_vector_species_v03 import lane_width
 from tools.gremlin_geometry_context_pack_v01 import pack_context
 from tools.gremlin_geometry_phase_scheduler_v01 import (
     MODE as GEOMETRY_SCHEDULER_MODE,
+    NUMPY_DISTANCE_KERNEL_CANDIDATE,
+    SCALAR_DISTANCE_KERNEL,
     SCHEDULER_SPECIES,
     choose_species,
     geometry_lane_width,
@@ -330,11 +332,20 @@ class WorkerBroker:
     batch, computes locally, then submits candidate results against the lease.
     """
 
-    def __init__(self, *, lease_seconds: int = 30, max_pending: int = 10_000) -> None:
+    def __init__(
+        self,
+        *,
+        lease_seconds: int = 30,
+        max_pending: int = 10_000,
+        vector_distance_shadow: bool = False,
+    ) -> None:
         lease = _strict_int(lease_seconds, field="lease_seconds", minimum=1, maximum=300)
         pending = _strict_int(max_pending, field="max_pending", minimum=1)
+        if not isinstance(vector_distance_shadow, bool):
+            raise ValueError("vector_distance_shadow must be boolean")
         self._lease_seconds = lease
         self._max_pending = pending
+        self._vector_distance_shadow = vector_distance_shadow
         self._workers: dict[str, WorkerRecord] = {}
         self._tasks: dict[str, TaskRecord] = {}
         self._leases: dict[str, LeaseRecord] = {}
@@ -761,7 +772,44 @@ class WorkerBroker:
                 receiver_known_affinity=known_frames,
                 precomputed_states=self._task_phase_state,
                 precomputed_centroid=centroid,
+                distance_kernel=SCALAR_DISTANCE_KERNEL,
             )
+            vector_shadow: dict[str, object] = {
+                "enabled": self._vector_distance_shadow,
+                "candidate_kernel": NUMPY_DISTANCE_KERNEL_CANDIDATE,
+                "decision_kernel": SCALAR_DISTANCE_KERNEL,
+                "selection_equivalent": None,
+                "candidate_selected_task_ids": None,
+            }
+            if self._vector_distance_shadow:
+                shadow_ids, shadow_receipt = select_batch(
+                    rows,
+                    limit=batch_limit,
+                    now_ns=now,
+                    affinity_by_task=context_affinity,
+                    receiver_known_affinity=known_frames,
+                    precomputed_states=self._task_phase_state,
+                    precomputed_centroid=centroid,
+                    distance_kernel=NUMPY_DISTANCE_KERNEL_CANDIDATE,
+                )
+                equivalent = shadow_ids == selected_ids
+                vector_shadow = {
+                    "enabled": True,
+                    "candidate_kernel": NUMPY_DISTANCE_KERNEL_CANDIDATE,
+                    "decision_kernel": SCALAR_DISTANCE_KERNEL,
+                    "selection_equivalent": equivalent,
+                    "candidate_selected_task_ids": list(shadow_ids),
+                    "candidate_pairwise_state_distance_evaluations": (
+                        shadow_receipt[
+                            "greedy_pairwise_state_distance_evaluations"
+                        ]
+                    ),
+                }
+                if not equivalent:
+                    raise RuntimeError(
+                        "scalar/vector scheduler shadow selection mismatch"
+                    )
+            batch_scheduler["vector_distance_shadow"] = vector_shadow
             if not selected_ids:
                 return {
                     "schema": WORKER_SCHEMA,
@@ -1088,6 +1136,7 @@ class WorkerBroker:
                 "queue_indexed": True,
                 "precomputed_phase_state_cache": True,
                 "precomputed_phase_state_count": len(self._task_phase_state),
+                "vector_distance_shadow_enabled": self._vector_distance_shadow,
                 "queued_index_counts": {
                     name: len(self._queued_by_species[name])
                     for name in WORKER_SPECIES
