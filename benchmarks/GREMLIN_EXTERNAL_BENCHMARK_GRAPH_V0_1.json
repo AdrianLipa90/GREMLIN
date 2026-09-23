@@ -1,0 +1,91 @@
+{
+  "schema": "GREMLIN_EXTERNAL_BENCHMARK_GRAPH_V0_1",
+  "status": "CANDIDATE_EXTERNAL_RESEARCH",
+  "created_utc": "2026-09-23",
+  "canon_allowed": false,
+  "branch": "feat/semantic-graph-transformer-v01-20260923",
+  "claim_boundary": "This graph combines external reported benchmark observations with GREMLIN internal measurements. Metrics from different datasets, models, tasks, and environments are NOT head-to-head comparable. Derived statistics are quasi-benchmark descriptors only, never an overall product ranking.",
+  "evidence_classes": {
+    "A_OFFICIAL_OR_PEER_REVIEWED": "Official or peer-reviewed source with explicit benchmark methodology/results.",
+    "B_VENDOR_ILLUSTRATIVE": "Vendor-provided illustrative benchmark; useful for magnitude, not independent validation.",
+    "C_INDEPENDENT_WEB_BENCHMARK": "Independent web benchmark with stated methodology; not peer-reviewed.",
+    "D_GREMLIN_INTERNAL": "Internal GREMLIN measurement; reproducible candidate evidence, not external validation."
+  },
+  "nodes": [
+    {"id":"framework:gremlin","type":"FRAMEWORK","name":"GREMLIN"},
+    {"id":"framework:magentic-one","type":"FRAMEWORK","name":"Microsoft Magentic-One / AutoGen"},
+    {"id":"framework:langgraph","type":"FRAMEWORK","name":"LangGraph"},
+    {"id":"framework:langchain","type":"FRAMEWORK","name":"LangChain"},
+    {"id":"framework:autogen","type":"FRAMEWORK","name":"AutoGen"},
+    {"id":"framework:crewai","type":"FRAMEWORK","name":"CrewAI"},
+    {"id":"framework:google-adk","type":"FRAMEWORK","name":"Google ADK"},
+    {"id":"framework:openai-agents-sdk","type":"FRAMEWORK","name":"OpenAI Agents SDK"},
+    {"id":"hypothesis:H1","type":"HYPOTHESIS","name":"Selective routing reduces context/fan-out without requiring broadcast."},
+    {"id":"hypothesis:H2","type":"HYPOTHESIS","name":"Irrelevant domains/tools can degrade monolithic-agent task success."},
+    {"id":"hypothesis:H3","type":"HYPOTHESIS","name":"Stateful orchestration trades framework overhead against control/recovery."},
+    {"id":"hypothesis:H4","type":"HYPOTHESIS","name":"Semantic graph compression should be gated by input size because small inputs can incur overhead."}
+  ],
+  "sources": [
+    {"id":"source:gremlin-sgt-live-ab","evidence_class":"D_GREMLIN_INTERNAL","title":"GREMLIN SGT Live A/B v0.1","url":"repo:benchmarks/GREMLIN_SGT_LIVE_AB_V0_1.json","date":"2026-09-23"},
+    {"id":"source:magentic-one-paper","evidence_class":"A_OFFICIAL_OR_PEER_REVIEWED","title":"Magentic-One: A Generalist Multi-Agent System for Solving Complex Tasks","url":"https://www.microsoft.com/en-us/research/wp-content/uploads/2024/11/Magentic-One.pdf","date":"2024-11"},
+    {"id":"source:langchain-react-benchmark","evidence_class":"A_OFFICIAL_OR_PEER_REVIEWED","title":"Benchmarking Single Agent Performance","url":"https://www.langchain.com/blog/react-agent-benchmarking","date":"2025-02-10"},
+    {"id":"source:langchain-deep-agents-2026","evidence_class":"A_OFFICIAL_OR_PEER_REVIEWED","title":"How We Benchmark Deep Agents","url":"https://www.langchain.com/blog/how-we-benchmark-deep-agents","date":"2026-07-23"},
+    {"id":"source:google-adk2-efficiency","evidence_class":"B_VENDOR_ILLUSTRATIVE","title":"Why we built ADK 2.0","url":"https://developers.googleblog.com/why-we-built-adk-20/","date":"2026-07"},
+    {"id":"source:aimultiple-frameworks-2026","evidence_class":"C_INDEPENDENT_WEB_BENCHMARK","title":"Top 5 Open-Source Agentic AI Frameworks","url":"https://aimultiple.com/agentic-frameworks","date":"2026-08-10"},
+    {"id":"source:openai-agent-evals","evidence_class":"A_OFFICIAL_OR_PEER_REVIEWED","title":"OpenAI: Evaluate agent workflows","url":"https://developers.openai.com/api/docs/guides/agent-evals","date":"2026"}
+  ],
+  "observations": [
+    {"id":"obs:gremlin:110","framework":"framework:gremlin","source":"source:gremlin-sgt-live-ab","dataset":"GREMLIN_SGT_LIVE_AB_V0_1","input_sentences":110,"raw_context_bytes":3499,"optimized_context_bytes":4103,"context_reduction_pct":-17.262,"raw_route_latency_median_ms":9.367971,"optimized_route_latency_median_ms":8.535561,"latency_reduction_pct":8.886,"raw_dispatch_median":4,"optimized_dispatch_median":2,"dispatch_reduction_pct":50.0},
+    {"id":"obs:gremlin:550","framework":"framework:gremlin","source":"source:gremlin-sgt-live-ab","dataset":"GREMLIN_SGT_LIVE_AB_V0_1","input_sentences":550,"raw_context_bytes":18159,"optimized_context_bytes":12409,"context_reduction_pct":31.665,"raw_route_latency_median_ms":21.44117,"optimized_route_latency_median_ms":18.282515,"latency_reduction_pct":14.732,"raw_dispatch_median":4,"optimized_dispatch_median":2,"dispatch_reduction_pct":50.0},
+    {"id":"obs:gremlin:1100","framework":"framework:gremlin","source":"source:gremlin-sgt-live-ab","dataset":"GREMLIN_SGT_LIVE_AB_V0_1","input_sentences":1100,"raw_context_bytes":36385,"optimized_context_bytes":12411,"context_reduction_pct":65.89,"raw_route_latency_median_ms":35.402875,"optimized_route_latency_median_ms":33.620505,"latency_reduction_pct":5.035,"raw_dispatch_median":4,"optimized_dispatch_median":2,"dispatch_reduction_pct":50.0},
+    {"id":"obs:magentic-one:gaia","framework":"framework:magentic-one","source":"source:magentic-one-paper","benchmark":"GAIA","metric":"task_completion_rate_pct","value":38.0},
+    {"id":"obs:magentic-one:assistantbench","framework":"framework:magentic-one","source":"source:magentic-one-paper","benchmark":"AssistantBench","metric":"accuracy_pct","value":27.7},
+    {"id":"obs:magentic-one:webarena","framework":"framework:magentic-one","source":"source:magentic-one-paper","benchmark":"WebArena","metric":"task_completion_rate_pct","value":32.8,"note":"WebArena result is self-reported per the Microsoft evaluation page."},
+    {"id":"obs:google-adk2:illustrative","framework":"framework:google-adk","source":"source:google-adk2-efficiency","benchmark":"illustrative deterministic-workflow example","model":"gemini-3.5-flash","mock_api_responses":true,"vanilla_tokens_per_run":5152,"workflow_tokens_per_run":2265,"vanilla_latency_s":7.2,"workflow_latency_s":5.7},
+    {"id":"obs:langgraph:context-stress-calendar","framework":"framework:langgraph","source":"source:langchain-react-benchmark","benchmark":"Calendar Scheduling","runs_per_domain":90,"observation":"Adding irrelevant domains/tools degraded pass rates; gpt-4o reached 2% at 7 domains. o1 and o3-mini control agents scored 71% and 68% respectively."},
+    {"id":"obs:langgraph:context-stress-support","framework":"framework:langgraph","source":"source:langchain-react-benchmark","benchmark":"Customer Support","runs_per_domain":90,"observation":"Control-agent pass rates reported: Claude 3.5 Sonnet 83%, o1 77%, o3-mini 83%; performance generally fell as irrelevant domains/context increased."},
+    {"id":"obs:aimultiple:task5:autogen","framework":"framework:autogen","source":"source:aimultiple-frameworks-2026","benchmark":"Task 5 unstructured data orchestration","prompt_tokens":8170,"median_latency_s":47.0},
+    {"id":"obs:aimultiple:task5:langgraph","framework":"framework:langgraph","source":"source:aimultiple-frameworks-2026","benchmark":"Task 5 unstructured data orchestration","prompt_tokens":9150,"median_latency_s":70.0},
+    {"id":"obs:aimultiple:task5:langchain","framework":"framework:langchain","source":"source:aimultiple-frameworks-2026","benchmark":"Task 5 unstructured data orchestration","prompt_tokens":10070,"median_latency_s":86.0},
+    {"id":"obs:aimultiple:task4:pivot","source":"source:aimultiple-frameworks-2026","benchmark":"Task 4 error resilience","metric":"pivot_behavior_pct","values":{"LangGraph":90,"AutoGen":90,"LangChain":65,"CrewAI":0},"note":"Source-specific behavior under its injected error sequence; not a universal reliability rate."},
+    {"id":"obs:openai:eval-surface","framework":"framework:openai-agents-sdk","source":"source:openai-agent-evals","observation":"Official guidance emphasizes trace grading, tool/handoff correctness, datasets, repeated eval runs and end-to-end workflow evaluation; no directly comparable public framework-overhead number was used in this pass."}
+  ],
+  "derived_quasistatistics": {
+    "GREMLIN_fixture_linear_context_break_even_sentences": 265.237,
+    "GREMLIN_fixture_linear_context_break_even_assumption": "Linear interpolation between 110-sentence and 550-sentence SGT observations; valid only as a first fixture-specific routing threshold hypothesis.",
+    "GREMLIN_large_context_mean_context_reduction_pct": 48.7775,
+    "GREMLIN_mean_route_latency_reduction_pct_across_3_sizes": 9.551,
+    "GREMLIN_dispatch_reduction_pct_all_3_sizes": 50.0,
+    "MagenticOne_unweighted_mean_reported_completion_pct": 32.833333,
+    "Google_ADK2_illustrative_token_reduction_pct": 56.036491,
+    "Google_ADK2_illustrative_latency_reduction_pct": 20.833333,
+    "AIMultiple_Task5_normalized_to_AutoGen": {
+      "AutoGen":{"token_ratio":1.0,"latency_ratio":1.0},
+      "LangGraph":{"token_ratio":1.119951,"latency_ratio":1.489362},
+      "LangChain":{"token_ratio":1.232558,"latency_ratio":1.829787}
+    }
+  },
+  "edges": [
+    {"source":"obs:gremlin:110","predicate":"SUPPORTS","target":"hypothesis:H4"},
+    {"source":"obs:gremlin:550","predicate":"SUPPORTS","target":"hypothesis:H1"},
+    {"source":"obs:gremlin:1100","predicate":"SUPPORTS","target":"hypothesis:H1"},
+    {"source":"obs:langgraph:context-stress-calendar","predicate":"SUPPORTS","target":"hypothesis:H2"},
+    {"source":"obs:langgraph:context-stress-support","predicate":"SUPPORTS","target":"hypothesis:H2"},
+    {"source":"obs:aimultiple:task4:pivot","predicate":"SUPPORTS","target":"hypothesis:H3"},
+    {"source":"obs:google-adk2:illustrative","predicate":"SUPPORTS","target":"hypothesis:H1"}
+  ],
+  "next_gate": {
+    "name":"GREMLIN_EXTERNAL_SAME_MODEL_AB_V0_2",
+    "requirements":[
+      "Frozen public task suite.",
+      "Same foundation model and temperature for all frameworks.",
+      "Same tools, source corpus, network policy and retry budget.",
+      "Correctness/task-success scoring plus exact tool trajectory where applicable.",
+      "Prompt+completion tokens, model calls, tool calls, wall-clock median/p95, cost.",
+      "Failure injection and recovery behavior.",
+      "At least 3 repeats per stochastic case; preferably >=30 for latency distributions.",
+      "Blind or script-based grading.",
+      "Keep GREMLIN internal routing metrics separate from external answer-quality claims."
+    ]
+  }
+}
