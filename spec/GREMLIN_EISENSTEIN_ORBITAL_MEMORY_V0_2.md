@@ -138,29 +138,56 @@ This gives a direct exact-to-floating bridge:
 
 No physical-space identity is asserted.
 
-## 5. PhaseNav 6x6 -> orbital word
+## 5. Holographic route bundle
 
-Each existing memory packet contains six 6D projection rows.
+A memory is not reduced to one hard route.
 
-For row \(a\),
+For a semantic packet, each explicit semantic atom receives its own
+deterministic six-step Eisenstein trajectory:
+
+\[
+a \mapsto w(a)\in\{0,\ldots,5\}^6.
+\]
+
+The semantic meaning is carried by the explicit normalized atom identity.
+SHA-256 is used only as a deterministic partition function selecting one of
+the six Eisenstein directions at each level:
+
+\[
+\text{hash partition} \neq \text{semantic distance}.
+\]
+
+A memory therefore has a route bundle
+
+\[
+\mathcal R(M)=\{w(a):a\in A_M\}.
+\]
+
+Two memories with a shared explicit atom share at least one exact trajectory.
+Recall uses the union of matching route-prefix buckets and then reranks with
+the existing semantic scorer. This is the indexing analogue of holographic
+overlap: the memory is represented by several superposed address channels.
+
+Route classes are typed:
+
+- `SEMANTIC_ATOM_BUNDLE`: concept and numeric atoms;
+- `LEXICAL_FALLBACK_BUNDLE`: bounded lexical fallback when no explicit
+  concept/numeric atom exists;
+- `PHASE36`: phase-only packets with no semantic atoms.
+
+For `PHASE36`, each active 6D projection row still uses
 
 \[
 z_a=
-\frac16\sum_{k=0}^{5}
-A_{ak}e^{i\phi_{ak}}.
+\frac16\sum_{k=0}^{5}A_{ak}e^{i\phi_{ak}},
+\qquad
+\tilde z_a=z_ae^{ia\pi/3},
 \]
 
-The projection orientation is applied:
+and the phase of \(\tilde z_a\) is quantized to the nearest Eisenstein unit.
 
-\[
-\tilde z_a=z_ae^{ia\pi/3}.
-\]
-
-The phase of \(\tilde z_a\) is quantized to the nearest of six Eisenstein unit
-directions. The resulting sequence is the initial recursive orbital word.
-
-Zero-amplitude rows contribute no invented direction. If every row is inactive,
-routing fails closed.
+Zero-amplitude rows contribute no invented direction. If every phase row is
+inactive and no semantic route exists, routing fails closed.
 
 ## 6. Typed orbital separation
 
@@ -240,9 +267,9 @@ the existing holographic cells:
 \to
 \text{hex patch}
 \to
-\text{recursive Eisenstein address}
+\text{holographic bundle of recursive Eisenstein atom-orbits}
 \to
-\text{prefix/orbit shortlist}
+\text{overlapping prefix/orbit shortlist}
 \to
 \text{moire + semantic rerank}.
 \]
@@ -258,7 +285,8 @@ Required before promotion:
 - recursive injectivity tests;
 - finite-address Poincare interior tests;
 - semantic/priority orbit non-conflation;
-- structural sparse-routing benchmark;
+- route-bundle overlap and route-class isolation;
+- structural sparse-routing benchmark over multiple dispersed queries;
 - existing 18-paraphrase semantic regression with large distractor set;
 - exact-head hosted CI.
 
