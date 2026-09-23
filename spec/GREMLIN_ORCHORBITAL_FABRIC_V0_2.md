@@ -1153,3 +1153,108 @@ global synthesis barrier remains false
 ```
 
 No performance multiplier follows from restart durability itself.
+
+
+## Restart and checkpoint contract
+
+The orchorbital runtime now defines three independent committed restart layers:
+
+```text
+fabric checkpoint
+context-lineage checkpoint
+executor checkpoint
+```
+
+The WorkerBroker state is deliberately external to the executor checkpoint.
+
+### Fabric checkpoint
+
+The fabric checkpoint binds:
+
+- every node instance and lifecycle flag;
+- caller/center/authority relationships;
+- causal edges;
+- local join edges;
+- coordination edges and n-node coordination points;
+- replacements;
+- barycenter;
+- event sequence and append-only event history;
+- topology commitment.
+
+Any mutation of checkpoint content without recomputing the domain-separated
+checkpoint commitment fails closed.
+
+### Context checkpoint
+
+The context checkpoint stores immutable base+delta frames only. Materialized
+contexts are not duplicated in the checkpoint.
+
+The context checkpoint is bound to the exact fabric topology commitment. It
+therefore cannot be restored against another fabric, even if its frame content
+would otherwise parse.
+
+### Executor checkpoint
+
+The executor checkpoint binds:
+
+- execution id;
+- exact operator tiers and capability sets;
+- resource budget;
+- maximum exact-cover state budget;
+- local result payloads;
+- local reduction payloads;
+- reduction-input commitments;
+- the fabric topology commitment;
+- the context checkpoint commitment when a context store is present.
+
+Worker payload/result state is not copied into this checkpoint.
+
+### Durable WorkerBroker boundary
+
+Worker task commitments, result commitments and lease lineage remain owned by
+the WorkerBroker persistence layer.
+
+On restore, every self-complete worker node is checked against the external
+broker. Missing or different worker result state fails closed.
+
+The restart invariant is therefore:
+
+```text
+restored fabric commitment
++
+restored context commitment
++
+restored executor commitment
++
+externally durable worker result commitments
+=
+same logical execution
+```
+
+A fresh empty WorkerBroker is not accepted as a substitute for the persisted
+broker state of an execution that already contains completed worker nodes.
+
+### End-to-end restart gate
+
+The dedicated checkpoint test now exercises:
+
+```text
+worker parent
+ -> recursive worker child
+ -> child close
+ -> local parent reduction
+ -> parent close
+ -> local/core result
+ -> fabric checkpoint
+ -> context checkpoint
+ -> executor checkpoint
+ -> close SQLite broker
+ -> reopen durable broker
+ -> restore all three orchorbital layers
+ -> verify identical checkpoint commitments
+ -> run another non-blocking orchestration step
+```
+
+No completed worker task may be re-enqueued after the restore.
+
+Tampering with any of the three checkpoint layers must fail closed.
