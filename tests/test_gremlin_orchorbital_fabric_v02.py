@@ -1334,3 +1334,44 @@ def test_fabric_reexports_canonical_orchorbital_types() -> None:
     assert FabricNodeInstance is TypesNodeInstance
     assert FabricSpawnRequest is TypesSpawnRequest
     assert FabricCoordinationPoint is TypesCoordinationPoint
+
+
+
+def test_center_ranking_uses_one_locality_traversal_for_many_candidates(monkeypatch) -> None:
+    fabric = OrchorbitalFabric(max_nodes=80)
+    caller = fabric.spawn(
+        "AUTH:ROOT",
+        "MOLE",
+        node_id="CALLER-MANY",
+        join_to_caller=False,
+    )
+    candidates = [
+        fabric.spawn(
+            "AUTH:ROOT",
+            "SPIDER",
+            node_id=f"CAND-{index:02d}",
+            join_to_caller=False,
+        )
+        for index in range(32)
+    ]
+    for candidate in candidates[:8]:
+        fabric.add_coordination_edge(caller.node_id, candidate.node_id)
+
+    calls = 0
+    original = fabric._locality_distances
+
+    def counted(source_id: str):
+        nonlocal calls
+        calls += 1
+        return original(source_id)
+
+    monkeypatch.setattr(fabric, "_locality_distances", counted)
+    ranked = fabric.rank_centers(
+        caller.node_id,
+        tuple(candidate.node_id for candidate in candidates),
+    )
+
+    assert len(ranked) == len(candidates)
+    assert calls == 1
+    assert set(ranked[:8]) == {candidate.node_id for candidate in candidates[:8]}
+    assert fabric.receipt()["center_ranking_single_locality_traversal"] is True

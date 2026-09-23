@@ -662,3 +662,29 @@ locality, failover, closure and audit snapshots.
 The fabric re-exports the public primitives so existing imports remain stable.
 This split is dependency-leaf -> state-machine only; the types module never
 imports the fabric and therefore cannot create an orchestration import cycle.
+
+
+## Center-ranking traversal hardening
+
+The v0.2 center selector computes the open locality graph once per
+`rank_centers()` call.
+
+For `C` candidate centers, `V` open nodes, `E` pairwise locality edges and
+`M` live coordination-point memberships, the structural traversal cost changes
+from approximately:
+
+```text
+C * O(V + E + M)
+```
+
+to:
+
+```text
+O(V + E + M) + O(C log C)
+```
+
+for candidate sorting.
+
+T^36 phase distance and barycenter preference remain tie-breaks after graph
+locality. This is an algorithmic routing optimization; no end-to-end speedup
+multiplier is inferred from it alone.
