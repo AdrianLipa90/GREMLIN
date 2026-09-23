@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import asyncio
+from copy import deepcopy
 
 import pytest
 
 from gremlin_mcp.adaptive_runtime import OperatorTier, ResourceBudget, ResourceCost
 from gremlin_mcp.orchorbital_context import (
+    BUNDLE_PAYLOAD_KEY,
+    BUNDLE_REF_PAYLOAD_KEY,
     PACKET_PAYLOAD_KEY,
     OrbitalContextStore,
     apply_context_packet,
@@ -13,7 +16,10 @@ from gremlin_mcp.orchorbital_context import (
 from gremlin_mcp.orchorbital_executor import OrchorbitalExecutor
 from gremlin_mcp.orchorbital_fabric import OrchorbitalFabric
 from gremlin_mcp.persistent_workers import PersistentWorkerBroker
-from gremlin_mcp.worker_client import GremlinWorkerClient
+from gremlin_mcp.worker_client import (
+    ORBITAL_CONTEXT_MATERIALIZED_KEY,
+    GremlinWorkerClient,
+)
 from gremlin_mcp.workers import WorkerBroker
 
 
@@ -306,4 +312,106 @@ def test_worker_sdk_rejects_unverifiable_context_before_handler(monkeypatch) -> 
             await worker._run_once(object(), species="SPIDER")
 
     asyncio.run(exercise())
+    assert called is False
+
+
+def _bundle_claim_for_sdk():
+    fabric, contexts, first, second = build_two_siblings()
+    broker = WorkerBroker()
+    broker.register_worker("sdk-bundle-source", ["SPIDER"], vector_width=64, max_batch=8)
+    scheduler = {"phase36": [0.2] * 36}
+    for node, task_id in ((first, "sdk-bundle-a"), (second, "sdk-bundle-b")):
+        broker.enqueue(
+            "SPIDER",
+            {
+                "input": {"query": "shared"},
+                "_gremlin_scheduler": scheduler,
+                PACKET_PAYLOAD_KEY: contexts.packet(node.node_id),
+            },
+            task_id=task_id,
+        )
+    lease = broker.claim("sdk-bundle-source", species="SPIDER", limit=2)
+    assert lease["batch_size"] == 2
+    assert lease[BUNDLE_PAYLOAD_KEY] is not None
+    return contexts, first, second, lease
+
+
+def test_worker_sdk_verifies_bundle_once_and_materializes_each_task(monkeypatch) -> None:
+    contexts, first, second, lease = _bundle_claim_for_sdk()
+    seen: dict[str, dict] = {}
+
+    def handler(batch):
+        for task in batch["tasks"]:
+            materialized = task[ORBITAL_CONTEXT_MATERIALIZED_KEY]
+            seen[task["task_id"]] = deepcopy(materialized)
+            materialized["shared_problem"] = "HANDLER-MUTATION"
+        return [
+            {"task_id": task["task_id"], "output": {"ok": True}}
+            for task in batch["tasks"]
+        ]
+
+    worker = GremlinWorkerClient(
+        object(),
+        worker_id="sdk-bundle-worker",
+        species=["SPIDER"],
+        handler=handler,
+        max_batch=8,
+        max_context_frames=16,
+    )
+    responses = [
+        deepcopy(lease),
+        {"status": "CANDIDATE", "authority": {"canon_allowed": False}},
+    ]
+
+    async def fake_call(client, tool, arguments):
+        return responses.pop(0)
+
+    monkeypatch.setattr(worker, "_call", fake_call)
+
+    asyncio.run(worker._run_once(object(), species="SPIDER"))
+
+    assert seen["sdk-bundle-a"] == contexts.materialize(first.node_id)
+    assert seen["sdk-bundle-b"] == contexts.materialize(second.node_id)
+    root_frame = contexts.frame("AUTH:ROOT").frame_commitment
+    assert worker._context_cache[root_frame]["shared_problem"] != "HANDLER-MUTATION"
+    assert len(worker._context_cache) >= 3
+
+
+def test_worker_sdk_bundle_validation_is_transactional(monkeypatch) -> None:
+    _, _, _, lease = _bundle_claim_for_sdk()
+    tampered = deepcopy(lease)
+    first_task = tampered["tasks"][0]
+    first_task["payload"][BUNDLE_REF_PAYLOAD_KEY][
+        "target_frame_commitment"
+    ] = "0" * 64
+
+    called = False
+
+    def handler(batch):
+        nonlocal called
+        called = True
+        return []
+
+    worker = GremlinWorkerClient(
+        object(),
+        worker_id="sdk-bundle-invalid",
+        species=["SPIDER"],
+        handler=handler,
+        max_batch=8,
+        max_context_frames=16,
+    )
+
+    async def fake_call(client, tool, arguments):
+        if tool == "gremlin_worker_claim":
+            return tampered
+        raise AssertionError("submit must not be reached")
+
+    monkeypatch.setattr(worker, "_call", fake_call)
+
+    async def exercise():
+        with pytest.raises(Exception, match="context reference mismatches bundle"):
+            await worker._run_once(object(), species="SPIDER")
+
+    asyncio.run(exercise())
+    assert worker._context_cache == {}
     assert called is False
