@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+from dataclasses import replace
 
 import pytest
 
@@ -497,3 +498,46 @@ def test_causal_dependencies_are_sealed_after_execution_starts() -> None:
 
     with pytest.raises(RuntimeError, match="causal dependencies are sealed"):
         fabric.add_causal_dependency(node.node_id, dependency.node_id)
+
+
+def test_corrupted_caller_cycle_is_detected_fail_loud() -> None:
+    fabric = OrchorbitalFabric()
+    fabric.spawn(
+        "AUTH:ROOT",
+        "SPIDER",
+        node_id="A",
+        join_to_caller=False,
+    )
+    fabric.spawn(
+        "AUTH:ROOT",
+        "MOLE",
+        node_id="B",
+        join_to_caller=False,
+    )
+
+    fabric._nodes["A"] = replace(fabric._nodes["A"], caller_id="B")
+    fabric._nodes["B"] = replace(fabric._nodes["B"], caller_id="A")
+
+    with pytest.raises(RuntimeError, match="caller provenance graph contains a cycle"):
+        fabric.receipt()
+
+
+def test_new_coordination_edges_require_open_endpoints() -> None:
+    fabric = OrchorbitalFabric()
+    a = fabric.spawn(
+        "AUTH:ROOT",
+        "SPIDER",
+        node_id="A",
+        join_to_caller=False,
+    )
+    b = fabric.spawn(
+        "AUTH:ROOT",
+        "OWL",
+        node_id="B",
+        join_to_caller=False,
+    )
+    finish_local(fabric, b.node_id, "b")
+    fabric.close(b.node_id)
+
+    with pytest.raises(RuntimeError, match="node is not open"):
+        fabric.add_coordination_edge(a.node_id, b.node_id)
