@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
+import hashlib
 from typing import Any
 
 from gremlin_mcp.adaptive_runtime import (
@@ -17,7 +18,8 @@ from gremlin_mcp.orchorbital_fabric import (
 )
 
 SCHEMA = "GREMLIN_OCTOPUS_ORCHORBITAL_ALLOCATOR_V0_2"
-VERSION = "0.2.0"
+VERSION = "0.2.1"
+ALLOCATION_DOMAIN = b"GREMLIN-ORCHORBITAL-ALLOCATION/v0.2\\x00"
 
 
 def _strict_text(value: Any, field: str) -> str:
@@ -78,6 +80,12 @@ def _operator_for_obligation(plan: RoutePlan, obligation: str) -> OperatorTier:
     )
 
 
+def _deterministic_node_id(caller_id: str, allocation_key: str, operator_id: str) -> str:
+    raw = "\\x00".join((caller_id, allocation_key, operator_id)).encode("utf-8")
+    digest = hashlib.blake2b(ALLOCATION_DOMAIN + raw, digest_size=16).hexdigest()
+    return f"ORCHD:{digest}"
+
+
 def _partition_obligations(
     ordered_obligations: Sequence[str],
     plan: RoutePlan,
@@ -112,6 +120,7 @@ class OctopusAllocation:
     obligation_to_node: tuple[tuple[str, str], ...]
     operator_to_node: tuple[tuple[str, str], ...]
     operator_to_center: tuple[tuple[str, str], ...]
+    allocation_key: str | None = None
 
     def receipt(self) -> dict[str, object]:
         return {
@@ -125,6 +134,8 @@ class OctopusAllocation:
             "obligation_to_node": dict(self.obligation_to_node),
             "operator_to_node": dict(self.operator_to_node),
             "operator_to_center": dict(self.operator_to_center),
+            "allocation_key": self.allocation_key,
+            "deterministic_replay": self.allocation_key is not None,
             "recursive_invocation_allowed": True,
             "species_position_fixed": False,
             "caller_is_provenance_not_center": True,
@@ -148,6 +159,7 @@ def allocate_invocation(
     candidate_centers_by_operator: Mapping[str, Iterable[str]] | None = None,
     phase36_by_operator: Mapping[str, Sequence[float]] | None = None,
     join_to_caller: bool = True,
+    allocation_key: str | None = None,
     max_states: int = 65_536,
 ) -> OctopusAllocation:
     """Allocate runtime nodes for obligations discovered by any open node.
@@ -158,6 +170,7 @@ def allocate_invocation(
     the allocator again, producing subnodes and sub-subnodes without assigning
     any fixed hierarchy to a species.
 
+    allocation_key optionally makes node identities deterministic and replay-safe.
     caller_id is immutable provenance. center_by_operator fixes a non-causal
     center explicitly. candidate_centers_by_operator lets OCTOPUS choose among
     open candidates by fabric locality with optional T^36 tie-breaking.
@@ -204,12 +217,68 @@ def allocate_invocation(
         route_ids=route_ids,
     )
     partition = _partition_obligations(ordered, route)
-
-    requests: list[SpawnRequest] = []
-    selected_centers: list[tuple[str, str]] = []
     ordered_operators = tuple(
         sorted(route.operators, key=lambda operator: operator.operator_id)
     )
+    stable_key = None
+    if allocation_key is not None:
+        stable_key = _strict_text(allocation_key, "allocation_key")
+        if len(stable_key) > 256:
+            raise ValueError("allocation_key must contain at most 256 characters")
+
+    deterministic_ids = {
+        operator.operator_id: _deterministic_node_id(
+            caller.node_id,
+            stable_key,
+            operator.operator_id,
+        )
+        for operator in ordered_operators
+    } if stable_key is not None else {}
+
+    if deterministic_ids:
+        existing = {node.node_id: node for node in fabric.nodes()}
+        expected_ids = tuple(deterministic_ids[operator.operator_id] for operator in ordered_operators)
+        present = tuple(node_id for node_id in expected_ids if node_id in existing)
+        if present and len(present) != len(expected_ids):
+            raise RuntimeError("partial deterministic allocation exists")
+        if len(present) == len(expected_ids):
+            nodes = tuple(existing[node_id] for node_id in expected_ids)
+            for operator, node in zip(ordered_operators, nodes):
+                if node.species != operator.species:
+                    raise RuntimeError("deterministic allocation species mismatch")
+                if node.caller_id != caller.node_id:
+                    raise RuntimeError("deterministic allocation caller mismatch")
+                if node.authority_root_id != fabric.authority_root_id:
+                    raise RuntimeError("deterministic allocation authority mismatch")
+                if node.obligations != partition[operator.operator_id]:
+                    raise RuntimeError("deterministic allocation obligation mismatch")
+            operator_to_node = tuple(
+                (operator.operator_id, node.node_id)
+                for operator, node in zip(ordered_operators, nodes)
+            )
+            operator_node_map = dict(operator_to_node)
+            obligation_to_node = tuple(
+                (
+                    obligation,
+                    operator_node_map[_operator_for_obligation(route, obligation).operator_id],
+                )
+                for obligation in ordered
+            )
+            return OctopusAllocation(
+                caller_id=caller.node_id,
+                route_plan=route,
+                nodes=nodes,
+                obligation_to_node=obligation_to_node,
+                operator_to_node=operator_to_node,
+                operator_to_center=tuple(
+                    (operator.operator_id, node.center_id or caller.node_id)
+                    for operator, node in zip(ordered_operators, nodes)
+                ),
+                allocation_key=stable_key,
+            )
+
+    requests: list[SpawnRequest] = []
+    selected_centers: list[tuple[str, str]] = []
     for operator in ordered_operators:
         operator_id = operator.operator_id
         phase = phase_map.get(operator_id)
@@ -236,6 +305,7 @@ def allocate_invocation(
                 causal_dependencies=(),
                 join_to_caller=join_to_caller,
                 phase36=None if phase is None else tuple(phase),
+                node_id=deterministic_ids.get(operator_id),
             )
         )
 
@@ -260,6 +330,7 @@ def allocate_invocation(
         obligation_to_node=tuple(obligation_to_node),
         operator_to_node=operator_to_node,
         operator_to_center=tuple(selected_centers),
+        allocation_key=stable_key,
     )
 
 
