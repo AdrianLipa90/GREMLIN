@@ -630,8 +630,11 @@ Adaptive operator sets are fail-fast validated and cannot contain control-plane
 or unknown species. This prevents OCTOPUS/GREMLIN/FERRET/HUMMINGBIRD from being
 accidentally allocated as ordinary workload nodes.
 
-The local frontier is reserved for explicit control-plane nodes. Local
-execution uses the same lifecycle contract:
+The local frontier contains explicit control-plane nodes plus dynamic workload
+nodes whose species has an explicitly registered local adapter. A local adapter
+therefore changes the backend, not the species or routing obligation.
+
+Local execution uses the same lifecycle contract:
 
 ```text
 mark_started
@@ -1316,19 +1319,23 @@ Supplying one of these roles as an adaptive workload operator fails closed.
 
 All remaining Bestiary roles may participate in exact-cover planning.
 
-Roles with validated external scheduler carriers continue through WorkerBroker.
+All dynamic workload roles may continue through WorkerBroker. Roles with a
+validated PhaseNav carrier use its anchor; roles without one remain
+carrier-neutral rather than receiving an invented carrier.
 
-### Local execution modules
+### Local-adapter eligible modules
 
 ```text
 ELEPHANT
 BEES
 ```
 
-These roles are routable but do not yet receive a synthetic PhaseNav carrier
-merely to make external dispatch convenient.
+These roles are routable and WorkerBroker-compatible, while still lacking
+validated PhaseNav species carriers.
 
-They may execute through an explicit `LocalAdapterRegistry`.
+When an explicit `LocalAdapterRegistry` entry exists for one of these species,
+the executor binds that node to the local adapter backend instead of
+WorkerBroker. Without the adapter, the same species stays on WorkerBroker.
 
 A local adapter must declare:
 
@@ -1346,9 +1353,9 @@ side-effectful or non-replay-safe semantics.
 
 No default local adapter is silently installed.
 
-If a BEES/ELEPHANT node becomes ready without a registered adapter, the
-orchestration receipt reports `adapter_required` and leaves the node OPEN and
-unstarted.
+If a BEES/ELEPHANT node becomes ready without a registered adapter, it follows
+the normal WorkerBroker path for that same species. There is no substitution
+with another beast.
 
 ### Automatic local frontier
 
@@ -1368,7 +1375,9 @@ If the adapter raises, the node fails explicitly.
 
 If adapter output cannot satisfy the runtime contract, the node is quarantined.
 
-There is no fallback to an unrelated worker species.
+There is no fallback to an unrelated worker species. Backend selection is
+same-species and deterministic: explicit local adapter first, otherwise
+WorkerBroker.
 
 ### Local join reduction
 
@@ -1378,8 +1387,9 @@ Once a local node is self-complete and all join children resolve, its reducer
 receives the same committed local reduction packet used by worker-backed
 reductions.
 
-This removes the remaining need to route BEES/ELEPHANT reductions through a
-global BELZEBUB barrier.
+This removes the remaining need for any global BELZEBUB reduction barrier.
+If no local reducer is registered, the same BEES/ELEPHANT species may use its
+WorkerBroker reduction continuation instead.
 
 ### Adapter restart identity
 
@@ -1399,8 +1409,8 @@ The resulting role model is:
 control plane != workload execution
 
 workload execution
-  -> external worker carrier
-  -> or explicit replay-safe local adapter
+  -> WorkerBroker for the selected species
+  -> or explicit replay-safe local adapter for the same selected species
 ```
 
 with no silent third path.
@@ -1493,15 +1503,16 @@ HUMMINGBIRD, OCTOPUS, GREMLIN, FERRET
 routable workload roles:
 all Bestiary roles except the control-plane set
 
-local execution modules without external carrier:
+local-adapter eligible roles with neutral PhaseNav anchor:
 ELEPHANT, BEES
 ```
 
 Control-plane roles cannot be admitted as adaptive exact-cover execution
 operators.
 
-`ELEPHANT` and `BEES` are valid workload operators, but they require an
-explicit local adapter until validated external worker carriers exist.
+`ELEPHANT` and `BEES` are valid workload operators. They may execute
+through WorkerBroker with neutral carrier-anchor contribution, or through an
+explicit replay-safe local adapter when one is registered.
 
 ### Local adapter contract
 
@@ -1526,8 +1537,9 @@ step as WorkerBroker execution. A local module may recursively discover worker
 children, and an optional local reducer may close its subtree once those
 children resolve.
 
-Missing adapters never silently fall back to another species. The node remains
-open and is reported in `adapter_required`.
+Missing adapters never cause a species substitution. For BEES/ELEPHANT the
+same node remains WorkerBroker-backed; for genuinely local/core-only nodes an
+unavailable adapter remains explicit in the local frontier.
 
 ### Durable façade restore
 
