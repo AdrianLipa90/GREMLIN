@@ -3,6 +3,7 @@ from __future__ import annotations
 from copy import deepcopy
 from dataclasses import asdict, dataclass
 import hashlib
+import heapq
 import json
 from threading import RLock
 import time
@@ -333,6 +334,7 @@ class WorkerBroker:
         self._workers: dict[str, WorkerRecord] = {}
         self._tasks: dict[str, TaskRecord] = {}
         self._leases: dict[str, LeaseRecord] = {}
+        self._lease_expiry_heap: list[tuple[int, str]] = []
         self._queued_by_species: dict[str, dict[str, None]] = {
             name: {} for name in WORKER_SPECIES
         }
@@ -361,6 +363,18 @@ class WorkerBroker:
             raise RuntimeError("task species has no queue index")
         bucket.pop(task.task_id, None)
 
+    def _rebuild_lease_heap(self) -> None:
+        self._lease_expiry_heap = [
+            (lease.expires_ns, lease_id)
+            for lease_id, lease in self._leases.items()
+        ]
+        heapq.heapify(self._lease_expiry_heap)
+
+    def _maybe_compact_lease_heap(self) -> None:
+        threshold = max(64, 2 * len(self._leases) + 16)
+        if len(self._lease_expiry_heap) > threshold:
+            self._rebuild_lease_heap()
+
     def _rebuild_indexes(self) -> None:
         self._queued_by_species = {name: {} for name in WORKER_SPECIES}
         self._task_context_affinity = {}
@@ -371,6 +385,7 @@ class WorkerBroker:
                 self._unfinished_count += 1
             if task.state == "QUEUED":
                 self._queue_index_add(task)
+        self._rebuild_lease_heap()
 
     def _queued_rows(self, species: str) -> list[dict[str, Any]]:
         bucket = self._queued_by_species.get(species)
@@ -712,6 +727,7 @@ class WorkerBroker:
                 expires,
             )
             self._leases[lease_id] = lease
+            heapq.heappush(self._lease_expiry_heap, (expires, lease_id))
             omega = service_omega(PROFILES[selected_species]) if selected_species in PROFILES else None
             task_views = [self._task_view(task, include_payload=True) for task in chosen]
             bundle_commitment = (
@@ -858,6 +874,7 @@ class WorkerBroker:
                 if self._unfinished_count < 0:
                     raise RuntimeError("unfinished task counter underflow")
             del self._leases[lid]
+            self._maybe_compact_lease_heap()
             self._workers[wid].last_seen_ns = now
             return {
                 **receipt_core,
@@ -892,6 +909,8 @@ class WorkerBroker:
                 "state_persistence": "PROCESS_MEMORY_V0_2",
                 "registered_workers": len(self._workers),
                 "active_leases": len(self._leases),
+                "lease_expiry_heap_entries": len(self._lease_expiry_heap),
+                "lease_expiry_heap_indexed": True,
                 "unfinished_task_count": self._unfinished_count,
                 "queue_indexed": True,
                 "queued_index_counts": {
@@ -923,14 +942,22 @@ class WorkerBroker:
     def _reap_expired(self, now_ns: int) -> None:
         if isinstance(now_ns, bool) or not isinstance(now_ns, int):
             raise ValueError("now_ns must be an integer")
-        expired = [lid for lid, lease in self._leases.items() if lease.expires_ns <= now_ns]
-        for lid in expired:
-            lease = self._leases[lid]
+        while self._lease_expiry_heap and self._lease_expiry_heap[0][0] <= now_ns:
+            expires_ns, lid = heapq.heappop(self._lease_expiry_heap)
+            lease = self._leases.get(lid)
+            if lease is None:
+                continue
+            if lease.expires_ns != expires_ns:
+                continue
             for tid in lease.task_ids:
                 task = self._tasks.get(tid)
                 if task is None:
                     raise RuntimeError("expired lease references a missing task")
-                if task.state != "LEASED" or task.lease_id != lid or task.leased_to != lease.worker_id:
+                if (
+                    task.state != "LEASED"
+                    or task.lease_id != lid
+                    or task.leased_to != lease.worker_id
+                ):
                     raise RuntimeError("expired lease/task lineage is inconsistent")
             self._leases.pop(lid)
             for tid in lease.task_ids:
@@ -940,6 +967,7 @@ class WorkerBroker:
                 task.leased_to = None
                 task.lease_expires_ns = None
                 self._queue_index_add(task)
+        self._maybe_compact_lease_heap()
 
     @staticmethod
     def _scheduler_task_view(record: TaskRecord) -> dict[str, Any]:
