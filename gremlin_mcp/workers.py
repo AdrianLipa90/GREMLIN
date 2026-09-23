@@ -9,7 +9,14 @@ import time
 from typing import Any, Iterable, Mapping
 import uuid
 
-from gremlin_mcp.orchorbital_context import PACKET_PAYLOAD_KEY, reduce_context_packet
+from gremlin_mcp.orchorbital_context import (
+    BUNDLE_PAYLOAD_KEY,
+    BUNDLE_REF_PAYLOAD_KEY,
+    PACKET_PAYLOAD_KEY,
+    bundle_context_packets,
+    context_bundle_reference,
+    reduce_context_packet,
+)
 from gremlin_mcp.memory_capabilities import (
     authorize_memory_requests,
     validate_task_authorization_bundle,
@@ -396,16 +403,59 @@ class WorkerBroker:
             # Build and validate the receiver-specific transport view before
             # mutating any task or lease state. A malformed context packet must
             # never strand a task in LEASED state.
-            transport_payloads: dict[str, dict[str, Any]] = {}
+            transport_payloads: dict[str, dict[str, Any]] = {
+                task.task_id: deepcopy(task.payload) for task in chosen
+            }
+            raw_context_packets: dict[str, Mapping[str, Any]] = {}
+            for task in chosen:
+                raw_packet = task.payload.get(PACKET_PAYLOAD_KEY)
+                if raw_packet is None:
+                    continue
+                if not isinstance(raw_packet, Mapping):
+                    raise RuntimeError("orchorbital context packet must be an object")
+                raw_context_packets[task.task_id] = raw_packet
+
             cache_hits = 0
             original_context_bytes = 0
             transported_context_bytes = 0
-            for task in chosen:
-                payload = deepcopy(task.payload)
-                raw_packet = payload.get(PACKET_PAYLOAD_KEY)
-                if raw_packet is not None:
-                    if not isinstance(raw_packet, Mapping):
-                        raise RuntimeError("orchorbital context packet must be an object")
+            context_bundle: dict[str, object] | None = None
+            known_set = set(known_frames)
+
+            if len(raw_context_packets) >= 2:
+                context_bundle = bundle_context_packets(
+                    raw_context_packets,
+                    receiver_known_frames=known_frames,
+                )
+                source_bytes = context_bundle.get("full_packet_bytes")
+                bundle_bytes = context_bundle.get("bundle_bytes")
+                if (
+                    isinstance(source_bytes, bool)
+                    or not isinstance(source_bytes, int)
+                    or isinstance(bundle_bytes, bool)
+                    or not isinstance(bundle_bytes, int)
+                ):
+                    raise RuntimeError("orchorbital context bundle byte accounting is invalid")
+                original_context_bytes = source_bytes
+                transported_context_bytes = bundle_bytes
+                for task_id, raw_packet in raw_context_packets.items():
+                    payload = transport_payloads[task_id]
+                    payload.pop(PACKET_PAYLOAD_KEY, None)
+                    reference = context_bundle_reference(context_bundle, task_id)
+                    payload[BUNDLE_REF_PAYLOAD_KEY] = reference
+                    transported_context_bytes += len(_canonical(reference))
+                    target = raw_packet.get("target_frame_commitment")
+                    raw_frames = raw_packet.get("frames")
+                    if target in known_set or (
+                        isinstance(raw_frames, list)
+                        and any(
+                            isinstance(frame, Mapping)
+                            and frame.get("frame_commitment") in known_set
+                            for frame in raw_frames
+                        )
+                    ):
+                        cache_hits += 1
+            else:
+                for task_id, raw_packet in raw_context_packets.items():
                     reduced = reduce_context_packet(
                         raw_packet,
                         receiver_known_frames=known_frames,
@@ -425,8 +475,7 @@ class WorkerBroker:
                     transported_context_bytes += reduced_bytes
                     if reduced.get("cache_hit_frame_commitment") is not None:
                         cache_hits += 1
-                    payload[PACKET_PAYLOAD_KEY] = reduced
-                transport_payloads[task.task_id] = payload
+                    transport_payloads[task_id][PACKET_PAYLOAD_KEY] = reduced
 
             transport_pack_rows = [
                 {
@@ -475,6 +524,7 @@ class WorkerBroker:
                 "omega": omega,
                 "tasks": task_views,
                 "context_pack": context_pack,
+                BUNDLE_PAYLOAD_KEY: context_bundle,
                 "orchorbital_context_transport": {
                     "known_frame_count": len(known_frames),
                     "packet_task_count": sum(
@@ -484,6 +534,12 @@ class WorkerBroker:
                         and PACKET_PAYLOAD_KEY in task["payload"]
                     ),
                     "cache_hit_task_count": cache_hits,
+                    "bundle_used": context_bundle is not None,
+                    "bundle_unique_frame_count": (
+                        0
+                        if context_bundle is None
+                        else int(context_bundle["unique_frame_count"])
+                    ),
                     "full_packet_bytes": original_context_bytes,
                     "transport_packet_bytes": transported_context_bytes,
                     "byte_saving_fraction": (
