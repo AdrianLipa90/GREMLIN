@@ -1578,3 +1578,58 @@ fixtures for:
 
 These are bounded fixture results, not a universal proof and not an end-to-end
 speedup claim.
+
+
+## Structural span benchmark: global barriers vs local joins
+
+A deterministic work/span model now compares two synchronization policies over
+the same task-cost matrix.
+
+### Legacy stage barrier
+
+```text
+for stage k:
+    all branches execute stage k
+    wait for the slowest branch
+    only then permit every branch to enter stage k+1
+```
+
+Its modeled span is:
+
+```text
+T_global = sum_k max_branch cost(branch, k)
+```
+
+### Orchorbital local dependency
+
+```text
+each branch enters its next local stage as soon as its own prerequisite closes
+```
+
+Its modeled unlimited-parallelism span is:
+
+```text
+T_local = max_branch sum_k cost(branch, k)
+```
+
+The total task work is identical in both schedules.
+
+For the explicit rotating-straggler fixture:
+
+```text
+branches = 256
+stages = 256
+fast task cost = 1
+one rotating stage straggler cost = 1000
+```
+
+the model removes 255 global stage barriers and yields a structural span ratio
+greater than 200.
+
+This is deliberately **not** labeled as observed runtime speedup. The model
+does not include finite worker count, scheduler overhead, communication,
+serialization, memory bandwidth or model inference latency.
+
+A uniform-cost control fixture must produce exactly 1.0 span ratio. That control
+prevents the benchmark from manufacturing a gain when no barrier/straggler
+interaction exists.
