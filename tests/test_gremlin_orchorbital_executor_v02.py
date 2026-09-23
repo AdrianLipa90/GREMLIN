@@ -4,9 +4,11 @@ import pytest
 
 from gremlin_mcp.adaptive_runtime import OperatorTier, ResourceBudget, ResourceCost
 from gremlin_mcp.orchorbital_allocator import allocate_invocation
+from gremlin_mcp.orchorbital_context import OrbitalContextStore, apply_context_packet
 from gremlin_mcp.orchorbital_executor import (
     DISCOVERY_KEY,
     DISCOVERY_SCHEMA,
+    ORBITAL_CONTEXT_PACKET_KEY,
     OrchorbitalExecutor,
 )
 from gremlin_mcp.orchorbital_fabric import OrchorbitalFabric
@@ -343,3 +345,84 @@ def test_execution_id_namespaces_deterministic_worker_tasks() -> None:
     )
 
     assert first.deterministic_task_id(node.node_id) != second.deterministic_task_id(node.node_id)
+
+
+def test_context_packet_is_committed_into_worker_task_and_reconstructs_losslessly() -> None:
+    fabric = OrchorbitalFabric()
+    broker = WorkerBroker()
+    broker.register_worker("worker-1", ["SPIDER"], vector_width=2, max_batch=4)
+    node = allocate_invocation(
+        fabric,
+        "AUTH:ROOT",
+        ("graph",),
+        operators(),
+        budget=BUDGET,
+    ).nodes[0]
+
+    contexts = OrbitalContextStore(fabric)
+    contexts.bind_root({"shared": "R" * 1000, "mode": "root"})
+    contexts.inherit_from_caller(
+        node.node_id,
+        set_values={"mode": "spider", "local": "delta"},
+    )
+    executor = OrchorbitalExecutor(
+        execution_id="ctx-exec",
+        fabric=fabric,
+        broker=broker,
+        operators=operators(),
+        budget=BUDGET,
+        context_store=contexts,
+    )
+
+    record = executor.ensure_dispatched(node.node_id, {"query": "local-only"})
+    lease = broker.claim("worker-1", species="SPIDER", limit=1)
+    payload = lease["tasks"][0]["payload"]
+    packet = payload[ORBITAL_CONTEXT_PACKET_KEY]
+    decoded = apply_context_packet(packet)
+
+    assert record.task_id == lease["tasks"][0]["task_id"]
+    assert decoded["materialized_context"] == contexts.materialize(node.node_id)
+    assert payload["input"] == {"query": "local-only"}
+
+
+def test_missing_context_binding_fails_before_execution_start() -> None:
+    fabric = OrchorbitalFabric()
+    broker = WorkerBroker()
+    node = allocate_invocation(
+        fabric,
+        "AUTH:ROOT",
+        ("graph",),
+        operators(),
+        budget=BUDGET,
+    ).nodes[0]
+    contexts = OrbitalContextStore(fabric)
+    contexts.bind_root({"root": True})
+    executor = OrchorbitalExecutor(
+        execution_id="ctx-missing",
+        fabric=fabric,
+        broker=broker,
+        operators=operators(),
+        budget=BUDGET,
+        context_store=contexts,
+    )
+
+    with pytest.raises(ValueError, match="node context is not bound"):
+        executor.ensure_dispatched(node.node_id, {"query": "x"})
+
+    assert fabric.node(node.node_id).execution_started is False
+
+
+def test_context_store_from_different_fabric_is_rejected() -> None:
+    fabric = OrchorbitalFabric()
+    other = OrchorbitalFabric(root_id="OTHER:ROOT")
+    contexts = OrbitalContextStore(other)
+
+    with pytest.raises(ValueError, match="same fabric"):
+        OrchorbitalExecutor(
+            execution_id="bad-context-store",
+            fabric=fabric,
+            broker=WorkerBroker(),
+            operators=operators(),
+            budget=BUDGET,
+            context_store=contexts,
+        )
