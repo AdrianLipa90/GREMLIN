@@ -12,6 +12,7 @@ on:
       - 'gremlin_mcp/persistent_workers.py'
       - 'gremlin_mcp/server.py'
       - 'gremlin_mcp/tool_catalog.py'
+      - 'tools/gremlin_orchorbital_context_transport_bench_v01.py'
       - 'gremlin_mcp/core.py'
       - 'gremlin_mcp/worker_client.py'
       - 'gremlin_mcp/product_server.py'
@@ -20,6 +21,7 @@ on:
       - 'tests/test_gremlin_orchorbital_context_v01.py'
       - 'tests/test_gremlin_orchorbital_worker_transport_v02.py'
       - 'tests/test_gremlin_orchorbital_context_transport_v01.py'
+      - 'tests/test_gremlin_orchorbital_context_transport_bench_v01.py'
       - 'tests/test_gremlin_mcp_worker_client_v02.py'
       - 'tests/test_gremlin_mcp_worker_abi_v02.py'
       - 'spec/GREMLIN_ORCHORBITAL_FABRIC_V0_2.md'
@@ -51,6 +53,7 @@ jobs:
           gremlin_mcp/product_server.py
           gremlin_mcp/core.py
           gremlin_mcp/tool_catalog.py
+          tools/gremlin_orchorbital_context_transport_bench_v01.py
       - name: Run orchorbital contract suite
         run: >-
           python -m pytest -q
@@ -59,5 +62,12 @@ jobs:
           tests/test_gremlin_orchorbital_context_v01.py
           tests/test_gremlin_orchorbital_worker_transport_v02.py
           tests/test_gremlin_orchorbital_context_transport_v01.py
+          tests/test_gremlin_orchorbital_context_transport_bench_v01.py
           tests/test_gremlin_mcp_worker_client_v02.py
           tests/test_gremlin_mcp_worker_abi_v02.py
+
+      - name: Run bounded context transport benchmark
+        run: >-
+          python -c "from tools.gremlin_orchorbital_context_transport_bench_v01 import run_benchmark;
+          r=run_benchmark(branches=3, depth=4, shared_chars=4096, delta_chars=64, cache_limit=64);
+          assert r['verdict'].startswith('PASS_'), r"
