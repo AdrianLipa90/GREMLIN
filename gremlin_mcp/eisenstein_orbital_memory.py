@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import cmath
+import hashlib
 import math
 from typing import Any, Iterable, Mapping, Sequence
 
@@ -354,12 +355,78 @@ def _nearest_hex_direction(angle: float) -> int:
     ) % 6
 
 
-def packet_orbital_word(
+def _semantic_route_atoms(
+    packet: Mapping[str, Any],
+) -> tuple[tuple[str, int], ...]:
+    concepts = tuple(
+        str(x)
+        for x in packet.get("concept_atoms", ())
+        if str(x)
+    )
+    numeric = tuple(
+        str(x)
+        for x in packet.get("numeric_atoms", ())
+        if str(x)
+    )
+    lexical = tuple(
+        str(x)
+        for x in packet.get("lexical_atoms", ())
+        if str(x)
+    )
+
+    # Same relative weights as the relational-memory scorer,
+    # multiplied by two to obtain exact integer replication counts:
+    # concept 3 -> 6, numeric 2 -> 4, lexical 0.5 -> 1.
+    if concepts or numeric:
+        atoms = (
+            [(atom, 6) for atom in concepts]
+            + [(atom, 4) for atom in numeric]
+        )
+    else:
+        atoms = [(atom, 1) for atom in lexical]
+    return tuple(sorted(atoms))
+
+
+def _semantic_orbital_word(
+    packet: Mapping[str, Any],
+) -> tuple[int, ...] | None:
+    atoms = _semantic_route_atoms(packet)
+    if not atoms:
+        return None
+
+    word: list[int] = []
+    for level in range(ROWS):
+        best_score: int | None = None
+        best_digest: bytes | None = None
+        for atom, replicas in atoms:
+            for replica in range(replicas):
+                digest = hashlib.sha256(
+                    (
+                        f"{SCHEMA}|SEMANTIC_LSH|{level}|"
+                        f"{atom}|{replica}"
+                    ).encode("utf-8")
+                ).digest()
+                score = int.from_bytes(
+                    digest[:8],
+                    "big",
+                )
+                if (
+                    best_score is None
+                    or score < best_score
+                ):
+                    best_score = score
+                    best_digest = digest
+        if best_digest is None:
+            return None
+        word.append(best_digest[8] % 6)
+    return tuple(word)
+
+
+def _phase_orbital_word(
     packet: Mapping[str, Any],
     *,
     zero_tolerance: float = 1e-15,
 ) -> tuple[int, ...]:
-    """One recursive direction for each active 6D projection row."""
     phase, amp = _phase_packet(packet)
     word: list[int] = []
     for row in range(ROWS):
@@ -381,6 +448,38 @@ def packet_orbital_word(
             "packet has no active projection row"
         )
     return tuple(word)
+
+
+def packet_orbital_route(
+    packet: Mapping[str, Any],
+    *,
+    zero_tolerance: float = 1e-15,
+) -> tuple[tuple[int, ...], str]:
+    semantic = _semantic_orbital_word(packet)
+    if semantic is not None:
+        return (
+            semantic,
+            "SEMANTIC_ATOM_WEIGHTED_MINHASH",
+        )
+    return (
+        _phase_orbital_word(
+            packet,
+            zero_tolerance=zero_tolerance,
+        ),
+        "PHASE36_ROW_RESULTANT",
+    )
+
+
+def packet_orbital_word(
+    packet: Mapping[str, Any],
+    *,
+    zero_tolerance: float = 1e-15,
+) -> tuple[int, ...]:
+    word, _ = packet_orbital_route(
+        packet,
+        zero_tolerance=zero_tolerance,
+    )
+    return word
 
 
 def prefix_neighborhood(
@@ -427,6 +526,7 @@ class EisensteinOrbitalCell:
     priority_orbit_index: int
     semantic_orbit_id: str | None
     semantic_commitment: str
+    route_source: str
 
 
 class EisensteinOrbitalIndex:
@@ -496,14 +596,16 @@ class EisensteinOrbitalIndex:
             priority=priority,
         )
 
-        word = (
-            packet_orbital_word(packet)
-            if route_word is None
-            else tuple(
+        if route_word is None:
+            word, route_source = packet_orbital_route(
+                packet
+            )
+        else:
+            word = tuple(
                 int(x) % 6
                 for x in route_word
             )
-        )
+            route_source = "EXPLICIT_ROUTE_WORD"
         if not word:
             raise EisensteinMemoryError(
                 "route_word may not be empty"
@@ -570,6 +672,7 @@ class EisensteinOrbitalIndex:
             semantic_commitment=(
                 holo_cell.semantic_commitment
             ),
+            route_source=route_source,
         )
 
         self._cells[mid] = cell
@@ -656,7 +759,7 @@ class EisensteinOrbitalIndex:
                 "coarse or trajectory"
             )
 
-        word = packet_orbital_word(cue)
+        word, route_source = packet_orbital_route(cue)
         requested_depth = min(
             max(int(prefix_depth), 0),
             len(word),
@@ -764,6 +867,7 @@ class EisensteinOrbitalIndex:
                 "ORBITAL_SHORTLIST_V0_2"
             ),
             "word": word,
+            "route_source": route_source,
             "address": {
                 "a": query_address.code.a,
                 "b": query_address.code.b,
