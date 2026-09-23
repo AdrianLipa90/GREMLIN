@@ -128,6 +128,17 @@ def gremlin_status() -> dict[str, Any]:
         "execution_admitted": False,
         "canon_allowed": False,
     }
+    result["user_task_gateway"] = {
+        "status": "AVAILABLE",
+        "schema": "GREMLIN_USER_TASK_GATEWAY_V0_1",
+        "default_tool": "gremlin_handle_user_task",
+        "queue_tool": "gremlin_queue_user_task",
+        "semantic_compiler": "GREMLIN_SEMANTIC_GRAPH_TRANSFORMER_V0_1",
+        "phasenav_space": "T^36",
+        "phasenav_role": "SCHEDULING_LOCALITY_AND_ORDER_HINT",
+        "external_effects_authorized": False,
+        "canon_allowed": False,
+    }
     result["relational_cases"] = {
         "status": "AVAILABLE",
         "language": "pl",
