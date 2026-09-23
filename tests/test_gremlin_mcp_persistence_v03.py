@@ -237,3 +237,65 @@ def test_sqlite_hydration_rejects_canonical_context_that_is_structurally_invalid
 
     with pytest.raises(RuntimeError, match="failed closed"):
         PersistentWorkerBroker(str(state))
+
+
+def test_sqlite_hydration_rebuilds_orbital_context_ancestry_index(tmp_path) -> None:
+    from gremlin_mcp.orchorbital_context import (
+        PACKET_PAYLOAD_KEY,
+        OrbitalContextStore,
+    )
+    from gremlin_mcp.orchorbital_fabric import OrchorbitalFabric
+
+    state = tmp_path / "gremlin-context-index-rebuild.sqlite3"
+    fabric = OrchorbitalFabric(max_nodes=8)
+    anchor = fabric.spawn(
+        "AUTH:ROOT",
+        "SPIDER",
+        node_id="PERSIST-ANCHOR",
+        join_to_caller=False,
+    )
+    leaf = fabric.spawn(
+        anchor.node_id,
+        "SPIDER",
+        node_id="PERSIST-LEAF",
+        join_to_caller=False,
+    )
+    store = OrbitalContextStore(fabric)
+    store.bind_root({"shared": "persistent-context-index"})
+    store.inherit_from_caller(anchor.node_id, set_values={"branch": "warm"})
+    store.inherit_from_caller(leaf.node_id, set_values={"leaf": "one"})
+    parent_frame = store.frame(anchor.node_id).frame_commitment
+
+    first = PersistentWorkerBroker(str(state))
+    first.register_worker("context-index-worker", ["SPIDER"], max_batch=1)
+    first.enqueue(
+        "SPIDER",
+        {PACKET_PAYLOAD_KEY: store.packet(leaf.node_id)},
+        task_id="persist-context-index-task",
+    )
+    before = first.queue_status()
+    assert before["context_ancestry_indexed"] is True
+    assert before["context_index_bucket_counts"]["SPIDER"] > 0
+    assert before["context_index_member_references"]["SPIDER"] > 0
+    first.close()
+
+    second = PersistentWorkerBroker(str(state))
+    try:
+        restored = second.queue_status()
+        assert restored["context_ancestry_indexed"] is True
+        assert restored["context_index_bucket_counts"]["SPIDER"] > 0
+        assert restored["context_index_member_references"]["SPIDER"] > 0
+
+        lease = second.claim(
+            "context-index-worker",
+            species="SPIDER",
+            limit=1,
+            known_context_frames=(parent_frame,),
+        )
+        scope = lease["scheduler"]["context_candidate_scope"]
+        assert scope["active"] is True
+        assert scope["hit"] is True
+        assert scope["indexed_local_count"] == 1
+        assert lease["tasks"][0]["task_id"] == "persist-context-index-task"
+    finally:
+        second.close()
