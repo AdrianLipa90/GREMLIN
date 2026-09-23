@@ -152,8 +152,20 @@ class OrbitalContextStore:
         base_node_id: str | None,
         set_values: Mapping[str, Any],
         delete_keys: Iterable[str],
+        require_fabric_node: bool = True,
     ) -> ContextFrame:
-        node = self.fabric.node(node_id)
+        if require_fabric_node:
+            canonical_id = self.fabric.node(node_id).node_id
+        else:
+            canonical_id = _strict_text(node_id, "frame_id")
+            try:
+                self.fabric.node(canonical_id)
+            except ValueError:
+                pass
+            else:
+                raise ValueError(
+                    "shared context frame id must not collide with a fabric node"
+                )
         values = _strict_mapping(set_values, "set_values")
         deletes = _strict_delete_keys(delete_keys)
         overlap = set(values) & set(deletes)
@@ -163,16 +175,18 @@ class OrbitalContextStore:
             )
 
         if base_node_id is None:
-            if node.node_id != self.fabric.authority_root_id:
+            if (
+                not require_fabric_node
+                or canonical_id != self.fabric.authority_root_id
+            ):
                 raise ValueError("only authority root may bind a context without a base")
             base_context: dict[str, Any] = {}
             base_commitment = None
             depth = 0
         else:
             base_id = _strict_text(base_node_id, "base_node_id")
-            if base_id == node.node_id:
+            if base_id == canonical_id:
                 raise ValueError("context frame cannot base on itself")
-            self.fabric.node(base_id)
             base_frame = self._frames.get(base_id)
             if base_frame is None:
                 raise ValueError("base node context is not bound")
@@ -186,14 +200,14 @@ class OrbitalContextStore:
         materialized.update(deepcopy(values))
         materialized_digest = _materialized_commitment(materialized)
         frame_digest = _frame_commitment(
-            node_id=node.node_id,
+            node_id=canonical_id,
             base_frame_commitment=base_commitment,
             set_values=values,
             delete_keys=deletes,
             materialized_commitment=materialized_digest,
         )
         frame = ContextFrame(
-            node_id=node.node_id,
+            node_id=canonical_id,
             base_node_id=base_node_id,
             base_frame_commitment=base_commitment,
             frame_commitment=frame_digest,
@@ -203,14 +217,14 @@ class OrbitalContextStore:
             delete_keys=deletes,
         )
 
-        prior = self._frames.get(node.node_id)
+        prior = self._frames.get(canonical_id)
         if prior is not None:
             if prior.frame_commitment == frame.frame_commitment:
                 return prior
             raise RuntimeError("node context is immutable once bound")
 
-        self._frames[node.node_id] = frame
-        self._materialized[node.node_id] = deepcopy(materialized)
+        self._frames[canonical_id] = frame
+        self._materialized[canonical_id] = deepcopy(materialized)
         return frame
 
     def bind_root(self, context: Mapping[str, Any]) -> ContextFrame:
@@ -234,6 +248,25 @@ class OrbitalContextStore:
             base_node_id=_strict_text(base_node_id, "base_node_id"),
             set_values={} if set_values is None else set_values,
             delete_keys=delete_keys,
+        )
+
+    def bind_shared_frame(
+        self,
+        frame_id: str,
+        *,
+        base_frame_id: str,
+        set_values: Mapping[str, Any] | None = None,
+        delete_keys: Iterable[str] = (),
+    ) -> ContextFrame:
+        fid = _strict_text(frame_id, "frame_id")
+        if not fid.startswith("CTX:"):
+            raise ValueError("shared context frame id must start with CTX:")
+        return self._bind(
+            node_id=fid,
+            base_node_id=_strict_text(base_frame_id, "base_frame_id"),
+            set_values={} if set_values is None else set_values,
+            delete_keys=delete_keys,
+            require_fabric_node=False,
         )
 
     def inherit_from_caller(
@@ -370,7 +403,12 @@ class OrbitalContextStore:
             "authority_root_id": self.fabric.authority_root_id,
             "frame_count": len(self._frames),
             "frames": [
-                self._frames[node_id].public_view()
+                {
+                    **self._frames[node_id].public_view(),
+                    "frame_kind": (
+                        "SHARED" if node_id.startswith("CTX:") else "NODE"
+                    ),
+                }
                 for node_id in sorted(self._frames)
             ],
             "raw_values_included": False,
