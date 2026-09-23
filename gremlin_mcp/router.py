@@ -7,6 +7,7 @@ import re
 import unicodedata
 from typing import Any, Iterable, Mapping
 
+from gremlin_mcp.continuous_benchmark import record_octopus_route
 from gremlin_mcp.pipeline import SPECIALISTS, fanout
 from gremlin_mcp.workers import MEMORY_AUTHORIZATION_KEY, MEMORY_REQUESTS_KEY, WorkerBroker
 from tools.gremlin_geometry_phase_scheduler_v01 import SCHEDULER_KEY
@@ -291,7 +292,7 @@ def route(
         ROUTE_DOMAIN + _canonical(commitment_core), digest_size=32
     ).hexdigest()
 
-    return {
+    decision = {
         "schema": ROUTER_SCHEMA,
         "version": ROUTER_VERSION,
         "mode": ROUTER_MODE,
@@ -304,6 +305,10 @@ def route(
         "route_commitment": route_commitment,
         "authority": _authority(),
     }
+    # Observational only: telemetry cannot alter the route commitment, mask or
+    # authority decision. Raw payload is never persisted by the benchmark layer.
+    record_octopus_route(body, decision)
+    return decision
 
 
 def auto_fanout(
