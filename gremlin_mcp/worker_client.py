@@ -18,6 +18,7 @@ from gremlin_mcp.orchorbital_context import (
     apply_context_bundle,
     apply_context_packet,
 )
+from gremlin_mcp.workers import worker_transport_commitment
 
 BatchHandler = Callable[[dict[str, Any]], Iterable[Mapping[str, Any]] | Awaitable[Iterable[Mapping[str, Any]]]]
 ORBITAL_CONTEXT_MATERIALIZED_KEY = "orchorbital_context"
@@ -172,6 +173,7 @@ class GremlinWorkerClient:
         bundle = claim.get(BUNDLE_PAYLOAD_KEY)
         bundle_targets: Mapping[str, Any] = {}
         provisional_cache: dict[str, dict[str, Any]] | None = None
+        active_bundle_commitment: str | None = None
         if bundle is not None:
             if not isinstance(bundle, Mapping):
                 raise GremlinWorkerClientError("worker claim context bundle must be an object")
@@ -184,6 +186,11 @@ class GremlinWorkerClient:
                 raise GremlinWorkerClientError(
                     "worker claim context bundle verification failed"
                 ) from exc
+            active_bundle_commitment = bundle.get("bundle_commitment")
+            if not isinstance(active_bundle_commitment, str):
+                raise GremlinWorkerClientError(
+                    "worker claim context bundle commitment is invalid"
+                )
             raw_targets = decoded_bundle.get("task_targets")
             raw_updates = decoded_bundle.get("cache_updates")
             if not isinstance(raw_targets, Mapping) or not isinstance(raw_updates, Mapping):
@@ -204,6 +211,43 @@ class GremlinWorkerClient:
                 raise GremlinWorkerClientError("worker claim contains duplicate task_id")
             expected.add(task_id)
             payload = task.get("payload")
+
+            delivered_commitment = task.get("transport_commitment")
+            requires_transport_commitment = (
+                isinstance(payload, Mapping)
+                and BUNDLE_REF_PAYLOAD_KEY in payload
+            )
+            if delivered_commitment is not None or requires_transport_commitment:
+                if not isinstance(delivered_commitment, str):
+                    raise GremlinWorkerClientError(
+                        f"worker claim task {index} requires transport commitment"
+                    )
+                species_name = task.get("species")
+                canonical_commitment = task.get("task_commitment")
+                if (
+                    not isinstance(species_name, str)
+                    or not isinstance(canonical_commitment, str)
+                    or not isinstance(payload, Mapping)
+                ):
+                    raise GremlinWorkerClientError(
+                        f"worker claim task {index} transport metadata is invalid"
+                    )
+                try:
+                    expected_transport = worker_transport_commitment(
+                        task_id=task_id,
+                        species=species_name,
+                        task_commitment=canonical_commitment,
+                        payload=payload,
+                        bundle_commitment=active_bundle_commitment,
+                    )
+                except ValueError as exc:
+                    raise GremlinWorkerClientError(
+                        f"worker claim task {index} transport metadata is invalid"
+                    ) from exc
+                if delivered_commitment != expected_transport:
+                    raise GremlinWorkerClientError(
+                        f"worker claim task {index} transport commitment mismatch"
+                    )
             if isinstance(payload, Mapping) and BUNDLE_REF_PAYLOAD_KEY in payload:
                 if bundle is None or provisional_cache is None:
                     raise GremlinWorkerClientError(
