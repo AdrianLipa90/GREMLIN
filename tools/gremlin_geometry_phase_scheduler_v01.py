@@ -245,6 +245,37 @@ def task_phase_state(row: Mapping[str, Any]) -> TaskPhaseState:
     return _task_state(row)
 
 
+def _states_for_rows(
+    rows: Sequence[Mapping[str, Any]],
+    precomputed_states: Mapping[str, TaskPhaseState] | None = None,
+) -> list[TaskPhaseState]:
+    if precomputed_states is None:
+        return [_task_state(row) for row in rows]
+    if not isinstance(precomputed_states, Mapping):
+        raise GeometryPhaseSchedulerError("precomputed_states must be a mapping")
+
+    states: list[TaskPhaseState] = []
+    for row in rows:
+        task_id = row.get("task_id")
+        if not isinstance(task_id, str) or not task_id:
+            raise GeometryPhaseSchedulerError("scheduler task requires task_id")
+        state = precomputed_states.get(task_id)
+        if not isinstance(state, TaskPhaseState):
+            raise GeometryPhaseSchedulerError(
+                f"precomputed state is unavailable for task: {task_id}"
+            )
+        if (
+            row.get("species") != state.species
+            or row.get("task_commitment") != state.task_commitment
+            or row.get("created_ns") != state.created_ns
+        ):
+            raise GeometryPhaseSchedulerError(
+                f"precomputed state lineage mismatch for task: {task_id}"
+            )
+        states.append(state)
+    return states
+
+
 def _age_boost(state: TaskPhaseState, now_ns: int) -> float:
     if now_ns < state.created_ns:
         return 0.0
@@ -281,10 +312,15 @@ def task_priority(state: TaskPhaseState, centroid: Sequence[float], *, now_ns: i
     )
 
 
-def queue_metrics(rows: Sequence[Mapping[str, Any]], *, now_ns: int) -> dict[str, Any]:
+def queue_metrics(
+    rows: Sequence[Mapping[str, Any]],
+    *,
+    now_ns: int,
+    precomputed_states: Mapping[str, TaskPhaseState] | None = None,
+) -> dict[str, Any]:
     if not rows:
         raise GeometryPhaseSchedulerError("queue metrics require at least one task")
-    states = [_task_state(row) for row in rows]
+    states = _states_for_rows(rows, precomputed_states)
     eligible = [s for s in states if s.readiness > 0.0]
     if not eligible:
         return {
@@ -337,13 +373,18 @@ def choose_species(
     now_ns: int,
     cadence_hint: Mapping[str, float] | None = None,
     locality_hint: Mapping[str, float] | None = None,
+    precomputed_states: Mapping[str, TaskPhaseState] | None = None,
 ) -> tuple[str | None, dict[str, Any]]:
     metrics: dict[str, dict[str, Any]] = {}
     candidates: list[tuple[float, float, str]] = []
     for species, rows in queues.items():
         if species not in SCHEDULER_SPECIES or not rows:
             continue
-        m = queue_metrics(rows, now_ns=now_ns)
+        m = queue_metrics(
+            rows,
+            now_ns=now_ns,
+            precomputed_states=precomputed_states,
+        )
         metrics[species] = m
         if not m["eligible"]:
             continue
@@ -459,10 +500,11 @@ def select_batch(
     now_ns: int,
     affinity_by_task: Mapping[str, Iterable[str]] | None = None,
     receiver_known_affinity: Iterable[str] | None = None,
+    precomputed_states: Mapping[str, TaskPhaseState] | None = None,
 ) -> tuple[list[str], dict[str, Any]]:
     if isinstance(limit, bool) or not isinstance(limit, int) or limit <= 0:
         raise GeometryPhaseSchedulerError("limit must be a positive integer")
-    states = [_task_state(row) for row in rows]
+    states = _states_for_rows(rows, precomputed_states)
     eligible = [s for s in states if s.readiness > 0.0]
     if not eligible:
         return [], {
@@ -601,6 +643,7 @@ def select_batch(
         "ready_count": len(eligible),
         "queued_count": len(states),
         "fifo_used_for_selection": False,
+        "precomputed_state_cache_used": precomputed_states is not None,
         "authority": {
             "production_runtime_write": False,
             "execution_admitted": False,
