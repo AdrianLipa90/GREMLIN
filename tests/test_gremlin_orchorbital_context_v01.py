@@ -506,3 +506,64 @@ def test_snapshot_reports_delta_only_storage_and_cache_bounds() -> None:
     assert snapshot["delta_only_storage"] is True
     assert snapshot["materialization_cache_limit_frames"] == 1
     assert snapshot["materialization_cache_size"] <= 1
+
+
+def test_context_checkpoint_restore_preserves_shared_frames_and_cache_bound() -> None:
+    fabric, a, b = fabric_with_chain()
+    sibling = fabric.spawn(
+        a.node_id,
+        "OWL",
+        node_id="CHECKPOINT-SIBLING",
+        join_to_caller=False,
+    )
+    store = OrbitalContextStore(
+        fabric,
+        materialization_cache_frames=2,
+    )
+    store.bind_root({"root": "R", "nested": {"v": 1}})
+    store.inherit_from_caller(a.node_id, set_values={"branch": "A"})
+    shared = store.bind_shared_frame(
+        "CTX:DISC:checkpoint",
+        base_frame_id=a.node_id,
+        set_values={"handoff": {"summary": "once"}},
+    )
+    store.bind_node(
+        b.node_id,
+        base_node_id=shared.node_id,
+        set_values={"leaf": "B"},
+    )
+    store.bind_node(
+        sibling.node_id,
+        base_node_id=shared.node_id,
+        set_values={"leaf": "S"},
+    )
+
+    checkpoint = store.checkpoint_state()
+    restored = OrbitalContextStore.from_checkpoint(
+        fabric,
+        deepcopy(checkpoint),
+    )
+
+    assert restored._materialization_cache_frames == 2
+    assert restored.frame(shared.node_id).frame_commitment == shared.frame_commitment
+    assert restored.materialize(b.node_id) == store.materialize(b.node_id)
+    assert restored.materialize(sibling.node_id) == store.materialize(
+        sibling.node_id
+    )
+    assert len(restored._materialized_cache) <= 2
+    assert restored.checkpoint_state()["checkpoint_commitment"] == checkpoint[
+        "checkpoint_commitment"
+    ]
+
+
+def test_context_checkpoint_tamper_fails_closed() -> None:
+    fabric, a, _ = fabric_with_chain()
+    store = OrbitalContextStore(fabric, materialization_cache_frames=3)
+    store.bind_root({"root": 1})
+    store.inherit_from_caller(a.node_id, set_values={"a": 1})
+    checkpoint = store.checkpoint_state()
+    tampered = deepcopy(checkpoint)
+    tampered["materialization_cache_frames"] = 999
+
+    with pytest.raises(ValueError, match="checkpoint commitment mismatch"):
+        OrbitalContextStore.from_checkpoint(fabric, tampered)
