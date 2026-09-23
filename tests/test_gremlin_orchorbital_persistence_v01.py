@@ -15,6 +15,7 @@ from gremlin_mcp.orchorbital_executor import (
     OrchorbitalExecutor,
 )
 from gremlin_mcp.orchorbital_fabric import OrchorbitalFabric
+from gremlin_mcp.orchorbital_local import LocalAdapterRegistry
 from gremlin_mcp.orchorbital_persistence import (
     DurableOrchorbitalRuntime,
     SQLiteOrchorbitalRuntimeStore,
@@ -374,3 +375,78 @@ def test_durable_runtime_checkpoints_after_each_orchestration_step(tmp_path) -> 
 
     store2.close()
     broker2.close()
+
+
+def test_runtime_store_restore_requires_matching_local_adapter_manifest(tmp_path) -> None:
+    runtime_path = tmp_path / "orchorbital-local-adapter.sqlite3"
+    fabric = OrchorbitalFabric()
+    contexts = OrbitalContextStore(fabric)
+    contexts.bind_root({"shared": "local-adapter-runtime"})
+    registry = LocalAdapterRegistry()
+    handler = lambda request: {"coherence": "pass"}
+    registry.register(
+        "BEES",
+        handler,
+        adapter_id="bees-runtime-store-v1",
+        implementation_commitment="b" * 64,
+    )
+    executor = OrchorbitalExecutor(
+        execution_id="adapter-store-flow",
+        fabric=fabric,
+        broker=WorkerBroker(),
+        operators=(
+            OperatorTier(
+                "BEES",
+                0,
+                frozenset({"coherence"}),
+                ResourceCost(1, 1, 1, 1),
+            ),
+        ),
+        budget=BUDGET,
+        context_store=contexts,
+        local_adapters=registry,
+    )
+    node = executor.allocate(
+        "AUTH:ROOT",
+        ("coherence",),
+        allocation_key="adapter-store-node",
+    ).nodes[0]
+    executor.orchestration_step()
+    assert fabric.node(node.node_id).status == "CLOSED"
+
+    store = SQLiteOrchorbitalRuntimeStore(runtime_path)
+    try:
+        store.save(executor)
+
+        restored = store.restore(
+            "adapter-store-flow",
+            broker=WorkerBroker(),
+            local_adapters=registry,
+        )
+        assert restored.local_adapters is registry
+        assert restored.checkpoint_state()["local_adapter_manifest"] == (
+            executor.checkpoint_state()["local_adapter_manifest"]
+        )
+
+        with pytest.raises(ValueError, match="local adapter manifest mismatch"):
+            store.restore(
+                "adapter-store-flow",
+                broker=WorkerBroker(),
+                local_adapters=None,
+            )
+
+        drifted = LocalAdapterRegistry()
+        drifted.register(
+            "BEES",
+            handler,
+            adapter_id="bees-runtime-store-v1",
+            implementation_commitment="c" * 64,
+        )
+        with pytest.raises(ValueError, match="local adapter manifest mismatch"):
+            store.restore(
+                "adapter-store-flow",
+                broker=WorkerBroker(),
+                local_adapters=drifted,
+            )
+    finally:
+        store.close()
