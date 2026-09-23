@@ -7,7 +7,11 @@ import json
 from typing import Any
 
 from gremlin_mcp.adaptive_runtime import OperatorTier, ResourceBudget
-from gremlin_mcp.orchorbital_allocator import OctopusAllocation, allocate_invocation
+from gremlin_mcp.orchorbital_allocator import (
+    MinimalCoverPlanCache,
+    OctopusAllocation,
+    allocate_invocation,
+)
 from gremlin_mcp.orchorbital_context import OrbitalContextStore, PACKET_PAYLOAD_KEY
 from gremlin_mcp.orchorbital_fabric import NodeInstance, OrchorbitalFabric
 from gremlin_mcp.workers import WORKER_SPECIES
@@ -143,6 +147,7 @@ class OrchorbitalExecutor:
         operators: Iterable[OperatorTier],
         budget: ResourceBudget,
         context_store: OrbitalContextStore | None = None,
+        planner_cache_entries: int = 512,
         max_states: int = 65_536,
     ) -> None:
         self.execution_id = _strict_text(
@@ -172,6 +177,9 @@ class OrchorbitalExecutor:
         self.operators = rows
         self.budget = budget
         self.max_states = max_states
+        self.planner_cache = MinimalCoverPlanCache(
+            max_entries=planner_cache_entries,
+        )
 
     def deterministic_task_id(self, node_id: str) -> str:
         return _task_id(self.execution_id, self.fabric.node(node_id))
@@ -359,6 +367,7 @@ class OrchorbitalExecutor:
             budget=self.budget,
             join_to_caller=True,
             allocation_key=f"{self.execution_id}:{key}",
+            planner_cache=self.planner_cache,
             max_states=self.max_states,
         )
 
@@ -627,6 +636,8 @@ class OrchorbitalExecutor:
             "worker_context_cache_negotiation": False,
             "deterministic_task_ids": True,
             "deterministic_discovery_allocations": True,
+            "planner_cache_scope": "EXECUTION_LOCAL",
+            "planner_cache": self.planner_cache.info(),
             "global_synthesis_barrier_required": False,
             "authority": "COGNITIVE_ROUTING_ONLY",
             "epistemic": "CHYBA",

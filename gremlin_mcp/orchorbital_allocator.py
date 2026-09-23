@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+from collections import OrderedDict
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 import hashlib
+from threading import RLock
 from typing import Any
 
 from gremlin_mcp.adaptive_runtime import (
@@ -20,6 +22,91 @@ from gremlin_mcp.orchorbital_fabric import (
 SCHEMA = "GREMLIN_OCTOPUS_ORCHORBITAL_ALLOCATOR_V0_2"
 VERSION = "0.2.1"
 ALLOCATION_DOMAIN = b"GREMLIN-ORCHORBITAL-ALLOCATION/v0.2\x00"
+DEFAULT_ROUTE_CACHE_ENTRIES = 512
+
+
+
+class MinimalCoverPlanCache:
+    """Bounded execution-local cache for exact minimal capability covers.
+
+    The key contains only immutable planner inputs. Callers own the cache
+    lifetime; no process-global obligation cache is created.
+    """
+
+    def __init__(self, *, max_entries: int = DEFAULT_ROUTE_CACHE_ENTRIES) -> None:
+        if (
+            isinstance(max_entries, bool)
+            or not isinstance(max_entries, int)
+            or max_entries < 1
+        ):
+            raise ValueError("max_entries must be a positive integer")
+        self._max_entries = max_entries
+        self._rows: OrderedDict[
+            tuple[
+                frozenset[str],
+                tuple[OperatorTier, ...],
+                ResourceBudget,
+                int,
+            ],
+            RoutePlan,
+        ] = OrderedDict()
+        self._hits = 0
+        self._misses = 0
+        self._lock = RLock()
+
+    def resolve(
+        self,
+        obligations: Sequence[str],
+        operators: Iterable[OperatorTier],
+        *,
+        budget: ResourceBudget,
+        max_states: int,
+    ) -> tuple[RoutePlan, bool]:
+        if not isinstance(budget, ResourceBudget):
+            raise ValueError("budget must be a ResourceBudget")
+        if (
+            isinstance(max_states, bool)
+            or not isinstance(max_states, int)
+            or max_states < 1
+        ):
+            raise ValueError("max_states must be a positive integer")
+        rows = tuple(operators)
+        if not rows or not all(isinstance(row, OperatorTier) for row in rows):
+            raise ValueError("operators must contain OperatorTier values")
+        key = (
+            frozenset(obligations),
+            rows,
+            budget,
+            max_states,
+        )
+        with self._lock:
+            cached = self._rows.get(key)
+            if cached is not None:
+                self._rows.move_to_end(key)
+                self._hits += 1
+                return cached, True
+
+            plan = minimal_capability_cover(
+                obligations,
+                rows,
+                budget=budget,
+                max_states=max_states,
+            )
+            self._misses += 1
+            self._rows[key] = plan
+            self._rows.move_to_end(key)
+            while len(self._rows) > self._max_entries:
+                self._rows.popitem(last=False)
+            return plan, False
+
+    def info(self) -> dict[str, int]:
+        with self._lock:
+            return {
+                "entries": len(self._rows),
+                "max_entries": self._max_entries,
+                "hits": self._hits,
+                "misses": self._misses,
+            }
 
 
 def _strict_text(value: Any, field: str) -> str:
@@ -121,6 +208,7 @@ class OctopusAllocation:
     operator_to_node: tuple[tuple[str, str], ...]
     operator_to_center: tuple[tuple[str, str], ...]
     allocation_key: str | None = None
+    planner_cache_hit: bool | None = None
 
     def receipt(self) -> dict[str, object]:
         return {
@@ -136,6 +224,8 @@ class OctopusAllocation:
             "operator_to_center": dict(self.operator_to_center),
             "allocation_key": self.allocation_key,
             "deterministic_replay": self.allocation_key is not None,
+            "planner_cache_enabled": self.planner_cache_hit is not None,
+            "planner_cache_hit": self.planner_cache_hit,
             "recursive_invocation_allowed": True,
             "species_position_fixed": False,
             "caller_is_provenance_not_center": True,
@@ -160,6 +250,7 @@ def allocate_invocation(
     phase36_by_operator: Mapping[str, Sequence[float]] | None = None,
     join_to_caller: bool = True,
     allocation_key: str | None = None,
+    planner_cache: MinimalCoverPlanCache | None = None,
     max_states: int = 65_536,
 ) -> OctopusAllocation:
     """Allocate runtime nodes for obligations discovered by any open node.
@@ -188,12 +279,26 @@ def allocate_invocation(
         raise RuntimeError("caller node must be open")
 
     ordered = _strict_obligations(obligations)
-    route = minimal_capability_cover(
-        ordered,
-        operators,
-        budget=budget,
-        max_states=max_states,
-    )
+    if planner_cache is not None and not isinstance(
+        planner_cache,
+        MinimalCoverPlanCache,
+    ):
+        raise ValueError("planner_cache must be a MinimalCoverPlanCache")
+    planner_cache_hit: bool | None = None
+    if planner_cache is None:
+        route = minimal_capability_cover(
+            ordered,
+            operators,
+            budget=budget,
+            max_states=max_states,
+        )
+    else:
+        route, planner_cache_hit = planner_cache.resolve(
+            ordered,
+            operators,
+            budget=budget,
+            max_states=max_states,
+        )
     route_ids = set(route.route_ids)
     center_map = _validate_operator_map(
         center_by_operator,
@@ -275,6 +380,7 @@ def allocate_invocation(
                     for operator, node in zip(ordered_operators, nodes)
                 ),
                 allocation_key=stable_key,
+                planner_cache_hit=planner_cache_hit,
             )
 
     requests: list[SpawnRequest] = []
@@ -331,10 +437,13 @@ def allocate_invocation(
         operator_to_node=operator_to_node,
         operator_to_center=tuple(selected_centers),
         allocation_key=stable_key,
+        planner_cache_hit=planner_cache_hit,
     )
 
 
 __all__ = [
+    "DEFAULT_ROUTE_CACHE_ENTRIES",
+    "MinimalCoverPlanCache",
     "OctopusAllocation",
     "SCHEMA",
     "VERSION",

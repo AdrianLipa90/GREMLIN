@@ -709,3 +709,32 @@ Successful-closure resolution for FAILED/QUARANTINED replacement chains and
 historical joins is memoized within each coherent invariant audit. The memo is
 not persisted across mutations, so topology/lifecycle changes cannot reuse a
 stale resolution result.
+
+
+## Execution-local exact-plan cache
+
+Recursive discovery can emit the same obligation set many times. Re-running the
+exact dynamic-programming minimal-cover solver for an identical immutable
+planner input is unnecessary.
+
+The allocator therefore supports a bounded `MinimalCoverPlanCache`. The cache
+key is:
+
+```text
+frozenset(obligations)
++ immutable OperatorTier tuple
++ ResourceBudget
++ max_states
+```
+
+The cache is owned by one `OrchorbitalExecutor`; it is not process-global.
+This prevents obligation strings or planning state from being retained across
+unrelated executions while still allowing recursive nodes in one execution to
+reuse an exact route.
+
+Cache entries are LRU-bounded (default 512). The cached object is the immutable
+`RoutePlan`; topology placement, center selection, node IDs and authority are
+still recomputed for every allocation.
+
+A cache hit therefore skips only the exact capability-cover search. It does not
+reuse runtime topology.

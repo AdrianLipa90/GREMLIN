@@ -1428,3 +1428,71 @@ def test_closure_resolution_memo_reuses_replacement_result_within_snapshot() -> 
     receipt = fabric.receipt()
     assert receipt["caller_root_reachability_single_pass"] is True
     assert receipt["closure_resolution_memoized_per_audit"] is True
+
+
+
+def test_minimal_cover_cache_is_bounded_and_execution_local() -> None:
+    from gremlin_mcp.orchorbital_allocator import MinimalCoverPlanCache
+
+    cache = MinimalCoverPlanCache(max_entries=2)
+    fabric = OrchorbitalFabric()
+    first = allocate_invocation(
+        fabric,
+        "AUTH:ROOT",
+        ("graph", "audit"),
+        operators(),
+        budget=BUDGET,
+        join_to_caller=False,
+        planner_cache=cache,
+    )
+    second = allocate_invocation(
+        fabric,
+        "AUTH:ROOT",
+        ("audit", "graph"),
+        operators(),
+        budget=BUDGET,
+        join_to_caller=False,
+        planner_cache=cache,
+    )
+
+    assert first.receipt()["planner_cache_hit"] is False
+    assert second.receipt()["planner_cache_hit"] is True
+    assert first.route_plan == second.route_plan
+    assert cache.info() == {
+        "entries": 1,
+        "max_entries": 2,
+        "hits": 1,
+        "misses": 1,
+    }
+
+    other_cache = MinimalCoverPlanCache(max_entries=2)
+    assert other_cache.info()["entries"] == 0
+
+
+def test_minimal_cover_cache_evicts_oldest_entry_at_bound() -> None:
+    from gremlin_mcp.orchorbital_allocator import MinimalCoverPlanCache
+
+    cache = MinimalCoverPlanCache(max_entries=1)
+    fabric = OrchorbitalFabric()
+    allocate_invocation(
+        fabric,
+        "AUTH:ROOT",
+        ("graph",),
+        operators(),
+        budget=BUDGET,
+        join_to_caller=False,
+        planner_cache=cache,
+    )
+    allocate_invocation(
+        fabric,
+        "AUTH:ROOT",
+        ("audit",),
+        operators(),
+        budget=BUDGET,
+        join_to_caller=False,
+        planner_cache=cache,
+    )
+
+    info = cache.info()
+    assert info["entries"] == 1
+    assert info["misses"] == 2
