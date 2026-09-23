@@ -11,6 +11,7 @@ from gremlin_mcp.orchorbital_fabric import OrchorbitalFabric
 
 SCHEMA = "GREMLIN_ORCHORBITAL_CONTEXT_V0_1"
 PACKET_SCHEMA = "GREMLIN_ORCHORBITAL_CONTEXT_PACKET_V0_1"
+PACKET_PAYLOAD_KEY = "_gremlin_orchorbital_context_packet"
 FRAME_DOMAIN = b"GREMLIN-ORCHORBITAL-CONTEXT-FRAME/v0.1\x00"
 MATERIALIZED_DOMAIN = b"GREMLIN-ORCHORBITAL-CONTEXT-MATERIALIZED/v0.1\x00"
 PACKET_DOMAIN = b"GREMLIN-ORCHORBITAL-CONTEXT-PACKET/v0.1\x00"
@@ -38,6 +39,17 @@ def _strict_text(value: Any, field: str, *, maximum: int = 256) -> str:
         raise ValueError(f"{field} must contain 1..{maximum} characters")
     return out
 
+
+
+def _strict_commitment(value: Any, field: str) -> str:
+    text = _strict_text(value, field, maximum=64)
+    if len(text) != 64:
+        raise ValueError(f"{field} must be a 64-character commitment")
+    try:
+        int(text, 16)
+    except ValueError as exc:
+        raise ValueError(f"{field} must be hexadecimal") from exc
+    return text
 
 def _strict_mapping(value: Mapping[str, Any], field: str) -> dict[str, Any]:
     if not isinstance(value, Mapping):
@@ -362,6 +374,97 @@ class OrbitalContextStore:
         }
 
 
+def reduce_context_packet(
+    packet: Mapping[str, Any],
+    *,
+    receiver_known_frames: Iterable[str] = (),
+) -> dict[str, object]:
+    """Reduce a full packet against receiver cache without changing semantics."""
+
+    if not isinstance(packet, Mapping) or packet.get("schema") != PACKET_SCHEMA:
+        raise ValueError("invalid context packet schema")
+    if packet.get("required_base_frame_commitment") is not None:
+        raise ValueError("packet reduction requires a full self-contained packet")
+    # Prove the source packet is internally consistent before shortening it.
+    apply_context_packet(packet)
+
+    if isinstance(receiver_known_frames, (str, bytes, Mapping)) or not isinstance(
+        receiver_known_frames, Iterable
+    ):
+        raise ValueError("receiver_known_frames must be an iterable")
+    known = {
+        _strict_commitment(value, "receiver_known_frame")
+        for value in receiver_known_frames
+    }
+    raw_frames = packet.get("frames")
+    if not isinstance(raw_frames, list):
+        raise ValueError("context packet frames must be a list")
+
+    target = _strict_commitment(
+        packet.get("target_frame_commitment"),
+        "target_frame_commitment",
+    )
+    required: str | None = None
+    frames = deepcopy(raw_frames)
+    cache_hit: str | None = None
+
+    if target in known:
+        required = target
+        frames = []
+        cache_hit = target
+    else:
+        last_hit = -1
+        last_commitment: str | None = None
+        for index, raw_frame in enumerate(raw_frames):
+            if not isinstance(raw_frame, Mapping):
+                raise ValueError("context packet frame must be an object")
+            commitment = _strict_commitment(
+                raw_frame.get("frame_commitment"),
+                f"frame[{index}].frame_commitment",
+            )
+            if commitment in known:
+                last_hit = index
+                last_commitment = commitment
+        if last_hit >= 0:
+            required = last_commitment
+            frames = deepcopy(raw_frames[last_hit + 1 :])
+            cache_hit = last_commitment
+
+    core = {
+        "schema": PACKET_SCHEMA,
+        "target_node_id": packet.get("target_node_id"),
+        "target_frame_commitment": target,
+        "target_materialized_commitment": packet.get(
+            "target_materialized_commitment"
+        ),
+        "required_base_frame_commitment": required,
+        "frames": frames,
+    }
+    commitment = hashlib.blake2b(
+        PACKET_DOMAIN + _canonical(core),
+        digest_size=32,
+    ).hexdigest()
+    materialized_bytes = packet.get("materialized_context_bytes")
+    if isinstance(materialized_bytes, bool) or not isinstance(materialized_bytes, int):
+        raise ValueError("materialized_context_bytes must be an integer")
+    packet_bytes = len(_canonical(core))
+    return {
+        **core,
+        "packet_commitment": commitment,
+        "materialized_context_bytes": materialized_bytes,
+        "packet_bytes": packet_bytes,
+        "byte_saving_fraction": (
+            0.0
+            if materialized_bytes <= 0
+            else 1.0 - packet_bytes / materialized_bytes
+        ),
+        "cache_hit_frame_commitment": cache_hit,
+        "lossless": True,
+        "actual_model_token_accounting": False,
+        "token_saving_claim": False,
+    }
+
+
 def apply_context_packet(
     packet: Mapping[str, Any],
     *,
@@ -476,7 +579,9 @@ __all__ = [
     "ContextFrame",
     "MAX_CONTEXT_KEYS",
     "OrbitalContextStore",
+    "PACKET_PAYLOAD_KEY",
     "PACKET_SCHEMA",
     "SCHEMA",
     "apply_context_packet",
+    "reduce_context_packet",
 ]
