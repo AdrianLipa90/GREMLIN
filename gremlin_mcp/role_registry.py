@@ -32,9 +32,12 @@ CORE_BOUNDARY_SPECIES = frozenset({"HUMMINGBIRD", "OCTOPUS", "GREMLIN", "FERRET"
 # external PhaseNav worker carriers. They require explicit local adapters.
 LOCAL_EXECUTION_SPECIES = frozenset({"ELEPHANT", "BEES"})
 
-ROUTABLE_EXECUTION_SPECIES = (
-    BESTIARY_ROLE_NAMES - CORE_BOUNDARY_SPECIES
-)
+ROUTABLE_EXECUTION_SPECIES = BESTIARY_ROLE_NAMES - CORE_BOUNDARY_SPECIES
+
+# Canonical compatibility names used by the v0.2 allocator/executor contract.
+# They intentionally alias the same sets; there is only one role partition.
+CONTROL_PLANE_SPECIES = CORE_BOUNDARY_SPECIES
+DYNAMIC_WORKLOAD_SPECIES = ROUTABLE_EXECUTION_SPECIES
 
 if not LOCAL_EXECUTION_SPECIES <= ROUTABLE_EXECUTION_SPECIES:
     raise RuntimeError("local execution species must be routable execution species")
@@ -42,7 +45,9 @@ if not LOCAL_EXECUTION_SPECIES <= ROUTABLE_EXECUTION_SPECIES:
 __all__ = [
     "BESTIARY_ROLES",
     "BESTIARY_ROLE_NAMES",
+    "CONTROL_PLANE_SPECIES",
     "CORE_BOUNDARY_SPECIES",
+    "DYNAMIC_WORKLOAD_SPECIES",
     "LOCAL_EXECUTION_SPECIES",
     "ROUTABLE_EXECUTION_SPECIES",
 ]
