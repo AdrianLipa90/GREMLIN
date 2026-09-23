@@ -2091,6 +2091,16 @@ class OrchorbitalExecutor:
 
     def receipt(self) -> dict[str, object]:
         frontier = self.frontier()
+        reduction_candidates = tuple(self.fabric.reduction_candidates())
+        manual_local_reduction_required = any(
+            not self._worker_reduction_active(
+                self.fabric.node(node_id).species
+            )
+            and not self._local_reducer_active(
+                self.fabric.node(node_id).species
+            )
+            for node_id in reduction_candidates
+        )
         return {
             "schema": SCHEMA,
             "version": VERSION,
@@ -2132,13 +2142,21 @@ class OrchorbitalExecutor:
             "deterministic_task_ids": True,
             "deterministic_discovery_allocations": True,
             "global_synthesis_barrier_required": False,
-            "explicit_local_reduction_required": True,
+            "explicit_local_reduction_required": manual_local_reduction_required,
+            "automatic_reduction_backend_routing": True,
+            "automatic_local_adapter_reduction": any(
+                self._local_reducer_active(
+                    self.fabric.node(node_id).species
+                )
+                for node_id in reduction_candidates
+            ),
+            "semantic_reducer_still_required": True,
             "automatic_semantic_reduction": False,
             "reduction_result_persistence": "CHECKPOINTABLE_EXECUTOR_STATE_V0_1",
             "runtime_checkpointable": True,
             "runtime_checkpoint_store": "SQLITE_WAL_EXTERNAL_V0_1",
             "worker_broker_durability_external": True,
-            "reduction_candidate_count": len(self.fabric.reduction_candidates()),
+            "reduction_candidate_count": len(reduction_candidates),
             "authority": "COGNITIVE_ROUTING_ONLY",
             "epistemic": "CHYBA",
             "canon_allowed": False,
