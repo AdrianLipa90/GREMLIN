@@ -1,0 +1,128 @@
+{
+  "schema": "GREMLIN_EXTERNAL_EVIDENCE_REGISTRY_V0_2",
+  "status": "CANDIDATE_EXTERNAL_RESEARCH",
+  "created_utc": "2026-09-23",
+  "canon_allowed": false,
+  "claim_boundary": "External observations are retained in their native measurement classes. Cross-source derived values are descriptors, not an overall framework ranking and not a GREMLIN superiority claim.",
+  "sources": [
+    {
+      "id": "source:agent-harness-framework-benchmark-2026",
+      "evidence_class": "C_INDEPENDENT_WEB_BENCHMARK",
+      "title": "Multi-Agent Orchestration Frameworks Benchmark: CrewAI vs LangGraph vs AutoGen",
+      "url": "https://agent-harness.ai/blog/multi-agent-orchestration-frameworks-benchmark-crewai-vs-langgraph-vs-autogen-performance-cost-and-integration-complexity/",
+      "date": "2026-04-02",
+      "methodology": "Same AWS m6i.4xlarge hardware, GPT-4o via Azure OpenAI, temperature 0, 50 executions per task suite."
+    },
+    {
+      "id": "source:swarms-graphworkflow-paper-2026",
+      "evidence_class": "B_VENDOR_REPRODUCIBLE_SYSTEMS",
+      "title": "GraphWorkflow: A Low-Overhead Compile-Once Graph Execution Engine for Multi-Agent Systems",
+      "url": "https://www.swarms.ai/blog/graphworkflow-research-paper",
+      "date": "2026-08-19",
+      "methodology": "No-op nodes isolate framework overhead; five topologies, 10/50/200 nodes, 9 timed samples after warmups, open harness/raw data."
+    },
+    {
+      "id": "source:beyond-prompts-harness-optimization-2026",
+      "evidence_class": "A_RESEARCH_PREPRINT_OPEN_CODE",
+      "title": "Beyond Prompts: Measuring and Optimizing LLM Tool-Agent Harnesses",
+      "url": "https://arxiv.org/abs/2609.05736",
+      "date": "2026-09-04",
+      "methodology": "Fixed target inner model, held-out scorecards, repeated optimizer runs, BFCL multi-round and tau2 Retail/Telecom; reports reliability and cost diagnostics."
+    },
+    {
+      "id": "source:tau2-current",
+      "evidence_class": "A_PRIMARY_BENCHMARK",
+      "title": "tau2-bench / current tau benchmark repository",
+      "url": "https://github.com/sierra-research/tau2-bench",
+      "date": "2026-09",
+      "methodology": "Policy-constrained tool-agent-user tasks with environment-based scoring; benchmark versioning/task fixes must be pinned for comparability."
+    }
+  ],
+  "observations": [
+    {
+      "id": "obs:agent-harness:langgraph",
+      "source": "source:agent-harness-framework-benchmark-2026",
+      "framework": "LangGraph",
+      "task": "research synthesis",
+      "median_latency_s": 14.1,
+      "p95_latency_s": 19.8,
+      "cost_per_1000_usd": 41.7,
+      "token_overhead_pct": 9.0
+    },
+    {
+      "id": "obs:agent-harness:crewai",
+      "source": "source:agent-harness-framework-benchmark-2026",
+      "framework": "CrewAI",
+      "task": "research synthesis",
+      "median_latency_s": 18.4,
+      "p95_latency_s": 31.2,
+      "cost_per_1000_usd": 48.2,
+      "token_overhead_pct": 18.0
+    },
+    {
+      "id": "obs:agent-harness:autogen",
+      "source": "source:agent-harness-framework-benchmark-2026",
+      "framework": "AutoGen",
+      "task": "research synthesis",
+      "median_latency_s": 22.7,
+      "p95_latency_s": 41.5,
+      "cost_per_1000_usd": 67.4,
+      "token_overhead_pct": 31.0
+    },
+    {
+      "id": "obs:swarms:graphworkflow",
+      "source": "source:swarms-graphworkflow-paper-2026",
+      "framework": "Swarms GraphWorkflow",
+      "comparison": "LangGraph 1.0.4",
+      "measurement_class": "PURE_ORCHESTRATION_NOOP",
+      "steady_state_geomean_speedup_x": 7.0,
+      "chain_200_speedup_x": 62.5,
+      "chain_200_ms": 0.29,
+      "langgraph_chain_200_ms": 18.15,
+      "shallow_wide_speedup_range_x": [2.7, 4.0],
+      "compile_speedup_range_x": [21.6, 31.3],
+      "cold_path_speedup_x": 7.9
+    },
+    {
+      "id": "obs:beyond-prompts:prism",
+      "source": "source:beyond-prompts-harness-optimization-2026",
+      "framework": "PRISM middleware harness optimizer",
+      "measurement_class": "FIXED_MODEL_HELD_OUT_LIFT",
+      "inner_model": "gpt-5.4-mini",
+      "held_out_lift_percentage_points": {
+        "BFCL_multi_round": 14.2,
+        "tau2_Retail": 14.9,
+        "tau2_Telecom": 10.1
+      },
+      "note": "Lift is over the paper's native Deep Agents baseline on held-out scorecards; benchmark-specific scores are not directly comparable across datasets."
+    },
+    {
+      "id": "obs:tau2:coordination",
+      "source": "source:tau2-current",
+      "measurement_class": "BENCHMARK_PROTOCOL",
+      "observation": "Current tau benchmark lineage evaluates policy-constrained tool use with environment-based success; task/version pins are required because fixed tasks can change comparability."
+    }
+  ],
+  "gremlin_bindings": [
+    {
+      "external": "source:swarms-graphworkflow-paper-2026",
+      "gremlin_next_test": "GREMLIN_ORCHORBITAL_SYSTEMS_OVERHEAD_V0_1",
+      "reason": "Use no-op nodes and matching chain/wide/diamond topology sizes to isolate GREMLIN orchestration overhead."
+    },
+    {
+      "external": "source:agent-harness-framework-benchmark-2026",
+      "gremlin_next_test": "GREMLIN_EXTERNAL_SAME_MODEL_AB_V0_3",
+      "reason": "Same-model/same-hardware repeated runs provide a practical framework-overhead reference class."
+    },
+    {
+      "external": "source:beyond-prompts-harness-optimization-2026",
+      "gremlin_next_test": "GREMLIN_EXTERNAL_SAME_MODEL_AB_V0_3",
+      "reason": "Demonstrates that a runtime harness around a fixed model can produce held-out gains without weight changes; GREMLIN still needs its own actual same-model receipts."
+    },
+    {
+      "external": "source:tau2-current",
+      "gremlin_next_test": "GREMLIN_TAU2_ADAPTER_V0_1",
+      "reason": "Use a standard environment-based scorer instead of synthetic task quality once an external model endpoint is available."
+    }
+  ]
+}
