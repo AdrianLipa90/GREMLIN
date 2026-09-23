@@ -1,0 +1,92 @@
+{
+  "schema": "GREMLIN_SGT_LIVE_AB_BENCHMARK_V0_1",
+  "status": "PASS_LOCAL",
+  "environment": "NOEMA live tether ACTIVE; GREMLIN event-wake socket",
+  "claim_boundary": "Measures deterministic SGT compilation and live GREMLIN routing overhead/fan-out. It does not measure answer correctness or learned semantic quality.",
+  "rows": [
+    {
+      "sentences": 110,
+      "raw_context_bytes": 3499,
+      "cone_context_bytes": 4103,
+      "context_reduction_pct": -17.262,
+      "compile_ms": 3.691019,
+      "cone_ms": 0.191428,
+      "raw_route_latency_median_ms": 9.367971,
+      "cone_route_latency_median_ms": 8.535561,
+      "latency_reduction_pct": 8.886,
+      "raw_dispatch_median": 4,
+      "cone_dispatch_median": 2,
+      "dispatch_reduction_pct": 50,
+      "raw_species": [
+        "OWL",
+        "SPIDER",
+        "MOLE",
+        "RAVEN"
+      ],
+      "cone_species": [
+        "OWL",
+        "SPIDER"
+      ]
+    },
+    {
+      "sentences": 550,
+      "raw_context_bytes": 18159,
+      "cone_context_bytes": 12409,
+      "context_reduction_pct": 31.665,
+      "compile_ms": 16.469649,
+      "cone_ms": 0.510306,
+      "raw_route_latency_median_ms": 21.44117,
+      "cone_route_latency_median_ms": 18.282515,
+      "latency_reduction_pct": 14.732,
+      "raw_dispatch_median": 4,
+      "cone_dispatch_median": 2,
+      "dispatch_reduction_pct": 50,
+      "raw_species": [
+        "OWL",
+        "SPIDER",
+        "MOLE",
+        "RAVEN"
+      ],
+      "cone_species": [
+        "OWL",
+        "SPIDER"
+      ]
+    },
+    {
+      "sentences": 1100,
+      "raw_context_bytes": 36385,
+      "cone_context_bytes": 12411,
+      "context_reduction_pct": 65.89,
+      "compile_ms": 26.560178,
+      "cone_ms": 0.701933,
+      "raw_route_latency_median_ms": 35.402875,
+      "cone_route_latency_median_ms": 33.620505,
+      "latency_reduction_pct": 5.035,
+      "raw_dispatch_median": 4,
+      "cone_dispatch_median": 2,
+      "dispatch_reduction_pct": 50,
+      "raw_species": [
+        "OWL",
+        "SPIDER",
+        "MOLE",
+        "RAVEN"
+      ],
+      "cone_species": [
+        "OWL",
+        "SPIDER"
+      ]
+    }
+  ],
+  "reference_kernel_5000_sentence_result": {
+    "candidate_pair_ratio": 0.27439024390243905,
+    "input_utf8_bytes": 2068027,
+    "bytecode_bytes": 15778,
+    "bytecode_to_input_ratio": 0.007629494199060264,
+    "raw_relation_occurrences": 1125000,
+    "unique_relation_tokens": 2944,
+    "relation_occurrence_compression_ratio": 0.002616888888888889,
+    "median_compile_ms": 788.64374
+  },
+  "github_actions": "NOT_EXECUTED_NO_BILLING_MINUTES",
+  "canon_allowed": false
+}
