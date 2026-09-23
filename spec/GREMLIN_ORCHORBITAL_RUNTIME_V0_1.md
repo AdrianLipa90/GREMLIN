@@ -150,8 +150,8 @@ speedup_claim            = false
 The current production-compatible MCP pipeline remains unchanged in v0.1.
 This candidate does not yet replace `gremlin_mcp/pipeline.py` or OCTOPUS.
 
-The mutation introduced here is the executable topology primitive needed for
-the next bridge:
+The branch now contains both the executable topology primitive and the first
+adaptive minimal-cover bridge:
 
 ```text
 OCTOPUS obligations
@@ -163,8 +163,11 @@ OCTOPUS obligations
  -> GREMLIN root close
 ```
 
-The global BELZEBUB barrier is therefore a migration target, not yet silently
-removed from the existing pipeline.
+The bridge is implemented in `gremlin_mcp/orchorbital_bridge.py`. It maps the
+exact minimal capability cover onto obligation orbits while preserving explicit
+parent/dependency structure. The global BELZEBUB barrier remains a migration
+target in the existing production-compatible pipeline; it is not silently
+removed by this candidate.
 
 ## Performance claim boundary
 
@@ -192,7 +195,9 @@ Targeted tests cover:
 - 36D boundary validation;
 - coordination-edge work locality;
 - authority/speedup claim firewall;
-- ELEPHANT/BEES admission without fake PhaseNav carrier promotion.
+- ELEPHANT/BEES admission without fake PhaseNav carrier promotion;
+- fail-loud equality with `core.py::BESTIARY_ROLES` so future role drift is caught;
+- adaptive minimal-cover to orchorbital-tree compilation and authority firewall.
 
 Local pre-commit validation on 2026-09-23: `9 passed`.
 
