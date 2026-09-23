@@ -6,6 +6,7 @@ from mcp.server import MCPServer
 
 from gremlin_mcp import __version__
 from gremlin_mcp.semantic_graph_transformer import SemanticGraphTransformer
+from gremlin_mcp.semantic_graph_bestiary import build_bestiary_handoff, build_hive_exchange_candidate
 
 mcp = MCPServer(
     "GREMLIN-SGT",
@@ -38,6 +39,37 @@ def gremlin_semantic_graph_causal_cone(
 ) -> dict[str, Any]:
     """Select the minimal bounded neighborhood needed around seed concepts."""
     return SemanticGraphTransformer.causal_cone(compiled, seeds, depth=depth)
+
+
+@mcp.tool()
+def gremlin_semantic_graph_handoff(
+    compiled: dict[str, Any],
+    subject_id: str,
+    generation_id: str,
+    task_id: str,
+) -> dict[str, Any]:
+    """Build the read-only SPIDER -> ELEPHANT -> BEES capability handoff plan."""
+    return build_bestiary_handoff(
+        compiled,
+        subject_id=subject_id,
+        generation_id=generation_id,
+        task_id=task_id,
+    )
+
+
+@mcp.tool()
+def gremlin_semantic_graph_hive_exchange_candidate(
+    compiled: dict[str, Any],
+    subject_id: str,
+    generation_id: str,
+) -> dict[str, Any]:
+    """Build a content-addressed candidate envelope for the existing Hive ingest protocol."""
+    return build_hive_exchange_candidate(
+        compiled,
+        subject_id=subject_id,
+        generation_id=generation_id,
+    )
+
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="GREMLIN Semantic Graph Transformer MCP server")
