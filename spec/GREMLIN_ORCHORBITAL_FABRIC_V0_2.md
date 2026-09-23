@@ -1288,3 +1288,119 @@ worker parent
 No completed worker task may be re-enqueued after the restore.
 
 Tampering with any of the three checkpoint layers must fail closed.
+
+
+## Role partition and local execution adapters
+
+The Bestiary role registry is now partitioned into three architectural classes.
+
+### Control-plane / authority boundaries
+
+```text
+HUMMINGBIRD
+OCTOPUS
+GREMLIN
+FERRET
+```
+
+These are not ordinary adaptive exact-cover workload operators.
+
+- HUMMINGBIRD is the capture boundary.
+- OCTOPUS is the allocator/router.
+- GREMLIN is the aggregate authority root.
+- FERRET is the explicit actuation boundary.
+
+Supplying one of these roles as an adaptive workload operator fails closed.
+
+### Routable execution modules
+
+All remaining Bestiary roles may participate in exact-cover planning.
+
+Roles with validated external scheduler carriers continue through WorkerBroker.
+
+### Local execution modules
+
+```text
+ELEPHANT
+BEES
+```
+
+These roles are routable but do not yet receive a synthetic PhaseNav carrier
+merely to make external dispatch convenient.
+
+They may execute through an explicit `LocalAdapterRegistry`.
+
+A local adapter must declare:
+
+- species;
+- stable adapter id;
+- version;
+- 64-hex implementation commitment;
+- synchronous handler;
+- optional synchronous local reducer;
+- `replay_safe=true`;
+- `side_effects=false`.
+
+The registry rejects control-plane roles and any adapter that requests
+side-effectful or non-replay-safe semantics.
+
+No default local adapter is silently installed.
+
+If a BEES/ELEPHANT node becomes ready without a registered adapter, the
+orchestration receipt reports `adapter_required` and leaves the node OPEN and
+unstarted.
+
+### Automatic local frontier
+
+When a valid adapter exists, one non-blocking orchestration iteration may:
+
+```text
+local-ready BEES/ELEPHANT
+ -> seal execution start
+ -> invoke replay-safe adapter
+ -> validate finite JSON output
+ -> apply optional OCTOPUS discovery
+ -> bind result commitment
+ -> local join closure
+```
+
+If the adapter raises, the node fails explicitly.
+
+If adapter output cannot satisfy the runtime contract, the node is quarantined.
+
+There is no fallback to an unrelated worker species.
+
+### Local join reduction
+
+A local adapter may also register a reducer.
+
+Once a local node is self-complete and all join children resolve, its reducer
+receives the same committed local reduction packet used by worker-backed
+reductions.
+
+This removes the remaining need to route BEES/ELEPHANT reductions through a
+global BELZEBUB barrier.
+
+### Adapter restart identity
+
+Executor checkpoints store the adapter manifest but never callable code.
+
+Restore requires an exactly matching manifest, including the
+`implementation_commitment`.
+
+This detects declared implementation drift across restart. The commitment must
+therefore be the hash of the adapter artifact/version actually being loaded;
+the runtime does not pretend that a caller-supplied false hash proves code
+identity.
+
+The resulting role model is:
+
+```text
+control plane != workload execution
+
+workload execution
+  -> external worker carrier
+  -> or explicit replay-safe local adapter
+```
+
+with no silent third path.
