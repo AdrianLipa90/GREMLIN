@@ -305,13 +305,19 @@ def test_shared_context_frame_binding_is_idempotent_but_immutable() -> None:
 
 
 def test_shared_context_frame_id_cannot_collide_with_fabric_node() -> None:
-    fabric, a, _ = fabric_with_chain()
+    fabric, _, _ = fabric_with_chain()
+    collision = fabric.spawn(
+        "AUTH:ROOT",
+        "OWL",
+        node_id="CTX:DISC:collision",
+        join_to_caller=False,
+    )
     store = OrbitalContextStore(fabric)
     store.bind_root({"root": True})
 
     with pytest.raises(ValueError, match="must not collide"):
         store.bind_shared_frame(
-            a.node_id,
+            collision.node_id,
             base_frame_id="AUTH:ROOT",
             set_values={"x": 1},
         )
