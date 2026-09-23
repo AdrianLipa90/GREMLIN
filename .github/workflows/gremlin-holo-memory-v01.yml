@@ -1,0 +1,67 @@
+name: GREMLIN holo memory v0.1
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'gremlin_mcp/holo_memory.py'
+      - 'gremlin_mcp/holo_memory_hive_bridge.py'
+      - 'gremlin_mcp/holo_memory_noema_bridge.py'
+      - 'tests/test_holo_memory_v01.py'
+      - 'benchmarks/holo_memory_benchmark_v01.py'
+      - 'benchmarks/holo_memory_orbital_benchmark_v01.py'
+      - 'spec/GREMLIN_ZOSIA_HOLO_MEMORY_V0_1.md'
+      - 'native/GREMLIN_ZOSIA_HOLO_MEMORY_V0_1.pnv'
+      - '.github/workflows/gremlin-holo-memory-v01.yml'
+  push:
+    branches:
+      - 'feat/zosia-holo-memory-v0.1'
+
+jobs:
+  holo-memory:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.11', '3.12']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Compile
+        run: >
+          python -m py_compile
+          gremlin_mcp/holo_memory.py
+          gremlin_mcp/holo_memory_hive_bridge.py
+          gremlin_mcp/holo_memory_noema_bridge.py
+          tests/test_holo_memory_v01.py
+      - name: Unit tests
+        run: >
+          python -m unittest discover
+          -s tests
+          -p 'test_holo_memory_v01.py'
+          -v
+      - name: Structural hex benchmark
+        run: PYTHONPATH=. python benchmarks/holo_memory_benchmark_v01.py
+      - name: Structural orbital benchmark
+        run: PYTHONPATH=. python benchmarks/holo_memory_orbital_benchmark_v01.py
+      - name: Assert structural receipts
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          a = json.loads(
+              Path(
+                  'benchmarks/GREMLIN_HOLO_MEMORY_BENCHMARK_V0_1.json'
+              ).read_text()
+          )
+          b = json.loads(
+              Path(
+                  'benchmarks/GREMLIN_HOLO_MEMORY_ORBITAL_BENCHMARK_V0_1.json'
+              ).read_text()
+          )
+          assert a['top1_agreement'] == 1.0
+          assert a['mean_fraction_evaluated'] < 0.30
+          assert b['hex_orbital_top1_agreement'] == 1.0
+          assert b['hex_orbital_fraction_evaluated'] < 0.02
+          PY

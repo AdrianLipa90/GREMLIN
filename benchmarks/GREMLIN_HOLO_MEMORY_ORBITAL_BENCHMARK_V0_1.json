@@ -1,0 +1,18 @@
+{
+  "schema": "GREMLIN_HOLO_MEMORY_ORBITAL_BENCHMARK_V0_1",
+  "dataset": "SYNTHETIC_36_ORBITS_X_6_HEX_PATCHES",
+  "memories": 6480,
+  "queries": 8,
+  "build_seconds": 0.6533597650000047,
+  "full_scan_seconds": 2.1549851030003992,
+  "hex_only_seconds": 0.2105098930001077,
+  "hex_orbital_seconds": 0.012298806999751832,
+  "hex_speedup": 10.236977807970748,
+  "hex_orbital_speedup": 175.21903571979647,
+  "hex_top1_agreement": 1.0,
+  "hex_orbital_top1_agreement": 1.0,
+  "hex_mean_evaluated": 522.75,
+  "hex_orbital_mean_evaluated": 30.0,
+  "hex_orbital_fraction_evaluated": 0.004629629629629629,
+  "claim_scope": "synthetic structural benchmark; orbit coordinate supplied by caller; no general semantic-recall claim"
+}

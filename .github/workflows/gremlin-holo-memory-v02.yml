@@ -1,0 +1,66 @@
+name: GREMLIN Eisenstein HoloMemory v0.2
+
+on:
+  push:
+    branches:
+      - 'feat/holo-memory-eisenstein-v0.2'
+    paths:
+      - 'gremlin_mcp/eisenstein_orbital_memory.py'
+      - 'tests/test_eisenstein_orbital_memory_v02.py'
+      - 'benchmarks/eisenstein_orbital_memory_benchmark_v02.py'
+      - 'spec/GREMLIN_EISENSTEIN_ORBITAL_MEMORY_V0_2.md'
+      - 'native/GREMLIN_EISENSTEIN_ORBITAL_MEMORY_V0_2.pnv'
+      - '.github/workflows/gremlin-holo-memory-v02.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'gremlin_mcp/eisenstein_orbital_memory.py'
+      - 'tests/test_eisenstein_orbital_memory_v02.py'
+      - 'benchmarks/eisenstein_orbital_memory_benchmark_v02.py'
+      - 'spec/GREMLIN_EISENSTEIN_ORBITAL_MEMORY_V0_2.md'
+      - 'native/GREMLIN_EISENSTEIN_ORBITAL_MEMORY_V0_2.pnv'
+      - '.github/workflows/gremlin-holo-memory-v02.yml'
+
+jobs:
+  eisenstein-memory:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.11', '3.12']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Compile
+        run: >
+          python -m py_compile
+          gremlin_mcp/eisenstein_orbital_memory.py
+          tests/test_eisenstein_orbital_memory_v02.py
+          benchmarks/eisenstein_orbital_memory_benchmark_v02.py
+      - name: Unit tests
+        run: >
+          python -m unittest discover
+          -s tests
+          -p 'test_eisenstein_orbital_memory_v02.py'
+          -v
+      - name: Benchmark
+        run: >
+          PYTHONPATH=.
+          python benchmarks/eisenstein_orbital_memory_benchmark_v02.py
+      - name: Assert benchmark safety gates
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path(
+              'benchmarks/GREMLIN_EISENSTEIN_ORBITAL_MEMORY_BENCHMARK_V0_2.json'
+          )
+          d = json.loads(p.read_text())
+          s = d['structural']
+          m = d['semantic']
+          assert s['target_inclusion'] == 1.0
+          assert s['mean_fraction_evaluated'] < 0.02
+          assert m['top1_agreement_with_full'] == 1.0
+          assert m['expected_accuracy_routed'] == m['expected_accuracy_full']
+          PY

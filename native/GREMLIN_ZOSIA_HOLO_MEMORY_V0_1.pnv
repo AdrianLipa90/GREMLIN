@@ -1,0 +1,74 @@
+EPISTEMIC CHYBA
+MODE ANALYTIC_NON_ACTUATING
+
+# CLASS MEMORY_DERIVED_INDEX
+# TITLE GREMLIN_ZOSIA_HOLO_MEMORY_V0_1
+# CANON_ALLOWED FALSE
+# AUTHORITY SHARED_COGNITION_ONLY
+# MUTATION_AUTHORITY RAPHAEL_ONLY
+
+SCHEMA GREMLIN_ZOSIA_HOLO_MEMORY_V0_1
+
+# SOURCE OF TRUTH
+# OrbitalHiveMemory / PhaseNav memory ledger remains authoritative.
+# Holo memory is regenerable and may be discarded/rebuilt.
+
+CONST DIM = 36
+CONST PROJECTIONS = 6
+CONST CHANNELS = 6
+CONST DERIVED_INDEX_ONLY = TRUE
+CONST LEDGER_MUTATION = FALSE
+CONST DELETE_ALLOWED = FALSE
+CONST OVERWRITE_ALLOWED = FALSE
+CONST CANON_ALLOWED = FALSE
+
+# MEMORY CELL
+# X_mu[a,k] = A_mu[a,k] exp(i phi_mu[a,k])
+# a,k in 0..5
+# 6 x 6 = 36D
+
+# HEX REMAP
+# z_a = (1/6) sum_k A[a,k] exp(i phi[a,k])
+# Z_hex = sum_a z_a exp(i a*pi/3)
+# deterministic axial cube-rounding -> (q,r)
+# hex address is indexing geometry, not semantic truth
+
+# ORBITAL REMAP
+# preserve source Hive orbit_index independently
+# candidate_set = HEX_PATCH intersect ORBIT_BAND
+# priority orbit is not silently redefined as semantic distance
+
+# MOIRE MEMORY
+# M(mu,nu) = normalized coherent cross term
+# M is evidence/activation only
+# M cannot latch memory or establish truth
+
+# KURAMOTO PATCH
+# V_phase = -sum_(i<j) K_ij cos(psi_i-psi_j)
+# overdamped reference update is activation dynamics only
+
+# RETRIEVAL
+# stage 1 = holo hex/orbit shortlist
+# stage 2 = existing GREMLIN relational-memory semantic scorer
+# empty shortlist may fall back only to exhaustive READ
+# no write authority is created
+
+# BESTIARY
+# RAVEN retrieval
+# BEES local patch coherence
+# ELEPHANT consolidation proposal
+# SPIDER relation graph
+# HOUND contradiction audit
+# OWL epistemic audit
+# RAPHAEL unchanged authority boundary
+
+INVARIANT HOLO_INDEX_IS_REGENERABLE
+INVARIANT LEDGER_IS_SOURCE_OF_TRUTH
+INVARIANT REMAP_DOES_NOT_MUTATE_SOURCE
+INVARIANT MOIRE_DOES_NOT_ESTABLISH_TRUTH
+INVARIANT PHASE_COHERENCE_DOES_NOT_ESTABLISH_TRUTH
+INVARIANT HEX_AND_ORBIT_COORDINATES_REMAIN_TYPED_SEPARATELY
+INVARIANT DERIVED_MEMORY_REQUIRES_EXISTING_CONSOLIDATION_AND_AUTHORITY_GATES
+
+REFERENCE gremlin_mcp/holo_memory.py
+TESTS tests/test_holo_memory_v01.py
