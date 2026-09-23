@@ -28,9 +28,13 @@ BESTIARY_ROLE_NAMES = frozenset(BESTIARY_ROLES)
 # These roles are architectural boundaries, not ordinary exact-cover workers.
 CORE_BOUNDARY_SPECIES = frozenset({"HUMMINGBIRD", "OCTOPUS", "GREMLIN", "FERRET"})
 
-# These roles are legitimate execution modules but do not yet have validated
-# external PhaseNav worker carriers. They require explicit local adapters.
-LOCAL_EXECUTION_SPECIES = frozenset({"ELEPHANT", "BEES"})
+# These roles are legitimate dynamic workload modules without validated
+# PhaseNav species carriers. They may execute through carrier-neutral
+# WorkerBroker scheduling or, when explicitly registered, through replay-safe
+# in-process local adapters.
+LOCAL_ADAPTER_ELIGIBLE_SPECIES = frozenset({"ELEPHANT", "BEES"})
+# Compatibility alias retained for the v0.2 executor contract.
+LOCAL_EXECUTION_SPECIES = LOCAL_ADAPTER_ELIGIBLE_SPECIES
 
 ROUTABLE_EXECUTION_SPECIES = BESTIARY_ROLE_NAMES - CORE_BOUNDARY_SPECIES
 
@@ -39,8 +43,10 @@ ROUTABLE_EXECUTION_SPECIES = BESTIARY_ROLE_NAMES - CORE_BOUNDARY_SPECIES
 CONTROL_PLANE_SPECIES = CORE_BOUNDARY_SPECIES
 DYNAMIC_WORKLOAD_SPECIES = ROUTABLE_EXECUTION_SPECIES
 
-if not LOCAL_EXECUTION_SPECIES <= ROUTABLE_EXECUTION_SPECIES:
-    raise RuntimeError("local execution species must be routable execution species")
+if not LOCAL_ADAPTER_ELIGIBLE_SPECIES <= ROUTABLE_EXECUTION_SPECIES:
+    raise RuntimeError(
+        "local-adapter eligible species must be routable execution species"
+    )
 
 __all__ = [
     "BESTIARY_ROLES",
@@ -48,6 +54,7 @@ __all__ = [
     "CONTROL_PLANE_SPECIES",
     "CORE_BOUNDARY_SPECIES",
     "DYNAMIC_WORKLOAD_SPECIES",
+    "LOCAL_ADAPTER_ELIGIBLE_SPECIES",
     "LOCAL_EXECUTION_SPECIES",
     "ROUTABLE_EXECUTION_SPECIES",
 ]
