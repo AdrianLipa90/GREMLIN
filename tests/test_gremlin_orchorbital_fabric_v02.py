@@ -541,3 +541,124 @@ def test_new_coordination_edges_require_open_endpoints() -> None:
 
     with pytest.raises(RuntimeError, match="node is not open"):
         fabric.add_coordination_edge(a.node_id, b.node_id)
+
+
+def test_center_ranking_prefers_graph_locality_before_phase() -> None:
+    fabric = OrchorbitalFabric()
+    caller = fabric.spawn(
+        "AUTH:ROOT",
+        "MOLE",
+        node_id="CALLER",
+        join_to_caller=False,
+    )
+    near = fabric.spawn(
+        "AUTH:ROOT",
+        "BEES",
+        node_id="NEAR",
+        phase36=phase(2.5),
+        join_to_caller=False,
+    )
+    far = fabric.spawn(
+        "AUTH:ROOT",
+        "OWL",
+        node_id="FAR",
+        phase36=phase(0.1),
+        join_to_caller=False,
+    )
+    fabric.add_coordination_edge(caller.node_id, near.node_id)
+
+    ranked = fabric.rank_centers(
+        caller.node_id,
+        (near.node_id, far.node_id),
+        phase36=phase(0.1),
+    )
+
+    assert ranked[0] == near.node_id
+    assert fabric.locality_distance(caller.node_id, near.node_id) == 1.0
+    assert fabric.locality_distance(caller.node_id, far.node_id) == 2.0
+
+
+def test_center_ranking_uses_t36_as_equal_distance_tiebreak() -> None:
+    fabric = OrchorbitalFabric()
+    near_phase = fabric.spawn(
+        "AUTH:ROOT",
+        "BEES",
+        node_id="PHASE_NEAR",
+        phase36=phase(0.2),
+        join_to_caller=False,
+    )
+    far_phase = fabric.spawn(
+        "AUTH:ROOT",
+        "OWL",
+        node_id="PHASE_FAR",
+        phase36=phase(2.5),
+        join_to_caller=False,
+    )
+
+    ranked = fabric.rank_centers(
+        "AUTH:ROOT",
+        (far_phase.node_id, near_phase.node_id),
+        phase36=phase(0.21),
+    )
+
+    assert ranked[0] == near_phase.node_id
+
+
+def test_octopus_selects_runtime_center_from_candidates() -> None:
+    fabric = OrchorbitalFabric()
+    a = fabric.spawn(
+        "AUTH:ROOT",
+        "BEES",
+        node_id="A",
+        phase36=phase(0.2),
+        join_to_caller=False,
+    )
+    b = fabric.spawn(
+        "AUTH:ROOT",
+        "OWL",
+        node_id="B",
+        phase36=phase(2.5),
+        join_to_caller=False,
+    )
+
+    allocation = allocate_invocation(
+        fabric,
+        "AUTH:ROOT",
+        ("graph",),
+        operators(),
+        budget=BUDGET,
+        candidate_centers_by_operator={
+            "SPIDER:T0": (b.node_id, a.node_id),
+        },
+        phase36_by_operator={
+            "SPIDER:T0": phase(0.21),
+        },
+    )
+
+    node = allocation.nodes[0]
+    assert node.center_id == a.node_id
+    assert dict(allocation.operator_to_center) == {"SPIDER:T0": a.node_id}
+    assert allocation.receipt()["operator_to_center"] == {"SPIDER:T0": a.node_id}
+
+
+def test_octopus_rejects_ambiguous_explicit_and_candidate_center_policy() -> None:
+    fabric = OrchorbitalFabric()
+    anchor = fabric.spawn(
+        "AUTH:ROOT",
+        "BEES",
+        node_id="ANCHOR",
+        join_to_caller=False,
+    )
+
+    with pytest.raises(ValueError, match="overlap"):
+        allocate_invocation(
+            fabric,
+            "AUTH:ROOT",
+            ("graph",),
+            operators(),
+            budget=BUDGET,
+            center_by_operator={"SPIDER:T0": anchor.node_id},
+            candidate_centers_by_operator={
+                "SPIDER:T0": (anchor.node_id,),
+            },
+        )
