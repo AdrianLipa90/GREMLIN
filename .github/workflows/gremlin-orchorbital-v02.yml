@@ -92,7 +92,6 @@ jobs:
           tests/test_gremlin_orchorbital_vector_distance_candidate_v01.py
           tests/test_gremlin_orchorbital_vector_selection_equivalence_v01.py
           tests/test_gremlin_orchorbital_same_species_scheduler_bench_v01.py
-          tests/test_gremlin_orchorbital_vector_distance_candidate_v01.py
           tests/test_gremlin_orchorbital_checkpoint_v01.py
           tests/test_gremlin_orchorbital_local_adapters_v01.py
           tests/test_gremlin_mcp_worker_client_v02.py
