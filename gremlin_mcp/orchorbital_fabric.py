@@ -22,6 +22,8 @@ MAX_IDENTIFIER_CHARS = 128
 DEFAULT_MAX_NODES = 10_000
 SNAPSHOT_DOMAIN = b"GREMLIN-ORCHORBITAL-TOPOLOGY/v0.2\x00"
 OBLIGATION_DOMAIN = b"GREMLIN-ORCHORBITAL-OBLIGATION/v0.2\x00"
+CHECKPOINT_SCHEMA = "GREMLIN_ORCHORBITAL_FABRIC_CHECKPOINT_V0_1"
+CHECKPOINT_DOMAIN = b"GREMLIN-ORCHORBITAL-FABRIC-CHECKPOINT/v0.1\x00"
 
 
 def _strict_text(value: Any, field: str) -> str:
@@ -1371,6 +1373,381 @@ class OrchorbitalFabric:
                 )
             )
 
+    def checkpoint_state(self) -> dict[str, object]:
+        """Full sensitive restart state; never use as privacy-safe telemetry."""
+
+        with self._lock:
+            self._assert_invariants()
+            core: dict[str, object] = {
+                "schema": CHECKPOINT_SCHEMA,
+                "fabric_version": VERSION,
+                "max_nodes": self._max_nodes,
+                "event_seq": self._seq,
+                "node_counter": self._node_counter,
+                "authority_root_id": self._authority_root_id,
+                "computational_barycenter_id": self._barycenter_id,
+                "nodes": [
+                    {
+                        "node_id": node.node_id,
+                        "species": node.species,
+                        "authority_root_id": node.authority_root_id,
+                        "caller_id": node.caller_id,
+                        "center_id": node.center_id,
+                        "obligations": list(node.obligations),
+                        "phase36": None if node.phase36 is None else list(node.phase36),
+                        "status": node.status,
+                        "execution_started": node.execution_started,
+                        "self_complete": node.self_complete,
+                        "result_commitment": node.result_commitment,
+                        "reduction_complete": node.reduction_complete,
+                        "reduction_commitment": node.reduction_commitment,
+                        "spawned_seq": node.spawned_seq,
+                        "invocation_depth": node.invocation_depth,
+                    }
+                    for node in (
+                        self._nodes[node_id] for node_id in sorted(self._nodes)
+                    )
+                ],
+                "causal": {
+                    node_id: sorted(self._causal[node_id])
+                    for node_id in sorted(self._causal)
+                },
+                "joins": {
+                    node_id: sorted(self._joins[node_id])
+                    for node_id in sorted(self._joins)
+                },
+                "coordination_edges": [
+                    list(edge) for edge in sorted(self._coordination)
+                ],
+                "coordination_points": [
+                    {
+                        "point_id": point.point_id,
+                        "member_ids": list(point.member_ids),
+                        "weight": point.weight,
+                        "created_seq": point.created_seq,
+                        "physical_claim": point.physical_claim,
+                    }
+                    for point in self.coordination_points()
+                ],
+                "replacements": dict(sorted(self._replacements.items())),
+                "events": deepcopy(self._events),
+                "topology_commitment": self.topology_commitment(),
+                "sensitive_raw_obligations": True,
+                "worker_payloads_included": False,
+                "canon_allowed": False,
+            }
+            encoded = json.dumps(
+                core,
+                sort_keys=True,
+                separators=(",", ":"),
+                ensure_ascii=False,
+                allow_nan=False,
+            ).encode("utf-8")
+            return {
+                **core,
+                "checkpoint_commitment": hashlib.blake2b(
+                    CHECKPOINT_DOMAIN + encoded,
+                    digest_size=32,
+                ).hexdigest(),
+            }
+
+    @classmethod
+    def from_checkpoint(
+        cls,
+        checkpoint: Mapping[str, Any],
+    ) -> "OrchorbitalFabric":
+        """Restore a full fabric checkpoint and fail closed on any drift."""
+
+        if not isinstance(checkpoint, Mapping):
+            raise ValueError("fabric checkpoint must be a mapping")
+        if checkpoint.get("schema") != CHECKPOINT_SCHEMA:
+            raise ValueError("invalid fabric checkpoint schema")
+        supplied_commitment = checkpoint.get("checkpoint_commitment")
+        if not isinstance(supplied_commitment, str) or len(supplied_commitment) != 64:
+            raise ValueError("fabric checkpoint commitment is invalid")
+        core = {
+            key: deepcopy(value)
+            for key, value in checkpoint.items()
+            if key != "checkpoint_commitment"
+        }
+        encoded = json.dumps(
+            core,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+            allow_nan=False,
+        ).encode("utf-8")
+        expected_commitment = hashlib.blake2b(
+            CHECKPOINT_DOMAIN + encoded,
+            digest_size=32,
+        ).hexdigest()
+        if supplied_commitment != expected_commitment:
+            raise ValueError("fabric checkpoint commitment mismatch")
+
+        def nonnegative_int(value: Any, field: str) -> int:
+            if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+                raise ValueError(f"{field} must be a non-negative integer")
+            return value
+
+        max_nodes = nonnegative_int(core.get("max_nodes"), "max_nodes")
+        if max_nodes < 1:
+            raise ValueError("max_nodes must be positive")
+        event_seq = nonnegative_int(core.get("event_seq"), "event_seq")
+        node_counter = nonnegative_int(core.get("node_counter"), "node_counter")
+        authority_root_id = _strict_text(
+            core.get("authority_root_id"),
+            "authority_root_id",
+        )
+        barycenter_id = _strict_text(
+            core.get("computational_barycenter_id"),
+            "computational_barycenter_id",
+        )
+
+        raw_nodes = core.get("nodes")
+        if not isinstance(raw_nodes, list) or not raw_nodes:
+            raise ValueError("fabric checkpoint nodes must be a non-empty list")
+        nodes: dict[str, NodeInstance] = {}
+        for index, raw in enumerate(raw_nodes):
+            if not isinstance(raw, Mapping):
+                raise ValueError(f"checkpoint node[{index}] must be an object")
+            node_id = _strict_text(raw.get("node_id"), f"node[{index}].node_id")
+            if node_id in nodes:
+                raise ValueError("duplicate node in fabric checkpoint")
+            species = _strict_species(raw.get("species"))
+            node_authority = _strict_text(
+                raw.get("authority_root_id"),
+                f"node[{index}].authority_root_id",
+            )
+            caller_raw = raw.get("caller_id")
+            center_raw = raw.get("center_id")
+            caller_id = (
+                None
+                if caller_raw is None
+                else _strict_text(caller_raw, f"node[{index}].caller_id")
+            )
+            center_id = (
+                None
+                if center_raw is None
+                else _strict_text(center_raw, f"node[{index}].center_id")
+            )
+            obligations_raw = raw.get("obligations")
+            if not isinstance(obligations_raw, list):
+                raise ValueError("checkpoint node obligations must be a list")
+            obligations = _strict_ids(
+                obligations_raw,
+                f"node[{index}].obligations",
+            )
+            phase_raw = raw.get("phase36")
+            phase36 = _strict_phase36(phase_raw)  # type: ignore[arg-type]
+            status = raw.get("status")
+            if not isinstance(status, str) or status not in ({OPEN} | set(TERMINAL_STATES)):
+                raise ValueError("checkpoint node status is invalid")
+            execution_started = raw.get("execution_started")
+            self_complete = raw.get("self_complete")
+            reduction_complete = raw.get("reduction_complete")
+            if not all(
+                isinstance(value, bool)
+                for value in (
+                    execution_started,
+                    self_complete,
+                    reduction_complete,
+                )
+            ):
+                raise ValueError("checkpoint node lifecycle flags must be boolean")
+            result_raw = raw.get("result_commitment")
+            reduction_raw = raw.get("reduction_commitment")
+            result_commitment = (
+                None
+                if result_raw is None
+                else _strict_text(
+                    result_raw,
+                    f"node[{index}].result_commitment",
+                )
+            )
+            reduction_commitment = (
+                None
+                if reduction_raw is None
+                else _strict_text(
+                    reduction_raw,
+                    f"node[{index}].reduction_commitment",
+                )
+            )
+            nodes[node_id] = NodeInstance(
+                node_id=node_id,
+                species=species,
+                authority_root_id=node_authority,
+                caller_id=caller_id,
+                center_id=center_id,
+                obligations=obligations,
+                phase36=phase36,
+                status=status,
+                execution_started=execution_started,
+                self_complete=self_complete,
+                result_commitment=result_commitment,
+                reduction_complete=reduction_complete,
+                reduction_commitment=reduction_commitment,
+                spawned_seq=nonnegative_int(
+                    raw.get("spawned_seq"),
+                    f"node[{index}].spawned_seq",
+                ),
+                invocation_depth=nonnegative_int(
+                    raw.get("invocation_depth"),
+                    f"node[{index}].invocation_depth",
+                ),
+            )
+
+        root = nodes.get(authority_root_id)
+        if root is None:
+            raise ValueError("fabric checkpoint authority root is missing")
+        if root.authority_root_id != authority_root_id:
+            raise ValueError("fabric checkpoint root authority mismatch")
+
+        def parse_graph(field: str) -> dict[str, set[str]]:
+            raw_graph = core.get(field)
+            if not isinstance(raw_graph, Mapping):
+                raise ValueError(f"fabric checkpoint {field} must be a mapping")
+            if set(raw_graph) != set(nodes):
+                raise ValueError(f"fabric checkpoint {field} node set mismatch")
+            graph: dict[str, set[str]] = {}
+            for node_id, raw_values in raw_graph.items():
+                canonical = _strict_text(node_id, f"{field} node_id")
+                if not isinstance(raw_values, list):
+                    raise ValueError(f"fabric checkpoint {field} values must be lists")
+                graph[canonical] = set(
+                    _strict_ids(raw_values, f"{field}[{canonical}]")
+                )
+            return graph
+
+        causal = parse_graph("causal")
+        joins = parse_graph("joins")
+
+        raw_edges = core.get("coordination_edges")
+        if not isinstance(raw_edges, list):
+            raise ValueError("coordination_edges must be a list")
+        coordination: set[tuple[str, str]] = set()
+        for index, raw_edge in enumerate(raw_edges):
+            if not isinstance(raw_edge, list) or len(raw_edge) != 2:
+                raise ValueError("coordination edge must contain exactly two ids")
+            left, right = _strict_ids(
+                raw_edge,
+                f"coordination_edges[{index}]",
+            )
+            if left == right:
+                raise ValueError("coordination edge self-loop is invalid")
+            coordination.add(tuple(sorted((left, right))))
+
+        raw_points = core.get("coordination_points")
+        if not isinstance(raw_points, list):
+            raise ValueError("coordination_points must be a list")
+        points: dict[str, CoordinationPoint] = {}
+        for index, raw_point in enumerate(raw_points):
+            if not isinstance(raw_point, Mapping):
+                raise ValueError("coordination point must be an object")
+            point_id = _strict_text(
+                raw_point.get("point_id"),
+                f"coordination_points[{index}].point_id",
+            )
+            if point_id in points:
+                raise ValueError("duplicate coordination point")
+            members_raw = raw_point.get("member_ids")
+            if not isinstance(members_raw, list):
+                raise ValueError("coordination point members must be a list")
+            members = _strict_ids(
+                members_raw,
+                f"coordination_points[{index}].member_ids",
+            )
+            if len(members) < 2:
+                raise ValueError("coordination point requires at least two members")
+            weight_raw = raw_point.get("weight")
+            if isinstance(weight_raw, bool) or not isinstance(
+                weight_raw, (int, float)
+            ):
+                raise ValueError("coordination point weight must be numeric")
+            weight = float(weight_raw)
+            if not math.isfinite(weight) or weight <= 0.0:
+                raise ValueError("coordination point weight must be positive")
+            physical_claim = raw_point.get("physical_claim")
+            if not isinstance(physical_claim, bool):
+                raise ValueError("coordination point physical_claim must be boolean")
+            points[point_id] = CoordinationPoint(
+                point_id=point_id,
+                member_ids=members,
+                weight=weight,
+                created_seq=nonnegative_int(
+                    raw_point.get("created_seq"),
+                    f"coordination_points[{index}].created_seq",
+                ),
+                physical_claim=physical_claim,
+            )
+
+        raw_replacements = core.get("replacements")
+        if not isinstance(raw_replacements, Mapping):
+            raise ValueError("replacements must be a mapping")
+        replacements = {
+            _strict_text(source, "replacement source"): _strict_text(
+                target,
+                "replacement target",
+            )
+            for source, target in raw_replacements.items()
+        }
+
+        raw_events = core.get("events")
+        if not isinstance(raw_events, list):
+            raise ValueError("events must be a list")
+        events: list[dict[str, Any]] = []
+        prior_seq = 0
+        for index, raw_event in enumerate(raw_events):
+            if not isinstance(raw_event, Mapping):
+                raise ValueError("checkpoint event must be an object")
+            seq = nonnegative_int(raw_event.get("seq"), f"events[{index}].seq")
+            if seq != prior_seq + 1:
+                raise ValueError("checkpoint event sequence is not contiguous")
+            prior_seq = seq
+            kind = _strict_text(raw_event.get("kind"), f"events[{index}].kind")
+            event_node_id = _strict_text(
+                raw_event.get("node_id"),
+                f"events[{index}].node_id",
+            )
+            details = raw_event.get("details")
+            if not isinstance(details, Mapping):
+                raise ValueError("checkpoint event details must be an object")
+            events.append(
+                {
+                    "seq": seq,
+                    "kind": kind,
+                    "node_id": event_node_id,
+                    "details": deepcopy(dict(details)),
+                }
+            )
+        if prior_seq != event_seq:
+            raise ValueError("checkpoint event_seq does not match event log")
+
+        restored = cls(
+            root_species=root.species,
+            root_id=authority_root_id,
+            max_nodes=max_nodes,
+        )
+        restored._nodes = nodes
+        restored._causal = causal
+        restored._joins = joins
+        restored._coordination = coordination
+        restored._coordination_points = points
+        restored._replacements = replacements
+        restored._events = events
+        restored._seq = event_seq
+        restored._node_counter = node_counter
+        restored._authority_root_id = authority_root_id
+        restored._barycenter_id = barycenter_id
+        restored._assert_invariants()
+
+        claimed_topology = core.get("topology_commitment")
+        if (
+            not isinstance(claimed_topology, str)
+            or restored.topology_commitment() != claimed_topology
+        ):
+            raise ValueError("restored fabric topology commitment mismatch")
+        return restored
+
     def topology_snapshot(
         self,
         *,
@@ -1531,6 +1908,7 @@ class OrchorbitalFabric:
 
 
 __all__ = [
+    "CHECKPOINT_SCHEMA",
     "DEFAULT_MAX_NODES",
     "DIM",
     "CoordinationPoint",
