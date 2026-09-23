@@ -192,3 +192,97 @@ def test_mcp_discovery_contains_worker_abi_tools() -> None:
             assert claimed.is_error is False
 
     asyncio.run(exercise())
+
+
+def test_claim_uses_species_queue_index_instead_of_global_task_scan(monkeypatch) -> None:
+    broker = WorkerBroker()
+    broker.register_worker(
+        "indexed-spider",
+        ["SPIDER"],
+        vector_width=8,
+        max_batch=8,
+    )
+    for index in range(3):
+        broker.enqueue(
+            "SPIDER",
+            {"kind": "target", "index": index},
+            task_id=f"indexed-spider-{index}",
+        )
+    for index in range(200):
+        broker.enqueue(
+            "OWL",
+            {"kind": "unrelated", "index": index},
+            task_id=f"indexed-owl-{index:03d}",
+        )
+
+    seen_species: list[str] = []
+    original = broker._scheduler_task_view
+
+    def counted(record):
+        seen_species.append(record.species)
+        return original(record)
+
+    monkeypatch.setattr(broker, "_scheduler_task_view", counted)
+    lease = broker.claim("indexed-spider", species="SPIDER", limit=3)
+
+    assert lease["batch_size"] == 3
+    assert seen_species == ["SPIDER", "SPIDER", "SPIDER"]
+    status = broker.queue_status()
+    assert status["queue_indexed"] is True
+    assert status["queued_index_counts"]["OWL"] == 200
+    assert status["queued_index_counts"]["SPIDER"] == 0
+    assert status["unfinished_task_count"] == 203
+
+
+def test_queue_index_and_unfinished_counter_follow_lease_submit_and_reap() -> None:
+    broker = WorkerBroker()
+    broker.register_worker("indexed-owl", ["OWL"], vector_width=1, max_batch=1)
+    broker.enqueue("OWL", {"x": 1}, task_id="idx-a")
+    broker.enqueue("OWL", {"x": 2}, task_id="idx-b")
+
+    initial = broker.queue_status()
+    assert initial["queued_index_counts"]["OWL"] == 2
+    assert initial["unfinished_task_count"] == 2
+
+    first = broker.claim(
+        "indexed-owl",
+        species="OWL",
+        limit=1,
+        lease_seconds=60,
+    )
+    leased = broker.queue_status()
+    assert leased["queued_index_counts"]["OWL"] == 1
+    assert leased["unfinished_task_count"] == 2
+
+    broker.submit(
+        "indexed-owl",
+        first["lease_id"],
+        [{"task_id": first["tasks"][0]["task_id"], "output": {"ok": 1}}],
+    )
+    after_submit = broker.queue_status()
+    assert after_submit["queued_index_counts"]["OWL"] == 1
+    assert after_submit["unfinished_task_count"] == 1
+
+    second = broker.claim(
+        "indexed-owl",
+        species="OWL",
+        limit=1,
+        lease_seconds=1,
+    )
+    assert broker.queue_status()["queued_index_counts"]["OWL"] == 0
+
+    broker._reap_expired(second["expires_ns"] + 1)
+    after_reap = broker.queue_status()
+    assert after_reap["queued_index_counts"]["OWL"] == 1
+    assert after_reap["unfinished_task_count"] == 1
+
+
+def test_idempotent_enqueue_does_not_double_count_queue_index() -> None:
+    broker = WorkerBroker()
+    first = broker.enqueue("HOUND", {"x": 1}, task_id="index-idempotent")
+    replay = broker.enqueue("HOUND", {"x": 1}, task_id="index-idempotent")
+
+    assert replay["task_commitment"] == first["task_commitment"]
+    status = broker.queue_status()
+    assert status["queued_index_counts"]["HOUND"] == 1
+    assert status["unfinished_task_count"] == 1
