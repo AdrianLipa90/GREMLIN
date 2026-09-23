@@ -3,6 +3,8 @@ import random
 import unittest
 
 from gremlin_mcp.relational_memory_encoder import encode_memory_text, retrieve_memory
+from gremlin_mcp.orbital_hive_memory import OrbitalHiveMemory
+from gremlin_mcp.holo_memory_hive_bridge import HoloMemoryBridgeError, materialize_orbital_hive
 
 from gremlin_mcp.holo_memory import (
     HoloMemoryError,
@@ -290,6 +292,48 @@ class HoloMemoryTests(unittest.TestCase):
                 )
                 passed += 1
         self.assertEqual(passed, 18)
+
+
+    def test_orbital_hive_bridge_materializes_without_mutation(self):
+        hive = OrbitalHiveMemory()
+        inputs = {
+            "stella": "stella octangula: two shared poles and six lateral vertices",
+            "moire": "six projections may have distinct frequencies and slight relative rotations",
+            "bees": "BEES checks overlap coherence, anti-entropy delta and reconciliation proposals",
+        }
+        for i, (subject, text) in enumerate(inputs.items()):
+            hive.place(
+                subject_id=subject,
+                payload={"text": text},
+                priority=0.9 - 0.1 * i,
+                semantic_key=subject,
+                relation_phase=0.1 * i,
+            )
+        before = [record.record_id for record in hive.flat_ring_table()]
+        index, receipt = materialize_orbital_hive(
+            hive,
+            hex_scale=2.0,
+            strict=True,
+        )
+        after = [record.record_id for record in hive.flat_ring_table()]
+        self.assertEqual(before, after)
+        self.assertEqual(index.count, 3)
+        self.assertEqual(receipt["mapped_count"], 3)
+        self.assertEqual(receipt["skipped_count"], 0)
+        self.assertFalse(receipt["ledger_mutation"])
+        self.assertFalse(receipt["canon_allowed"])
+
+    def test_orbital_hive_bridge_fails_closed_on_opaque_payload(self):
+        hive = OrbitalHiveMemory()
+        hive.place(
+            subject_id="opaque",
+            payload={"opaque": {"no": "phase-or-text"}},
+            priority=0.5,
+            semantic_key="opaque",
+            relation_phase=0.0,
+        )
+        with self.assertRaises(HoloMemoryBridgeError):
+            materialize_orbital_hive(hive, strict=True)
 
 
 if __name__ == "__main__":
