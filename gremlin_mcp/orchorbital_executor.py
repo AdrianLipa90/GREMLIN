@@ -15,7 +15,7 @@ from gremlin_mcp.workers import WORKER_SPECIES
 from tools.gremlin_geometry_phase_scheduler_v01 import SCHEDULER_KEY
 
 SCHEMA = "GREMLIN_ORCHORBITAL_EXECUTOR_V0_2"
-VERSION = "0.2.0"
+VERSION = "0.2.1"
 CONTEXT_SCHEMA = "GREMLIN_ORCHORBITAL_WORKER_CONTEXT_V0_2"
 DISCOVERY_SCHEMA = "GREMLIN_ORCHORBITAL_DISCOVERY_V0_1"
 CONTEXT_KEY = "_gremlin_orchorbital_context"
@@ -920,7 +920,9 @@ class OrchorbitalExecutor:
             "topology_commitment": self.fabric.topology_commitment(),
             "recursive_worker_discovery": True,
             "orbital_context_packets": self.context_store is not None,
-            "worker_context_cache_negotiation": False,
+            "worker_context_cache_negotiation": self.context_store is not None,
+            "worker_context_lease_bundle": self.context_store is not None,
+            "worker_transport_projection_commitment": True,
             "deterministic_task_ids": True,
             "deterministic_discovery_allocations": True,
             "global_synthesis_barrier_required": False,
