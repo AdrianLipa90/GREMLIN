@@ -298,13 +298,14 @@ class GremlinWorkerClient:
             while len(self._context_cache) > self.max_context_frames:
                 oldest = next(iter(self._context_cache))
                 del self._context_cache[oldest]
-            context_cache_hits += sum(
-                1
-                for task_id in seen_bundle_targets
-                if isinstance(bundle_targets.get(task_id), Mapping)
-                and bundle_targets[task_id].get("target_frame_commitment")
-                in self._context_cache
-            )
+            transport_receipt = claim.get("orchorbital_context_transport")
+            if isinstance(transport_receipt, Mapping):
+                reported_hits = transport_receipt.get("cache_hit_task_count", 0)
+                if isinstance(reported_hits, bool) or not isinstance(reported_hits, int):
+                    raise GremlinWorkerClientError(
+                        "worker claim context cache-hit accounting is invalid"
+                    )
+                context_cache_hits += reported_hits
 
         envelope = {
             "schema": "GREMLIN_MCP_WORKER_BATCH_V0_2",
