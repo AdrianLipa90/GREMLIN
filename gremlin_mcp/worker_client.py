@@ -172,7 +172,7 @@ class GremlinWorkerClient:
 
         bundle = claim.get(BUNDLE_PAYLOAD_KEY)
         bundle_targets: Mapping[str, Any] = {}
-        provisional_cache: dict[str, dict[str, Any]] | None = None
+        provisional_cache: dict[str, dict[str, Any]] = deepcopy(self._context_cache)
         active_bundle_commitment: str | None = None
         if bundle is not None:
             if not isinstance(bundle, Mapping):
@@ -196,7 +196,6 @@ class GremlinWorkerClient:
             if not isinstance(raw_targets, Mapping) or not isinstance(raw_updates, Mapping):
                 raise GremlinWorkerClientError("decoded context bundle is invalid")
             bundle_targets = raw_targets
-            provisional_cache = deepcopy(self._context_cache)
             for commitment, materialized in raw_updates.items():
                 if not isinstance(commitment, str) or not isinstance(materialized, Mapping):
                     raise GremlinWorkerClientError("context bundle cache update is invalid")
@@ -249,7 +248,7 @@ class GremlinWorkerClient:
                         f"worker claim task {index} transport commitment mismatch"
                     )
             if isinstance(payload, Mapping) and BUNDLE_REF_PAYLOAD_KEY in payload:
-                if bundle is None or provisional_cache is None:
+                if bundle is None:
                     raise GremlinWorkerClientError(
                         f"worker claim task {index} has context reference without bundle"
                     )
@@ -300,7 +299,7 @@ class GremlinWorkerClient:
                 try:
                     decoded = apply_context_packet(
                         raw_packet,
-                        known_contexts=self._context_cache,
+                        known_contexts=provisional_cache,
                     )
                 except ValueError as exc:
                     raise GremlinWorkerClientError(
@@ -315,19 +314,16 @@ class GremlinWorkerClient:
                 for commitment, materialized in updates.items():
                     if not isinstance(commitment, str) or not isinstance(materialized, Mapping):
                         raise GremlinWorkerClientError("context cache update is invalid")
-                    if commitment in self._context_cache:
-                        del self._context_cache[commitment]
-                    self._context_cache[commitment] = deepcopy(dict(materialized))
+                    if commitment in provisional_cache:
+                        del provisional_cache[commitment]
+                    provisional_cache[commitment] = deepcopy(dict(materialized))
                 target_commitment = decoded.get("target_frame_commitment")
                 materialized = decoded.get("materialized_context")
                 if not isinstance(target_commitment, str) or not isinstance(materialized, Mapping):
                     raise GremlinWorkerClientError("decoded target context is invalid")
-                if target_commitment in self._context_cache:
-                    del self._context_cache[target_commitment]
-                self._context_cache[target_commitment] = deepcopy(dict(materialized))
-                while len(self._context_cache) > self.max_context_frames:
-                    oldest = next(iter(self._context_cache))
-                    del self._context_cache[oldest]
+                if target_commitment in provisional_cache:
+                    del provisional_cache[target_commitment]
+                provisional_cache[target_commitment] = deepcopy(dict(materialized))
                 task[ORBITAL_CONTEXT_MATERIALIZED_KEY] = deepcopy(dict(materialized))
 
         if bundle is not None:
@@ -336,12 +332,6 @@ class GremlinWorkerClient:
                 raise GremlinWorkerClientError(
                     "worker claim bundle targets must match task context references exactly"
                 )
-            if provisional_cache is None:
-                raise GremlinWorkerClientError("context bundle cache staging is unavailable")
-            self._context_cache = provisional_cache
-            while len(self._context_cache) > self.max_context_frames:
-                oldest = next(iter(self._context_cache))
-                del self._context_cache[oldest]
             transport_receipt = claim.get("orchorbital_context_transport")
             if isinstance(transport_receipt, Mapping):
                 reported_hits = transport_receipt.get("cache_hit_task_count", 0)
@@ -350,6 +340,11 @@ class GremlinWorkerClient:
                         "worker claim context cache-hit accounting is invalid"
                     )
                 context_cache_hits += reported_hits
+
+        self._context_cache = provisional_cache
+        while len(self._context_cache) > self.max_context_frames:
+            oldest = next(iter(self._context_cache))
+            del self._context_cache[oldest]
 
         envelope = {
             "schema": "GREMLIN_MCP_WORKER_BATCH_V0_2",
