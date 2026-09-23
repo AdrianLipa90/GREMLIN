@@ -156,6 +156,18 @@ def run_benchmark(
     level_nodes: list[list[str]] = []
     for level in range(depth):
         current_level: list[str] = []
+        shared_frame_id = f"CTX:BENCH:L{level:03d}"
+        bundle_contexts.bind_shared_frame(
+            shared_frame_id,
+            base_frame_id=shared_parent,
+            set_values={
+                "handoff": (
+                    f"level={level};"
+                    + "H" * max(delta_chars * 8, shared_chars // 8)
+                ),
+                "parent_result_commitment_proxy": f"result-{level:03d}",
+            },
+        )
         for sibling in range(branches):
             node_id = f"L{level:03d}:S{sibling:03d}"
             node = bundle_fabric.spawn(
@@ -165,8 +177,9 @@ def run_benchmark(
                 obligations=(f"level-{level}-sibling-{sibling}",),
                 join_to_caller=False,
             )
-            bundle_contexts.inherit_from_caller(
+            bundle_contexts.bind_node(
                 node.node_id,
+                base_node_id=shared_frame_id,
                 set_values={
                     "local_node": node.node_id,
                     "local_delta": (
@@ -284,6 +297,11 @@ def run_benchmark(
             "cache_limit_frames": cache_limit,
             "traversal": "DEPTH_ROUND_ROBIN_BRANCHES",
             "species": "SPIDER",
+            "same_lease_shared_frame": True,
+            "shared_handoff_chars_per_level": max(
+                delta_chars * 8,
+                shared_chars // 8,
+            ),
         },
         "summary": {
             "task_count": task_count,
