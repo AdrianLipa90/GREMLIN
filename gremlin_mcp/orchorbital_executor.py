@@ -11,6 +11,7 @@ from gremlin_mcp.adaptive_runtime import OperatorTier, ResourceBudget, ResourceC
 from gremlin_mcp.orchorbital_allocator import OctopusAllocation, allocate_invocation
 from gremlin_mcp.orchorbital_context import OrbitalContextStore, PACKET_PAYLOAD_KEY
 from gremlin_mcp.orchorbital_fabric import NodeInstance, OrchorbitalFabric
+from gremlin_mcp.role_registry import CONTROL_PLANE_SPECIES, DYNAMIC_WORKLOAD_SPECIES
 from gremlin_mcp.workers import WORKER_SPECIES
 from tools.gremlin_geometry_phase_scheduler_v01 import SCHEDULER_KEY
 
@@ -229,6 +230,18 @@ class OrchorbitalExecutor:
         rows = tuple(operators)
         if not rows or not all(isinstance(row, OperatorTier) for row in rows):
             raise ValueError("operators must contain OperatorTier values")
+        invalid_operator_species = sorted(
+            {
+                row.species
+                for row in rows
+                if row.species not in DYNAMIC_WORKLOAD_SPECIES
+            }
+        )
+        if invalid_operator_species:
+            raise ValueError(
+                "adaptive workload operators cannot use control-plane or unknown "
+                f"species: {invalid_operator_species!r}"
+            )
         if isinstance(max_states, bool) or not isinstance(max_states, int) or max_states < 1:
             raise ValueError("max_states must be a positive integer")
         if not hasattr(broker, "enqueue") or not hasattr(broker, "task_result"):
@@ -1673,6 +1686,8 @@ class OrchorbitalExecutor:
             "version": VERSION,
             "execution_id": self.execution_id,
             "worker_dispatchable_species": sorted(WORKER_DISPATCHABLE_SPECIES),
+            "dynamic_workload_species": sorted(DYNAMIC_WORKLOAD_SPECIES),
+            "control_plane_species": sorted(CONTROL_PLANE_SPECIES),
             "local_core_species": sorted(
                 {
                     node.species
