@@ -113,6 +113,8 @@ jobs:
           r=run_benchmark(target_tasks=4, unrelated_tasks=2048);
           assert r['verdict'].startswith('PASS_'), r;
           assert r['summary']['structural_scan_reduction_ratio'] > 200.0, r;
+          assert r['summary']['greedy_pairwise_evaluation_reduction_ratio'] > 200.0, r;
+          assert r['summary']['greedy_phase_axis_evaluation_reduction_ratio'] > 200.0, r;
           assert r['summary']['end_to_end_speedup_claim'] is False, r"
 
       - name: Run exact same-species routing workload benchmark
