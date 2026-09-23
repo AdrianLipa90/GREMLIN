@@ -7,8 +7,11 @@ from gremlin_mcp.orchorbital_allocator import allocate_invocation
 from gremlin_mcp.orchorbital_context import OrbitalContextStore, apply_context_packet
 from gremlin_mcp.orchorbital_executor import (
     DEFAULT_INPUT_SCHEMA,
+    DISCOVERY_HANDOFF_CONTEXT_KEY,
     DISCOVERY_KEY,
     DISCOVERY_SCHEMA,
+    MAX_DISCOVERY_HANDOFF_BYTES,
+    PARENT_RESULT_CONTEXT_KEY,
     ORBITAL_CONTEXT_PACKET_KEY,
     REDUCTION_TASK_KEY,
     OrchorbitalExecutor,
@@ -517,7 +520,15 @@ def test_recursive_discovery_binds_child_context_and_child_is_dispatchable() -> 
     child_id = receipt["allocation"]["node_ids"][0]
 
     assert contexts.frame(child_id).base_node_id == parent.node_id
-    assert contexts.materialize(child_id) == contexts.materialize(parent.node_id)
+    child_context = contexts.materialize(child_id)
+    parent_context = contexts.materialize(parent.node_id)
+    assert child_context["shared"] == parent_context["shared"]
+    assert child_context["request"] == parent_context["request"]
+    assert child_context[PARENT_RESULT_CONTEXT_KEY] == {
+        "node_id": parent.node_id,
+        "result_commitment": receipt["result_commitment"],
+    }
+    assert DISCOVERY_HANDOFF_CONTEXT_KEY not in child_context
 
     dispatched = executor.ensure_dispatched(child_id, {"query": "audit"})
     assert dispatched.species == "OWL"
@@ -951,3 +962,200 @@ def test_dispatch_ready_does_not_reenqueue_existing_custom_running_task() -> Non
     after = broker.task_result(custom.task_id)
     assert after["task_commitment"] == before["task_commitment"]
     assert after["payload"] == before["payload"]
+
+
+def test_worker_discovery_handoff_becomes_child_local_context_delta() -> None:
+    fabric = OrchorbitalFabric()
+    broker = WorkerBroker()
+    broker.register_worker(
+        "worker-1",
+        ["SPIDER", "OWL"],
+        vector_width=2,
+        max_batch=2,
+    )
+    contexts = OrbitalContextStore(fabric)
+    contexts.bind_root(
+        {
+            "shared": "root-state",
+            "protected": "must-not-be-overwritten",
+        }
+    )
+    executor = OrchorbitalExecutor(
+        execution_id="handoff-worker",
+        fabric=fabric,
+        broker=broker,
+        operators=operators(),
+        budget=BUDGET,
+        context_store=contexts,
+    )
+    parent = executor.allocate(
+        "AUTH:ROOT",
+        ("graph",),
+        allocation_key="handoff-parent",
+    ).nodes[0]
+    executor.ensure_dispatched(parent.node_id, {"query": "derive graph"})
+
+    _claim_and_submit(
+        broker,
+        species="SPIDER",
+        output={
+            "answer": "candidate",
+            DISCOVERY_KEY: {
+                "schema": DISCOVERY_SCHEMA,
+                "obligations": ["audit"],
+                "handoff": {
+                    "graph_summary": {"edges": 7, "components": 2},
+                    "protected": "child-local-only",
+                },
+            },
+        },
+    )
+    receipt = executor.reconcile_node(parent.node_id)
+    child_id = receipt["allocation"]["node_ids"][0]
+    child_context = contexts.materialize(child_id)
+
+    assert receipt["handoff_present"] is True
+    assert child_context["protected"] == "must-not-be-overwritten"
+    assert child_context[DISCOVERY_HANDOFF_CONTEXT_KEY]["protected"] == (
+        "child-local-only"
+    )
+    assert child_context[DISCOVERY_HANDOFF_CONTEXT_KEY]["graph_summary"] == {
+        "edges": 7,
+        "components": 2,
+    }
+    assert child_context[PARENT_RESULT_CONTEXT_KEY] == {
+        "node_id": parent.node_id,
+        "result_commitment": receipt["result_commitment"],
+    }
+
+
+def test_worker_handoff_without_context_store_is_quarantined_fail_closed() -> None:
+    fabric, broker, executor = executor_with_worker(
+        execution_id="handoff-no-context"
+    )
+    parent = allocate_invocation(
+        fabric,
+        "AUTH:ROOT",
+        ("graph",),
+        operators(),
+        budget=BUDGET,
+    ).nodes[0]
+    executor.ensure_dispatched(parent.node_id, {"query": "graph"})
+    _claim_and_submit(
+        broker,
+        species="SPIDER",
+        output={
+            DISCOVERY_KEY: {
+                "schema": DISCOVERY_SCHEMA,
+                "obligations": ["audit"],
+                "handoff": {"summary": "cannot-be-delivered"},
+            }
+        },
+    )
+
+    receipt = executor.reconcile_node(parent.node_id)
+
+    assert receipt["state"] == "QUARANTINED_DISCOVERY_HANDOFF_WITHOUT_CONTEXT"
+    assert fabric.node(parent.node_id).status == "QUARANTINED"
+
+
+def test_oversized_worker_handoff_is_quarantined_before_child_allocation() -> None:
+    fabric = OrchorbitalFabric()
+    broker = WorkerBroker()
+    broker.register_worker("worker-1", ["SPIDER", "OWL"])
+    contexts = OrbitalContextStore(fabric)
+    contexts.bind_root({"root": True})
+    executor = OrchorbitalExecutor(
+        execution_id="handoff-oversized",
+        fabric=fabric,
+        broker=broker,
+        operators=operators(),
+        budget=BUDGET,
+        context_store=contexts,
+    )
+    parent = executor.allocate(
+        "AUTH:ROOT",
+        ("graph",),
+        allocation_key="oversized-parent",
+    ).nodes[0]
+    before_nodes = fabric.receipt()["node_count"]
+    executor.ensure_dispatched(parent.node_id, {"query": "graph"})
+    _claim_and_submit(
+        broker,
+        species="SPIDER",
+        output={
+            DISCOVERY_KEY: {
+                "schema": DISCOVERY_SCHEMA,
+                "obligations": ["audit"],
+                "handoff": {"blob": "X" * (MAX_DISCOVERY_HANDOFF_BYTES + 1)},
+            }
+        },
+    )
+
+    receipt = executor.reconcile_node(parent.node_id)
+
+    assert receipt["state"] == "QUARANTINED_INVALID_DISCOVERY"
+    assert fabric.node(parent.node_id).status == "QUARANTINED"
+    assert fabric.receipt()["node_count"] == before_nodes
+
+
+def test_recursive_handoff_context_binding_recovers_after_crash_without_duplicate_child(
+    monkeypatch,
+) -> None:
+    fabric = OrchorbitalFabric()
+    broker = WorkerBroker()
+    broker.register_worker("worker-1", ["SPIDER", "OWL"])
+    contexts = OrbitalContextStore(fabric)
+    contexts.bind_root({"root": "context"})
+    executor = OrchorbitalExecutor(
+        execution_id="handoff-crash-recovery",
+        fabric=fabric,
+        broker=broker,
+        operators=operators(),
+        budget=BUDGET,
+        context_store=contexts,
+    )
+    parent = executor.allocate(
+        "AUTH:ROOT",
+        ("graph",),
+        allocation_key="handoff-crash-parent",
+    ).nodes[0]
+    executor.ensure_dispatched(parent.node_id, {"query": "graph"})
+    _claim_and_submit(
+        broker,
+        species="SPIDER",
+        output={
+            DISCOVERY_KEY: {
+                "schema": DISCOVERY_SCHEMA,
+                "obligations": ["audit"],
+                "handoff": {"summary": "stable"},
+            }
+        },
+    )
+
+    original = contexts.inherit_from_caller
+    failed_once = False
+
+    def fail_first_child_bind(node_id, **kwargs):
+        nonlocal failed_once
+        if node_id != parent.node_id and not failed_once:
+            failed_once = True
+            raise RuntimeError("simulated crash before handoff context bind")
+        return original(node_id, **kwargs)
+
+    monkeypatch.setattr(contexts, "inherit_from_caller", fail_first_child_bind)
+    with pytest.raises(RuntimeError, match="simulated crash"):
+        executor.reconcile_node(parent.node_id)
+    count_after_crash = fabric.receipt()["node_count"]
+
+    monkeypatch.setattr(contexts, "inherit_from_caller", original)
+    receipt = executor.reconcile_node(parent.node_id)
+    child_id = receipt["allocation"]["node_ids"][0]
+
+    assert fabric.receipt()["node_count"] == count_after_crash
+    assert contexts.materialize(child_id)[DISCOVERY_HANDOFF_CONTEXT_KEY] == {
+        "summary": "stable"
+    }
+    assert contexts.materialize(child_id)[PARENT_RESULT_CONTEXT_KEY][
+        "result_commitment"
+    ] == receipt["result_commitment"]
