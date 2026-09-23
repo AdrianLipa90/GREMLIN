@@ -273,10 +273,15 @@ class DurableOrchorbitalRuntime:
         execution_id: str,
         *,
         broker: Any,
+        local_adapters: LocalAdapterRegistry | None = None,
     ) -> "DurableOrchorbitalRuntime":
         if not isinstance(store, SQLiteOrchorbitalRuntimeStore):
             raise ValueError("store must be a SQLiteOrchorbitalRuntimeStore")
-        executor = store.restore(execution_id, broker=broker)
+        executor = store.restore(
+            execution_id,
+            broker=broker,
+            local_adapters=local_adapters,
+        )
         return cls(executor, store)
 
 
