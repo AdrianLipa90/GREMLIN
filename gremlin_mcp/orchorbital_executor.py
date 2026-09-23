@@ -8,6 +8,7 @@ from typing import Any
 
 from gremlin_mcp.adaptive_runtime import OperatorTier, ResourceBudget
 from gremlin_mcp.orchorbital_allocator import OctopusAllocation, allocate_invocation
+from gremlin_mcp.orchorbital_context import OrbitalContextStore
 from gremlin_mcp.orchorbital_fabric import NodeInstance, OrchorbitalFabric
 from gremlin_mcp.workers import WORKER_SPECIES
 from tools.gremlin_geometry_phase_scheduler_v01 import SCHEDULER_KEY
@@ -18,6 +19,7 @@ CONTEXT_SCHEMA = "GREMLIN_ORCHORBITAL_WORKER_CONTEXT_V0_2"
 DISCOVERY_SCHEMA = "GREMLIN_ORCHORBITAL_DISCOVERY_V0_1"
 CONTEXT_KEY = "_gremlin_orchorbital_context"
 DISCOVERY_KEY = "_gremlin_orchorbital_discovery"
+ORBITAL_CONTEXT_PACKET_KEY = "_gremlin_orchorbital_context_packet"
 TASK_DOMAIN = b"GREMLIN-ORCHORBITAL-WORKER-TASK/v0.2\x00"
 LOCAL_RESULT_DOMAIN = b"GREMLIN-ORCHORBITAL-LOCAL-RESULT/v0.2\x00"
 MAX_DISCOVERED_OBLIGATIONS = 64
@@ -140,6 +142,7 @@ class OrchorbitalExecutor:
         broker: Any,
         operators: Iterable[OperatorTier],
         budget: ResourceBudget,
+        context_store: OrbitalContextStore | None = None,
         max_states: int = 65_536,
     ) -> None:
         self.execution_id = _strict_text(
@@ -158,8 +161,14 @@ class OrchorbitalExecutor:
             raise ValueError("max_states must be a positive integer")
         if not hasattr(broker, "enqueue") or not hasattr(broker, "task_result"):
             raise ValueError("broker must provide enqueue and task_result")
+        if context_store is not None:
+            if not isinstance(context_store, OrbitalContextStore):
+                raise ValueError("context_store must be an OrbitalContextStore")
+            if context_store.fabric is not fabric:
+                raise ValueError("context_store must belong to the same fabric")
         self.fabric = fabric
         self.broker = broker
+        self.context_store = context_store
         self.operators = rows
         self.budget = budget
         self.max_states = max_states
@@ -225,6 +234,8 @@ class OrchorbitalExecutor:
             },
             "input": dict(input_payload),
         }
+        if self.context_store is not None:
+            payload[ORBITAL_CONTEXT_PACKET_KEY] = self.context_store.packet(node.node_id)
         if node.phase36 is not None:
             payload[SCHEDULER_KEY] = {
                 "phase36": list(node.phase36),
@@ -249,10 +260,10 @@ class OrchorbitalExecutor:
                 f"species requires local/core execution adapter: {node.species}"
             )
 
-        if not node.execution_started:
-            node = self.fabric.mark_started(node.node_id)
         task_id = _task_id(self.execution_id, node)
         worker_payload = self._worker_payload(node, input_payload)
+        if not node.execution_started:
+            node = self.fabric.mark_started(node.node_id)
         task = self.broker.enqueue(
             node.species,
             worker_payload,
@@ -612,6 +623,8 @@ class OrchorbitalExecutor:
             "local_running_count": len(frontier["local_running"]),
             "topology_commitment": self.fabric.topology_commitment(),
             "recursive_worker_discovery": True,
+            "orbital_context_packets": self.context_store is not None,
+            "worker_context_cache_negotiation": False,
             "deterministic_task_ids": True,
             "deterministic_discovery_allocations": True,
             "global_synthesis_barrier_required": False,
@@ -631,6 +644,7 @@ __all__ = [
     "DISCOVERY_SCHEMA",
     "DispatchRecord",
     "MAX_DISCOVERED_OBLIGATIONS",
+    "ORBITAL_CONTEXT_PACKET_KEY",
     "OrchorbitalExecutor",
     "SCHEMA",
     "VERSION",
