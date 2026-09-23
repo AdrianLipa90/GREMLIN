@@ -6,6 +6,7 @@ from pathlib import Path
 
 from gremlin_mcp.eisenstein_orbital_memory import (
     EisensteinOrbitalIndex,
+    packet_orbital_word,
 )
 from gremlin_mcp.relational_memory_encoder import (
     encode_memory_text,
@@ -317,6 +318,55 @@ def semantic_benchmark():
         x[0] for x in queries
     ]
 
+    diagnostics = []
+    for (expected_id, cue_text), routed_row in zip(queries, routed):
+        cue_word = packet_orbital_word(
+            encode_memory_text(cue_text)
+        )
+        target_word = packet_orbital_word(
+            encoded[expected_id]
+        )
+        n = min(len(cue_word), len(target_word))
+        offsets = [
+            (cue_word[i] - target_word[i]) % 6
+            for i in range(n)
+        ]
+        relative_cue = tuple(
+            (cue_word[i] - cue_word[i - 1]) % 6
+            for i in range(1, len(cue_word))
+        )
+        relative_target = tuple(
+            (target_word[i] - target_word[i - 1]) % 6
+            for i in range(1, len(target_word))
+        )
+        diagnostics.append(
+            {
+                "expected": expected_id,
+                "cue": cue_text,
+                "cue_word": cue_word,
+                "target_word": target_word,
+                "absolute_hamming": sum(
+                    cue_word[i] != target_word[i]
+                    for i in range(n)
+                ),
+                "uniform_rotation": (
+                    bool(offsets)
+                    and len(set(offsets)) == 1
+                ),
+                "relative_hamming": sum(
+                    a != b
+                    for a, b in zip(
+                        relative_cue,
+                        relative_target,
+                    )
+                ),
+                "prefix_depth_used": routed_row[
+                    "routing"
+                ]["prefix_depth_used"],
+                "picked": routed_row["picked"],
+            }
+        )
+
     return {
         "dataset": (
             "EXISTING_18_PARAPHRASES_PLUS_1200_DISTRACTORS"
@@ -358,6 +408,7 @@ def semantic_benchmark():
             row["routing"]["prefix_depth_used"]
             for row in routed
         ],
+        "route_diagnostics": diagnostics,
     }
 
 
