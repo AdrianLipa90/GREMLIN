@@ -163,6 +163,9 @@ def test_local_child_join_blocks_only_its_consumer() -> None:
         join_to_caller=False,
     )
     child = fabric.spawn(a.node_id, "OWL", node_id="A1")
+    fabric.mark_self_complete(a.node_id, result_commitment="a-local")
+    fabric.mark_self_complete(b.node_id, result_commitment="b-local")
+    fabric.mark_self_complete(child.node_id, result_commitment="a1-local")
 
     assert b.node_id in fabric.closable_nodes()
     assert a.node_id not in fabric.closable_nodes()
@@ -221,6 +224,7 @@ def test_barycenter_must_move_before_hot_node_closes() -> None:
         join_to_caller=False,
     )
     fabric.move_barycenter(node.node_id)
+    fabric.mark_self_complete(node.node_id, result_commitment="hot-local")
 
     with pytest.raises(RuntimeError, match="move computational barycenter"):
         fabric.close(node.node_id)
@@ -378,8 +382,62 @@ def test_open_satellites_must_be_recentered_before_center_closes() -> None:
         join_to_caller=False,
     )
 
+    fabric.mark_self_complete(center.node_id, result_commitment="center-local")
     with pytest.raises(RuntimeError, match="recenter open satellites"):
         fabric.close(center.node_id)
 
     fabric.recenter(satellite.node_id, "AUTH:ROOT")
     fabric.close(center.node_id)
+
+
+def test_node_cannot_close_before_local_work_is_complete() -> None:
+    fabric = OrchorbitalFabric()
+    node = fabric.spawn(
+        "AUTH:ROOT",
+        "SPIDER",
+        node_id="A",
+        join_to_caller=False,
+    )
+
+    assert node.node_id in fabric.ready_nodes()
+    assert node.node_id not in fabric.closable_nodes()
+
+    with pytest.raises(RuntimeError, match="local work is not complete"):
+        fabric.close(node.node_id)
+
+    completed = fabric.mark_self_complete(
+        node.node_id,
+        result_commitment="result-a",
+    )
+    assert completed.self_complete is True
+    assert completed.result_commitment == "result-a"
+    assert node.node_id not in fabric.ready_nodes()
+    assert node.node_id in fabric.closable_nodes()
+
+    fabric.close(node.node_id)
+
+
+def test_self_completion_is_idempotent_only_for_same_commitment() -> None:
+    fabric = OrchorbitalFabric()
+    node = fabric.spawn(
+        "AUTH:ROOT",
+        "OWL",
+        node_id="A",
+        join_to_caller=False,
+    )
+
+    first = fabric.mark_self_complete(
+        node.node_id,
+        result_commitment="same",
+    )
+    second = fabric.mark_self_complete(
+        node.node_id,
+        result_commitment="same",
+    )
+    assert first == second
+
+    with pytest.raises(RuntimeError, match="already complete"):
+        fabric.mark_self_complete(
+            node.node_id,
+            result_commitment="different",
+        )
