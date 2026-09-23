@@ -38,6 +38,7 @@ from tools.gremlin_geometry_phase_scheduler_v01 import (
 WORKER_SCHEMA = "GREMLIN_MCP_WORKER_ABI_V0_2"
 WORKER_ABI_VERSION = "0.2.2"
 COMMITMENT_DOMAIN = b"GREMLIN-MCP-WORKER-ABI/v0.2\x00"
+TRANSPORT_COMMITMENT_DOMAIN = b"GREMLIN-MCP-WORKER-TRANSPORT/v0.2\x00"
 MAX_IDENTIFIER_CHARS = 128
 MAX_WORKER_VECTOR_WIDTH = 1024
 MAX_WORKER_BATCH = 128
@@ -75,6 +76,55 @@ def _canonical(value: Any) -> bytes:
 
 def _commit(value: Any) -> str:
     return hashlib.blake2b(COMMITMENT_DOMAIN + _canonical(value), digest_size=32).hexdigest()
+
+
+
+def worker_transport_commitment(
+    *,
+    task_id: str,
+    species: str,
+    task_commitment: str,
+    payload: Mapping[str, Any],
+    bundle_commitment: str | None = None,
+) -> str:
+    """Bind one delivered transport projection to its canonical task."""
+
+    tid = _normalize_id(task_id, field="task_id")
+    if not isinstance(species, str):
+        raise ValueError("species must be a string")
+    name = species.strip().upper()
+    if name not in WORKER_SPECIES:
+        raise ValueError(f"unsupported worker species: {species!r}")
+    commitment = _normalize_id(task_commitment, field="task_commitment")
+    if len(commitment) != 64:
+        raise ValueError("task_commitment must be a 64-character commitment")
+    try:
+        int(commitment, 16)
+    except ValueError as exc:
+        raise ValueError("task_commitment must be hexadecimal") from exc
+    if not isinstance(payload, Mapping):
+        raise ValueError("payload must be a mapping")
+    bundle = None
+    if bundle_commitment is not None:
+        bundle = _normalize_id(bundle_commitment, field="bundle_commitment")
+        if len(bundle) != 64:
+            raise ValueError("bundle_commitment must be a 64-character commitment")
+        try:
+            int(bundle, 16)
+        except ValueError as exc:
+            raise ValueError("bundle_commitment must be hexadecimal") from exc
+    core = {
+        "schema": WORKER_SCHEMA,
+        "task_id": tid,
+        "species": name,
+        "task_commitment": commitment,
+        "payload": dict(payload),
+        "bundle_commitment": bundle,
+    }
+    return hashlib.blake2b(
+        TRANSPORT_COMMITMENT_DOMAIN + _canonical(core),
+        digest_size=32,
+    ).hexdigest()
 
 
 def _strict_int(value: Any, *, field: str, minimum: int, maximum: int | None = None) -> int:
@@ -507,11 +557,31 @@ class WorkerBroker:
             self._leases[lease_id] = lease
             omega = service_omega(PROFILES[selected_species]) if selected_species in PROFILES else None
             task_views = [self._task_view(task, include_payload=True) for task in chosen]
+            bundle_commitment = (
+                None
+                if context_bundle is None
+                else context_bundle.get("bundle_commitment")
+            )
+            if bundle_commitment is not None and not isinstance(bundle_commitment, str):
+                raise RuntimeError("orchorbital context bundle commitment is invalid")
             for task_view in task_views:
                 task_id = task_view.get("task_id")
                 if not isinstance(task_id, str) or task_id not in transport_payloads:
                     raise RuntimeError("worker task transport lineage is invalid")
                 task_view["payload"] = deepcopy(transport_payloads[task_id])
+                species_name = task_view.get("species")
+                canonical_commitment = task_view.get("task_commitment")
+                if not isinstance(species_name, str) or not isinstance(
+                    canonical_commitment, str
+                ):
+                    raise RuntimeError("worker task transport metadata is invalid")
+                task_view["transport_commitment"] = worker_transport_commitment(
+                    task_id=task_id,
+                    species=species_name,
+                    task_commitment=canonical_commitment,
+                    payload=task_view["payload"],
+                    bundle_commitment=bundle_commitment,
+                )
             return {
                 "schema": WORKER_SCHEMA,
                 "worker_id": wid,
