@@ -308,11 +308,32 @@ def test_settle_closes_completed_subtree_deepest_first_without_root_close() -> N
     _claim_and_submit(broker, species="OWL", output={"audit": "candidate"})
     executor.reconcile_node(child_id)
 
-    settled = executor.settle_local_joins()
+    first_settle = executor.settle_local_joins()
 
-    assert child_id in settled["closed"]
-    assert parent.node_id in settled["closed"]
+    assert child_id in first_settle["closed"]
+    assert parent.node_id not in first_settle["closed"]
+    assert parent.node_id in first_settle["reduction_required"]
     assert fabric.node(child_id).status == "CLOSED"
+    assert fabric.node(parent.node_id).status == "OPEN"
+
+    packet = executor.build_reduction_packet(parent.node_id)
+    assert packet["self_output"][DISCOVERY_KEY]["obligations"] == ["audit"]
+    assert len(packet["join_results"]) == 1
+    assert packet["join_results"][0]["resolved_node_id"] == child_id
+    assert packet["join_results"][0]["output"] == {"audit": "candidate"}
+
+    reduction = executor.complete_reduction(
+        parent.node_id,
+        {
+            "graph": "candidate",
+            "audit": packet["join_results"][0]["output"],
+        },
+    )
+    assert reduction["state"] == "REDUCTION_COMPLETE"
+    assert reduction["join_child_count"] == 1
+
+    settled = executor.settle_local_joins()
+    assert parent.node_id in settled["closed"]
     assert fabric.node(parent.node_id).status == "CLOSED"
     assert fabric.node("AUTH:ROOT").status == "OPEN"
     assert settled["authority_root_closed"] is False
@@ -545,3 +566,69 @@ def test_context_binding_recovers_after_crash_without_duplicate_deterministic_no
     assert fabric.receipt()["node_count"] == count_after_crash
     assert len(recovered.nodes) == 1
     assert contexts.frame(recovered.nodes[0].node_id).base_node_id == "AUTH:ROOT"
+
+
+def test_reduction_output_is_bound_to_exact_join_inputs() -> None:
+    fabric, broker, executor = executor_with_worker()
+    parent = fabric.spawn(
+        "AUTH:ROOT",
+        "BEES",
+        node_id="LOCAL-REDUCE-PARENT",
+        join_to_caller=False,
+    )
+    child = fabric.spawn(
+        parent.node_id,
+        "SPIDER",
+        node_id="WORKER-REDUCE-CHILD",
+    )
+    executor.complete_local(parent.node_id, {"parent": "candidate"})
+    executor.ensure_dispatched(child.node_id, {"query": "child"})
+    _claim_and_submit(
+        broker,
+        species="SPIDER",
+        output={"child": "candidate"},
+    )
+    executor.reconcile_node(child.node_id)
+    executor.settle_local_joins()
+
+    packet = executor.build_reduction_packet(parent.node_id)
+    assert packet["self_output"] == {"parent": "candidate"}
+    assert packet["join_results"][0]["output"] == {"child": "candidate"}
+
+    first = executor.complete_reduction(
+        parent.node_id,
+        {"merged": ["parent", "child"]},
+    )
+    replay = executor.complete_reduction(
+        parent.node_id,
+        {"merged": ["parent", "child"]},
+    )
+    assert replay["reduction_commitment"] == first["reduction_commitment"]
+
+    with pytest.raises(RuntimeError, match="reduction is already complete"):
+        executor.complete_reduction(
+            parent.node_id,
+            {"merged": ["different"]},
+        )
+
+
+def test_join_results_are_not_silently_ignored_by_settle() -> None:
+    fabric, broker, executor = executor_with_worker()
+    parent = fabric.spawn(
+        "AUTH:ROOT",
+        "BEES",
+        node_id="NO-SILENT-PARENT",
+        join_to_caller=False,
+    )
+    child = fabric.spawn(parent.node_id, "SPIDER", node_id="NO-SILENT-CHILD")
+    executor.complete_local(parent.node_id, {"parent": True})
+    executor.ensure_dispatched(child.node_id, {"query": "child"})
+    _claim_and_submit(broker, species="SPIDER", output={"child": True})
+    executor.reconcile_node(child.node_id)
+
+    settled = executor.settle_local_joins()
+
+    assert child.node_id in settled["closed"]
+    assert parent.node_id not in settled["closed"]
+    assert parent.node_id in settled["reduction_required"]
+    assert fabric.node(parent.node_id).reduction_complete is False
