@@ -29,7 +29,7 @@ jobs:
         run: python -m tools.gremlin_dual_use_policy_probe_v01 --out artifacts/gremlin_dual_use_policy_probe.json
       - name: Upload policy receipt
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: gremlin-dual-use-policy
           path: artifacts/gremlin_dual_use_policy_probe.json

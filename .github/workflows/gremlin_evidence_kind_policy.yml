@@ -37,7 +37,7 @@ jobs:
         run: python -c "import json; r=json.load(open('artifacts/gremlin_evidence_kind_policy_probe.json')); assert r['status']=='PASS'; assert all(r['checks'].values()); assert r['external_benchmark_claimed'] is False; assert r['automatic_kind_inference_executed'] is False"
       - name: Upload evidence kind receipt
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: gremlin-evidence-kind-policy
           path: artifacts/gremlin_evidence_kind_policy_probe.json

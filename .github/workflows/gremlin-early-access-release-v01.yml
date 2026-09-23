@@ -120,7 +120,7 @@ jobs:
           test ! -f /usr/share/gremlin/PREVIEW_BUILD.txt
       - name: Hash Linux release
         run: sha256sum dist/installer/GREMLIN-Early-Access-Linux-amd64.deb | tee dist/installer/SHA256SUMS-linux.txt
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: GREMLIN-Early-Access-Linux-${{ inputs.version }}
           path: |
@@ -218,7 +218,7 @@ jobs:
           $installer = Resolve-Path dist\installer\GREMLIN-Early-Access-Windows-x64-Setup.exe
           $hash = (Get-FileHash -Algorithm SHA256 $installer).Hash.ToLowerInvariant()
           "$hash  GREMLIN-Early-Access-Windows-x64-Setup.exe" | Set-Content dist\installer\SHA256SUMS-windows.txt
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: GREMLIN-Early-Access-Windows-${{ inputs.version }}
           path: |

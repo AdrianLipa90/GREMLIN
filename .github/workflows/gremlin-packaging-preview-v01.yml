@@ -196,7 +196,7 @@ jobs:
           --license-key-file "$RUNNER_TEMP/preview-license.key"
       - name: Hash Linux preview artifact
         run: sha256sum "dist/installer/GREMLIN-Early-Access-Linux-amd64-PREVIEW.deb" | tee dist/installer/SHA256SUMS-linux-PREVIEW.txt
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: gremlin-linux-preview-${{ env.GREMLIN_VERSION }}
           path: |
@@ -330,7 +330,7 @@ jobs:
           $installer = Resolve-Path dist\installer\GREMLIN-Early-Access-Windows-x64-Setup-PREVIEW.exe
           $hash = (Get-FileHash -Algorithm SHA256 $installer).Hash.ToLowerInvariant()
           "$hash  GREMLIN-Early-Access-Windows-x64-Setup-PREVIEW.exe" | Set-Content dist\installer\SHA256SUMS-windows-PREVIEW.txt
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: gremlin-windows-preview-${{ env.GREMLIN_VERSION }}
           path: |
