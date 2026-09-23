@@ -575,11 +575,14 @@ class WorkerBroker:
                 }
 
             rows = queue_rows[selected_species]
-            metrics = queue_metrics(
-                rows,
-                now_ns=now,
-                precomputed_states=self._task_phase_state,
-            )
+            species_metrics = species_scheduler.get("queues")
+            if not isinstance(species_metrics, Mapping):
+                raise RuntimeError("species scheduler metrics are unavailable")
+            metrics = species_metrics.get(selected_species)
+            if not isinstance(metrics, Mapping):
+                raise RuntimeError(
+                    "selected species metrics are unavailable from scheduler"
+                )
             legacy_cap = (
                 lane_width(selected_species, vector_width=worker.vector_width)
                 if selected_species in PROFILES
