@@ -20,6 +20,8 @@ from gremlin_mcp.orchorbital_runtime import (
 
 SCHEMA = "GREMLIN_ADAPTIVE_ORCHORBITAL_BRIDGE_V0_1"
 VERSION = "0.1.0"
+COMPATIBILITY_ONLY = True
+SUPERSEDED_BY = "GREMLIN_OCTOPUS_ORCHORBITAL_ALLOCATOR_V0_2"
 ROOT_ORBIT_ID = "ORCH:ROOT"
 
 
@@ -161,6 +163,8 @@ class AdaptiveOrchorbitalPlan:
             "obligation_to_orbit": dict(self.obligation_to_orbit),
             "obligation_to_operator": dict(self.obligation_to_operator),
             "orchorbital": topology,
+            "compatibility_only": COMPATIBILITY_ONLY,
+            "superseded_by": SUPERSEDED_BY,
             "authority": "COGNITIVE_ROUTING_ONLY",
             "epistemic": "CHYBA",
             "canon_allowed": False,
@@ -253,8 +257,10 @@ def compile_adaptive_orchorbital_plan(
 
 __all__ = [
     "AdaptiveOrchorbitalPlan",
+    "COMPATIBILITY_ONLY",
     "ROOT_ORBIT_ID",
     "SCHEMA",
+    "SUPERSEDED_BY",
     "VERSION",
     "compile_adaptive_orchorbital_plan",
 ]
