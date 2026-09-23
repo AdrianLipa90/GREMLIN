@@ -338,3 +338,127 @@ def test_checkpoint_requires_identical_local_adapter_manifest() -> None:
             context_store=contexts,
             local_adapters=drifted,
         )
+
+
+def test_bees_backend_is_worker_without_adapter_and_local_with_adapter() -> None:
+    # Same logical role, same obligation, different explicitly available backend.
+    fabric_worker = OrchorbitalFabric()
+    broker_worker = WorkerBroker()
+    broker_worker.register_worker("bees-worker", ["BEES"])
+    contexts_worker = OrbitalContextStore(fabric_worker)
+    contexts_worker.bind_root({"shared": "backend-modular"})
+    executor_worker = OrchorbitalExecutor(
+        execution_id="bees-worker-backend",
+        fabric=fabric_worker,
+        broker=broker_worker,
+        operators=(
+            OperatorTier(
+                "BEES",
+                0,
+                frozenset({"coherence"}),
+                ResourceCost(1, 1, 1, 1),
+            ),
+        ),
+        budget=BUDGET,
+        context_store=contexts_worker,
+    )
+    worker_node = executor_worker.allocate(
+        "AUTH:ROOT",
+        ("coherence",),
+        allocation_key="bees-backend-worker",
+    ).nodes[0]
+
+    worker_frontier = executor_worker.frontier()
+    assert worker_node.node_id in worker_frontier["worker_ready"]
+    assert worker_node.node_id not in worker_frontier["local_ready"]
+    worker_step = executor_worker.orchestration_step()
+    assert any(
+        row["node_id"] == worker_node.node_id
+        for row in worker_step["worker_dispatch"]["dispatched"]
+    )
+    assert broker_worker.queue_status()["tasks"]["BEES"]["QUEUED"] == 1
+
+    registry = LocalAdapterRegistry()
+    registry.register(
+        "BEES",
+        lambda request: {"coherence": "local-pass"},
+        adapter_id="bees-local-backend-v1",
+        implementation_commitment=BEES_IMPL,
+    )
+    fabric_local = OrchorbitalFabric()
+    broker_local = WorkerBroker()
+    contexts_local = OrbitalContextStore(fabric_local)
+    contexts_local.bind_root({"shared": "backend-modular"})
+    executor_local = OrchorbitalExecutor(
+        execution_id="bees-local-backend",
+        fabric=fabric_local,
+        broker=broker_local,
+        operators=(
+            OperatorTier(
+                "BEES",
+                0,
+                frozenset({"coherence"}),
+                ResourceCost(1, 1, 1, 1),
+            ),
+        ),
+        budget=BUDGET,
+        context_store=contexts_local,
+        local_adapters=registry,
+    )
+    local_node = executor_local.allocate(
+        "AUTH:ROOT",
+        ("coherence",),
+        allocation_key="bees-backend-local",
+    ).nodes[0]
+
+    local_frontier = executor_local.frontier()
+    assert local_node.node_id in local_frontier["local_ready"]
+    assert local_node.node_id not in local_frontier["worker_ready"]
+    local_step = executor_local.orchestration_step()
+    assert any(
+        row["node_id"] == local_node.node_id
+        for row in local_step["local_execution"]["completed"]
+    )
+    assert broker_local.queue_status()["tasks"]["BEES"]["QUEUED"] == 0
+    assert fabric_local.node(local_node.node_id).status == "CLOSED"
+
+
+def test_active_local_adapter_prevents_duplicate_worker_dispatch_for_same_node() -> None:
+    registry = LocalAdapterRegistry()
+    registry.register(
+        "ELEPHANT",
+        lambda request: {"memory": "local"},
+        adapter_id="elephant-local-v1",
+        implementation_commitment=ELEPHANT_IMPL,
+    )
+    fabric = OrchorbitalFabric()
+    broker = WorkerBroker()
+    contexts = OrbitalContextStore(fabric)
+    contexts.bind_root({"shared": "memory"})
+    executor = OrchorbitalExecutor(
+        execution_id="elephant-no-double-dispatch",
+        fabric=fabric,
+        broker=broker,
+        operators=(
+            OperatorTier(
+                "ELEPHANT",
+                0,
+                frozenset({"memory"}),
+                ResourceCost(1, 1, 1, 1),
+            ),
+        ),
+        budget=BUDGET,
+        context_store=contexts,
+        local_adapters=registry,
+    )
+    node = executor.allocate(
+        "AUTH:ROOT",
+        ("memory",),
+        allocation_key="elephant-local-only",
+    ).nodes[0]
+
+    with pytest.raises(RuntimeError, match="active local adapter"):
+        executor.ensure_dispatched(node.node_id, {"query": "must-not-queue"})
+
+    assert broker.queue_status()["tasks"]["ELEPHANT"]["QUEUED"] == 0
+    assert fabric.node(node.node_id).execution_started is False
