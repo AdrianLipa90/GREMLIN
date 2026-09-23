@@ -2090,6 +2090,52 @@ class OrchorbitalExecutor:
                 raise ValueError("executor checkpoint reduction backend is invalid")
             reduction_backends[node_id] = raw_backend
 
+        for node in fabric.nodes():
+            execution_backend = execution_backends.get(node.node_id)
+            if (node.execution_started or node.self_complete) and execution_backend is None:
+                raise ValueError(
+                    f"started node is missing execution backend binding: {node.node_id}"
+                )
+            if execution_backend == "WORKER" and node.species not in WORKER_DISPATCHABLE_SPECIES:
+                raise ValueError(
+                    f"non-worker species has WORKER execution backend: {node.node_id}"
+                )
+            if (
+                execution_backend == "LOCAL"
+                and node.species in WORKER_DISPATCHABLE_SPECIES
+                and not (
+                    node.species in LOCAL_EXECUTION_SPECIES
+                    and local_adapters is not None
+                    and local_adapters.has(node.species)
+                )
+            ):
+                raise ValueError(
+                    f"worker-capable species has LOCAL backend without matching adapter: "
+                    f"{node.node_id}"
+                )
+
+            reduction_backend = reduction_backends.get(node.node_id)
+            if (
+                reduction_backend == "WORKER"
+                and node.species not in WORKER_DISPATCHABLE_SPECIES
+            ):
+                raise ValueError(
+                    f"non-worker species has WORKER reduction backend: {node.node_id}"
+                )
+            if (
+                reduction_backend == "LOCAL"
+                and node.species in WORKER_DISPATCHABLE_SPECIES
+                and not (
+                    node.species in LOCAL_EXECUTION_SPECIES
+                    and local_adapters is not None
+                    and local_adapters.has_reducer(node.species)
+                )
+            ):
+                raise ValueError(
+                    f"worker-capable species has LOCAL reduction backend without "
+                    f"matching reducer: {node.node_id}"
+                )
+
         local_results: dict[str, Any] = {}
         for raw_node_id, output in raw_local.items():
             node_id = _strict_text(raw_node_id, "local result node_id")
