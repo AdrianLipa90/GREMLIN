@@ -736,3 +736,28 @@ Current receipts report:
 - token saving claim = false.
 
 The byte metric is a transport fact, not an end-to-end speedup claim.
+
+
+## Lease-level sibling context deduplication
+
+Per-worker cache removes repeated ancestry across different claims. v0.2 now
+also removes repeated ancestry among sibling tasks inside the same claim.
+
+For a multi-task lease, full committed node packets are first verified and then
+compiled into one lease context bundle containing each required frame at most
+once. Task payload projections contain compact target references instead of
+duplicate frame chains.
+
+The worker verifies the bundle once, stages all frame updates, validates every
+task reference and transport commitment, materializes independent deep-copy
+contexts for handlers, and only then commits the verified cache update.
+
+This keeps three invariants separate:
+
+```text
+canonical task commitment  -> immutable queued semantics
+bundle commitment          -> shared lease context frame set + task targets
+transport commitment       -> exact delivered task projection
+```
+
+The optimization is permitted only when lossless reconstruction is verified.
