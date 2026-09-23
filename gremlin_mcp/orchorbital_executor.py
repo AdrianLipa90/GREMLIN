@@ -1763,6 +1763,11 @@ class OrchorbitalExecutor:
             "max_states": self.max_states,
             "fabric_topology_commitment": self.fabric.topology_commitment(),
             "context_checkpoint_commitment": context_commitment,
+            "local_adapter_manifest": (
+                None
+                if self.local_adapters is None
+                else self.local_adapters.manifest()
+            ),
             "operators": [
                 {
                     "species": operator.species,
@@ -1818,6 +1823,7 @@ class OrchorbitalExecutor:
         fabric: OrchorbitalFabric,
         broker: Any,
         context_store: OrbitalContextStore | None = None,
+        local_adapters: LocalAdapterRegistry | None = None,
     ) -> "OrchorbitalExecutor":
         """Restore executor-only state and verify it against fabric + broker."""
 
@@ -1869,6 +1875,15 @@ class OrchorbitalExecutor:
             )
             if actual_context != claimed_context:
                 raise ValueError("executor checkpoint context store mismatch")
+
+        claimed_adapters = core.get("local_adapter_manifest")
+        if claimed_adapters is not None and not isinstance(claimed_adapters, Mapping):
+            raise ValueError("executor checkpoint local adapter manifest is invalid")
+        actual_adapters = (
+            None if local_adapters is None else local_adapters.manifest()
+        )
+        if _canonical(claimed_adapters) != _canonical(actual_adapters):
+            raise ValueError("executor checkpoint local adapter manifest mismatch")
 
         execution_id = _strict_text(
             core.get("execution_id"),
@@ -1926,6 +1941,7 @@ class OrchorbitalExecutor:
             operators=operators,
             budget=budget,
             context_store=context_store,
+            local_adapters=local_adapters,
             max_states=max_states,
         )
 
@@ -2027,6 +2043,12 @@ class OrchorbitalExecutor:
             "version": VERSION,
             "execution_id": self.execution_id,
             "worker_dispatchable_species": sorted(WORKER_DISPATCHABLE_SPECIES),
+            "local_execution_species": sorted(LOCAL_EXECUTION_SPECIES),
+            "local_adapter_manifest": (
+                None
+                if self.local_adapters is None
+                else self.local_adapters.manifest()
+            ),
             "dynamic_workload_species": sorted(DYNAMIC_WORKLOAD_SPECIES),
             "control_plane_species": sorted(CONTROL_PLANE_SPECIES),
             "local_core_species": sorted(
