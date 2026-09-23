@@ -17,6 +17,7 @@ from tools.gremlin_geometry_phase_scheduler_v01 import SCHEDULER_KEY
 SCHEMA = "GREMLIN_ORCHORBITAL_EXECUTOR_V0_2"
 VERSION = "0.2.1"
 CONTEXT_SCHEMA = "GREMLIN_ORCHORBITAL_WORKER_CONTEXT_V0_2"
+DEFAULT_INPUT_SCHEMA = "GREMLIN_ORCHORBITAL_OBLIGATION_INPUT_V0_1"
 DISCOVERY_SCHEMA = "GREMLIN_ORCHORBITAL_DISCOVERY_V0_1"
 CONTEXT_KEY = "_gremlin_orchorbital_context"
 DISCOVERY_KEY = "_gremlin_orchorbital_discovery"
@@ -308,6 +309,50 @@ class OrchorbitalExecutor:
             state=state,
             topology_commitment=self.fabric.topology_commitment(),
         )
+
+    def default_input_payload(self, node_id: str) -> dict[str, object]:
+        """Build the canonical automatic payload for a dynamically allocated node."""
+
+        node = self.fabric.node(node_id)
+        return {
+            "schema": DEFAULT_INPUT_SCHEMA,
+            "execution_id": self.execution_id,
+            "node_id": node.node_id,
+            "species": node.species,
+            "obligations": list(node.obligations),
+            "caller_id": node.caller_id,
+            "center_id": node.center_id,
+            "invocation_depth": node.invocation_depth,
+            "authority_root_id": node.authority_root_id,
+        }
+
+    def dispatch_ready(
+        self,
+        payload_overrides: Mapping[str, Mapping[str, Any]] | None = None,
+    ) -> dict[str, object]:
+        """Dispatch the current worker frontier using overrides or obligation envelopes."""
+
+        overrides: Mapping[str, Mapping[str, Any]] = (
+            {} if payload_overrides is None else payload_overrides
+        )
+        if not isinstance(overrides, Mapping):
+            raise ValueError("payload_overrides must be a mapping")
+        frontier = self.frontier()
+        candidate_ids = tuple(
+            dict.fromkeys(
+                tuple(frontier["worker_ready"])
+                + tuple(frontier["worker_running"])
+            )
+        )
+        payloads: dict[str, Mapping[str, Any]] = {}
+        for node_id in candidate_ids:
+            override = overrides.get(node_id)
+            payloads[node_id] = (
+                self.default_input_payload(node_id)
+                if override is None
+                else override
+            )
+        return self.dispatch_frontier(payloads)
 
     def dispatch_frontier(
         self,
@@ -1141,6 +1186,46 @@ class OrchorbitalExecutor:
             "canon_allowed": False,
         }
 
+    def orchestration_step(
+        self,
+        payload_overrides: Mapping[str, Mapping[str, Any]] | None = None,
+    ) -> dict[str, object]:
+        """Advance one deterministic non-blocking orchorbital runtime iteration.
+
+        This method never waits for external workers. It reconciles results
+        already present in WorkerBroker, closes locally resolvable subtrees,
+        dispatches newly eligible reductions, and dispatches the current worker
+        frontier. Repeated calls therefore advance the same fabric without a
+        central global barrier.
+        """
+
+        before = self.fabric.topology_commitment()
+        worker_reconcile = self.reconcile_frontier()
+        settle_after_workers = self.settle_local_joins()
+        reduction_reconcile = self.reconcile_reduction_frontier()
+        settle_after_reductions = self.settle_local_joins()
+        reduction_dispatch = self.dispatch_reduction_frontier()
+        worker_dispatch = self.dispatch_ready(payload_overrides)
+        after = self.fabric.topology_commitment()
+        return {
+            "schema": SCHEMA,
+            "version": VERSION,
+            "execution_id": self.execution_id,
+            "worker_reconcile": worker_reconcile,
+            "settle_after_workers": settle_after_workers,
+            "reduction_reconcile": reduction_reconcile,
+            "settle_after_reductions": settle_after_reductions,
+            "reduction_dispatch": reduction_dispatch,
+            "worker_dispatch": worker_dispatch,
+            "frontier": self.frontier(),
+            "topology_commitment_before": before,
+            "topology_commitment_after": after,
+            "non_blocking": True,
+            "global_synthesis_barrier_required": False,
+            "canon_allowed": False,
+            "execution_admitted": False,
+        }
+
     def receipt(self) -> dict[str, object]:
         frontier = self.frontier()
         return {
@@ -1162,6 +1247,8 @@ class OrchorbitalExecutor:
             "topology_commitment": self.fabric.topology_commitment(),
             "recursive_worker_discovery": True,
             "worker_local_reduction_continuations": True,
+            "automatic_obligation_payloads": True,
+            "non_blocking_orchestration_step": True,
             "orbital_context_packets": self.context_store is not None,
             "worker_context_cache_negotiation": self.context_store is not None,
             "worker_context_lease_bundle": self.context_store is not None,
@@ -1184,6 +1271,7 @@ class OrchorbitalExecutor:
 
 __all__ = [
     "CONTEXT_KEY",
+    "DEFAULT_INPUT_SCHEMA",
     "CONTEXT_SCHEMA",
     "DISCOVERY_KEY",
     "DISCOVERY_SCHEMA",
