@@ -249,12 +249,32 @@ NODE_CLOSE
 
 ## Current lifecycle boundary
 
-v0.2 models OPEN and CLOSED execution nodes and reserves FAILED and QUARANTINED
-as terminal-state names for subsequent failover work.
+v0.2 separates three execution milestones:
+
+```text
+OPEN / not started
+OPEN / execution_started
+OPEN / self_complete
+CLOSED / subtree complete
+```
+
+A causal prerequisite may be added only before local execution starts.
+`mark_started()` seals the causal prerequisite set. `mark_self_complete()`
+records the local worker result but does not close the node while local joins
+remain unresolved.
+
+FAILED and QUARANTINED remain reserved terminal-state names for subsequent
+failover work.
 
 A non-root node that is the current computational barycenter must be explicitly
-recentered before normal CLOSE. This prevents silent computational-focus
-migration.
+recentered before normal CLOSE. A node that is still the orbital center of any
+OPEN satellite also cannot close until those satellites are explicitly
+recentered. This prevents silent computational-focus migration and orphaned
+center references.
+
+Recursive growth is bounded by a fabric-level `max_nodes` resource budget,
+not by a species-specific hierarchy or fixed semantic depth. Each node records
+`invocation_depth` for audit and benchmark purposes.
 
 The authority root may close only after every other OPEN node is closed.
 
@@ -281,6 +301,26 @@ speedup_claim           = false
 ```
 
 This branch changes architecture, not external authority.
+
+## Dynamic center selection
+
+OCTOPUS may either supply an explicit center for a selected operator or supply
+a set of candidate centers.
+
+The fabric ranks candidate centers lexicographically by:
+
+1. shortest open-node locality distance through caller, current-center and
+   coordination links;
+2. circular T^36 distance when a target phase and candidate phase are both
+   available;
+3. current computational barycenter preference;
+4. stable node identifier order.
+
+Graph locality is therefore primary. Phase is a tie-break rather than a license
+to bypass a much closer execution neighborhood.
+
+Explicit and candidate center policies for the same selected operator are
+mutually exclusive and fail closed if both are supplied.
 
 ## Performance significance
 
@@ -317,6 +357,12 @@ The v0.2 contract suite checks:
 - atomic batch rollback;
 - event-log copy isolation;
 - exact 36D phase boundary;
+- local execution start before accepting a result;
+- causal-edge sealing after execution starts;
+- caller provenance rooted at the immutable authority root;
+- recursion budget and invocation-depth accounting;
+- orphaned-center prevention on close;
+- locality-first/T^36-tiebreak center ranking;
 - non-authoritative allocation receipts;
 - fail-loud rejection of routing metadata for unselected operators.
 
