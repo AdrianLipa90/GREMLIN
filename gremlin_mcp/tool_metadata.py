@@ -35,7 +35,7 @@ READ_ONLY_OPEN_WORLD = frozenset({
     "gremlin_research_relational",
 })
 
-LOCAL_STATE_MUTATIONS = frozenset({\n    "gremlin_handle_user_task",
+READ_ONLY_CLOSED = frozenset({\n    "gremlin_handle_user_task",
     "gremlin_auto_fanout",
     "gremlin_fanout",
     "gremlin_synthesize",
