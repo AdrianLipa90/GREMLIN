@@ -54,7 +54,7 @@ def test_scheduler_manifest_explicitly_disables_fifo_primary():
 
 
 def test_new_bestiary_species_are_worker_schedulable():
-    for name in ("FOX", "BEAVER", "BAT", "CANARY", "SERPENT", "CHAMELEON"):
+    for name in ("FOX", "BEAVER", "BAT", "CANARY", "SERPENT", "CHAMELEON", "ELEPHANT", "BEES"):
         assert name in WORKER_SPECIES
     for name in ("HUMMINGBIRD", "OCTOPUS", "GREMLIN", "FERRET"):
         assert name not in WORKER_SPECIES
@@ -468,3 +468,47 @@ def test_malformed_affinity_input_fails_closed() -> None:
         assert "task affinity must be an iterable" in str(exc)
     else:
         raise AssertionError("malformed context affinity must fail closed")
+
+
+def test_scheduler_exposes_exact_dynamic_and_control_plane_role_split() -> None:
+    manifest = scheduler_manifest()
+
+    assert len(WORKER_SPECIES) == 16
+    assert set(manifest["dynamic_workload_species"]) == set(WORKER_SPECIES)
+    assert set(manifest["anchor_neutral_dynamic_species"]) == {
+        "BEES",
+        "ELEPHANT",
+    }
+    assert "BEES" not in manifest["validated_phasenav_carrier_species"]
+    assert "ELEPHANT" not in manifest["validated_phasenav_carrier_species"]
+
+
+def test_bees_and_elephant_accept_explicit_t36_without_invented_species_anchor() -> None:
+    for species in ("BEES", "ELEPHANT"):
+        broker = WorkerBroker()
+        broker.register_worker(
+            f"{species.lower()}-worker",
+            [species],
+            vector_width=4,
+            max_batch=4,
+        )
+        broker.enqueue(
+            species,
+            _payload(
+                f"{species.lower()} explicit phase",
+                1.25,
+                ready=True,
+            ),
+            task_id=f"{species.lower()}-task",
+        )
+
+        lease = broker.claim(
+            f"{species.lower()}-worker",
+            species=species,
+            limit=1,
+        )
+
+        assert lease["species"] == species
+        assert lease["tasks"][0]["task_id"] == f"{species.lower()}-task"
+        queue = lease["scheduler"]["species_selection"]["queues"][species]
+        assert queue["explicit_phase_fraction"] == 1.0
