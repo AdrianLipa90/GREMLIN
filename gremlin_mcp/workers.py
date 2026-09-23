@@ -35,6 +35,7 @@ from tools.gremlin_geometry_phase_scheduler_v01 import (
     queue_metrics,
     scheduler_manifest,
     select_batch,
+    task_phase_state,
 )
 
 WORKER_SCHEMA = "GREMLIN_MCP_WORKER_ABI_V0_2"
@@ -339,10 +340,13 @@ class WorkerBroker:
             name: {} for name in WORKER_SPECIES
         }
         self._task_context_affinity: dict[str, tuple[str, ...]] = {}
+        self._task_phase_state: dict[str, Any] = {}
         self._unfinished_count = 0
         self._lock = RLock()
 
     def _index_task_metadata(self, task: TaskRecord) -> None:
+        scheduler_row = self._scheduler_task_view(task)
+        self._task_phase_state[task.task_id] = task_phase_state(scheduler_row)
         affinity = _context_affinity_for_payload(task.payload)
         if affinity:
             self._task_context_affinity[task.task_id] = affinity
@@ -378,6 +382,7 @@ class WorkerBroker:
     def _rebuild_indexes(self) -> None:
         self._queued_by_species = {name: {} for name in WORKER_SPECIES}
         self._task_context_affinity = {}
+        self._task_phase_state = {}
         self._unfinished_count = 0
         for task in self._tasks.values():
             self._index_task_metadata(task)
@@ -555,6 +560,7 @@ class WorkerBroker:
                 locality_hint=(
                     receiver_locality_hint if known_frames else None
                 ),
+                precomputed_states=self._task_phase_state,
             )
 
             if selected_species is None:
@@ -569,7 +575,11 @@ class WorkerBroker:
                 }
 
             rows = queue_rows[selected_species]
-            metrics = queue_metrics(rows, now_ns=now)
+            metrics = queue_metrics(
+                rows,
+                now_ns=now,
+                precomputed_states=self._task_phase_state,
+            )
             legacy_cap = (
                 lane_width(selected_species, vector_width=worker.vector_width)
                 if selected_species in PROFILES
@@ -592,6 +602,7 @@ class WorkerBroker:
                 now_ns=now,
                 affinity_by_task=context_affinity,
                 receiver_known_affinity=known_frames,
+                precomputed_states=self._task_phase_state,
             )
             if not selected_ids:
                 return {
@@ -913,6 +924,8 @@ class WorkerBroker:
                 "lease_expiry_heap_indexed": True,
                 "unfinished_task_count": self._unfinished_count,
                 "queue_indexed": True,
+                "precomputed_phase_state_cache": True,
+                "precomputed_phase_state_count": len(self._task_phase_state),
                 "queued_index_counts": {
                     name: len(self._queued_by_species[name])
                     for name in WORKER_SPECIES
