@@ -264,6 +264,26 @@ class OrchorbitalFabric:
         self._node_counter += 1
         return f"N{self._node_counter:06d}:{species}"
 
+    def _nearest_open_caller(self, node_id: str) -> NodeInstance:
+        """Nearest OPEN caller ancestor, falling back to the authority root."""
+
+        node = self._require(node_id)
+        current_id = node.caller_id
+        seen: set[str] = set()
+        while current_id is not None:
+            if current_id in seen:
+                raise RuntimeError("caller provenance graph contains a cycle")
+            seen.add(current_id)
+            current = self._require(current_id)
+            if current.status == OPEN:
+                return current
+            current_id = current.caller_id
+
+        root = self._require(self._authority_root_id)
+        if root.status != OPEN:
+            raise RuntimeError("no open authority ancestor is available for failover")
+        return root
+
     def _blocking_graph(self) -> dict[str, set[str]]:
         """Union of every relation that can block successful subtree closure."""
 
@@ -954,8 +974,7 @@ class OrchorbitalFabric:
             if node.node_id == self._authority_root_id:
                 raise RuntimeError("authority root failure requires external governance")
 
-            fallback_id = node.caller_id or self._authority_root_id
-            fallback = self._require_open(fallback_id)
+            fallback = self._nearest_open_caller(node.node_id)
 
             # A crash/quarantine cannot require cooperation from the failed node.
             # Re-home every live satellite explicitly and audibly.
@@ -1109,14 +1128,16 @@ class OrchorbitalFabric:
                     "move computational barycenter before closing its node"
                 )
             if node.node_id == self._authority_root_id:
-                open_others = [
+                unresolved_others = [
                     other_id
-                    for other_id, other in self._nodes.items()
-                    if other_id != node.node_id and other.status == OPEN
+                    for other_id in self._nodes
+                    if other_id != node.node_id
+                    and not self._closure_satisfied(other_id)
                 ]
-                if open_others:
+                if unresolved_others:
                     raise RuntimeError(
-                        "authority root cannot close while other nodes are open"
+                        "authority root cannot close while other nodes are unresolved: "
+                        f"{sorted(unresolved_others)!r}"
                     )
 
             self._nodes[node.node_id] = replace(node, status="CLOSED")
