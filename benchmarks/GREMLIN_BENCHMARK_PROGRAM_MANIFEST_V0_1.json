@@ -1,0 +1,105 @@
+{
+  "schema": "GREMLIN_BENCHMARK_PROGRAM_MANIFEST_V0_1",
+  "status": "ACTIVE_CANDIDATE_PROGRAM",
+  "created_utc": "2026-09-24",
+  "source_branch": "feat/semantic-graph-transformer-v01-20260923",
+  "parent_head_at_creation": "8b4eca090af17cb3614ab62cf9a9f061ce7a0128",
+  "canon_allowed": false,
+  "tracks": [
+    {
+      "id": "SGT_RUNTIME",
+      "status": "PASS_LOCAL_LIVE_INTERNAL",
+      "artifact": "benchmarks/GREMLIN_SGT_LIVE_AB_V0_1.json",
+      "measures": ["context bytes", "GREMLIN route latency", "dispatch fan-out"],
+      "does_not_measure": ["answer correctness", "learned semantic quality", "external replication"],
+      "headline": {
+        "550_sentences_context_reduction_pct": 31.665,
+        "1100_sentences_context_reduction_pct": 65.89,
+        "dispatch_reduction_pct": 50.0,
+        "small_110_sentence_context_reduction_pct": -17.262
+      }
+    },
+    {
+      "id": "EXTERNAL_EVIDENCE_GRAPH",
+      "status": "PASS_RESEARCH_GRAPH_CANDIDATE",
+      "artifacts": [
+        "benchmarks/GREMLIN_EXTERNAL_BENCHMARK_GRAPH_V0_1.json",
+        "benchmarks/GREMLIN_EXTERNAL_BENCHMARK_GRAPH_V0_2.json",
+        "benchmarks/GREMLIN_EXTERNAL_EVIDENCE_REGISTRY_V0_2.json"
+      ],
+      "claim_boundary": "External source-native observations only; no cross-source winner score."
+    },
+    {
+      "id": "SAME_MODEL_ANSWER_QUALITY",
+      "status": "HARNESS_READY_MODEL_NOT_RUN",
+      "suite": "benchmarks/GREMLIN_EXTERNAL_SAME_MODEL_AB_TASK_SUITE_V0_3.json",
+      "runner": "tools/gremlin_same_model_ab_runner_v03.py",
+      "scorer": "tools/gremlin_same_model_ab_score_v03.py",
+      "workload_variants": 18,
+      "trials_per_workload": 8,
+      "arms": 3,
+      "required_receipts": 432,
+      "metrics": ["pass1", "pass_k", "exact state", "tool trace", "tokens", "model calls", "tool calls", "median/p95 wall latency"],
+      "blocker": "No independently callable identical foundation-model endpoint is exposed in the current session for all three arms."
+    },
+    {
+      "id": "PURE_SYSTEMS_OVERHEAD",
+      "status": "HARNESS_READY_EXECUTION_PENDING_REAL_CHECKOUT",
+      "spec": "spec/GREMLIN_ORCHORBITAL_SYSTEMS_OVERHEAD_V0_1.md",
+      "runner": "tools/gremlin_orchorbital_systems_overhead_v01.py",
+      "tests": "tests/test_gremlin_orchorbital_systems_overhead_v01.py",
+      "matrix": {
+        "topologies": ["chain", "wide", "diamond", "layered"],
+        "sizes": [10, 50, 200],
+        "warmups": 2,
+        "samples": 9
+      },
+      "timed_phases": ["build", "snapshot", "commitment", "checkpoint", "restore", "state_transition_run"],
+      "external_io_required": false,
+      "blocker": "Current live GREMLIN runtime bundle does not include the private repository checkout."
+    },
+    {
+      "id": "ORCHESTRATION_STRATEGY_GATE",
+      "status": "PASS_LOCAL_UNIT_TESTS_CANDIDATE_NOT_WIRED",
+      "module": "gremlin_mcp/orchestration_strategy_gate.py",
+      "spec": "spec/GREMLIN_ORCHESTRATION_STRATEGY_GATE_V0_1.md",
+      "tests": "tests/test_orchestration_strategy_gate_v01.py",
+      "modes": ["DETERMINISTIC_MINIMAL_COVER", "BOUNDED_DYNAMIC_ORCHORBITAL", "HYBRID_GUARDED"],
+      "production_wiring": false
+    }
+  ],
+  "preserved_failures": [
+    {
+      "id": "AUTOSTART_TIMEOUT",
+      "status": "PRESERVED",
+      "detail": "Initial first-turn launcher timed out at 30 seconds before child processes later completed; later fresh guard became ACTIVE."
+    },
+    {
+      "id": "SGT_SMALL_INPUT_OVERHEAD",
+      "status": "PRESERVED",
+      "detail": "At 110 sentences, graph representation increased context bytes by 17.262%."
+    },
+    {
+      "id": "RUNNER_ORACLE_TEST_FALSE_POSITIVE",
+      "status": "REPAIRED_AND_PRESERVED",
+      "detail": "Initial oracle-leak unit test matched a legal policy word; repaired to structural exact-object checking."
+    },
+    {
+      "id": "RUNNER_REPO_IMPORT_PATH",
+      "status": "REPAIRED_AND_PRESERVED",
+      "detail": "Initial CLI dry-run missed repo root in sys.path; runner repaired and 432 mock receipts scored successfully."
+    },
+    {
+      "id": "SYSTEMS_STUB_IMPORT_NAMESPACE",
+      "status": "REPAIRED_AND_PRESERVED",
+      "detail": "Local dynamic-import validator omitted sys.modules registration; repaired, topology plan matrix passed 12/12."
+    }
+  ],
+  "hard_gates": [
+    {"gate": "G1_REAL_SAME_MODEL_AB", "required_for": "end-to-end answer-quality/cost claim", "status": "PENDING"},
+    {"gate": "G2_REAL_ORCHORBITAL_SYSTEMS_RUN", "required_for": "pure orchestration overhead comparison", "status": "PENDING"},
+    {"gate": "G3_EXTERNAL_REPLICATION", "required_for": "independent validation claim", "status": "PENDING"},
+    {"gate": "G4_STRATEGY_GATE_PRODUCTION_WIRING", "required_for": "runtime policy deployment", "status": "BLOCKED_ON_G1_AND_G2"}
+  ],
+  "promotion_rule": "No candidate track may be promoted to canon or marketed as competitor superiority until its own hard gate is satisfied."
+}
