@@ -11,12 +11,18 @@ from gremlin_mcp.adaptive_runtime import OperatorTier, ResourceBudget, ResourceC
 from gremlin_mcp.orchorbital_allocator import OctopusAllocation, allocate_invocation
 from gremlin_mcp.orchorbital_context import OrbitalContextStore, PACKET_PAYLOAD_KEY
 from gremlin_mcp.orchorbital_fabric import NodeInstance, OrchorbitalFabric
+from gremlin_mcp.orchorbital_local import LocalAdapterRegistry
+from gremlin_mcp.role_registry import (
+    CORE_BOUNDARY_SPECIES,
+    LOCAL_EXECUTION_SPECIES,
+    ROUTABLE_EXECUTION_SPECIES,
+)
 from gremlin_mcp.role_registry import CONTROL_PLANE_SPECIES, DYNAMIC_WORKLOAD_SPECIES
 from gremlin_mcp.workers import WORKER_SPECIES
 from tools.gremlin_geometry_phase_scheduler_v01 import SCHEDULER_KEY
 
 SCHEMA = "GREMLIN_ORCHORBITAL_EXECUTOR_V0_2"
-VERSION = "0.2.1"
+VERSION = "0.2.2"
 CONTEXT_SCHEMA = "GREMLIN_ORCHORBITAL_WORKER_CONTEXT_V0_2"
 DEFAULT_INPUT_SCHEMA = "GREMLIN_ORCHORBITAL_OBLIGATION_INPUT_V0_1"
 DISCOVERY_SCHEMA = "GREMLIN_ORCHORBITAL_DISCOVERY_V0_1"
@@ -25,6 +31,8 @@ DISCOVERY_KEY = "_gremlin_orchorbital_discovery"
 ORBITAL_CONTEXT_PACKET_KEY = PACKET_PAYLOAD_KEY
 TASK_DOMAIN = b"GREMLIN-ORCHORBITAL-WORKER-TASK/v0.2\x00"
 LOCAL_RESULT_DOMAIN = b"GREMLIN-ORCHORBITAL-LOCAL-RESULT/v0.2\x00"
+LOCAL_EXECUTION_DOMAIN = b"GREMLIN-ORCHORBITAL-LOCAL-EXECUTION/v0.2\x00"
+LOCAL_REDUCTION_DOMAIN = b"GREMLIN-ORCHORBITAL-LOCAL-REDUCTION/v0.2\x00"
 DISCOVERY_CONTEXT_DOMAIN = b"GREMLIN-ORCHORBITAL-DISCOVERY-CONTEXT/v0.2\x00"
 REDUCTION_INPUT_DOMAIN = b"GREMLIN-ORCHORBITAL-REDUCTION-INPUT/v0.2\x00"
 REDUCTION_OUTPUT_DOMAIN = b"GREMLIN-ORCHORBITAL-REDUCTION-OUTPUT/v0.2\x00"
@@ -216,6 +224,7 @@ class OrchorbitalExecutor:
         operators: Iterable[OperatorTier],
         budget: ResourceBudget,
         context_store: OrbitalContextStore | None = None,
+        local_adapters: LocalAdapterRegistry | None = None,
         max_states: int = 65_536,
     ) -> None:
         self.execution_id = _strict_text(
@@ -230,6 +239,18 @@ class OrchorbitalExecutor:
         rows = tuple(operators)
         if not rows or not all(isinstance(row, OperatorTier) for row in rows):
             raise ValueError("operators must contain OperatorTier values")
+        invalid_operator_species = sorted(
+            {
+                row.species
+                for row in rows
+                if row.species not in ROUTABLE_EXECUTION_SPECIES
+            }
+        )
+        if invalid_operator_species:
+            raise ValueError(
+                "core boundary species cannot be exact-cover execution operators: "
+                f"{invalid_operator_species!r}"
+            )
         invalid_operator_species = sorted(
             {
                 row.species
@@ -251,9 +272,14 @@ class OrchorbitalExecutor:
                 raise ValueError("context_store must be an OrbitalContextStore")
             if context_store.fabric is not fabric:
                 raise ValueError("context_store must belong to the same fabric")
+        if local_adapters is not None and not isinstance(
+            local_adapters, LocalAdapterRegistry
+        ):
+            raise ValueError("local_adapters must be a LocalAdapterRegistry")
         self.fabric = fabric
         self.broker = broker
         self.context_store = context_store
+        self.local_adapters = local_adapters
         self.operators = rows
         self.budget = budget
         self.max_states = max_states
