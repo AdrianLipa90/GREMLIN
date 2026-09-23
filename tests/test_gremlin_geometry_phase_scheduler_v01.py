@@ -166,3 +166,52 @@ def test_queue_metrics_reports_explicit_phase_and_coherence():
     assert metrics["eligible_count"] == 2
     assert metrics["explicit_phase_fraction"] == 1.0
     assert metrics["cluster_coherence"] > 0.99
+
+
+def test_optional_context_affinity_prefers_shared_orbital_ancestry() -> None:
+    rows = [
+        {
+            "task_id": "seed",
+            "species": "FOX",
+            "payload": _payload("seed", 1.0, urgency=1.0),
+            "task_commitment": "commit-seed",
+            "created_ns": 1,
+        },
+        {
+            "task_id": "sibling",
+            "species": "FOX",
+            "payload": _payload("sibling", 1.0),
+            "task_commitment": "commit-a-sibling",
+            "created_ns": 2,
+        },
+        {
+            "task_id": "other",
+            "species": "FOX",
+            "payload": _payload("other", 1.0),
+            "task_commitment": "commit-z-other",
+            "created_ns": 3,
+        },
+    ]
+
+    without_affinity, plain = select_batch(
+        rows,
+        limit=2,
+        now_ns=10_000_000_000,
+    )
+    with_affinity, receipt = select_batch(
+        rows,
+        limit=2,
+        now_ns=10_000_000_000,
+        affinity_by_task={
+            "seed": ("root", "branch-a"),
+            "sibling": ("root", "branch-a"),
+            "other": ("root", "branch-b"),
+        },
+    )
+
+    assert without_affinity[0] == "seed"
+    assert with_affinity == ["seed", "sibling"]
+    assert plain["context_affinity_active"] is False
+    assert receipt["context_affinity_active"] is True
+    assert receipt["context_affinity_weight"] > 0.0
+    assert receipt["mean_context_affinity"] == 1.0
