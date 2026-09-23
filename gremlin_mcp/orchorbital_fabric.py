@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import deque
 from collections.abc import Iterable, Mapping, Sequence
 from copy import deepcopy
 from dataclasses import dataclass, replace
@@ -57,6 +58,22 @@ def _strict_phase36(value: Sequence[float] | None) -> tuple[float, ...] | None:
     if not all(math.isfinite(item) and 0.0 <= item < TAU for item in out):
         raise ValueError("phase36 must contain finite values in [0,2pi)")
     return out
+
+
+def _phase_distance(
+    left: tuple[float, ...] | None,
+    right: tuple[float, ...] | None,
+) -> float:
+    if left is None or right is None:
+        return 1.0
+    rms = math.sqrt(
+        sum(
+            ((((a - b + math.pi) % TAU) - math.pi) ** 2)
+            for a, b in zip(left, right)
+        )
+        / DIM
+    )
+    return min(1.0, rms / math.pi)
 
 
 def _has_cycle(graph: Mapping[str, set[str]]) -> bool:
@@ -543,6 +560,89 @@ class OrchorbitalFabric:
             )
             self._assert_invariants()
             return node.node_id
+
+    def _locality_adjacency(self) -> dict[str, set[str]]:
+        open_ids = {
+            node_id
+            for node_id, node in self._nodes.items()
+            if node.status == OPEN
+        }
+        adjacency: dict[str, set[str]] = {
+            node_id: set() for node_id in open_ids
+        }
+
+        for node_id in sorted(open_ids):
+            node = self._nodes[node_id]
+            for peer in (node.caller_id, node.center_id):
+                if peer is not None and peer in open_ids and peer != node_id:
+                    adjacency[node_id].add(peer)
+                    adjacency[peer].add(node_id)
+
+        for left, right in self._coordination:
+            if left in open_ids and right in open_ids:
+                adjacency[left].add(right)
+                adjacency[right].add(left)
+
+        return adjacency
+
+    def locality_distance(self, source_id: str, target_id: str) -> float:
+        """Shortest open-node locality distance across caller/center/coordination links."""
+
+        with self._lock:
+            source = self._require_open(source_id).node_id
+            target = self._require_open(target_id).node_id
+            if source == target:
+                return 0.0
+            adjacency = self._locality_adjacency()
+            distance = {source: 0}
+            queue: deque[str] = deque([source])
+            while queue:
+                current = queue.popleft()
+                for neighbor in sorted(adjacency[current]):
+                    if neighbor in distance:
+                        continue
+                    distance[neighbor] = distance[current] + 1
+                    if neighbor == target:
+                        return float(distance[neighbor])
+                    queue.append(neighbor)
+            return math.inf
+
+    def rank_centers(
+        self,
+        caller_id: str,
+        candidate_ids: Iterable[str],
+        *,
+        phase36: Sequence[float] | None = None,
+    ) -> tuple[str, ...]:
+        """Rank open candidate centers by graph locality then T^36 distance."""
+
+        if isinstance(candidate_ids, (str, bytes, Mapping)) or not isinstance(
+            candidate_ids, Iterable
+        ):
+            raise ValueError("candidate_ids must be an iterable")
+        candidates = _strict_ids(candidate_ids, "candidate_ids")
+        if not candidates:
+            raise ValueError("candidate_ids must be non-empty")
+        target_phase = _strict_phase36(phase36)
+
+        with self._lock:
+            caller = self._require_open(caller_id)
+            for candidate_id in candidates:
+                self._require_open(candidate_id)
+            return tuple(
+                sorted(
+                    candidates,
+                    key=lambda candidate_id: (
+                        self.locality_distance(caller.node_id, candidate_id),
+                        _phase_distance(
+                            target_phase,
+                            self._nodes[candidate_id].phase36,
+                        ),
+                        0 if candidate_id == self._barycenter_id else 1,
+                        candidate_id,
+                    ),
+                )
+            )
 
     def ready_nodes(self) -> tuple[str, ...]:
         """Open nodes whose explicit causal prerequisites are CLOSED."""
