@@ -120,6 +120,8 @@ class NodeInstance:
     execution_started: bool
     self_complete: bool
     result_commitment: str | None
+    reduction_complete: bool
+    reduction_commitment: str | None
     spawned_seq: int
     invocation_depth: int
 
@@ -222,6 +224,8 @@ class OrchorbitalFabric:
             execution_started=False,
             self_complete=False,
             result_commitment=None,
+            reduction_complete=False,
+            reduction_commitment=None,
             spawned_seq=0,
             invocation_depth=0,
         )
@@ -353,8 +357,18 @@ class OrchorbitalFabric:
                 raise RuntimeError("self-complete node must have started execution")
             if node.result_commitment is not None and not node.self_complete:
                 raise RuntimeError("result commitment requires self-complete state")
+            if node.reduction_complete and not node.self_complete:
+                raise RuntimeError("reduction requires self-complete local work")
+            if node.reduction_commitment is not None and not node.reduction_complete:
+                raise RuntimeError("reduction commitment requires reduction-complete state")
             if node.status == "CLOSED" and not node.self_complete:
                 raise RuntimeError("closed node must have completed local work")
+            if (
+                node.status == "CLOSED"
+                and self._joins[node_id]
+                and not node.reduction_complete
+            ):
+                raise RuntimeError("closed node with join children requires reduction")
             if node.caller_id is not None:
                 if node.caller_id not in self._nodes:
                     raise RuntimeError("caller edge points outside fabric")
@@ -998,6 +1012,10 @@ class OrchorbitalFabric:
                         self._closure_satisfied(child)
                         for child in self._joins[node_id]
                     )
+                    and (
+                        not self._joins[node_id]
+                        or node.reduction_complete
+                    )
                 )
             )
 
@@ -1040,6 +1058,81 @@ class OrchorbitalFabric:
                 "NODE_SELF_COMPLETE",
                 node.node_id,
                 result_commitment=commitment,
+            )
+            self._assert_invariants()
+            return self._nodes[node.node_id]
+
+    def join_dependencies(self, node_id: str) -> tuple[str, ...]:
+        """Return the immutable-by-self-completion local reduction dependencies."""
+
+        with self._lock:
+            node = self._require(node_id)
+            return tuple(sorted(self._joins[node.node_id]))
+
+    def reduction_candidates(self) -> tuple[str, ...]:
+        """Self-complete nodes whose joined children resolved but still need reduction."""
+
+        with self._lock:
+            return tuple(
+                sorted(
+                    node_id
+                    for node_id, node in self._nodes.items()
+                    if node.status == OPEN
+                    and node.self_complete
+                    and bool(self._joins[node_id])
+                    and not node.reduction_complete
+                    and all(
+                        self._closure_satisfied(dependency)
+                        for dependency in self._causal[node_id]
+                    )
+                    and all(
+                        self._closure_satisfied(child)
+                        for child in self._joins[node_id]
+                    )
+                )
+            )
+
+    def mark_reduction_complete(
+        self,
+        node_id: str,
+        *,
+        reduction_commitment: str,
+    ) -> NodeInstance:
+        """Bind explicit local reduction before a joined subtree may close."""
+
+        commitment = _strict_text(
+            reduction_commitment,
+            "reduction_commitment",
+        )
+        with self._lock:
+            node = self._require_open(node_id)
+            if not node.self_complete:
+                raise RuntimeError("node local work is not complete")
+            if not self._joins[node.node_id]:
+                raise RuntimeError("node has no join children to reduce")
+            unresolved = sorted(
+                child
+                for child in self._joins[node.node_id]
+                if not self._closure_satisfied(child)
+            )
+            if unresolved:
+                raise RuntimeError(
+                    f"join dependencies are not closed: {unresolved!r}"
+                )
+            if node.reduction_complete:
+                if node.reduction_commitment == commitment:
+                    return node
+                raise RuntimeError("node reduction is already complete")
+            self._nodes[node.node_id] = replace(
+                node,
+                reduction_complete=True,
+                reduction_commitment=commitment,
+            )
+            self._record(
+                "NODE_REDUCTION_COMPLETE",
+                node.node_id,
+                reduction_commitment=commitment,
+                child_ids=sorted(self._joins[node.node_id]),
             )
             self._assert_invariants()
             return self._nodes[node.node_id]
@@ -1218,6 +1311,10 @@ class OrchorbitalFabric:
                 raise RuntimeError(
                     f"join dependencies are not closed: {unresolved_join!r}"
                 )
+            if self._joins[node.node_id] and not node.reduction_complete:
+                raise RuntimeError(
+                    "node join results require explicit local reduction before close"
+                )
             open_satellites = sorted(
                 other_id
                 for other_id, other in self._nodes.items()
@@ -1303,6 +1400,8 @@ class OrchorbitalFabric:
                     "execution_started": node.execution_started,
                     "self_complete": node.self_complete,
                     "result_commitment": node.result_commitment,
+                    "reduction_complete": node.reduction_complete,
+                    "reduction_commitment": node.reduction_commitment,
                     "spawned_seq": node.spawned_seq,
                     "invocation_depth": node.invocation_depth,
                     "phase36": None if node.phase36 is None else list(node.phase36),
@@ -1381,6 +1480,10 @@ class OrchorbitalFabric:
                 "self_complete_node_count": sum(
                     node.self_complete for node in self._nodes.values()
                 ),
+                "reduction_complete_node_count": sum(
+                    node.reduction_complete for node in self._nodes.values()
+                ),
+                "reduction_candidate_count": len(self.reduction_candidates()),
                 "max_nodes": self._max_nodes,
                 "max_invocation_depth": max(
                     node.invocation_depth for node in self._nodes.values()
