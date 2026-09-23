@@ -311,12 +311,14 @@ class PersistentWorkerBroker(WorkerBroker):
         species: str | None = None,
         limit: int | None = None,
         lease_seconds: int | None = None,
+        known_context_frames: Iterable[str] = (),
     ) -> dict[str, Any]:
         result = super().claim(
             worker_id,
             species=species,
             limit=limit,
             lease_seconds=lease_seconds,
+            known_context_frames=known_context_frames,
         )
         wid = _normalize_id(worker_id, field="worker_id")
         self._store.save_worker(wid, self._worker_store_view(self._workers[wid]))
