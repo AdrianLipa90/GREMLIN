@@ -355,71 +355,105 @@ def _nearest_hex_direction(angle: float) -> int:
     ) % 6
 
 
-def _semantic_route_atoms(
+MAX_LEXICAL_ROUTES = 8
+
+
+def _atom_route_word(atom: str) -> tuple[int, ...]:
+    token = str(atom).strip()
+    if not token:
+        raise EisensteinMemoryError(
+            "semantic route atom must be non-empty"
+        )
+    word = []
+    for level in range(ROWS):
+        digest = hashlib.sha256(
+            (
+                f"{SCHEMA}|ATOM_ORBIT|{level}|{token}"
+            ).encode("utf-8")
+        ).digest()
+        word.append(digest[0] % 6)
+    return tuple(word)
+
+
+def _semantic_route_bundle(
     packet: Mapping[str, Any],
-) -> tuple[tuple[str, int], ...]:
+) -> tuple[
+    tuple[tuple[int, ...], ...],
+    str,
+    str,
+] | None:
     concepts = tuple(
-        str(x)
-        for x in packet.get("concept_atoms", ())
-        if str(x)
+        sorted(
+            {
+                str(x).strip()
+                for x in packet.get(
+                    "concept_atoms",
+                    (),
+                )
+                if str(x).strip()
+            }
+        )
     )
     numeric = tuple(
-        str(x)
-        for x in packet.get("numeric_atoms", ())
-        if str(x)
+        sorted(
+            {
+                str(x).strip()
+                for x in packet.get(
+                    "numeric_atoms",
+                    (),
+                )
+                if str(x).strip()
+            }
+        )
     )
     lexical = tuple(
-        str(x)
-        for x in packet.get("lexical_atoms", ())
-        if str(x)
+        sorted(
+            {
+                str(x).strip()
+                for x in packet.get(
+                    "lexical_atoms",
+                    (),
+                )
+                if str(x).strip()
+            }
+        )
     )
 
-    # Same relative weights as the relational-memory scorer,
-    # multiplied by two to obtain exact integer replication counts:
-    # concept 3 -> 6, numeric 2 -> 4, lexical 0.5 -> 1.
     if concepts or numeric:
-        atoms = (
-            [(atom, 6) for atom in concepts]
-            + [(atom, 4) for atom in numeric]
+        atoms = concepts + numeric
+        route_class = "SEMANTIC_ATOM_BUNDLE"
+        route_source = (
+            "SEMANTIC_ATOM_HOLOGRAPHIC_BUNDLE"
+        )
+    elif lexical:
+        ranked = sorted(
+            lexical,
+            key=lambda atom: hashlib.sha256(
+                (
+                    f"{SCHEMA}|LEXICAL_ROUTE_PICK|"
+                    f"{atom}"
+                ).encode("utf-8")
+            ).digest(),
+        )
+        atoms = tuple(
+            ranked[:MAX_LEXICAL_ROUTES]
+        )
+        route_class = "LEXICAL_FALLBACK_BUNDLE"
+        route_source = (
+            "LEXICAL_ATOM_HOLOGRAPHIC_BUNDLE"
         )
     else:
-        atoms = [(atom, 1) for atom in lexical]
-    return tuple(sorted(atoms))
-
-
-def _semantic_orbital_word(
-    packet: Mapping[str, Any],
-) -> tuple[int, ...] | None:
-    atoms = _semantic_route_atoms(packet)
-    if not atoms:
         return None
 
-    word: list[int] = []
-    for level in range(ROWS):
-        best_score: int | None = None
-        best_digest: bytes | None = None
-        for atom, replicas in atoms:
-            for replica in range(replicas):
-                digest = hashlib.sha256(
-                    (
-                        f"{SCHEMA}|SEMANTIC_LSH|{level}|"
-                        f"{atom}|{replica}"
-                    ).encode("utf-8")
-                ).digest()
-                score = int.from_bytes(
-                    digest[:8],
-                    "big",
-                )
-                if (
-                    best_score is None
-                    or score < best_score
-                ):
-                    best_score = score
-                    best_digest = digest
-        if best_digest is None:
-            return None
-        word.append(best_digest[8] % 6)
-    return tuple(word)
+    routes = tuple(
+        dict.fromkeys(
+            _atom_route_word(atom)
+            for atom in atoms
+        )
+    )
+    if not routes:
+        return None
+    return routes, route_source, route_class
 
 
 def _phase_orbital_word(
@@ -450,24 +484,39 @@ def _phase_orbital_word(
     return tuple(word)
 
 
+def packet_orbital_routes(
+    packet: Mapping[str, Any],
+    *,
+    zero_tolerance: float = 1e-15,
+) -> tuple[
+    tuple[tuple[int, ...], ...],
+    str,
+    str,
+]:
+    semantic = _semantic_route_bundle(packet)
+    if semantic is not None:
+        return semantic
+    phase_word = _phase_orbital_word(
+        packet,
+        zero_tolerance=zero_tolerance,
+    )
+    return (
+        (phase_word,),
+        "PHASE36_ROW_RESULTANT",
+        "PHASE36",
+    )
+
+
 def packet_orbital_route(
     packet: Mapping[str, Any],
     *,
     zero_tolerance: float = 1e-15,
 ) -> tuple[tuple[int, ...], str]:
-    semantic = _semantic_orbital_word(packet)
-    if semantic is not None:
-        return (
-            semantic,
-            "SEMANTIC_ATOM_WEIGHTED_MINHASH",
-        )
-    return (
-        _phase_orbital_word(
-            packet,
-            zero_tolerance=zero_tolerance,
-        ),
-        "PHASE36_ROW_RESULTANT",
+    routes, source, _ = packet_orbital_routes(
+        packet,
+        zero_tolerance=zero_tolerance,
     )
+    return routes[0], source
 
 
 def packet_orbital_word(
@@ -475,11 +524,11 @@ def packet_orbital_word(
     *,
     zero_tolerance: float = 1e-15,
 ) -> tuple[int, ...]:
-    word, _ = packet_orbital_route(
+    routes, _, _ = packet_orbital_routes(
         packet,
         zero_tolerance=zero_tolerance,
     )
-    return word
+    return routes[0]
 
 
 def prefix_neighborhood(
@@ -527,6 +576,8 @@ class EisensteinOrbitalCell:
     semantic_orbit_id: str | None
     semantic_commitment: str
     route_source: str
+    route_class: str
+    route_count: int
 
 
 class EisensteinOrbitalIndex:
@@ -558,7 +609,11 @@ class EisensteinOrbitalIndex:
             dict[str, Any],
         ] = {}
         self._prefix: dict[
-            tuple[int, ...],
+            tuple[str, tuple[int, ...]],
+            list[str],
+        ] = {}
+        self._route_class_members: dict[
+            str,
             list[str],
         ] = {}
 
@@ -596,20 +651,27 @@ class EisensteinOrbitalIndex:
             priority=priority,
         )
 
+        inferred_routes, inferred_source, route_class = (
+            packet_orbital_routes(packet)
+        )
         if route_word is None:
-            word, route_source = packet_orbital_route(
-                packet
-            )
+            routes = inferred_routes
+            route_source = inferred_source
         else:
-            word = tuple(
+            explicit_word = tuple(
                 int(x) % 6
                 for x in route_word
             )
-            route_source = "EXPLICIT_ROUTE_WORD"
-        if not word:
-            raise EisensteinMemoryError(
-                "route_word may not be empty"
+            if not explicit_word:
+                raise EisensteinMemoryError(
+                    "route_word may not be empty"
+                )
+            routes = (explicit_word,)
+            route_source = (
+                "EXPLICIT_ROUTE_WORD/"
+                + inferred_source
             )
+        word = routes[0]
 
         address = (
             RecursiveEisensteinAddress.from_word(
@@ -673,21 +735,38 @@ class EisensteinOrbitalIndex:
                 holo_cell.semantic_commitment
             ),
             route_source=route_source,
+            route_class=route_class,
+            route_count=len(routes),
         )
 
         self._cells[mid] = cell
         self._packets[mid] = dict(packet)
 
-        for depth in range(
-            1,
-            len(word) + 1,
-        ):
-            prefix = word[:depth]
-            self._prefix.setdefault(
-                prefix,
-                [],
-            ).append(mid)
-            self._prefix[prefix].sort()
+        self._route_class_members.setdefault(
+            route_class,
+            [],
+        ).append(mid)
+        self._route_class_members[
+            route_class
+        ].sort()
+
+        for route in routes:
+            for depth in range(
+                1,
+                len(route) + 1,
+            ):
+                prefix = route[:depth]
+                key = (
+                    route_class,
+                    prefix,
+                )
+                bucket = self._prefix.setdefault(
+                    key,
+                    [],
+                )
+                if mid not in bucket:
+                    bucket.append(mid)
+                    bucket.sort()
 
         return cell
 
@@ -759,49 +838,82 @@ class EisensteinOrbitalIndex:
                 "coarse or trajectory"
             )
 
-        word, route_source = packet_orbital_route(cue)
+        routes, route_source, route_class = (
+            packet_orbital_routes(cue)
+        )
+        word = routes[0]
         requested_depth = min(
             max(int(prefix_depth), 0),
-            len(word),
+            min(len(route) for route in routes),
         )
         depth = requested_depth
         candidates: list[str] = []
+        route_hits: dict[str, int] = {}
+        class_fallback = False
 
         while depth > 0:
-            prefixes = prefix_neighborhood(
-                word[:depth],
-                last_digit_tolerance=(
-                    last_digit_tolerance
-                ),
-            )
             raw: list[str] = []
-            for prefix in prefixes:
-                raw.extend(
-                    self._prefix.get(
-                        prefix,
-                        (),
-                    )
+            hits: dict[str, int] = {}
+            for route in routes:
+                prefixes = prefix_neighborhood(
+                    route[:depth],
+                    last_digit_tolerance=(
+                        last_digit_tolerance
+                    ),
                 )
+                matched_for_route: set[str] = set()
+                for prefix in prefixes:
+                    matched_for_route.update(
+                        self._prefix.get(
+                            (
+                                route_class,
+                                prefix,
+                            ),
+                            (),
+                        )
+                    )
+                for mid in matched_for_route:
+                    raw.append(mid)
+                    hits[mid] = hits.get(mid, 0) + 1
+
             candidates = self._filter_ids(
                 raw,
                 semantic_orbit_ids=(
                     semantic_orbit_ids
                 ),
             )
-            if (
-                len(candidates)
-                >= min_candidates
+            route_hits = {
+                mid: hits.get(mid, 0)
+                for mid in candidates
+            }
+
+            if candidates and (
+                len(candidates) >= min_candidates
+                or depth == 1
             ):
                 break
             depth -= 1
 
-        if depth == 0:
+        if not candidates:
+            class_fallback = True
+            class_members = (
+                self._route_class_members.get(
+                    route_class,
+                    (),
+                )
+            )
             candidates = self._filter_ids(
-                self._cells,
+                class_members
+                if class_members
+                else self._cells,
                 semantic_orbit_ids=(
                     semantic_orbit_ids
                 ),
             )
+            route_hits = {
+                mid: 0
+                for mid in candidates
+            }
 
         query_address = (
             RecursiveEisensteinAddress.from_word(
@@ -868,6 +980,10 @@ class EisensteinOrbitalIndex:
             ),
             "word": word,
             "route_source": route_source,
+            "route_class": route_class,
+            "route_count": len(routes),
+            "route_hits": route_hits,
+            "class_fallback": class_fallback,
             "address": {
                 "a": query_address.code.a,
                 "b": query_address.code.b,
