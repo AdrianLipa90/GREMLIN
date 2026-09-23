@@ -62,7 +62,7 @@ jobs:
   mcp-contract:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
@@ -97,7 +97,7 @@ jobs:
           tests/test_relational_research.py
           tests/test_gremlin_supplied_evidence_research_v01.py
       - name: Checkout pinned public benchmark
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: AdrianLipa90/Ciel-GREMLIN-Benchmark
           ref: 6f4496c451d7ce4935678cc92df49f4e0920cc31
