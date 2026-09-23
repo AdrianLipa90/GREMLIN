@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from copy import deepcopy
 from dataclasses import asdict, dataclass
 import hashlib
 import json
@@ -8,6 +9,7 @@ import time
 from typing import Any, Iterable, Mapping
 import uuid
 
+from gremlin_mcp.orchorbital_context import PACKET_PAYLOAD_KEY, reduce_context_packet
 from gremlin_mcp.memory_capabilities import (
     authorize_memory_requests,
     validate_task_authorization_bundle,
@@ -27,12 +29,13 @@ from tools.gremlin_geometry_phase_scheduler_v01 import (
 )
 
 WORKER_SCHEMA = "GREMLIN_MCP_WORKER_ABI_V0_2"
-WORKER_ABI_VERSION = "0.2.1"
+WORKER_ABI_VERSION = "0.2.2"
 COMMITMENT_DOMAIN = b"GREMLIN-MCP-WORKER-ABI/v0.2\x00"
 MAX_IDENTIFIER_CHARS = 128
 MAX_WORKER_VECTOR_WIDTH = 1024
 MAX_WORKER_BATCH = 128
 MAX_LEASE_SECONDS = 300
+MAX_CONTEXT_FRAME_CACHE_KEYS = 4096
 
 MEMORY_REQUESTS_KEY = "_gremlin_memory_requests"
 MEMORY_AUTHORIZATION_KEY = "_gremlin_memory_authorization"
@@ -105,6 +108,34 @@ def _normalize_species(values: Iterable[str]) -> tuple[str, ...]:
     if not names:
         raise ValueError("at least one worker species is required")
     return tuple(names)
+
+
+def _normalize_context_frames(values: Iterable[str]) -> tuple[str, ...]:
+    if isinstance(values, (str, bytes, Mapping)):
+        raise ValueError("known_context_frames must be an iterable of commitments")
+    try:
+        raw_values = list(values)
+    except TypeError as exc:
+        raise ValueError("known_context_frames must be iterable") from exc
+    if len(raw_values) > MAX_CONTEXT_FRAME_CACHE_KEYS:
+        raise ValueError(
+            f"known_context_frames exceeds {MAX_CONTEXT_FRAME_CACHE_KEYS} commitments"
+        )
+    out: list[str] = []
+    for index, raw in enumerate(raw_values):
+        if not isinstance(raw, str) or len(raw) != 64:
+            raise ValueError(
+                f"known_context_frames[{index}] must be a 64-character hex commitment"
+            )
+        try:
+            int(raw, 16)
+        except ValueError as exc:
+            raise ValueError(
+                f"known_context_frames[{index}] must be hexadecimal"
+            ) from exc
+        if raw not in out:
+            out.append(raw)
+    return tuple(out)
 
 
 def _normalize_capabilities(values: Iterable[str]) -> tuple[str, ...]:
@@ -218,7 +249,7 @@ class WorkerBroker:
             raise ValueError(f"unsupported worker species: {species!r}")
         if not isinstance(payload, Mapping):
             raise ValueError("payload must be a mapping")
-        body = dict(payload)
+        body = deepcopy(dict(payload))
         if MEMORY_AUTHORIZATION_KEY in body:
             raise ValueError(
                 f"{MEMORY_AUTHORIZATION_KEY} is broker-owned and cannot be supplied by callers"
@@ -262,6 +293,7 @@ class WorkerBroker:
         species: str | None = None,
         limit: int | None = None,
         lease_seconds: int | None = None,
+        known_context_frames: Iterable[str] = (),
     ) -> dict[str, Any]:
         """Claim a bounded same-species batch by geometry, phase and task state.
 
@@ -270,6 +302,7 @@ class WorkerBroker:
         readiness/noise/urgency, and a cadence hint only as a secondary tie-break.
         """
         wid = _normalize_id(worker_id, field="worker_id")
+        known_frames = _normalize_context_frames(known_context_frames)
         now = time.time_ns()
         with self._lock:
             self._reap_expired(now)
@@ -380,6 +413,36 @@ class WorkerBroker:
             self._leases[lease_id] = lease
             omega = service_omega(PROFILES[selected_species]) if selected_species in PROFILES else None
             task_views = [self._task_view(task, include_payload=True) for task in chosen]
+            cache_hits = 0
+            original_context_bytes = 0
+            transported_context_bytes = 0
+            for task_view in task_views:
+                payload = task_view.get("payload")
+                if not isinstance(payload, dict):
+                    raise RuntimeError("worker task payload view must be a dictionary")
+                raw_packet = payload.get(PACKET_PAYLOAD_KEY)
+                if raw_packet is None:
+                    continue
+                if not isinstance(raw_packet, Mapping):
+                    raise RuntimeError("orchorbital context packet must be an object")
+                reduced = reduce_context_packet(
+                    raw_packet,
+                    receiver_known_frames=known_frames,
+                )
+                source_bytes = raw_packet.get("packet_bytes")
+                reduced_bytes = reduced.get("packet_bytes")
+                if (
+                    isinstance(source_bytes, bool)
+                    or not isinstance(source_bytes, int)
+                    or isinstance(reduced_bytes, bool)
+                    or not isinstance(reduced_bytes, int)
+                ):
+                    raise RuntimeError("orchorbital context packet byte accounting is invalid")
+                original_context_bytes += source_bytes
+                transported_context_bytes += reduced_bytes
+                if reduced.get("cache_hit_frame_commitment") is not None:
+                    cache_hits += 1
+                payload[PACKET_PAYLOAD_KEY] = reduced
             context_pack = pack_context(task_views)
             return {
                 "schema": WORKER_SCHEMA,
@@ -393,6 +456,25 @@ class WorkerBroker:
                 "omega": omega,
                 "tasks": task_views,
                 "context_pack": context_pack,
+                "orchorbital_context_transport": {
+                    "known_frame_count": len(known_frames),
+                    "packet_task_count": sum(
+                        1
+                        for task in task_views
+                        if isinstance(task.get("payload"), Mapping)
+                        and PACKET_PAYLOAD_KEY in task["payload"]
+                    ),
+                    "cache_hit_task_count": cache_hits,
+                    "full_packet_bytes": original_context_bytes,
+                    "transport_packet_bytes": transported_context_bytes,
+                    "byte_saving_fraction": (
+                        0.0
+                        if original_context_bytes <= 0
+                        else 1.0 - transported_context_bytes / original_context_bytes
+                    ),
+                    "canonical_task_commitment_unchanged": True,
+                    "token_saving_claim": False,
+                },
                 "scheduler": {
                     "mode": GEOMETRY_SCHEDULER_MODE,
                     "species_selection": species_scheduler,
@@ -437,7 +519,7 @@ class WorkerBroker:
                     raise ValueError("worker results must remain CANDIDATE")
                 if "output" not in row:
                     raise ValueError("worker result requires output")
-                output = row["output"]
+                output = deepcopy(row["output"])
                 _canonical(output)
                 normalized.append((tid, output))
             if supplied != expected:
@@ -586,10 +668,10 @@ class WorkerBroker:
             "authority": _authority_state(),
         }
         if include_payload:
-            out["payload"] = record.payload
+            out["payload"] = deepcopy(record.payload)
         if include_result and record.state == "DONE":
             out["status"] = "CANDIDATE"
-            out["result"] = record.result
+            out["result"] = deepcopy(record.result)
         return out
 
 

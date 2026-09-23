@@ -7,6 +7,7 @@ from gremlin_mcp.error_contract import SCHEMA as MCP_ERROR_SCHEMA
 from gremlin_mcp.raphael import angelic_manifest
 from gremlin_mcp.memory_capabilities import beast_capabilities, policy_manifest
 from gremlin_mcp.owl_runtime_audit import audit_status
+from gremlin_mcp.role_registry import BESTIARY_ROLES
 
 from tools.gremlin_bestiary_orbital_scheduler_v02 import PROFILES, service_omega, service_period
 from tools.gremlin_bestiary_vector_species_v03 import (
@@ -18,29 +19,6 @@ from tools.gremlin_geometry_phase_scheduler_v01 import scheduler_manifest
 
 SCHEMA = "GREMLIN_MCP_V0_5"
 VERSION = "0.5.0"
-
-BESTIARY_ROLES: dict[str, dict[str, str]] = {
-    "HUMMINGBIRD": {"stage": "capture", "role": "fast append-only capture"},
-    "OCTOPUS": {"stage": "routing", "role": "auditable semantic route mask and bounded fanout"},
-    "SPIDER": {"stage": "specialist", "role": "relation, dependency and isomorphism scan"},
-    "RAVEN": {"stage": "specialist", "role": "memory and similarity scan"},
-    "HOUND": {"stage": "specialist", "role": "contradiction, anomaly and test-target scan"},
-    "MOLE": {"stage": "specialist", "role": "deep local derivation"},
-    "OWL": {"stage": "specialist", "role": "epistemic audit"},
-    "ANT": {"stage": "specialist", "role": "bounded combinatorial scan"},
-    "MANTIS": {"stage": "specialist", "role": "duplicate and dead-branch pruning"},
-    "FOX": {"stage": "specialist", "role": "strategic planning and decomposition"},
-    "BEAVER": {"stage": "specialist", "role": "candidate construction and prototyping"},
-    "BAT": {"stage": "specialist", "role": "weak-signal, harmonic and phase-pattern detection"},
-    "CANARY": {"stage": "sentinel", "role": "runtime drift and early-warning sentinel"},
-    "SERPENT": {"stage": "sensor", "role": "latent-field temperature, taste and novelty sensing"},
-    "CHAMELEON": {"stage": "transform", "role": "reversible representation/profile transformation"},
-    "ELEPHANT": {"stage": "memory", "role": "append-only relational memory consolidation, replay and retention planning"},
-    "BEES": {"stage": "coherence", "role": "local overlap coherence, anti-entropy delta and reconciliation proposals"},
-    "BELZEBUB": {"stage": "synthesis", "role": "defensive candidate synthesis"},
-    "FERRET": {"stage": "actuation", "role": "explicitly authorized interactive web actuator"},
-    "GREMLIN": {"stage": "aggregate", "role": "aggregate verified heads and emit research candidates"},
-}
 
 TOPOLOGY = ("RAW", "HUMMINGBIRD", "OCTOPUS", "SPECIALISTS", "BELZEBUB", "GREMLIN")
 
@@ -155,8 +133,8 @@ def status(*, surface: str = "reference") -> dict[str, Any]:
             "no_evidence_policy": "NO_CONFIDENT_ROUTE_NOT_QUEUED",
         },
         "worker_abi": {
-            "version": "0.2.1", "model": "PULL_LEASE_SUBMIT", "callback_networking": False,
-            "same_species_batches": True, "orbit_lane_bounded": True,
+            "version": "0.2.2", "model": "PULL_LEASE_SUBMIT", "callback_networking": False,
+            "same_species_batches": True, "orbit_lane_bounded": True, "receiver_context_cache_negotiation": True,
             "scheduler": scheduler_manifest(),
             "state_persistence": "PROCESS_MEMORY_OR_SQLITE_WAL",
         },

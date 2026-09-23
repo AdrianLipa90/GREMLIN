@@ -9,7 +9,10 @@ from typing import Any, Awaitable, Callable
 
 from mcp import Client
 
+from gremlin_mcp.orchorbital_context import PACKET_PAYLOAD_KEY, apply_context_packet
+
 BatchHandler = Callable[[dict[str, Any]], Iterable[Mapping[str, Any]] | Awaitable[Iterable[Mapping[str, Any]]]]
+ORBITAL_CONTEXT_MATERIALIZED_KEY = "orchorbital_context"
 
 
 class GremlinWorkerClientError(RuntimeError):
@@ -95,6 +98,7 @@ class GremlinWorkerClient:
         capabilities: Iterable[str] = (),
         vector_width: int = 8,
         max_batch: int = 128,
+        max_context_frames: int = 4096,
     ) -> None:
         if not callable(handler):
             raise ValueError("handler must be callable")
@@ -105,6 +109,10 @@ class GremlinWorkerClient:
         self.capabilities = _strict_string_sequence(capabilities, "capabilities", allow_empty=True)
         self.vector_width = _strict_positive_int(vector_width, "vector_width")
         self.max_batch = _strict_positive_int(max_batch, "max_batch")
+        self.max_context_frames = _strict_positive_int(max_context_frames, "max_context_frames")
+        if self.max_context_frames > 4096:
+            raise ValueError("max_context_frames must be <= 4096")
+        self._context_cache: dict[str, dict[str, Any]] = {}
 
     async def _call(self, client: Client, tool: str, arguments: Mapping[str, Any]) -> dict[str, Any]:
         result = await client.call_tool(tool, dict(arguments))
@@ -128,7 +136,12 @@ class GremlinWorkerClient:
         claim = await self._call(
             client,
             "gremlin_worker_claim",
-            {"worker_id": self.worker_id, "species": requested_species, "limit": self.max_batch},
+            {
+                "worker_id": self.worker_id,
+                "species": requested_species,
+                "limit": self.max_batch,
+                "known_context_frames": list(self._context_cache),
+            },
         )
         lease_id = claim.get("lease_id")
         raw_tasks = claim.get("tasks")
@@ -145,6 +158,8 @@ class GremlinWorkerClient:
             raise GremlinWorkerClientError("worker claim lease_id requires at least one task")
 
         expected: set[str] = set()
+        context_packet_count = 0
+        context_cache_hits = 0
         for index, task in enumerate(tasks):
             task_id = task.get("task_id")
             if not isinstance(task_id, str) or not task_id.strip():
@@ -152,6 +167,45 @@ class GremlinWorkerClient:
             if task_id in expected:
                 raise GremlinWorkerClientError("worker claim contains duplicate task_id")
             expected.add(task_id)
+            payload = task.get("payload")
+            if isinstance(payload, Mapping) and PACKET_PAYLOAD_KEY in payload:
+                raw_packet = payload[PACKET_PAYLOAD_KEY]
+                if not isinstance(raw_packet, Mapping):
+                    raise GremlinWorkerClientError(
+                        f"worker claim task {index} has invalid orchorbital context packet"
+                    )
+                try:
+                    decoded = apply_context_packet(
+                        raw_packet,
+                        known_contexts=self._context_cache,
+                    )
+                except ValueError as exc:
+                    raise GremlinWorkerClientError(
+                        f"worker claim task {index} context verification failed"
+                    ) from exc
+                context_packet_count += 1
+                if raw_packet.get("required_base_frame_commitment") is not None:
+                    context_cache_hits += 1
+                updates = decoded.get("cache_updates")
+                if not isinstance(updates, Mapping):
+                    raise GremlinWorkerClientError("context cache updates are invalid")
+                for commitment, materialized in updates.items():
+                    if not isinstance(commitment, str) or not isinstance(materialized, Mapping):
+                        raise GremlinWorkerClientError("context cache update is invalid")
+                    if commitment in self._context_cache:
+                        del self._context_cache[commitment]
+                    self._context_cache[commitment] = dict(materialized)
+                target_commitment = decoded.get("target_frame_commitment")
+                materialized = decoded.get("materialized_context")
+                if not isinstance(target_commitment, str) or not isinstance(materialized, Mapping):
+                    raise GremlinWorkerClientError("decoded target context is invalid")
+                if target_commitment in self._context_cache:
+                    del self._context_cache[target_commitment]
+                self._context_cache[target_commitment] = dict(materialized)
+                while len(self._context_cache) > self.max_context_frames:
+                    oldest = next(iter(self._context_cache))
+                    del self._context_cache[oldest]
+                task[ORBITAL_CONTEXT_MATERIALIZED_KEY] = dict(materialized)
 
         envelope = {
             "schema": "GREMLIN_MCP_WORKER_BATCH_V0_2",
@@ -162,6 +216,12 @@ class GremlinWorkerClient:
             "omega": claim.get("omega"),
             "scheduler": claim.get("scheduler"),
             "context_pack": claim.get("context_pack"),
+            "orchorbital_context_transport": claim.get("orchorbital_context_transport"),
+            "orchorbital_context_cache": {
+                "cached_frame_count": len(self._context_cache),
+                "packet_task_count": context_packet_count,
+                "cache_hit_task_count": context_cache_hits,
+            },
             "tasks": tasks,
         }
         produced = self.handler(envelope)

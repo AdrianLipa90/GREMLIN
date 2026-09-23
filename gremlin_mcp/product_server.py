@@ -586,9 +586,16 @@ def gremlin_worker_claim(
     species: str | None = None,
     limit: WorkerClaimLimit | None = None,
     lease_seconds: WorkerLeaseSeconds | None = None,
+    known_context_frames: list[str] | None = None,
 ) -> dict[str, Any]:
     product_runtime.authorize(tool="gremlin_worker_claim", feature="CUSTOM_WORKERS", species=species)
-    return broker.claim(worker_id, species=species, limit=limit, lease_seconds=lease_seconds)
+    return broker.claim(
+        worker_id,
+        species=species,
+        limit=limit,
+        lease_seconds=lease_seconds,
+        known_context_frames=known_context_frames or (),
+    )
 
 
 @mcp.tool(
