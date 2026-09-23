@@ -72,3 +72,13 @@ def test_bounds_fail_closed() -> None:
         build_user_task_plan("x", context=["x"] * 33, surface_root="/definitely/missing/noema")
     with pytest.raises(ValueError):
         build_user_task_plan("x", max_species=0, surface_root="/definitely/missing/noema")
+
+
+def test_max_species_seven_is_admitted() -> None:
+    out = build_user_task_plan(
+        "Audit graph dependencies, derive proof equations, inspect provenance, enumerate variants and prune duplicates.",
+        max_species=7,
+        surface_root="/definitely/missing/noema",
+    )
+    assert out["status"] == "READY"
+    assert len(out["octopus"]["final_species_membership"]) <= 7
