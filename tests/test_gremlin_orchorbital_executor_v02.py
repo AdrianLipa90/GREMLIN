@@ -519,7 +519,11 @@ def test_recursive_discovery_binds_child_context_and_child_is_dispatchable() -> 
     receipt = executor.reconcile_node(parent.node_id)
     child_id = receipt["allocation"]["node_ids"][0]
 
-    assert contexts.frame(child_id).base_node_id == parent.node_id
+    child_frame = contexts.frame(child_id)
+    assert child_frame.base_node_id is not None
+    assert child_frame.base_node_id.startswith("CTX:DISC:")
+    shared_frame = contexts.frame(child_frame.base_node_id)
+    assert shared_frame.base_node_id == parent.node_id
     child_context = contexts.materialize(child_id)
     parent_context = contexts.materialize(parent.node_id)
     assert child_context["shared"] == parent_context["shared"]
@@ -569,7 +573,7 @@ def test_context_binding_recovers_after_crash_without_duplicate_deterministic_no
         )
     count_after_crash = fabric.receipt()["node_count"]
 
-    monkeypatch.setattr(contexts, "inherit_from_caller", original)
+    monkeypatch.setattr(contexts, "bind_node", original)
     recovered = executor.allocate(
         "AUTH:ROOT",
         ("graph",),
@@ -1133,7 +1137,7 @@ def test_recursive_handoff_context_binding_recovers_after_crash_without_duplicat
         },
     )
 
-    original = contexts.inherit_from_caller
+    original = contexts.bind_node
     failed_once = False
 
     def fail_first_child_bind(node_id, **kwargs):
@@ -1143,7 +1147,7 @@ def test_recursive_handoff_context_binding_recovers_after_crash_without_duplicat
             raise RuntimeError("simulated crash before handoff context bind")
         return original(node_id, **kwargs)
 
-    monkeypatch.setattr(contexts, "inherit_from_caller", fail_first_child_bind)
+    monkeypatch.setattr(contexts, "bind_node", fail_first_child_bind)
     with pytest.raises(RuntimeError, match="simulated crash"):
         executor.reconcile_node(parent.node_id)
     count_after_crash = fabric.receipt()["node_count"]
@@ -1159,3 +1163,71 @@ def test_recursive_handoff_context_binding_recovers_after_crash_without_duplicat
     assert contexts.materialize(child_id)[PARENT_RESULT_CONTEXT_KEY][
         "result_commitment"
     ] == receipt["result_commitment"]
+
+
+def test_multi_child_discovery_uses_one_shared_handoff_frame_without_copying_delta() -> None:
+    fabric = OrchorbitalFabric()
+    broker = WorkerBroker()
+    broker.register_worker(
+        "worker-1",
+        ["SPIDER", "OWL", "MOLE"],
+        vector_width=4,
+        max_batch=4,
+    )
+    contexts = OrbitalContextStore(fabric)
+    contexts.bind_root({"shared": "root"})
+    executor = OrchorbitalExecutor(
+        execution_id="shared-handoff-fanout",
+        fabric=fabric,
+        broker=broker,
+        operators=operators(),
+        budget=BUDGET,
+        context_store=contexts,
+    )
+    parent = executor.allocate(
+        "AUTH:ROOT",
+        ("graph",),
+        allocation_key="fanout-parent",
+    ).nodes[0]
+    executor.ensure_dispatched(parent.node_id, {"query": "fanout"})
+    _claim_and_submit(
+        broker,
+        species="SPIDER",
+        output={
+            DISCOVERY_KEY: {
+                "schema": DISCOVERY_SCHEMA,
+                "obligations": ["audit", "derive"],
+                "handoff": {
+                    "summary": "shared-once",
+                    "evidence": [1, 2, 3],
+                },
+            }
+        },
+    )
+
+    receipt = executor.reconcile_node(parent.node_id)
+    child_ids = receipt["allocation"]["node_ids"]
+    assert len(child_ids) == 2
+
+    child_frames = [contexts.frame(node_id) for node_id in child_ids]
+    shared_ids = {frame.base_node_id for frame in child_frames}
+    assert len(shared_ids) == 1
+    shared_id = next(iter(shared_ids))
+    assert shared_id is not None and shared_id.startswith("CTX:DISC:")
+
+    shared = contexts.frame(shared_id)
+    assert shared.base_node_id == parent.node_id
+    assert shared.set_values[DISCOVERY_HANDOFF_CONTEXT_KEY] == {
+        "summary": "shared-once",
+        "evidence": [1, 2, 3],
+    }
+    assert shared.set_values[PARENT_RESULT_CONTEXT_KEY]["result_commitment"] == (
+        receipt["result_commitment"]
+    )
+    assert all(frame.set_values == {} for frame in child_frames)
+
+    materialized = [contexts.materialize(node_id) for node_id in child_ids]
+    assert all(
+        row[DISCOVERY_HANDOFF_CONTEXT_KEY]["summary"] == "shared-once"
+        for row in materialized
+    )
