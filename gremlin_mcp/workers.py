@@ -13,6 +13,7 @@ from gremlin_mcp.orchorbital_context import (
     BUNDLE_PAYLOAD_KEY,
     BUNDLE_REF_PAYLOAD_KEY,
     PACKET_PAYLOAD_KEY,
+    apply_context_packet,
     bundle_context_packets,
     context_bundle_reference,
     reduce_context_packet,
@@ -165,6 +166,23 @@ def _normalize_species(values: Iterable[str]) -> tuple[str, ...]:
     if not names:
         raise ValueError("at least one worker species is required")
     return tuple(names)
+
+
+def _validate_canonical_context_payload(payload: Mapping[str, Any]) -> None:
+    """Admit only full, self-contained orbital context into canonical tasks."""
+
+    if BUNDLE_PAYLOAD_KEY in payload or BUNDLE_REF_PAYLOAD_KEY in payload:
+        raise ValueError(
+            "orchorbital context bundle/reference keys are broker-owned transport fields"
+        )
+    packet = payload.get(PACKET_PAYLOAD_KEY)
+    if packet is None:
+        return
+    if not isinstance(packet, Mapping):
+        raise ValueError("orchorbital context packet must be an object")
+    if packet.get("required_base_frame_commitment") is not None:
+        raise ValueError("canonical task context packet must be self-contained")
+    apply_context_packet(packet)
 
 
 def _receiver_queue_locality(
@@ -371,6 +389,7 @@ class WorkerBroker:
                 task_id=tid,
             )
             body[MEMORY_AUTHORIZATION_KEY] = authorization
+        _validate_canonical_context_payload(body)
         _canonical(body)
         now = time.time_ns()
         core = {
