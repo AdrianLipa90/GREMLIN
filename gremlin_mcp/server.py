@@ -52,6 +52,7 @@ from gremlin_mcp.relational_cases import extract_relations, operator_signature
 from gremlin_mcp.relational_research import execute_relational_research
 from gremlin_mcp.research_executor import execute_research
 from gremlin_mcp.router import auto_fanout, route
+from gremlin_mcp.user_task_gateway import build_user_task_plan
 from gremlin_mcp.web import fetch_url, research, search_web
 from gremlin_mcp.workers import WorkerBroker, broker as memory_broker
 from tools.gremlin_geometry_phase_scheduler_v01 import scheduler_manifest
@@ -64,7 +65,7 @@ mcp = MCPServer(
     description="Standalone research MCP adapter for GREMLIN Bestiary semantic routing, scheduling, internet evidence acquisition, relational-case typing, external animal workers and reference execution.",
     instructions=(
         "GREMLIN MCP is a research/candidate interface. Use gremlin_bestiary to inspect "
-        "the animal topology, gremlin_species for one role, gremlin_plan to build a "
+        "the animal topology, gremlin_species for one role, gremlin_handle_user_task as the primary user-task entrypoint, gremlin_plan to build a "
         "mass-orbit/vector lane plan, worker claims use geometry/phase/state clustered scheduling rather than FIFO, "
         "gremlin_route for an auditable OCTOPUS semantic route, "
         "gremlin_relation_parse for deterministic Polish case-typed relation frames, "
@@ -160,6 +161,59 @@ def gremlin_bestiary() -> dict[str, Any]:
 def gremlin_species(species: str) -> dict[str, Any]:
     """Inspect one GREMLIN animal by name, for example SPIDER, OWL or BELZEBUB."""
     return species_profile(species)
+
+
+@mcp.tool(
+    title=tool_title("gremlin_handle_user_task"),
+    description=tool_description("gremlin_handle_user_task"),
+    annotations=tool_annotations("gremlin_handle_user_task"),
+)
+@mcp_error_boundary("gremlin_handle_user_task")
+def gremlin_handle_user_task(
+    task: str,
+    context: list[str] | None = None,
+    request_id: RequestId | None = None,
+    dispatch_mode: str = "PLAN",
+    max_species: RouteMaxSpecies = 4,
+    min_score: RouteMinScore = 2.0,
+    relative_cutoff: RouteRelativeCutoff = 0.45,
+) -> dict[str, Any]:
+    """Primary GREMLIN + PhaseNav entrypoint for ordinary user tasks."""
+    mode = str(dispatch_mode).strip().upper()
+    if mode not in {"PLAN", "QUEUE"}:
+        raise ValueError("dispatch_mode must be PLAN or QUEUE")
+    plan = build_user_task_plan(
+        task,
+        context=context,
+        request_id=request_id,
+        max_species=max_species,
+        min_score=min_score,
+        relative_cutoff=relative_cutoff,
+    )
+    if mode == "PLAN" or not plan["execution"]["route_species"]:
+        return {
+            **plan,
+            "dispatch_mode": mode,
+            "dispatch": None,
+        }
+    queued = fanout(
+        broker,
+        plan["worker_payload"],
+        plan["execution"]["route_species"],
+        request_id=request_id,
+        route_context={
+            "gateway_schema": plan["schema"],
+            "plan_sha256": plan["plan_sha256"],
+            "semantic_route_commitment": plan["octopus"]["route_commitment"],
+            "phasenav_state_id": plan["phasenav"]["state_id"],
+            "phasenav_schedule_order": plan["phasenav"]["schedule_order"],
+        },
+    )
+    return {
+        **plan,
+        "dispatch_mode": mode,
+        "dispatch": queued,
+    }
 
 
 @mcp.tool(
