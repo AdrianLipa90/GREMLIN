@@ -7,7 +7,7 @@ import hashlib
 import json
 from typing import Any
 
-from gremlin_mcp.adaptive_runtime import OperatorTier, ResourceBudget
+from gremlin_mcp.adaptive_runtime import OperatorTier, ResourceBudget, ResourceCost
 from gremlin_mcp.orchorbital_allocator import OctopusAllocation, allocate_invocation
 from gremlin_mcp.orchorbital_context import OrbitalContextStore, PACKET_PAYLOAD_KEY
 from gremlin_mcp.orchorbital_fabric import NodeInstance, OrchorbitalFabric
@@ -31,6 +31,8 @@ REDUCTION_TASK_DOMAIN = b"GREMLIN-ORCHORBITAL-REDUCTION-TASK/v0.2\x00"
 RECOVERY_EFFECTIVE_DOMAIN = b"GREMLIN-ORCHORBITAL-RECOVERY-EFFECTIVE/v0.2\x00"
 REDUCTION_SCHEMA = "GREMLIN_ORCHORBITAL_REDUCTION_V0_1"
 REDUCTION_TASK_KEY = "_gremlin_orchorbital_reduction"
+EXECUTOR_CHECKPOINT_SCHEMA = "GREMLIN_ORCHORBITAL_EXECUTOR_CHECKPOINT_V0_1"
+EXECUTOR_CHECKPOINT_DOMAIN = b"GREMLIN-ORCHORBITAL-EXECUTOR-CHECKPOINT/v0.1\x00"
 MAX_DISCOVERED_OBLIGATIONS = 64
 MAX_DISCOVERY_HANDOFF_KEYS = 128
 MAX_DISCOVERY_HANDOFF_BYTES = 65_536
@@ -1389,6 +1391,281 @@ class OrchorbitalExecutor:
             "execution_admitted": False,
         }
 
+    def checkpoint_state(self) -> dict[str, object]:
+        """Sensitive executor restart state excluding WorkerBroker persistence."""
+
+        context_commitment: str | None = None
+        if self.context_store is not None:
+            context_checkpoint = self.context_store.checkpoint_state()
+            raw_context_commitment = context_checkpoint.get("checkpoint_commitment")
+            if not isinstance(raw_context_commitment, str):
+                raise RuntimeError("context checkpoint commitment is unavailable")
+            context_commitment = raw_context_commitment
+
+        core: dict[str, object] = {
+            "schema": EXECUTOR_CHECKPOINT_SCHEMA,
+            "executor_version": VERSION,
+            "execution_id": self.execution_id,
+            "max_states": self.max_states,
+            "fabric_topology_commitment": self.fabric.topology_commitment(),
+            "context_checkpoint_commitment": context_commitment,
+            "operators": [
+                {
+                    "species": operator.species,
+                    "tier": operator.tier,
+                    "capabilities": sorted(operator.capabilities),
+                    "cost": {
+                        "tokens": operator.cost.tokens,
+                        "latency": operator.cost.latency,
+                        "calls": operator.cost.calls,
+                        "memory": operator.cost.memory,
+                    },
+                }
+                for operator in sorted(
+                    self.operators,
+                    key=lambda item: item.operator_id,
+                )
+            ],
+            "budget": {
+                "tokens": self.budget.tokens,
+                "latency": self.budget.latency,
+                "calls": self.budget.calls,
+                "memory": self.budget.memory,
+            },
+            "local_results": {
+                node_id: deepcopy(self._local_results[node_id])
+                for node_id in sorted(self._local_results)
+            },
+            "reduction_results": {
+                node_id: deepcopy(self._reduction_results[node_id])
+                for node_id in sorted(self._reduction_results)
+            },
+            "reduction_input_commitments": dict(
+                sorted(self._reduction_input_commitments.items())
+            ),
+            "worker_broker_state_included": False,
+            "worker_broker_state_required_external": True,
+            "sensitive_result_payloads": True,
+            "canon_allowed": False,
+        }
+        return {
+            **core,
+            "checkpoint_commitment": hashlib.blake2b(
+                EXECUTOR_CHECKPOINT_DOMAIN + _canonical(core),
+                digest_size=32,
+            ).hexdigest(),
+        }
+
+    @classmethod
+    def from_checkpoint(
+        cls,
+        checkpoint: Mapping[str, Any],
+        *,
+        fabric: OrchorbitalFabric,
+        broker: Any,
+        context_store: OrbitalContextStore | None = None,
+    ) -> "OrchorbitalExecutor":
+        """Restore executor-only state and verify it against fabric + broker."""
+
+        if not isinstance(checkpoint, Mapping):
+            raise ValueError("executor checkpoint must be a mapping")
+        if checkpoint.get("schema") != EXECUTOR_CHECKPOINT_SCHEMA:
+            raise ValueError("invalid executor checkpoint schema")
+        supplied = checkpoint.get("checkpoint_commitment")
+        if not isinstance(supplied, str) or len(supplied) != 64:
+            raise ValueError("executor checkpoint commitment is invalid")
+        try:
+            int(supplied, 16)
+        except ValueError as exc:
+            raise ValueError("executor checkpoint commitment must be hexadecimal") from exc
+        core = {
+            key: deepcopy(value)
+            for key, value in checkpoint.items()
+            if key != "checkpoint_commitment"
+        }
+        expected = hashlib.blake2b(
+            EXECUTOR_CHECKPOINT_DOMAIN + _canonical(core),
+            digest_size=32,
+        ).hexdigest()
+        if supplied != expected:
+            raise ValueError("executor checkpoint commitment mismatch")
+
+        if not isinstance(fabric, OrchorbitalFabric):
+            raise ValueError("fabric must be an OrchorbitalFabric")
+        claimed_topology = core.get("fabric_topology_commitment")
+        if (
+            not isinstance(claimed_topology, str)
+            or fabric.topology_commitment() != claimed_topology
+        ):
+            raise ValueError("executor checkpoint fabric topology mismatch")
+
+        claimed_context = core.get("context_checkpoint_commitment")
+        if claimed_context is None:
+            if context_store is not None:
+                raise ValueError(
+                    "executor checkpoint has no context store but one was supplied"
+                )
+        else:
+            if not isinstance(claimed_context, str) or len(claimed_context) != 64:
+                raise ValueError("executor checkpoint context commitment is invalid")
+            if context_store is None:
+                raise ValueError("executor checkpoint requires context store")
+            actual_context = context_store.checkpoint_state().get(
+                "checkpoint_commitment"
+            )
+            if actual_context != claimed_context:
+                raise ValueError("executor checkpoint context store mismatch")
+
+        execution_id = _strict_text(
+            core.get("execution_id"),
+            "execution_id",
+            maximum=128,
+        )
+        max_states = core.get("max_states")
+        if isinstance(max_states, bool) or not isinstance(max_states, int) or max_states < 1:
+            raise ValueError("executor checkpoint max_states must be positive")
+
+        raw_budget = core.get("budget")
+        if not isinstance(raw_budget, Mapping):
+            raise ValueError("executor checkpoint budget must be an object")
+        budget = ResourceBudget(
+            tokens=raw_budget.get("tokens"),  # type: ignore[arg-type]
+            latency=raw_budget.get("latency"),  # type: ignore[arg-type]
+            calls=raw_budget.get("calls"),  # type: ignore[arg-type]
+            memory=raw_budget.get("memory"),  # type: ignore[arg-type]
+        )
+
+        raw_operators = core.get("operators")
+        if not isinstance(raw_operators, list) or not raw_operators:
+            raise ValueError("executor checkpoint operators must be a non-empty list")
+        operators: list[OperatorTier] = []
+        seen_operator_ids: set[str] = set()
+        for index, raw in enumerate(raw_operators):
+            if not isinstance(raw, Mapping):
+                raise ValueError("executor checkpoint operator must be an object")
+            raw_cost = raw.get("cost")
+            if not isinstance(raw_cost, Mapping):
+                raise ValueError("executor checkpoint operator cost must be an object")
+            capabilities = raw.get("capabilities")
+            if not isinstance(capabilities, list):
+                raise ValueError("executor checkpoint capabilities must be a list")
+            operator = OperatorTier(
+                str(raw.get("species")),
+                raw.get("tier"),  # type: ignore[arg-type]
+                frozenset(str(value) for value in capabilities),
+                ResourceCost(
+                    tokens=raw_cost.get("tokens", 0.0),  # type: ignore[arg-type]
+                    latency=raw_cost.get("latency", 0.0),  # type: ignore[arg-type]
+                    calls=raw_cost.get("calls", 0.0),  # type: ignore[arg-type]
+                    memory=raw_cost.get("memory", 0.0),  # type: ignore[arg-type]
+                ),
+            )
+            if operator.operator_id in seen_operator_ids:
+                raise ValueError("duplicate operator in executor checkpoint")
+            seen_operator_ids.add(operator.operator_id)
+            operators.append(operator)
+
+        restored = cls(
+            execution_id=execution_id,
+            fabric=fabric,
+            broker=broker,
+            operators=operators,
+            budget=budget,
+            context_store=context_store,
+            max_states=max_states,
+        )
+
+        raw_local = core.get("local_results")
+        raw_reductions = core.get("reduction_results")
+        raw_inputs = core.get("reduction_input_commitments")
+        if not isinstance(raw_local, Mapping):
+            raise ValueError("executor checkpoint local_results must be a mapping")
+        if not isinstance(raw_reductions, Mapping):
+            raise ValueError("executor checkpoint reduction_results must be a mapping")
+        if not isinstance(raw_inputs, Mapping):
+            raise ValueError(
+                "executor checkpoint reduction_input_commitments must be a mapping"
+            )
+
+        local_results: dict[str, Any] = {}
+        for raw_node_id, output in raw_local.items():
+            node_id = _strict_text(raw_node_id, "local result node_id")
+            node = fabric.node(node_id)
+            if node.species in WORKER_DISPATCHABLE_SPECIES:
+                raise ValueError("worker node cannot own executor-local result payload")
+            if not node.self_complete or not isinstance(node.result_commitment, str):
+                raise ValueError("local result node is not self-complete")
+            _canonical(output)
+            expected_local = _local_result_commitment(
+                execution_id,
+                node_id,
+                output,
+            )
+            if expected_local != node.result_commitment:
+                raise ValueError("local result commitment mismatch during restore")
+            local_results[node_id] = deepcopy(output)
+
+        reduction_results: dict[str, Any] = {}
+        reduction_inputs: dict[str, str] = {}
+        if set(raw_reductions) != set(raw_inputs):
+            raise ValueError("executor reduction checkpoint key sets do not match")
+        for raw_node_id, output in raw_reductions.items():
+            node_id = _strict_text(raw_node_id, "reduction result node_id")
+            node = fabric.node(node_id)
+            if not node.reduction_complete or not isinstance(
+                node.reduction_commitment, str
+            ):
+                raise ValueError("reduction result node is not reduction-complete")
+            input_commitment = raw_inputs.get(raw_node_id)
+            if not isinstance(input_commitment, str) or not input_commitment:
+                raise ValueError("reduction input commitment is invalid")
+            _canonical(output)
+            reduction_core = {
+                "reduction_input_commitment": input_commitment,
+                "output": output,
+            }
+            expected_reduction = hashlib.blake2b(
+                REDUCTION_OUTPUT_DOMAIN + _canonical(reduction_core),
+                digest_size=32,
+            ).hexdigest()
+            if expected_reduction != node.reduction_commitment:
+                raise ValueError("reduction result commitment mismatch during restore")
+            reduction_results[node_id] = deepcopy(output)
+            reduction_inputs[node_id] = input_commitment
+
+        for node in fabric.nodes():
+            if (
+                node.species not in WORKER_DISPATCHABLE_SPECIES
+                and node.self_complete
+                and node.result_commitment is not None
+                and node.node_id not in local_results
+            ):
+                raise ValueError(
+                    f"executor checkpoint is missing local result: {node.node_id}"
+                )
+            if node.reduction_complete and node.node_id not in reduction_results:
+                raise ValueError(
+                    f"executor checkpoint is missing reduction result: {node.node_id}"
+                )
+            if (
+                node.species in WORKER_DISPATCHABLE_SPECIES
+                and node.self_complete
+                and node.result_commitment is not None
+            ):
+                task = broker.task_result(_task_id(execution_id, node))
+                if (
+                    task.get("state") != "DONE"
+                    or task.get("result_commitment") != node.result_commitment
+                ):
+                    raise ValueError(
+                        f"broker/fabric worker result mismatch: {node.node_id}"
+                    )
+
+        restored._local_results = local_results
+        restored._reduction_results = reduction_results
+        restored._reduction_input_commitments = reduction_inputs
+        return restored
+
     def receipt(self) -> dict[str, object]:
         frontier = self.frontier()
         return {
@@ -1421,7 +1698,7 @@ class OrchorbitalExecutor:
             "global_synthesis_barrier_required": False,
             "explicit_local_reduction_required": True,
             "automatic_semantic_reduction": False,
-            "reduction_result_persistence": "EXECUTOR_PROCESS_MEMORY_V0_1",
+            "reduction_result_persistence": "CHECKPOINTABLE_EXECUTOR_STATE_V0_1",
             "reduction_candidate_count": len(self.fabric.reduction_candidates()),
             "authority": "COGNITIVE_ROUTING_ONLY",
             "epistemic": "CHYBA",
@@ -1440,6 +1717,7 @@ __all__ = [
     "DISCOVERY_KEY",
     "DISCOVERY_SCHEMA",
     "DispatchRecord",
+    "EXECUTOR_CHECKPOINT_SCHEMA",
     "MAX_DISCOVERED_OBLIGATIONS",
     "MAX_DISCOVERY_HANDOFF_BYTES",
     "MAX_DISCOVERY_HANDOFF_KEYS",
