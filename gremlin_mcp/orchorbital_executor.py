@@ -31,6 +31,10 @@ RECOVERY_EFFECTIVE_DOMAIN = b"GREMLIN-ORCHORBITAL-RECOVERY-EFFECTIVE/v0.2\x00"
 REDUCTION_SCHEMA = "GREMLIN_ORCHORBITAL_REDUCTION_V0_1"
 REDUCTION_TASK_KEY = "_gremlin_orchorbital_reduction"
 MAX_DISCOVERED_OBLIGATIONS = 64
+MAX_DISCOVERY_HANDOFF_KEYS = 128
+MAX_DISCOVERY_HANDOFF_BYTES = 65_536
+PARENT_RESULT_CONTEXT_KEY = "_gremlin_parent_result"
+DISCOVERY_HANDOFF_CONTEXT_KEY = "_gremlin_handoff"
 WORKER_DISPATCHABLE_SPECIES = frozenset(WORKER_SPECIES)
 
 
@@ -117,12 +121,14 @@ def _local_result_commitment(
     ).hexdigest()
 
 
-def _discovered_obligations(output: Any) -> tuple[str, ...]:
+def _discovery_directive(
+    output: Any,
+) -> tuple[tuple[str, ...], dict[str, Any] | None]:
     if not isinstance(output, Mapping):
-        return ()
+        return (), None
     raw = output.get(DISCOVERY_KEY)
     if raw is None:
-        return ()
+        return (), None
     if not isinstance(raw, Mapping):
         raise ValueError(f"{DISCOVERY_KEY} must be an object")
     if raw.get("schema") != DISCOVERY_SCHEMA:
@@ -130,11 +136,38 @@ def _discovered_obligations(output: Any) -> tuple[str, ...]:
     obligations = raw.get("obligations")
     if obligations is None:
         raise ValueError("orchorbital discovery requires obligations")
-    return _strict_obligations(
+    ordered = _strict_obligations(
         obligations,
         field="discovered obligations",
         allow_empty=True,
     )
+    raw_handoff = raw.get("handoff")
+    if raw_handoff is None:
+        return ordered, None
+    if not ordered:
+        raise ValueError("orchorbital handoff requires at least one obligation")
+    if not isinstance(raw_handoff, Mapping):
+        raise ValueError("orchorbital discovery handoff must be an object")
+    if len(raw_handoff) > MAX_DISCOVERY_HANDOFF_KEYS:
+        raise ValueError(
+            f"orchorbital discovery handoff exceeds {MAX_DISCOVERY_HANDOFF_KEYS} keys"
+        )
+    handoff: dict[str, Any] = {}
+    for index, (raw_key, raw_value) in enumerate(raw_handoff.items()):
+        key = _strict_text(raw_key, f"handoff key[{index}]", maximum=256)
+        if key in handoff:
+            raise ValueError("duplicate normalized discovery handoff key")
+        handoff[key] = deepcopy(raw_value)
+    encoded = _canonical(handoff)
+    if len(encoded) > MAX_DISCOVERY_HANDOFF_BYTES:
+        raise ValueError(
+            f"orchorbital discovery handoff exceeds {MAX_DISCOVERY_HANDOFF_BYTES} bytes"
+        )
+    return ordered, handoff
+
+
+def _discovered_obligations(output: Any) -> tuple[str, ...]:
+    return _discovery_directive(output)[0]
 
 
 @dataclass(frozen=True)
@@ -426,6 +459,7 @@ class OrchorbitalExecutor:
         phase36_by_operator: Mapping[str, Sequence[float]] | None = None,
         join_to_caller: bool = True,
         allocation_key: str | None = None,
+        child_context_set_values: Mapping[str, Any] | None = None,
     ) -> OctopusAllocation:
         """Allocate through OCTOPUS and bind inherited context as one flow.
 
@@ -438,6 +472,16 @@ class OrchorbitalExecutor:
         caller = self.fabric.node(caller_id)
         if caller.status != "OPEN":
             raise RuntimeError("caller node must be open")
+        context_delta: dict[str, Any] = {}
+        if child_context_set_values is not None:
+            if not isinstance(child_context_set_values, Mapping):
+                raise ValueError("child_context_set_values must be a mapping")
+            context_delta = deepcopy(dict(child_context_set_values))
+            _canonical(context_delta)
+            if self.context_store is None:
+                raise RuntimeError(
+                    "child context delta requires an OrbitalContextStore"
+                )
         if self.context_store is not None:
             # Precondition before topology mutation.
             self.context_store.frame(caller.node_id)
@@ -460,7 +504,10 @@ class OrchorbitalExecutor:
             for node in allocation.nodes:
                 if node.caller_id != caller.node_id:
                     raise RuntimeError("allocation caller/context lineage mismatch")
-                self.context_store.inherit_from_caller(node.node_id)
+                self.context_store.inherit_from_caller(
+                    node.node_id,
+                    set_values=context_delta,
+                )
         return allocation
 
     def apply_discovery(
@@ -469,6 +516,8 @@ class OrchorbitalExecutor:
         obligations: Iterable[str],
         *,
         discovery_key: str,
+        parent_result_commitment: str | None = None,
+        handoff: Mapping[str, Any] | None = None,
     ) -> OctopusAllocation:
         ordered = _strict_obligations(
             obligations,
@@ -476,11 +525,50 @@ class OrchorbitalExecutor:
             allow_empty=False,
         )
         key = _strict_text(discovery_key, "discovery_key", maximum=256)
+
+        context_delta: dict[str, Any] | None = None
+        if self.context_store is not None:
+            if parent_result_commitment is None:
+                raise ValueError(
+                    "context-backed discovery requires parent_result_commitment"
+                )
+            result_commitment = _strict_text(
+                parent_result_commitment,
+                "parent_result_commitment",
+                maximum=64,
+            )
+            if len(result_commitment) != 64:
+                raise ValueError(
+                    "parent_result_commitment must be a 64-character commitment"
+                )
+            try:
+                int(result_commitment, 16)
+            except ValueError as exc:
+                raise ValueError(
+                    "parent_result_commitment must be hexadecimal"
+                ) from exc
+            context_delta = {
+                PARENT_RESULT_CONTEXT_KEY: {
+                    "node_id": _strict_text(caller_id, "caller_id"),
+                    "result_commitment": result_commitment,
+                }
+            }
+            if handoff is not None:
+                if not isinstance(handoff, Mapping):
+                    raise ValueError("handoff must be a mapping")
+                context_delta[DISCOVERY_HANDOFF_CONTEXT_KEY] = deepcopy(dict(handoff))
+                _canonical(context_delta)
+        elif handoff is not None:
+            raise RuntimeError(
+                "orchorbital discovery handoff requires an OrbitalContextStore"
+            )
+
         return self.allocate(
             caller_id,
             ordered,
             join_to_caller=True,
             allocation_key=f"{self.execution_id}:{key}",
+            child_context_set_values=context_delta,
         )
 
     def reconcile_node(self, node_id: str) -> dict[str, object]:
@@ -534,7 +622,7 @@ class OrchorbitalExecutor:
         output = task["result"]
 
         try:
-            discovered = _discovered_obligations(output)
+            discovered, handoff = _discovery_directive(output)
         except ValueError as exc:
             self.fabric.quarantine(
                 node.node_id,
@@ -547,12 +635,26 @@ class OrchorbitalExecutor:
                 "changed": True,
             }
 
+        if handoff is not None and self.context_store is None:
+            self.fabric.quarantine(
+                node.node_id,
+                reason="worker discovery handoff requires context store",
+            )
+            return {
+                "node_id": node.node_id,
+                "task_id": task_id,
+                "state": "QUARANTINED_DISCOVERY_HANDOFF_WITHOUT_CONTEXT",
+                "changed": True,
+            }
+
         allocation_receipt: dict[str, object] | None = None
         if discovered:
             allocation = self.apply_discovery(
                 node.node_id,
                 discovered,
                 discovery_key=result_commitment,
+                parent_result_commitment=result_commitment,
+                handoff=handoff,
             )
             allocation_receipt = allocation.receipt()
 
@@ -567,6 +669,7 @@ class OrchorbitalExecutor:
             "changed": True,
             "result_commitment": result_commitment,
             "discovered_obligations": list(discovered),
+            "handoff_present": handoff is not None,
             "allocation": allocation_receipt,
         }
 
@@ -617,13 +720,19 @@ class OrchorbitalExecutor:
             node.node_id,
             output,
         )
-        discovered = _discovered_obligations(output)
+        discovered, handoff = _discovery_directive(output)
+        if handoff is not None and self.context_store is None:
+            raise RuntimeError(
+                "local discovery handoff requires an OrbitalContextStore"
+            )
         allocation_receipt: dict[str, object] | None = None
         if discovered:
             allocation = self.apply_discovery(
                 node.node_id,
                 discovered,
                 discovery_key=commitment,
+                parent_result_commitment=commitment,
+                handoff=handoff,
             )
             allocation_receipt = allocation.receipt()
         self.fabric.mark_self_complete(
@@ -639,6 +748,7 @@ class OrchorbitalExecutor:
             "state": "SELF_COMPLETE",
             "result_commitment": commitment,
             "discovered_obligations": list(discovered),
+            "handoff_present": handoff is not None,
             "allocation": allocation_receipt,
         }
 
@@ -1281,10 +1391,14 @@ __all__ = [
     "CONTEXT_KEY",
     "DEFAULT_INPUT_SCHEMA",
     "CONTEXT_SCHEMA",
+    "DISCOVERY_HANDOFF_CONTEXT_KEY",
     "DISCOVERY_KEY",
     "DISCOVERY_SCHEMA",
     "DispatchRecord",
     "MAX_DISCOVERED_OBLIGATIONS",
+    "MAX_DISCOVERY_HANDOFF_BYTES",
+    "MAX_DISCOVERY_HANDOFF_KEYS",
+    "PARENT_RESULT_CONTEXT_KEY",
     "REDUCTION_TASK_KEY",
     "ORBITAL_CONTEXT_PACKET_KEY",
     "REDUCTION_SCHEMA",
