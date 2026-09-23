@@ -167,6 +167,22 @@ def _normalize_species(values: Iterable[str]) -> tuple[str, ...]:
     return tuple(names)
 
 
+def _receiver_queue_locality(
+    affinity_by_task: Mapping[str, Iterable[str]],
+    known_frames: Iterable[str],
+) -> float:
+    known = set(known_frames)
+    if not known:
+        return 0.0
+    scores: list[float] = []
+    for values in affinity_by_task.values():
+        signature = set(values)
+        if not signature:
+            continue
+        scores.append(len(signature & known) / len(signature))
+    return 0.0 if not scores else max(scores)
+
+
 def _context_affinity_by_task(
     rows: Iterable[Mapping[str, Any]],
 ) -> dict[str, tuple[str, ...]]:
@@ -427,10 +443,24 @@ class WorkerBroker:
                 for name in candidate_names
                 if name in PROFILES
             }
+            affinity_by_species = {
+                name: _context_affinity_by_task(rows)
+                for name, rows in queue_rows.items()
+            }
+            receiver_locality_hint = {
+                name: _receiver_queue_locality(
+                    affinity_by_species.get(name, {}),
+                    known_frames,
+                )
+                for name in queue_rows
+            }
             selected_species, species_scheduler = choose_species(
                 queue_rows,
                 now_ns=now,
                 cadence_hint=cadence_hint,
+                locality_hint=(
+                    receiver_locality_hint if known_frames else None
+                ),
             )
 
             if selected_species is None:
@@ -461,12 +491,16 @@ class WorkerBroker:
                 limit, field="limit", minimum=1
             )
             batch_limit = min(requested_limit, worker.max_batch, lane, int(metrics["eligible_count"]))
-            context_affinity = _context_affinity_by_task(rows)
+            context_affinity = affinity_by_species.get(
+                selected_species,
+                _context_affinity_by_task(rows),
+            )
             selected_ids, batch_scheduler = select_batch(
                 rows,
                 limit=batch_limit,
                 now_ns=now,
                 affinity_by_task=context_affinity,
+                receiver_known_affinity=known_frames,
             )
             if not selected_ids:
                 return {
