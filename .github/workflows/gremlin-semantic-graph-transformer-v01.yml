@@ -1,0 +1,22 @@
+name: gremlin-semantic-graph-transformer-v01
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'gremlin_mcp/semantic_graph_transformer.py'
+      - 'gremlin_mcp/semantic_graph_server.py'
+      - 'tests/test_semantic_graph_transformer_v01.py'
+      - 'tools/gremlin_semantic_graph_transformer_bench_v01.py'
+      - 'spec/GREMLIN_SEMANTIC_GRAPH_TRANSFORMER_V0_1.md'
+      - '.github/workflows/gremlin-semantic-graph-transformer-v01.yml'
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -e . pytest
+      - run: pytest -q tests/test_semantic_graph_transformer_v01.py
+      - run: python tools/gremlin_semantic_graph_transformer_bench_v01.py
