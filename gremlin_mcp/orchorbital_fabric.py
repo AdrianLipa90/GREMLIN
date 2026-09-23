@@ -345,6 +345,12 @@ class OrchorbitalFabric:
                 raise RuntimeError("authority root drift detected")
             if node.status != OPEN and node.status not in TERMINAL_STATES:
                 raise RuntimeError("unknown node lifecycle state")
+            if node.self_complete and not node.execution_started:
+                raise RuntimeError("self-complete node must have started execution")
+            if node.result_commitment is not None and not node.self_complete:
+                raise RuntimeError("result commitment requires self-complete state")
+            if node.status == "CLOSED" and not node.self_complete:
+                raise RuntimeError("closed node must have completed local work")
             if node.caller_id is not None:
                 if node.caller_id not in self._nodes:
                     raise RuntimeError("caller edge points outside fabric")
@@ -355,6 +361,8 @@ class OrchorbitalFabric:
                     raise RuntimeError("center edge points outside fabric")
                 if node.center_id == node_id:
                     raise RuntimeError("self center edge is invalid")
+                if node.status == OPEN and self._nodes[node.center_id].status != OPEN:
+                    raise RuntimeError("open node cannot orbit a terminal center")
             if node_id in self._causal[node_id]:
                 raise RuntimeError("self causal dependency")
             if node_id in self._joins[node_id]:
@@ -428,6 +436,9 @@ class OrchorbitalFabric:
 
         if self._barycenter_id not in self._nodes:
             raise RuntimeError("computational barycenter is missing")
+        if any(node.status == OPEN for node in self._nodes.values()):
+            if self._nodes[self._barycenter_id].status != OPEN:
+                raise RuntimeError("live fabric barycenter must be open")
 
     def node(self, node_id: str) -> NodeInstance:
         with self._lock:
@@ -974,52 +985,63 @@ class OrchorbitalFabric:
             if node.node_id == self._authority_root_id:
                 raise RuntimeError("authority root failure requires external governance")
 
+            checkpoint_nodes = dict(self._nodes)
+            checkpoint_events = deepcopy(self._events)
+            checkpoint_seq = self._seq
+            checkpoint_barycenter = self._barycenter_id
             fallback = self._nearest_open_caller(node.node_id)
 
-            # A crash/quarantine cannot require cooperation from the failed node.
+            try:
+                # A crash/quarantine cannot require cooperation from the failed node.
             # Re-home every live satellite explicitly and audibly.
-            satellites = sorted(
-                other_id
-                for other_id, other in self._nodes.items()
-                if other.status == OPEN and other.center_id == node.node_id
-            )
-            for satellite_id in satellites:
-                satellite = self._nodes[satellite_id]
-                target_id = fallback.node_id
-                if target_id == satellite_id:
-                    target_id = self._authority_root_id
-                target = self._require_open(target_id)
-                self._nodes[satellite_id] = replace(
-                    satellite,
-                    center_id=target.node_id,
+                satellites = sorted(
+                    other_id
+                    for other_id, other in self._nodes.items()
+                    if other.status == OPEN and other.center_id == node.node_id
                 )
+                for satellite_id in satellites:
+                    satellite = self._nodes[satellite_id]
+                    target_id = fallback.node_id
+                    if target_id == satellite_id:
+                        target_id = self._authority_root_id
+                    target = self._require_open(target_id)
+                    self._nodes[satellite_id] = replace(
+                        satellite,
+                        center_id=target.node_id,
+                    )
+                    self._record(
+                        "NODE_RECENTER_FAILOVER",
+                        satellite_id,
+                        failed_center_id=node.node_id,
+                        new_center_id=target.node_id,
+                        reason=why,
+                    )
+
+                self._nodes[node.node_id] = replace(node, status=status)
                 self._record(
-                    "NODE_RECENTER_FAILOVER",
-                    satellite_id,
-                    failed_center_id=node.node_id,
-                    new_center_id=target.node_id,
+                    f"NODE_{status}",
+                    node.node_id,
                     reason=why,
                 )
 
-            self._nodes[node.node_id] = replace(node, status=status)
-            self._record(
-                f"NODE_{status}",
-                node.node_id,
-                reason=why,
-            )
+                if self._barycenter_id == node.node_id:
+                    old_barycenter = self._barycenter_id
+                    self._barycenter_id = fallback.node_id
+                    self._record(
+                        "BARYCENTER_FAILOVER",
+                        fallback.node_id,
+                        old_barycenter_id=old_barycenter,
+                        reason=why,
+                    )
 
-            if self._barycenter_id == node.node_id:
-                old_barycenter = self._barycenter_id
-                self._barycenter_id = fallback.node_id
-                self._record(
-                    "BARYCENTER_FAILOVER",
-                    fallback.node_id,
-                    old_barycenter_id=old_barycenter,
-                    reason=why,
-                )
-
-            self._assert_invariants()
-            return self._nodes[node.node_id]
+                self._assert_invariants()
+                return self._nodes[node.node_id]
+            except Exception:
+                self._nodes = checkpoint_nodes
+                self._events = checkpoint_events
+                self._seq = checkpoint_seq
+                self._barycenter_id = checkpoint_barycenter
+                raise
 
     def fail(self, node_id: str, *, reason: str) -> NodeInstance:
         """Terminal fail-closed state; never counts as successful closure."""
@@ -1185,6 +1207,8 @@ class OrchorbitalFabric:
                 "join_cycles_allowed": False,
                 "cross_relation_blocking_cycles_allowed": False,
                 "failed_or_quarantined_counts_as_closed": False,
+                "lifecycle_invariants_fail_loud": True,
+                "coordination_point_weight_active_in_routing": False,
                 "authority_root_stable": True,
                 "species_position_fixed": False,
                 "canon_allowed": False,
