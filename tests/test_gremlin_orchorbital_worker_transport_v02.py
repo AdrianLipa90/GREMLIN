@@ -570,3 +570,176 @@ def test_bundle_transport_fields_are_rejected_at_enqueue_boundary() -> None:
             raise AssertionError("transport-only context field must fail at enqueue")
 
         assert task_id not in broker._tasks
+
+
+def _same_species_index_fixture(*, local_count: int = 3, unrelated_count: int = 20):
+    fabric = OrchorbitalFabric(max_nodes=local_count + unrelated_count + 3)
+    target_anchor = fabric.spawn(
+        "AUTH:ROOT",
+        "SPIDER",
+        node_id="INDEX-TARGET-ANCHOR",
+        join_to_caller=False,
+    )
+    other_anchor = fabric.spawn(
+        "AUTH:ROOT",
+        "SPIDER",
+        node_id="INDEX-OTHER-ANCHOR",
+        join_to_caller=False,
+    )
+    store = OrbitalContextStore(fabric)
+    store.bind_root({"shared": "same-species-index"})
+    store.inherit_from_caller(
+        target_anchor.node_id,
+        set_values={"branch": "target"},
+    )
+    store.inherit_from_caller(
+        other_anchor.node_id,
+        set_values={"branch": "other"},
+    )
+
+    broker = WorkerBroker(max_pending=local_count + unrelated_count + 8)
+    broker.register_worker(
+        "same-species-index-worker",
+        ["SPIDER"],
+        vector_width=64,
+        max_batch=16,
+    )
+    scheduler = {
+        "phase36": [0.4] * 36,
+        "ready": True,
+        "noise": 0.05,
+        "urgency": 0.0,
+    }
+
+    local_ids = []
+    for index in range(local_count):
+        node = fabric.spawn(
+            target_anchor.node_id,
+            "SPIDER",
+            node_id=f"INDEX-TARGET-{index}",
+            join_to_caller=False,
+        )
+        store.inherit_from_caller(node.node_id, set_values={"leaf": index})
+        task_id = f"index-target-{index}"
+        local_ids.append(task_id)
+        broker.enqueue(
+            "SPIDER",
+            {
+                "class": "target",
+                "_gremlin_scheduler": scheduler,
+                PACKET_PAYLOAD_KEY: store.packet(node.node_id),
+            },
+            task_id=task_id,
+        )
+
+    for index in range(unrelated_count):
+        node = fabric.spawn(
+            other_anchor.node_id,
+            "SPIDER",
+            node_id=f"INDEX-OTHER-{index}",
+            join_to_caller=False,
+        )
+        store.inherit_from_caller(node.node_id, set_values={"leaf": index})
+        broker.enqueue(
+            "SPIDER",
+            {
+                "class": "other",
+                "_gremlin_scheduler": scheduler,
+                PACKET_PAYLOAD_KEY: store.packet(node.node_id),
+            },
+            task_id=f"index-other-{index}",
+        )
+
+    known = (
+        store.frame("AUTH:ROOT").frame_commitment,
+        store.frame(target_anchor.node_id).frame_commitment,
+    )
+    return broker, store, target_anchor, local_ids, known
+
+
+def test_same_species_warm_ancestry_index_bounds_scheduler_candidate_set() -> None:
+    broker, _, _, local_ids, known = _same_species_index_fixture(
+        local_count=3,
+        unrelated_count=40,
+    )
+
+    lease = broker.claim(
+        "same-species-index-worker",
+        species="SPIDER",
+        limit=3,
+        known_context_frames=known,
+    )
+    scope = lease["scheduler"]["context_candidate_scope"]
+    claimed = [row["task_id"] for row in lease["tasks"]]
+
+    assert scope["active"] is True
+    assert scope["hit"] is True
+    assert scope["species_queue_count"] == 43
+    assert scope["indexed_local_count"] == 3
+    assert scope["fairness_candidate_count"] <= 4
+    assert scope["candidate_count"] <= 7
+    assert scope["candidate_scan_reduction_proxy"] > 0.80
+    assert set(claimed) == set(local_ids)
+    assert all(row["payload"]["class"] == "target" for row in lease["tasks"])
+
+
+def test_same_species_cold_claim_preserves_full_queue_candidate_semantics() -> None:
+    broker, _, _, _, _ = _same_species_index_fixture(
+        local_count=2,
+        unrelated_count=8,
+    )
+
+    lease = broker.claim(
+        "same-species-index-worker",
+        species="SPIDER",
+        limit=2,
+    )
+    scope = lease["scheduler"]["context_candidate_scope"]
+
+    assert scope["active"] is False
+    assert scope["hit"] is False
+    assert scope["species_queue_count"] == 10
+    assert scope["candidate_count"] == 10
+    assert scope["candidate_scan_reduction_proxy"] == 0.0
+
+
+def test_same_species_context_index_includes_bounded_oldest_fairness_window() -> None:
+    broker, _, _, _, known = _same_species_index_fixture(
+        local_count=1,
+        unrelated_count=12,
+    )
+
+    lease = broker.claim(
+        "same-species-index-worker",
+        species="SPIDER",
+        limit=1,
+        known_context_frames=known,
+    )
+    scope = lease["scheduler"]["context_candidate_scope"]
+
+    assert scope["indexed_local_count"] == 1
+    assert scope["fairness_candidate_count"] == 4
+    assert scope["candidate_count"] == 5
+    assert scope["candidate_count"] < scope["species_queue_count"]
+
+
+def test_context_ancestry_index_membership_is_removed_when_task_leaves_queue() -> None:
+    broker, _, _, _, known = _same_species_index_fixture(
+        local_count=1,
+        unrelated_count=5,
+    )
+    before = broker.queue_status()
+    before_refs = before["context_index_member_references"]["SPIDER"]
+
+    lease = broker.claim(
+        "same-species-index-worker",
+        species="SPIDER",
+        limit=1,
+        known_context_frames=known,
+    )
+    after = broker.queue_status()
+    after_refs = after["context_index_member_references"]["SPIDER"]
+
+    assert lease["tasks"][0]["payload"]["class"] == "target"
+    assert after_refs < before_refs
+    assert after["queued_index_counts"]["SPIDER"] == 5
