@@ -567,3 +567,28 @@ def test_context_checkpoint_tamper_fails_closed() -> None:
 
     with pytest.raises(ValueError, match="checkpoint commitment mismatch"):
         OrbitalContextStore.from_checkpoint(fabric, tampered)
+
+
+def test_snapshot_does_not_misclassify_real_node_with_ctx_prefix_as_shared() -> None:
+    fabric = OrchorbitalFabric()
+    node = fabric.spawn(
+        "AUTH:ROOT",
+        "OWL",
+        node_id="CTX:REAL-NODE",
+        join_to_caller=False,
+    )
+    store = OrbitalContextStore(fabric)
+    store.bind_root({"root": True})
+    store.bind_node(
+        node.node_id,
+        base_node_id="AUTH:ROOT",
+        set_values={"node": True},
+    )
+
+    snapshot = store.snapshot()
+    row = next(
+        item for item in snapshot["frames"]
+        if item["node_id"] == node.node_id
+    )
+
+    assert row["frame_kind"] == "NODE"
