@@ -4,20 +4,20 @@ on:
   pull_request:
     paths:
       - 'gremlin_mcp/role_registry.py'
-      - 'gremlin_mcp/orchorbital_runtime.py'
-      - 'gremlin_mcp/orchorbital_bridge.py'
       - 'gremlin_mcp/orchorbital_fabric.py'
       - 'gremlin_mcp/orchorbital_allocator.py'
       - 'gremlin_mcp/orchorbital_executor.py'
       - 'gremlin_mcp/orchorbital_context.py'
-      - 'tests/test_gremlin_orchorbital_runtime_v01.py'
-      - 'tests/test_gremlin_orchorbital_bridge_v01.py'
+      - 'gremlin_mcp/workers.py'
+      - 'gremlin_mcp/persistent_workers.py'
+      - 'gremlin_mcp/server.py'
       - 'tests/test_gremlin_orchorbital_fabric_v02.py'
       - 'tests/test_gremlin_orchorbital_executor_v02.py'
       - 'tests/test_gremlin_orchorbital_context_v01.py'
-      - 'spec/GREMLIN_ORCHORBITAL_RUNTIME_V0_1.md'
+      - 'tests/test_gremlin_orchorbital_worker_transport_v02.py'
+      - 'tests/test_gremlin_mcp_worker_abi_v02.py'
       - 'spec/GREMLIN_ORCHORBITAL_FABRIC_V0_2.md'
-      - '.github/workflows/gremlin-orchorbital-runtime-v01.yml'
+      - '.github/workflows/gremlin-orchorbital-v02.yml'
   workflow_dispatch:
 
 jobs:
@@ -34,17 +34,17 @@ jobs:
         run: >-
           python -m py_compile
           gremlin_mcp/role_registry.py
-          gremlin_mcp/orchorbital_runtime.py
-          gremlin_mcp/orchorbital_bridge.py
           gremlin_mcp/orchorbital_fabric.py
           gremlin_mcp/orchorbital_allocator.py
           gremlin_mcp/orchorbital_executor.py
           gremlin_mcp/orchorbital_context.py
+          gremlin_mcp/workers.py
+          gremlin_mcp/persistent_workers.py
       - name: Run orchorbital contract suite
         run: >-
           python -m pytest -q
-          tests/test_gremlin_orchorbital_runtime_v01.py
-          tests/test_gremlin_orchorbital_bridge_v01.py
           tests/test_gremlin_orchorbital_fabric_v02.py
           tests/test_gremlin_orchorbital_executor_v02.py
           tests/test_gremlin_orchorbital_context_v01.py
+          tests/test_gremlin_orchorbital_worker_transport_v02.py
+          tests/test_gremlin_mcp_worker_abi_v02.py

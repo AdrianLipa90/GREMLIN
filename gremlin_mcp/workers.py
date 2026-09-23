@@ -249,7 +249,7 @@ class WorkerBroker:
             raise ValueError(f"unsupported worker species: {species!r}")
         if not isinstance(payload, Mapping):
             raise ValueError("payload must be a mapping")
-        body = dict(payload)
+        body = deepcopy(dict(payload))
         if MEMORY_AUTHORIZATION_KEY in body:
             raise ValueError(
                 f"{MEMORY_AUTHORIZATION_KEY} is broker-owned and cannot be supplied by callers"
@@ -519,7 +519,7 @@ class WorkerBroker:
                     raise ValueError("worker results must remain CANDIDATE")
                 if "output" not in row:
                     raise ValueError("worker result requires output")
-                output = row["output"]
+                output = deepcopy(row["output"])
                 _canonical(output)
                 normalized.append((tid, output))
             if supplied != expected:
@@ -671,7 +671,7 @@ class WorkerBroker:
             out["payload"] = deepcopy(record.payload)
         if include_result and record.state == "DONE":
             out["status"] = "CANDIDATE"
-            out["result"] = record.result
+            out["result"] = deepcopy(record.result)
         return out
 
 

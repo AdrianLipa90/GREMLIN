@@ -333,22 +333,6 @@ def test_allocator_rejects_center_for_operator_not_in_selected_route() -> None:
         )
 
 
-def test_static_v01_paths_are_explicitly_compatibility_only() -> None:
-    from gremlin_mcp.orchorbital_bridge import (
-        COMPATIBILITY_ONLY as BRIDGE_COMPATIBILITY_ONLY,
-        SUPERSEDED_BY as BRIDGE_SUPERSEDED_BY,
-    )
-    from gremlin_mcp.orchorbital_runtime import (
-        COMPATIBILITY_ONLY as RUNTIME_COMPATIBILITY_ONLY,
-        SUPERSEDED_BY as RUNTIME_SUPERSEDED_BY,
-    )
-
-    assert RUNTIME_COMPATIBILITY_ONLY is True
-    assert RUNTIME_SUPERSEDED_BY == "GREMLIN_ORCHORBITAL_FABRIC_V0_2"
-    assert BRIDGE_COMPATIBILITY_ONLY is True
-    assert BRIDGE_SUPERSEDED_BY == "GREMLIN_OCTOPUS_ORCHORBITAL_ALLOCATOR_V0_2"
-
-
 def test_invocation_depth_tracks_runtime_lineage_not_species() -> None:
     fabric = OrchorbitalFabric()
     a = fabric.spawn("AUTH:ROOT", "MOLE", node_id="A", join_to_caller=False)
