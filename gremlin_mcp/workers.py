@@ -570,10 +570,7 @@ class WorkerBroker:
                 limit, field="limit", minimum=1
             )
             batch_limit = min(requested_limit, worker.max_batch, lane, int(metrics["eligible_count"]))
-            context_affinity = affinity_by_species.get(
-                selected_species,
-                _context_affinity_by_task(rows),
-            )
+            context_affinity = affinity_by_species[selected_species]
             selected_ids, batch_scheduler = select_batch(
                 rows,
                 limit=batch_limit,
