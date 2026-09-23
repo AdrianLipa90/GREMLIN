@@ -422,6 +422,30 @@ class OrchorbitalFabric:
         if _has_cycle(self._blocking_graph()):
             raise RuntimeError("blocking graph contains a cross-relation cycle")
 
+        for node_id, node in self._nodes.items():
+            if node.status == "CLOSED":
+                if any(
+                    not self._closure_satisfied(dependency_id)
+                    for dependency_id in self._causal[node_id]
+                ):
+                    raise RuntimeError("closed node has unresolved causal dependency")
+                if any(
+                    not self._closure_satisfied(child_id)
+                    for child_id in self._joins[node_id]
+                ):
+                    raise RuntimeError("closed node has unresolved join dependency")
+
+        root = self._nodes[self._authority_root_id]
+        if root.status == "CLOSED":
+            unresolved = [
+                node_id
+                for node_id in self._nodes
+                if node_id != self._authority_root_id
+                and not self._closure_satisfied(node_id)
+            ]
+            if unresolved:
+                raise RuntimeError("closed authority root has unresolved fabric work")
+
         for edge in self._coordination:
             if len(edge) != 2 or not set(edge) <= self._nodes.keys():
                 raise RuntimeError("coordination edge invariant violated")
@@ -591,6 +615,8 @@ class OrchorbitalFabric:
                 raise RuntimeError("causal dependencies are sealed after execution starts")
             if node_id == dependency_id:
                 raise ValueError("self causal dependency")
+            if dependency_id in self._causal[node_id]:
+                return
             old = set(self._causal[node_id])
             self._causal[node_id].add(dependency_id)
             if _has_cycle(self._causal):
@@ -614,6 +640,8 @@ class OrchorbitalFabric:
                 raise RuntimeError("join dependencies are sealed after self completion")
             if consumer_id == child_id:
                 raise ValueError("self join dependency")
+            if child_id in self._joins[consumer_id]:
+                return
             old = set(self._joins[consumer_id])
             self._joins[consumer_id].add(child_id)
             if _has_cycle(self._joins):
@@ -636,6 +664,8 @@ class OrchorbitalFabric:
             if left_id == right_id:
                 raise ValueError("coordination self-loop is not allowed")
             edge = tuple(sorted((left_id, right_id)))
+            if edge in self._coordination:
+                return
             self._coordination.add(edge)
             self._record(
                 "COORDINATION_EDGE_ADD",
@@ -728,6 +758,8 @@ class OrchorbitalFabric:
             if node.node_id == center.node_id:
                 raise ValueError("node cannot orbit itself")
             old_center = node.center_id
+            if old_center == center.node_id:
+                return node
             self._nodes[node.node_id] = replace(node, center_id=center.node_id)
             self._record(
                 "NODE_RECENTER",
@@ -750,6 +782,8 @@ class OrchorbitalFabric:
         with self._lock:
             node = self._require_open(node_id)
             old_barycenter = self._barycenter_id
+            if old_barycenter == node.node_id:
+                return node.node_id
             self._barycenter_id = node.node_id
             self._record(
                 "BARYCENTER_MOVE",
