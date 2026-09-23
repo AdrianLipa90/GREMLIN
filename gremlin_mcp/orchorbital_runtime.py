@@ -6,6 +6,8 @@ from dataclasses import dataclass
 import math
 from typing import Any
 
+from gremlin_mcp.role_registry import BESTIARY_ROLE_NAMES
+
 SCHEMA = "GREMLIN_ORCHORBITAL_RUNTIME_V0_1"
 VERSION = "0.1.0"
 AUTHORITY = "COGNITIVE_ROUTING_ONLY"
@@ -14,30 +16,7 @@ TAU = 2.0 * math.pi
 DIM = 36
 MAX_IDENTIFIER_CHARS = 128
 
-KNOWN_SPECIES = frozenset(
-    {
-        "HUMMINGBIRD",
-        "OCTOPUS",
-        "SPIDER",
-        "RAVEN",
-        "HOUND",
-        "MOLE",
-        "OWL",
-        "ANT",
-        "MANTIS",
-        "FOX",
-        "BEAVER",
-        "BAT",
-        "CANARY",
-        "SERPENT",
-        "CHAMELEON",
-        "ELEPHANT",
-        "BEES",
-        "BELZEBUB",
-        "FERRET",
-        "GREMLIN",
-    }
-)
+KNOWN_SPECIES = BESTIARY_ROLE_NAMES
 
 
 def _strict_text(value: Any, field: str) -> str:
