@@ -548,6 +548,11 @@ def test_precomputed_states_preserve_exact_batch_selection() -> None:
         },
         receiver_known_affinity=("root",),
     )
+    metrics = queue_metrics(
+        rows,
+        now_ns=10_000_000_000,
+        precomputed_states=states,
+    )
     cached_ids, cached = select_batch(
         rows,
         limit=6,
@@ -558,6 +563,7 @@ def test_precomputed_states_preserve_exact_batch_selection() -> None:
         },
         receiver_known_affinity=("root",),
         precomputed_states=states,
+        precomputed_centroid=metrics["centroid"],
     )
 
     assert cached_ids == baseline_ids
@@ -566,6 +572,7 @@ def test_precomputed_states_preserve_exact_batch_selection() -> None:
     assert cached["mean_priority"] == baseline["mean_priority"]
     assert baseline["precomputed_state_cache_used"] is False
     assert cached["precomputed_state_cache_used"] is True
+    assert cached["precomputed_centroid_used"] is True
 
 
 def test_precomputed_state_lineage_mismatch_fails_closed() -> None:
