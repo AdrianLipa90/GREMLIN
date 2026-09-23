@@ -1138,3 +1138,82 @@ def test_corrupted_open_node_cannot_point_to_terminal_center() -> None:
 
     with pytest.raises(RuntimeError, match="terminal center"):
         fabric.receipt()
+
+
+def test_failure_transition_rolls_back_on_invariant_failure(monkeypatch) -> None:
+    fabric = OrchorbitalFabric()
+    node = fabric.spawn(
+        "AUTH:ROOT",
+        "SPIDER",
+        node_id="A",
+        join_to_caller=False,
+    )
+    before_nodes = fabric.nodes()
+    before_events = fabric.events()
+    original = fabric._assert_invariants
+
+    def forced_failure():
+        raise RuntimeError("forced invariant failure")
+
+    monkeypatch.setattr(fabric, "_assert_invariants", forced_failure)
+    with pytest.raises(RuntimeError, match="forced invariant failure"):
+        fabric.fail(node.node_id, reason="test failure")
+    monkeypatch.setattr(fabric, "_assert_invariants", original)
+
+    assert fabric.nodes() == before_nodes
+    assert fabric.events() == before_events
+    assert fabric.node(node.node_id).status == "OPEN"
+
+
+def test_replacement_binding_rolls_back_on_invariant_failure(monkeypatch) -> None:
+    fabric = OrchorbitalFabric()
+    source = fabric.spawn(
+        "AUTH:ROOT",
+        "SPIDER",
+        obligations=("graph",),
+        node_id="SOURCE",
+        join_to_caller=False,
+    )
+    replacement = fabric.spawn(
+        "AUTH:ROOT",
+        "OWL",
+        obligations=("graph",),
+        node_id="REPLACEMENT",
+        join_to_caller=False,
+    )
+    fabric.fail(source.node_id, reason="worker failure")
+    before_events = fabric.events()
+    original = fabric._assert_invariants
+
+    def forced_failure():
+        raise RuntimeError("forced invariant failure")
+
+    monkeypatch.setattr(fabric, "_assert_invariants", forced_failure)
+    with pytest.raises(RuntimeError, match="forced invariant failure"):
+        fabric.bind_replacement(source.node_id, replacement.node_id)
+    monkeypatch.setattr(fabric, "_assert_invariants", original)
+
+    assert fabric.replacement_for(source.node_id) is None
+    assert fabric.events() == before_events
+
+
+def test_coordination_point_creation_rolls_back_on_invariant_failure(monkeypatch) -> None:
+    fabric = OrchorbitalFabric()
+    a = fabric.spawn("AUTH:ROOT", "SPIDER", node_id="A", join_to_caller=False)
+    b = fabric.spawn("AUTH:ROOT", "OWL", node_id="B", join_to_caller=False)
+    before_events = fabric.events()
+    original = fabric._assert_invariants
+
+    def forced_failure():
+        raise RuntimeError("forced invariant failure")
+
+    monkeypatch.setattr(fabric, "_assert_invariants", forced_failure)
+    with pytest.raises(RuntimeError, match="forced invariant failure"):
+        fabric.create_coordination_point(
+            (a.node_id, b.node_id),
+            point_id="FAIL-POINT",
+        )
+    monkeypatch.setattr(fabric, "_assert_invariants", original)
+
+    assert fabric.coordination_points() == ()
+    assert fabric.events() == before_events
