@@ -6,6 +6,7 @@ from gremlin_mcp.adaptive_runtime import OperatorTier, ResourceBudget, ResourceC
 from gremlin_mcp.orchorbital_allocator import allocate_invocation
 from gremlin_mcp.orchorbital_context import OrbitalContextStore, apply_context_packet
 from gremlin_mcp.orchorbital_executor import (
+    DEFAULT_INPUT_SCHEMA,
     DISCOVERY_KEY,
     DISCOVERY_SCHEMA,
     ORBITAL_CONTEXT_PACKET_KEY,
@@ -838,3 +839,115 @@ def test_reduction_continuation_cannot_spawn_new_children_after_join_seal() -> N
 
     assert receipt["state"] == "QUARANTINED_REDUCTION_DISCOVERY_AFTER_SEAL"
     assert fabric.node(parent.node_id).status == "QUARANTINED"
+
+
+def test_orchestration_step_runs_recursive_worker_child_and_parent_reduction_flow() -> None:
+    fabric, broker, executor = executor_with_worker(execution_id="auto-step")
+    parent = allocate_invocation(
+        fabric,
+        "AUTH:ROOT",
+        ("graph",),
+        operators(),
+        budget=BUDGET,
+    ).nodes[0]
+    executor.ensure_dispatched(parent.node_id, {"query": "initial graph"})
+
+    _claim_and_submit(
+        broker,
+        species="SPIDER",
+        output={
+            "graph": "draft",
+            DISCOVERY_KEY: {
+                "schema": DISCOVERY_SCHEMA,
+                "obligations": ["audit"],
+            },
+        },
+    )
+
+    step1 = executor.orchestration_step()
+    parent_after = fabric.node(parent.node_id)
+    assert parent_after.self_complete is True
+    assert parent_after.status == "OPEN"
+    assert len(step1["worker_dispatch"]["dispatched"]) == 1
+
+    child_id = step1["worker_dispatch"]["dispatched"][0]["node_id"]
+    child = fabric.node(child_id)
+    assert child.species == "OWL"
+    child_task_id = executor.deterministic_task_id(child_id)
+    child_task = broker.task_result(child_task_id)
+    assert child_task["state"] == "QUEUED"
+    assert child_task["payload"]["input"]["schema"] == DEFAULT_INPUT_SCHEMA
+    assert child_task["payload"]["input"]["obligations"] == ["audit"]
+
+    child_lease = broker.claim("worker-1", species="OWL", limit=1)
+    broker.submit(
+        "worker-1",
+        child_lease["lease_id"],
+        [
+            {
+                "task_id": child_task_id,
+                "output": {"audit": "pass-candidate"},
+            }
+        ],
+    )
+
+    step2 = executor.orchestration_step()
+    assert fabric.node(child_id).status == "CLOSED"
+    reduction_dispatches = step2["reduction_dispatch"]["dispatched"]
+    assert len(reduction_dispatches) == 1
+    assert reduction_dispatches[0]["node_id"] == parent.node_id
+    reduction_task_id = reduction_dispatches[0]["task_id"]
+
+    reduction_lease = broker.claim("worker-1", species="SPIDER", limit=1)
+    assert reduction_lease["tasks"][0]["task_id"] == reduction_task_id
+    reduction_packet = reduction_lease["tasks"][0]["payload"]["input"][
+        REDUCTION_TASK_KEY
+    ]
+    assert reduction_packet["self_output"]["graph"] == "draft"
+    assert reduction_packet["join_results"][0]["output"] == {
+        "audit": "pass-candidate"
+    }
+    broker.submit(
+        "worker-1",
+        reduction_lease["lease_id"],
+        [
+            {
+                "task_id": reduction_task_id,
+                "output": {
+                    "graph": "draft",
+                    "audit": "integrated-pass",
+                },
+            }
+        ],
+    )
+
+    step3 = executor.orchestration_step()
+
+    assert fabric.node(parent.node_id).status == "CLOSED"
+    assert step3["reduction_reconcile"]["failures"] == []
+    assert parent.node_id in step3["settle_after_reductions"]["closed"]
+    assert step3["global_synthesis_barrier_required"] is False
+
+
+def test_dispatch_ready_does_not_reenqueue_existing_custom_running_task() -> None:
+    fabric, broker, executor = executor_with_worker(execution_id="custom-pending")
+    node = allocate_invocation(
+        fabric,
+        "AUTH:ROOT",
+        ("graph",),
+        operators(),
+        budget=BUDGET,
+    ).nodes[0]
+    custom = executor.ensure_dispatched(
+        node.node_id,
+        {"custom": "payload-that-must-not-drift"},
+    )
+    before = broker.task_result(custom.task_id)
+
+    dispatched = executor.dispatch_ready()
+
+    assert dispatched["failures"] == []
+    assert dispatched["dispatched"] == []
+    after = broker.task_result(custom.task_id)
+    assert after["task_commitment"] == before["task_commitment"]
+    assert after["payload"] == before["payload"]
