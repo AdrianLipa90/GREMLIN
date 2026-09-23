@@ -61,7 +61,8 @@ def main():
                     memory_id=mid,
                     ledger_record_id="hive:" + mid,
                     packet=p,
-                    orbit_index=orbit,
+                    priority_orbit_index=orbit,
+                    semantic_orbit_id=f"semantic:{orbit}",
                     priority=1 - orbit / 36,
                 )
     build = time.perf_counter() - t0
@@ -105,8 +106,7 @@ def main():
         idx.retrieve(
             packets[target],
             patch_radius=0,
-            orbit_radius=0,
-            orbit_index=orbit_of[target],
+            semantic_orbit_ids=[f"semantic:{orbit_of[target]}"],
             fallback_full=False,
         )
         for target in targets
