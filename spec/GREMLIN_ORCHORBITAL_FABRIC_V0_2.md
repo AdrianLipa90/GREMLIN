@@ -1404,3 +1404,79 @@ workload execution
 ```
 
 with no silent third path.
+
+
+## Shared discovery context frames
+
+Recursive discovery now carries information as well as topology.
+
+A worker/local node may emit bounded discovery `handoff` data. OCTOPUS remains
+the only allocator: the caller cannot select child species directly.
+
+For one discovery fanout GREMLIN creates one immutable shared context frame:
+
+```text
+parent node context
+    |
+    v
+CTX:DISC:<commitment>
+    parent_result_commitment
+    bounded handoff
+    |
+    +---- child A empty/local delta
+    +---- child B empty/local delta
+    +---- child C empty/local delta
+```
+
+Caller provenance stays on the execution nodes. The shared context frame is not
+an execution node and cannot become an orbital center or authority root.
+
+The handoff is bounded to 128 keys and 65536 canonical JSON bytes. Malformed or
+oversized handoff fails closed before child allocation.
+
+This avoids copying the same parent result/handoff into every child frame.
+
+## Delta-only context storage
+
+`OrbitalContextStore` no longer retains one full materialized context per frame.
+
+Persistent in-process representation is:
+
+```text
+immutable base+delta frames
++ bounded LRU materialization cache
+```
+
+Materialization is reconstructed through frame lineage and every reconstructed
+step is checked against its materialized commitment.
+
+The cache size is a performance parameter and does not alter frame or packet
+commitments. Evicted frames must reconstruct identically.
+
+Benchmark receipts report serialized-storage proxies only:
+
+- eager full-materialization bytes proxy;
+- delta frame bytes proxy;
+- bounded cache bytes proxy;
+- delta+cache reduction fraction.
+
+These are not Python heap measurements.
+
+## Exact routing hot-path indexes
+
+The WorkerBroker routing path now uses:
+
+```text
+species queue index
+receiver/context affinity cache
+precomputed immutable TaskPhaseState
+lease expiry min-heap
+reused species metrics + centroid
+```
+
+All indexes are derived from canonical broker state and rebuilt after durable
+SQLite hydration.
+
+The synthetic routing-index benchmark may exceed 200x in **candidate inspection
+reduction** under heavily skewed multi-species queues. This does not establish a
+200x end-to-end speedup.
