@@ -824,39 +824,66 @@ class OrchorbitalFabric:
                 adjacency[left].add(right)
                 adjacency[right].add(left)
 
-        for point in self._coordination_points.values():
-            members = [
-                member_id
-                for member_id in point.member_ids
-                if member_id in open_ids
-            ]
-            for index, left in enumerate(members):
-                for right in members[index + 1 :]:
-                    adjacency[left].add(right)
-                    adjacency[right].add(left)
-
         return adjacency
 
     def locality_distance(self, source_id: str, target_id: str) -> float:
-        """Shortest open-node locality distance across caller/center/coordination links."""
+        """Shortest open-node locality distance with linear hyperedge expansion.
+
+        Pairwise caller/center/coordination links cost one hop. Membership in the
+        same n-node coordination point also costs one hop, but the point is
+        expanded at most once per traversal instead of materializing a clique.
+        """
 
         with self._lock:
             source = self._require_open(source_id).node_id
             target = self._require_open(target_id).node_id
             if source == target:
                 return 0.0
+
             adjacency = self._locality_adjacency()
+            points_by_member: dict[str, list[str]] = {
+                node_id: [] for node_id in adjacency
+            }
+            live_members_by_point: dict[str, tuple[str, ...]] = {}
+            for point_id, point in self._coordination_points.items():
+                live_members = tuple(
+                    member_id
+                    for member_id in point.member_ids
+                    if member_id in adjacency
+                )
+                if len(live_members) < 2:
+                    continue
+                live_members_by_point[point_id] = live_members
+                for member_id in live_members:
+                    points_by_member[member_id].append(point_id)
+
             distance = {source: 0}
+            expanded_points: set[str] = set()
             queue: deque[str] = deque([source])
             while queue:
                 current = queue.popleft()
+                next_distance = distance[current] + 1
+
                 for neighbor in sorted(adjacency[current]):
                     if neighbor in distance:
                         continue
-                    distance[neighbor] = distance[current] + 1
+                    distance[neighbor] = next_distance
                     if neighbor == target:
-                        return float(distance[neighbor])
+                        return float(next_distance)
                     queue.append(neighbor)
+
+                for point_id in sorted(points_by_member[current]):
+                    if point_id in expanded_points:
+                        continue
+                    expanded_points.add(point_id)
+                    for neighbor in live_members_by_point[point_id]:
+                        if neighbor in distance:
+                            continue
+                        distance[neighbor] = next_distance
+                        if neighbor == target:
+                            return float(next_distance)
+                        queue.append(neighbor)
+
             return math.inf
 
     def rank_centers(
@@ -1354,6 +1381,7 @@ class OrchorbitalFabric:
                 "failed_or_quarantined_counts_as_closed": False,
                 "lifecycle_invariants_fail_loud": True,
                 "coordination_point_weight_active_in_routing": False,
+                "coordination_point_clique_materialized": False,
                 "authority_root_stable": True,
                 "species_position_fixed": False,
                 "canon_allowed": False,
