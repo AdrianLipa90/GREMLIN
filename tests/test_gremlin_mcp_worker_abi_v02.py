@@ -286,3 +286,83 @@ def test_idempotent_enqueue_does_not_double_count_queue_index() -> None:
     status = broker.queue_status()
     assert status["queued_index_counts"]["HOUND"] == 1
     assert status["unfinished_task_count"] == 1
+
+
+def test_lease_expiry_heap_reaps_only_due_lease_and_preserves_later_lease() -> None:
+    broker = WorkerBroker()
+    broker.register_worker("heap-owl", ["OWL"], vector_width=1, max_batch=1)
+    broker.enqueue("OWL", {"x": 1}, task_id="heap-a")
+    broker.enqueue("OWL", {"x": 2}, task_id="heap-b")
+
+    first = broker.claim(
+        "heap-owl",
+        species="OWL",
+        limit=1,
+        lease_seconds=1,
+    )
+    second = broker.claim(
+        "heap-owl",
+        species="OWL",
+        limit=1,
+        lease_seconds=60,
+    )
+
+    assert broker.queue_status()["active_leases"] == 2
+    assert broker.queue_status()["lease_expiry_heap_indexed"] is True
+
+    broker._reap_expired(first["expires_ns"] + 1)
+
+    assert first["lease_id"] not in broker._leases
+    assert second["lease_id"] in broker._leases
+    assert broker._tasks[first["tasks"][0]["task_id"]].state == "QUEUED"
+    assert broker._tasks[second["tasks"][0]["task_id"]].state == "LEASED"
+
+
+def test_submitted_lease_heap_entry_is_safe_stale_and_does_not_requeue_done_task() -> None:
+    broker = WorkerBroker()
+    broker.register_worker("heap-submit", ["OWL"], vector_width=1, max_batch=1)
+    broker.enqueue("OWL", {"x": 1}, task_id="heap-submit-task")
+    lease = broker.claim(
+        "heap-submit",
+        species="OWL",
+        limit=1,
+        lease_seconds=1,
+    )
+    task_id = lease["tasks"][0]["task_id"]
+
+    broker.submit(
+        "heap-submit",
+        lease["lease_id"],
+        [{"task_id": task_id, "output": {"done": True}}],
+    )
+    broker._reap_expired(lease["expires_ns"] + 1)
+
+    assert broker._tasks[task_id].state == "DONE"
+    assert task_id not in broker._queued_by_species["OWL"]
+    assert broker.queue_status()["unfinished_task_count"] == 0
+
+
+def test_lease_expiry_heap_compacts_stale_entries_under_repeated_short_leases() -> None:
+    broker = WorkerBroker()
+    broker.register_worker("heap-compact", ["OWL"], vector_width=1, max_batch=1)
+
+    for index in range(100):
+        task_id = f"heap-cycle-{index:03d}"
+        broker.enqueue("OWL", {"index": index}, task_id=task_id)
+        lease = broker.claim(
+            "heap-compact",
+            species="OWL",
+            limit=1,
+            lease_seconds=60,
+        )
+        broker.submit(
+            "heap-compact",
+            lease["lease_id"],
+            [{"task_id": task_id, "output": {"ok": index}}],
+        )
+
+    status = broker.queue_status()
+
+    assert status["active_leases"] == 0
+    assert status["unfinished_task_count"] == 0
+    assert status["lease_expiry_heap_entries"] <= 64
