@@ -20,6 +20,7 @@ on:
       - 'tools/gremlin_orchorbital_context_transport_bench_v01.py'
       - 'tools/gremlin_orchorbital_routing_index_bench_v01.py'
       - 'tools/gremlin_orchorbital_same_species_scheduler_bench_v01.py'
+      - 'tools/gremlin_orchorbital_vector_distance_candidate_v01.py'
       - 'tools/gremlin_geometry_phase_scheduler_v01.py'
       - 'gremlin_mcp/core.py'
       - 'gremlin_mcp/worker_client.py'
@@ -33,6 +34,7 @@ on:
       - 'tests/test_gremlin_orchorbital_context_transport_bench_v01.py'
       - 'tests/test_gremlin_orchorbital_routing_index_bench_v01.py'
       - 'tests/test_gremlin_orchorbital_same_species_scheduler_bench_v01.py'
+      - 'tests/test_gremlin_orchorbital_vector_distance_candidate_v01.py'
       - 'tests/test_gremlin_orchorbital_checkpoint_v01.py'
       - 'tests/test_gremlin_orchorbital_local_adapters_v01.py'
       - 'tests/test_gremlin_mcp_worker_client_v02.py'
@@ -73,6 +75,7 @@ jobs:
           tools/gremlin_orchorbital_context_transport_bench_v01.py
           tools/gremlin_orchorbital_routing_index_bench_v01.py
           tools/gremlin_orchorbital_same_species_scheduler_bench_v01.py
+          tools/gremlin_orchorbital_vector_distance_candidate_v01.py
           tools/gremlin_geometry_phase_scheduler_v01.py
       - name: Run orchorbital contract suite
         run: >-
@@ -86,6 +89,7 @@ jobs:
           tests/test_gremlin_orchorbital_context_transport_bench_v01.py
           tests/test_gremlin_orchorbital_routing_index_bench_v01.py
           tests/test_gremlin_orchorbital_same_species_scheduler_bench_v01.py
+          tests/test_gremlin_orchorbital_vector_distance_candidate_v01.py
           tests/test_gremlin_orchorbital_checkpoint_v01.py
           tests/test_gremlin_orchorbital_local_adapters_v01.py
           tests/test_gremlin_mcp_worker_client_v02.py
