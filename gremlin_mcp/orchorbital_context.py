@@ -209,13 +209,13 @@ class OrbitalContextStore:
         node_id: str,
         *,
         base_node_id: str,
-        set_values: Mapping[str, Any] = {},
+        set_values: Mapping[str, Any] | None = None,
         delete_keys: Iterable[str] = (),
     ) -> ContextFrame:
         return self._bind(
             node_id=_strict_text(node_id, "node_id"),
             base_node_id=_strict_text(base_node_id, "base_node_id"),
-            set_values=set_values,
+            set_values={} if set_values is None else set_values,
             delete_keys=delete_keys,
         )
 
@@ -223,7 +223,7 @@ class OrbitalContextStore:
         self,
         node_id: str,
         *,
-        set_values: Mapping[str, Any] = {},
+        set_values: Mapping[str, Any] | None = None,
         delete_keys: Iterable[str] = (),
     ) -> ContextFrame:
         node = self.fabric.node(node_id)
@@ -375,7 +375,8 @@ def apply_context_packet(
 
     if not isinstance(packet, Mapping) or packet.get("schema") != PACKET_SCHEMA:
         raise ValueError("invalid context packet schema")
-    if not isinstance(known_contexts, Mapping):
+    contexts: Mapping[str, Mapping[str, Any]] = {} if known_contexts is None else known_contexts
+    if not isinstance(contexts, Mapping):
         raise ValueError("known_contexts must be a mapping")
 
     required = packet.get("required_base_frame_commitment")
@@ -384,7 +385,7 @@ def apply_context_packet(
     if required is None:
         current: dict[str, Any] = {}
     else:
-        base = known_contexts.get(required)
+        base = contexts.get(required)
         if not isinstance(base, Mapping):
             raise ValueError("required base context is unavailable")
         current = _strict_mapping(base, "known base context")
@@ -437,7 +438,7 @@ def apply_context_packet(
     target_materialized = packet.get("target_materialized_commitment")
     if prior_commitment != target_frame:
         if not raw_frames and required == target_frame:
-            cached = known_contexts.get(required)
+            cached = contexts.get(required)
             if not isinstance(cached, Mapping):
                 raise ValueError("target cached context is unavailable")
             current = _strict_mapping(cached, "target cached context")
