@@ -496,3 +496,77 @@ def test_worker_claim_species_selection_prefers_receiver_cached_branch_on_geomet
     )
     assert selection["queues"]["SPIDER"]["receiver_locality_hint"] > 0.0
     assert selection["queues"]["OWL"]["receiver_locality_hint"] == 0.0
+
+
+def test_malformed_context_packet_is_rejected_at_enqueue_admission() -> None:
+    broker = WorkerBroker()
+    malformed = {
+        "schema": "GREMLIN_ORCHORBITAL_CONTEXT_PACKET_V0_1",
+        "target_node_id": "BAD",
+        "target_frame_commitment": "0" * 64,
+        "target_materialized_commitment": "0" * 64,
+        "required_base_frame_commitment": None,
+        "frames": [],
+        "packet_commitment": "0" * 64,
+        "materialized_context_bytes": 1,
+        "packet_bytes": 1,
+    }
+
+    try:
+        broker.enqueue(
+            "SPIDER",
+            {PACKET_PAYLOAD_KEY: malformed},
+            task_id="bad-context-admission",
+        )
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("malformed canonical context must fail at enqueue")
+
+    assert "bad-context-admission" not in broker._tasks
+
+
+def test_reduced_context_packet_cannot_be_enqueued_as_canonical_task() -> None:
+    _, node, store = _context_task()
+    full_packet = store.packet(node.node_id)
+    root = store.frame("AUTH:ROOT").frame_commitment
+    from gremlin_mcp.orchorbital_context import reduce_context_packet
+
+    reduced = reduce_context_packet(
+        full_packet,
+        receiver_known_frames=(root,),
+    )
+    assert reduced["required_base_frame_commitment"] == root
+
+    broker = WorkerBroker()
+    try:
+        broker.enqueue(
+            "SPIDER",
+            {PACKET_PAYLOAD_KEY: reduced},
+            task_id="reduced-canonical",
+        )
+    except ValueError as exc:
+        assert "self-contained" in str(exc)
+    else:
+        raise AssertionError("reduced packet must not become canonical task state")
+
+
+def test_bundle_transport_fields_are_rejected_at_enqueue_boundary() -> None:
+    broker = WorkerBroker()
+
+    for task_id, key in (
+        ("bundle-owned", BUNDLE_PAYLOAD_KEY),
+        ("bundle-ref-owned", BUNDLE_REF_PAYLOAD_KEY),
+    ):
+        try:
+            broker.enqueue(
+                "SPIDER",
+                {key: {"not": "caller-owned"}},
+                task_id=task_id,
+            )
+        except ValueError as exc:
+            assert "broker-owned transport fields" in str(exc)
+        else:
+            raise AssertionError("transport-only context field must fail at enqueue")
+
+        assert task_id not in broker._tasks
