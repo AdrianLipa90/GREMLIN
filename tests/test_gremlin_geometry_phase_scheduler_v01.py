@@ -2,8 +2,11 @@ from __future__ import annotations
 
 import math
 
+import pytest
+
 from gremlin_mcp.workers import WorkerBroker, WORKER_SPECIES
 from tools.gremlin_geometry_phase_scheduler_v01 import (
+    GeometryPhaseSchedulerError,
     MODE,
     SCHEDULER_KEY,
     choose_species,
@@ -13,6 +16,7 @@ from tools.gremlin_geometry_phase_scheduler_v01 import (
     queue_metrics,
     scheduler_manifest,
     select_batch,
+    task_phase_state,
 )
 
 
