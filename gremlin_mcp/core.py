@@ -133,8 +133,8 @@ def status(*, surface: str = "reference") -> dict[str, Any]:
             "no_evidence_policy": "NO_CONFIDENT_ROUTE_NOT_QUEUED",
         },
         "worker_abi": {
-            "version": "0.2.1", "model": "PULL_LEASE_SUBMIT", "callback_networking": False,
-            "same_species_batches": True, "orbit_lane_bounded": True,
+            "version": "0.2.2", "model": "PULL_LEASE_SUBMIT", "callback_networking": False,
+            "same_species_batches": True, "orbit_lane_bounded": True, "receiver_context_cache_negotiation": True,
             "scheduler": scheduler_manifest(),
             "state_persistence": "PROCESS_MEMORY_OR_SQLITE_WAL",
         },
