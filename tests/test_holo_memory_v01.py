@@ -2,6 +2,8 @@ import math
 import random
 import unittest
 
+from gremlin_mcp.relational_memory_encoder import encode_memory_text, retrieve_memory
+
 from gremlin_mcp.holo_memory import (
     HoloMemoryError,
     HoloMemoryIndex,
@@ -220,6 +222,74 @@ class HoloMemoryTests(unittest.TestCase):
         )
         self.assertGreater(out["after"], out["before"])
         self.assertEqual(out["edge_count"], 12)
+
+
+    def test_existing_18_paraphrases_survive_holo_remap(self):
+        memories = {
+            "stella": "stella octangula: two shared poles and six lateral vertices",
+            "projections": "six projections share the poles and expose six lateral channels each",
+            "36d": "36 = 6 projections x 6 relational channels",
+            "moire": "six projections may have distinct frequencies and slight relative rotations",
+            "elephant": "ELEPHANT consolidates relational memory, replay and retention",
+            "bees": "BEES checks overlap coherence, anti-entropy delta and reconciliation proposals",
+        }
+        cues = {
+            "stella": [
+                "compound tetrahedral geometry with a common antipodal pole pair and six side points",
+                "two opposite poles organize six remaining vertices of the interpenetrating tetrahedra",
+                "dwa wspólne bieguny i sześć bocznych wierzchołków stella octangula",
+            ],
+            "projections": [
+                "six views use the same two poles, each carrying six side channels",
+                "each of the six slices keeps one common axis and carries six lateral degrees",
+                "sześć rzutów ma te same bieguny, każdy ma sześć bocznych kanałów",
+            ],
+            "36d": [
+                "thirty six dimensions factor into six views with six relation channels per view",
+                "state factorizes into 6 by 6 relation coordinates",
+                "trzydzieści sześć wymiarów to sześć rzutów po sześć kanałów relacji",
+            ],
+            "moire": [
+                "slightly twisted layers oscillating at different rates create the interference pattern",
+                "small angular offsets plus unequal carrier rates produce a beat pattern",
+                "lekko obrócone warstwy z różnymi częstotliwościami tworzą interferencję moire",
+            ],
+            "elephant": [
+                "long-term memory is strengthened through consolidation, replay and retention planning",
+                "rehearsal and retention deepen the memory trace",
+                "słoń odpowiada za konsolidację pamięci, replay i retencję",
+            ],
+            "bees": [
+                "distributed fragments are compared for overlap consistency and proposed anti-entropy reconciliation",
+                "replicas are checked for consistency and an anti entropy repair is only proposed",
+                "pszczoły sprawdzają spójność nakładających się śladów i proponują rekoncyliację",
+            ],
+        }
+        idx = HoloMemoryIndex(hex_scale=2.0)
+        for memory_id, text in memories.items():
+            idx.add(
+                memory_id=memory_id,
+                ledger_record_id="hive:" + memory_id,
+                packet=encode_memory_text(text),
+            )
+
+        passed = 0
+        for expected, variants in cues.items():
+            for cue_text in variants:
+                baseline = retrieve_memory(cue_text, memories)
+                self.assertEqual(baseline["picked"], expected)
+                out = idx.retrieve_reference(
+                    encode_memory_text(cue_text),
+                    patch_radius=2,
+                    fallback_full=False,
+                )
+                self.assertEqual(
+                    out["picked"],
+                    expected,
+                    msg=(expected, cue_text, out),
+                )
+                passed += 1
+        self.assertEqual(passed, 18)
 
 
 if __name__ == "__main__":
