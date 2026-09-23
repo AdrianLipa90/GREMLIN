@@ -566,7 +566,20 @@ def select_batch(
 
     while remaining and len(chosen) < limit:
         current = chosen[-1]
-        chosen_ids = [state.task_id for state in chosen]
+        active_affinity: set[str] = set()
+        if affinity_active:
+            for selected_state in chosen:
+                active_affinity.update(
+                    affinity.get(selected_state.task_id, frozenset())
+                )
+
+        def active_context_affinity(task_id: str) -> float:
+            candidate = affinity.get(task_id, frozenset())
+            if not candidate or not active_affinity:
+                return 0.0
+            overlap = len(candidate & active_affinity)
+            scale = min(len(candidate), len(active_affinity))
+            return 0.0 if scale <= 0 else overlap / scale
 
         def candidate_score(state: TaskPhaseState) -> float:
             nonlocal greedy_pairwise_distance_evaluations
@@ -578,7 +591,7 @@ def select_batch(
                 + 0.07 * state.urgency
                 + (
                     CONTEXT_AFFINITY_WEIGHT
-                    * _context_affinity(state.task_id, chosen_ids, affinity)
+                    * active_context_affinity(state.task_id)
                     if affinity_active
                     else 0.0
                 )
@@ -661,6 +674,7 @@ def select_batch(
             greedy_pairwise_distance_evaluations * DIM
         ),
         "distance_kernel": "SCALAR_EXACT_V0_1",
+        "active_context_affinity_union_reused": True,
         "ready_count": len(eligible),
         "queued_count": len(states),
         "fifo_used_for_selection": False,
