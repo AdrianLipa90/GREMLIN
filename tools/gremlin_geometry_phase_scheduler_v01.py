@@ -562,30 +562,40 @@ def select_batch(
     )
     chosen = [seed]
     remaining = {s.task_id: s for s in eligible if s.task_id != seed.task_id}
+    greedy_pairwise_distance_evaluations = 0
 
     while remaining and len(chosen) < limit:
         current = chosen[-1]
         chosen_ids = [state.task_id for state in chosen]
-        next_state = max(
-            remaining.values(),
-            key=lambda s: (
-                0.58 * (1.0 - state_distance(current, s))
-                + 0.25 * priority[s.task_id]
-                + 0.10 * (1.0 - s.noise)
-                + 0.07 * s.urgency
+
+        def candidate_score(state: TaskPhaseState) -> float:
+            nonlocal greedy_pairwise_distance_evaluations
+            greedy_pairwise_distance_evaluations += 1
+            return (
+                0.58 * (1.0 - state_distance(current, state))
+                + 0.25 * priority[state.task_id]
+                + 0.10 * (1.0 - state.noise)
+                + 0.07 * state.urgency
                 + (
                     CONTEXT_AFFINITY_WEIGHT
-                    * _context_affinity(s.task_id, chosen_ids, affinity)
+                    * _context_affinity(state.task_id, chosen_ids, affinity)
                     if affinity_active
                     else 0.0
                 )
                 + (
-                    RECEIVER_CACHE_AFFINITY_WEIGHT * receiver_score(s.task_id)
+                    RECEIVER_CACHE_AFFINITY_WEIGHT
+                    * receiver_score(state.task_id)
                     if receiver_affinity_active
                     else 0.0
-                ),
-                s.task_commitment,
-                s.task_id,
+                )
+            )
+
+        next_state = max(
+            remaining.values(),
+            key=lambda state: (
+                candidate_score(state),
+                state.task_commitment,
+                state.task_id,
             ),
         )
         chosen.append(next_state)
@@ -644,6 +654,13 @@ def select_batch(
             0.0 if fifo_noise <= 1e-15 else 1.0 - selected_noise / fifo_noise
         ),
         "estimated_payload_tokens": sum(s.token_estimate for s in chosen),
+        "greedy_pairwise_state_distance_evaluations": (
+            greedy_pairwise_distance_evaluations
+        ),
+        "greedy_phase_axis_evaluations_proxy": (
+            greedy_pairwise_distance_evaluations * DIM
+        ),
+        "distance_kernel": "SCALAR_EXACT_V0_1",
         "ready_count": len(eligible),
         "queued_count": len(states),
         "fifo_used_for_selection": False,
