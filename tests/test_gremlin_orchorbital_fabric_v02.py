@@ -1284,3 +1284,51 @@ def test_resolution_diagnostics_distinguish_terminal_from_resolved() -> None:
     assert fabric.is_resolved(source.node_id) is True
     assert fabric.unresolved_terminal_nodes() == ()
     assert fabric.receipt()["unresolved_terminal_node_count"] == 0
+
+
+def test_deterministic_allocation_replays_same_nodes_exactly_once() -> None:
+    fabric = OrchorbitalFabric()
+    first = allocate_invocation(
+        fabric,
+        "AUTH:ROOT",
+        ("graph", "audit"),
+        operators(),
+        budget=BUDGET,
+        allocation_key="worker-result-abc",
+    )
+    before_count = fabric.receipt()["node_count"]
+
+    second = allocate_invocation(
+        fabric,
+        "AUTH:ROOT",
+        ("graph", "audit"),
+        operators(),
+        budget=BUDGET,
+        allocation_key="worker-result-abc",
+    )
+
+    assert [node.node_id for node in second.nodes] == [node.node_id for node in first.nodes]
+    assert fabric.receipt()["node_count"] == before_count
+    assert second.receipt()["deterministic_replay"] is True
+
+
+def test_deterministic_allocation_key_cannot_be_reused_for_different_work() -> None:
+    fabric = OrchorbitalFabric()
+    allocate_invocation(
+        fabric,
+        "AUTH:ROOT",
+        ("graph",),
+        operators(),
+        budget=BUDGET,
+        allocation_key="same-key",
+    )
+
+    with pytest.raises(RuntimeError, match="partial deterministic allocation|obligation mismatch"):
+        allocate_invocation(
+            fabric,
+            "AUTH:ROOT",
+            ("graph", "audit"),
+            operators(),
+            budget=BUDGET,
+            allocation_key="same-key",
+        )
