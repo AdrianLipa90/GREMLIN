@@ -252,7 +252,7 @@ class OrbitalContextStore:
         self,
         node_id: str,
         *,
-        set_values: Mapping[str, Any] = {},
+        set_values: Mapping[str, Any] | None = None,
         delete_keys: Iterable[str] = (),
     ) -> ContextFrame:
         node = self.fabric.node(node_id)
@@ -261,7 +261,7 @@ class OrbitalContextStore:
         return self.bind_node(
             node.node_id,
             base_node_id=node.center_id,
-            set_values=set_values,
+            set_values={} if set_values is None else set_values,
             delete_keys=delete_keys,
         )
 
