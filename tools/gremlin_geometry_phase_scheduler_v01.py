@@ -538,13 +538,17 @@ def select_batch(
             str(value) for value in receiver_known_affinity if str(value)
         )
 
-    def receiver_score(task_id: str) -> float:
-        signature = affinity.get(task_id, frozenset())
-        if not signature or not receiver_known:
-            return 0.0
-        return len(signature & receiver_known) / len(signature)
-
     receiver_affinity_active = bool(receiver_known) and affinity_active
+    receiver_scores: dict[str, float] = {}
+    if receiver_affinity_active:
+        for task_id, signature in affinity.items():
+            if signature:
+                receiver_scores[task_id] = (
+                    len(signature & receiver_known) / len(signature)
+                )
+
+    def receiver_score(task_id: str) -> float:
+        return receiver_scores.get(task_id, 0.0)
     seed = max(
         eligible,
         key=lambda s: (
@@ -675,6 +679,7 @@ def select_batch(
         ),
         "distance_kernel": "SCALAR_EXACT_V0_1",
         "active_context_affinity_union_reused": True,
+        "receiver_cache_affinity_precomputed": receiver_affinity_active,
         "ready_count": len(eligible),
         "queued_count": len(states),
         "fifo_used_for_selection": False,
