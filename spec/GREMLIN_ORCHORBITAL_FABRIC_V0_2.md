@@ -302,6 +302,30 @@ speedup_claim           = false
 
 This branch changes architecture, not external authority.
 
+## N-node coordination points
+
+The fabric also supports non-causal multi-node rendezvous points:
+
+```text
+CoordinationPoint(
+    point_id,
+    member_ids,
+    weight,
+    physical_claim=false
+)
+```
+
+A coordination point acts as a locality hyperedge. Its members become directly
+adjacent for routing/locality purposes without adding causal or join
+dependencies.
+
+This is the software meaning of a Lagrange-style shared coordination point in
+the current architecture. It is explicitly not a physical claim.
+
+New coordination points require at least two unique OPEN members and a finite
+positive weight. Historical points may remain in the audit trail after member
+nodes later close, but only OPEN members participate in live locality ranking.
+
 ## Dynamic center selection
 
 OCTOPUS may either supply an explicit center for a selected operator or supply
@@ -363,6 +387,7 @@ The v0.2 contract suite checks:
 - recursion budget and invocation-depth accounting;
 - orphaned-center prevention on close;
 - locality-first/T^36-tiebreak center ranking;
+- non-causal n-node coordination-point locality;
 - non-authoritative allocation receipts;
 - fail-loud rejection of routing metadata for unselected operators.
 
