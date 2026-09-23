@@ -156,11 +156,13 @@ class PersistentWorkerBroker(WorkerBroker):
                 self._leases[key] = record
 
             self._validate_hydrated_state()
-            # Expired leases are safely returned to QUEUED on restart.
+            # Rebuild all derived indexes from canonical persisted state before
+            # any expiry processing. Expired leases are then safely returned to
+            # QUEUED through the indexed heap path.
+            self._rebuild_indexes()
             import time
 
             self._reap_expired(time.time_ns())
-            self._rebuild_indexes()
         except Exception as exc:
             raise RuntimeError("GREMLIN SQLite worker state failed closed during hydration") from exc
 
