@@ -584,6 +584,8 @@ class OrchorbitalFabric:
                         execution_started=False,
                         self_complete=False,
                         result_commitment=None,
+                        reduction_complete=False,
+                        reduction_commitment=None,
                         spawned_seq=self._seq + 1,
                         invocation_depth=caller.invocation_depth + 1,
                     )
