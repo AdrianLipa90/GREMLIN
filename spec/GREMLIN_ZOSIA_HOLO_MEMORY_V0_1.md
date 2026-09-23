@@ -173,6 +173,43 @@ Derived moire patterns remain \`CANDIDATE_ONLY\` and must pass the existing
 ELEPHANT / BEES / OWL / HOUND / consolidation / authority boundaries before
 persistent promotion.
 
+
+## NOEMA / Hive materialization bridges
+
+Two read-only bridges are explicit:
+
+1. \`holo_memory_hive_bridge.py\` consumes current \`OrbitalHiveMemory\`
+   records and verifies that record ids, subject ids, versions and payload
+   hashes are unchanged before/after materialization.
+2. \`holo_memory_noema_bridge.py\` consumes receipted
+   \`NOEMA_MEMORY_TRACE_V1\` traces.
+
+NOEMA phase provenance is typed:
+
+- \`EXACT_SOURCE_36D\` is allowed only when an exact finite 36D phase packet is
+  actually present.
+- Otherwise the bridge may derive a fresh candidate 36D representation from
+  the explicit receipted semantic body through
+  \`GREMLIN_RELATIONAL_MEMORY_ENCODER_V0_1\`.
+
+A derived encoding is never described as recovered historical phase.
+
+The bridge also enforces:
+
+\[
+\text{trace hash}\neq\text{semantic coordinate},
+\]
+
+and
+
+\[
+\text{NOEMA layer }M_k\neq\text{Hive orbit index}.
+\]
+
+Without an explicit complete orbit map, NOEMA traces remain orbit-unbound and
+receive only the neutral derived-index default. This prevents an accidental
+identification of memory-layer number with orbital geometry.
+
 ## Bestiary roles
 
 - RAVEN: retrieval/query addressing.
