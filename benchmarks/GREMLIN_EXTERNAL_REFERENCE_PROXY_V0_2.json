@@ -1,0 +1,144 @@
+{
+  "canon_allowed": false,
+  "claim_boundary": "Not a competitor execution benchmark and not a same-model answer-quality A/B. It maps published external stress regimes onto GREMLIN internal control-plane measurements using explicit synthetic assumptions.",
+  "external_reference_facts": {
+    "google_adk2_illustrative": {
+      "latency_reduction_pct": 20.833333333333332,
+      "source": "https://developers.googleblog.com/why-we-built-adk-20/",
+      "token_reduction_pct": 56.036490683229815,
+      "vendor_marks_as_illustrative": true
+    },
+    "langchain_same_model_multi_agent": {
+      "dataset": "modified tau-bench retail, first 100 test examples",
+      "distractor_environments_added": 6,
+      "model": "gpt-4o",
+      "reported_pattern": "single-agent baseline falls sharply with two or more distractor domains; swarm/supervisor token cost remains flatter as distractors grow",
+      "source": "https://www.langchain.com/blog/benchmarking-multi-agent-architectures",
+      "tools_per_distractor_environment": 19
+    },
+    "tau_bench_reliability": {
+      "gpt4o_retail_pass1_pct_reference": 65.2,
+      "gpt4o_retail_pass8_pct_upper_bound": 25,
+      "pass8_retention_vs_pass1_upper_bound_pct": 38.34355828220859,
+      "reliability_drop_lower_bound_pct": 61.65644171779141,
+      "source": "https://sierra.ai/uk/blog/benchmarking-ai-agents"
+    }
+  },
+  "gremlin_internal_references": {
+    "research_orchestrator_fanout_reduction_pct": 61.9,
+    "sgt_anchor_points": [
+      {
+        "context_reduction_pct": -17.262,
+        "sentences": 110
+      },
+      {
+        "context_reduction_pct": 31.665,
+        "sentences": 550
+      },
+      {
+        "context_reduction_pct": 65.89,
+        "sentences": 1100
+      }
+    ],
+    "sgt_fixture_break_even_sentences": 265.237,
+    "sgt_live_dispatch_reduction_pct": 50
+  },
+  "next_gate": {
+    "name": "GREMLIN_EXTERNAL_SAME_MODEL_AB_V0_3",
+    "required": [
+      "Run one identical foundation model in monolithic, supervisor/swarm reference, and GREMLIN selective-cone conditions.",
+      "Use the same tau-bench-style tasks, policy text, tools, retry budget and model temperature.",
+      "Measure pass^1 and pass^k, exact final state, prompt/completion tokens, model/tool calls, median/p95 wall-clock latency and failure recovery.",
+      "Do not reuse this proxy as a quality score."
+    ]
+  },
+  "rows": [
+    {
+      "claim_boundary": "Structural/proxy row only; no model answer-quality value is predicted.",
+      "distractor_domains": 0,
+      "distractor_tool_exposure_baseline": 0,
+      "gremlin_sgt_fixture_interpolated_context_reduction_pct": -17.262,
+      "gremlin_sgt_gate_candidate": "BYPASS_SGT",
+      "ideal_structural_domain_context_avoidance_pct": 0,
+      "langchain_same_model_sharp_drop_regime": false,
+      "normalized_ideal_selective_domain_context_units": 1,
+      "normalized_monolithic_domain_context_units": 1,
+      "synthetic_alignment": false,
+      "synthetic_sentences": 110,
+      "total_domains": 1
+    },
+    {
+      "claim_boundary": "Structural/proxy row only; no model answer-quality value is predicted.",
+      "distractor_domains": 1,
+      "distractor_tool_exposure_baseline": 19,
+      "gremlin_sgt_fixture_interpolated_context_reduction_pct": -5.0302500000000006,
+      "gremlin_sgt_gate_candidate": "BYPASS_SGT",
+      "ideal_structural_domain_context_avoidance_pct": 50,
+      "langchain_same_model_sharp_drop_regime": false,
+      "normalized_ideal_selective_domain_context_units": 1,
+      "normalized_monolithic_domain_context_units": 2,
+      "synthetic_alignment": false,
+      "synthetic_sentences": 220,
+      "total_domains": 2
+    },
+    {
+      "claim_boundary": "Structural/proxy row only; no model answer-quality value is predicted.",
+      "distractor_domains": 2,
+      "distractor_tool_exposure_baseline": 38,
+      "gremlin_sgt_fixture_interpolated_context_reduction_pct": 7.201499999999999,
+      "gremlin_sgt_gate_candidate": "USE_SGT",
+      "ideal_structural_domain_context_avoidance_pct": 66.66666666666667,
+      "langchain_same_model_sharp_drop_regime": true,
+      "normalized_ideal_selective_domain_context_units": 1,
+      "normalized_monolithic_domain_context_units": 3,
+      "synthetic_alignment": true,
+      "synthetic_sentences": 330,
+      "total_domains": 3
+    },
+    {
+      "claim_boundary": "Structural/proxy row only; no model answer-quality value is predicted.",
+      "distractor_domains": 3,
+      "distractor_tool_exposure_baseline": 57,
+      "gremlin_sgt_fixture_interpolated_context_reduction_pct": 19.43325,
+      "gremlin_sgt_gate_candidate": "USE_SGT",
+      "ideal_structural_domain_context_avoidance_pct": 75,
+      "langchain_same_model_sharp_drop_regime": true,
+      "normalized_ideal_selective_domain_context_units": 1,
+      "normalized_monolithic_domain_context_units": 4,
+      "synthetic_alignment": true,
+      "synthetic_sentences": 440,
+      "total_domains": 4
+    },
+    {
+      "claim_boundary": "Structural/proxy row only; no model answer-quality value is predicted.",
+      "distractor_domains": 6,
+      "distractor_tool_exposure_baseline": 114,
+      "gremlin_sgt_fixture_interpolated_context_reduction_pct": 45.355000000000004,
+      "gremlin_sgt_gate_candidate": "USE_SGT",
+      "ideal_structural_domain_context_avoidance_pct": 85.71428571428572,
+      "langchain_same_model_sharp_drop_regime": true,
+      "normalized_ideal_selective_domain_context_units": 1,
+      "normalized_monolithic_domain_context_units": 7,
+      "synthetic_alignment": true,
+      "synthetic_sentences": 770,
+      "total_domains": 7
+    }
+  ],
+  "schema": "GREMLIN_EXTERNAL_REFERENCE_PROXY_V0_2",
+  "status": "PASS_SYNTHETIC_REFERENCE_ONLY",
+  "summary": {
+    "first_external_sharp_drop_total_domain_count": 3,
+    "first_sgt_use_domain_count_under_proxy": 3,
+    "first_threshold_alignment_synthetic_sentences": 330,
+    "first_threshold_alignment_total_domain_count": 3,
+    "mean_interpolated_sgt_context_reduction_pct_for_aligned_rows": 23.996583333333334,
+    "verdict": "PASS_THRESHOLD_ALIGNMENT_HYPOTHESIS_NOT_QUALITY_PROOF"
+  },
+  "synthetic_assumptions": {
+    "above_1100_sentence_sgt_behavior": "CLAMP_TO_LAST_MEASURED_ANCHOR",
+    "competitor_runtime_emulation": false,
+    "distractor_tools_per_domain": 19,
+    "quality_prediction": false,
+    "sentences_per_domain_proxy": 110
+  }
+}
