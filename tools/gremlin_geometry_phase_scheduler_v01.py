@@ -7,6 +7,11 @@ import math
 import re
 from typing import Any, Iterable, Mapping, Sequence
 
+try:
+    import numpy as np
+except ImportError:  # scalar production path remains dependency-independent
+    np = None  # type: ignore[assignment]
+
 from gremlin_mcp.role_registry import CONTROL_PLANE_SPECIES, DYNAMIC_WORKLOAD_SPECIES
 from tools.gremlin_bestiary_phasenav_phase_gates_v01 import DIM, TAU, PhaseGate36, SPECIES
 
@@ -18,6 +23,8 @@ TOKEN_RE = re.compile(r"[A-Za-z0-9_./:+-]+", re.UNICODE)
 CONTEXT_AFFINITY_WEIGHT = 0.08
 RECEIVER_CACHE_AFFINITY_WEIGHT = 0.06
 RECEIVER_SPECIES_AFFINITY_WEIGHT = 0.04
+SCALAR_DISTANCE_KERNEL = "SCALAR_EXACT_V0_1"
+NUMPY_DISTANCE_KERNEL_CANDIDATE = "NUMPY_EQUIVALENCE_CANDIDATE_V0_1"
 
 # Control-plane classification comes from the canonical 20-role registry.
 CORE_ONLY_SPECIES = CONTROL_PLANE_SPECIES
@@ -179,6 +186,50 @@ def state_distance(left: TaskPhaseState, right: TaskPhaseState) -> float:
     temperature = abs(left.temperature - right.temperature)
     readiness = abs(left.readiness - right.readiness)
     return min(1.0, 0.76 * geometry + 0.14 * temperature + 0.10 * readiness)
+
+
+def _vector_state_distances_candidate(
+    current: TaskPhaseState,
+    candidates: Sequence[TaskPhaseState],
+) -> dict[str, float]:
+    """Candidate-only vector distance kernel; never selected by default."""
+
+    if np is None:
+        raise GeometryPhaseSchedulerError(
+            "NumPy is required for the candidate vector distance kernel"
+        )
+    if not candidates:
+        return {}
+    phases = np.asarray(
+        [state.phase36 for state in candidates],
+        dtype=np.float64,
+    )
+    current_phase = np.asarray(current.phase36, dtype=np.float64)
+    delta = np.remainder(phases - current_phase + math.pi, TAU) - math.pi
+    rms = np.sqrt(np.mean(delta * delta, axis=1))
+    geometry = np.minimum(1.0, rms / math.pi)
+    temperature = np.abs(
+        np.asarray(
+            [state.temperature for state in candidates],
+            dtype=np.float64,
+        )
+        - current.temperature
+    )
+    readiness = np.abs(
+        np.asarray(
+            [state.readiness for state in candidates],
+            dtype=np.float64,
+        )
+        - current.readiness
+    )
+    distances = np.minimum(
+        1.0,
+        0.76 * geometry + 0.14 * temperature + 0.10 * readiness,
+    )
+    return {
+        state.task_id: float(distance)
+        for state, distance in zip(candidates, distances.tolist())
+    }
 
 
 def _task_state(row: Mapping[str, Any]) -> TaskPhaseState:
@@ -502,9 +553,19 @@ def select_batch(
     receiver_known_affinity: Iterable[str] | None = None,
     precomputed_states: Mapping[str, TaskPhaseState] | None = None,
     precomputed_centroid: Sequence[float] | None = None,
+    distance_kernel: str = SCALAR_DISTANCE_KERNEL,
 ) -> tuple[list[str], dict[str, Any]]:
     if isinstance(limit, bool) or not isinstance(limit, int) or limit <= 0:
         raise GeometryPhaseSchedulerError("limit must be a positive integer")
+    if distance_kernel not in {
+        SCALAR_DISTANCE_KERNEL,
+        NUMPY_DISTANCE_KERNEL_CANDIDATE,
+    }:
+        raise GeometryPhaseSchedulerError("unsupported distance_kernel")
+    if distance_kernel == NUMPY_DISTANCE_KERNEL_CANDIDATE and np is None:
+        raise GeometryPhaseSchedulerError(
+            "NumPy candidate distance kernel is unavailable"
+        )
     states = _states_for_rows(rows, precomputed_states)
     eligible = [s for s in states if s.readiness > 0.0]
     if not eligible:
@@ -596,6 +657,13 @@ def select_batch(
 
     while remaining and len(chosen) < limit:
         current = chosen[-1]
+        remaining_states = list(remaining.values())
+        vector_distances: dict[str, float] = {}
+        if distance_kernel == NUMPY_DISTANCE_KERNEL_CANDIDATE:
+            vector_distances = _vector_state_distances_candidate(
+                current,
+                remaining_states,
+            )
         active_affinity_bits = 0
         if affinity_active:
             for selected_state in chosen:
@@ -621,8 +689,13 @@ def select_batch(
         def candidate_score(state: TaskPhaseState) -> float:
             nonlocal greedy_pairwise_distance_evaluations
             greedy_pairwise_distance_evaluations += 1
+            distance = (
+                vector_distances[state.task_id]
+                if distance_kernel == NUMPY_DISTANCE_KERNEL_CANDIDATE
+                else state_distance(current, state)
+            )
             return (
-                0.58 * (1.0 - state_distance(current, state))
+                0.58 * (1.0 - distance)
                 + 0.25 * priority[state.task_id]
                 + 0.10 * (1.0 - state.noise)
                 + 0.07 * state.urgency
@@ -710,7 +783,10 @@ def select_batch(
         "greedy_phase_axis_evaluations_proxy": (
             greedy_pairwise_distance_evaluations * DIM
         ),
-        "distance_kernel": "SCALAR_EXACT_V0_1",
+        "distance_kernel": distance_kernel,
+        "distance_kernel_candidate_only": (
+            distance_kernel == NUMPY_DISTANCE_KERNEL_CANDIDATE
+        ),
         "active_context_affinity_union_reused": True,
         "receiver_cache_affinity_precomputed": receiver_affinity_active,
         "context_affinity_bitset_used": affinity_active,
@@ -750,6 +826,9 @@ def scheduler_manifest() -> dict[str, Any]:
             frozenset(SCHEDULER_SPECIES) - PHASENAV_CARRIER_SPECIES
         ),
         "derived_phase": "LOCALITY_ORIENTED_STRUCTURAL_TEXT_PHASE_V0_1",
+        "default_distance_kernel": SCALAR_DISTANCE_KERNEL,
+        "candidate_distance_kernel": NUMPY_DISTANCE_KERNEL_CANDIDATE,
+        "candidate_distance_kernel_enabled_by_default": False,
         "token_saving_claim": False,
         "noise_reduction_metric": "PROXY_UNTIL_END_TO_END_TOKEN_BENCHMARK",
         "external_effects": False,
