@@ -84,7 +84,8 @@ def structural_benchmark():
                         packet=packet,
                         semantic_orbit_id="structural",
                     )
-                    if j == 7 and (a + b + c) % 19 == 0:
+                    linear_prefix = a * 36 + b * 6 + c
+                    if j == 7 and linear_prefix % 19 == 0:
                         targets.append((mid, packet))
     build_s = time.perf_counter() - t0
 
@@ -278,7 +279,11 @@ def semantic_benchmark():
         )
 
     queries = [
-        (expected, cue)
+        (
+            expected,
+            cue,
+            encode_memory_text(cue),
+        )
         for expected, variants in cues.items()
         for cue in variants
     ]
@@ -286,25 +291,25 @@ def semantic_benchmark():
     t0 = time.perf_counter()
     baseline = [
         retrieve_memory(
-            cue,
-            candidates,
+            cue_packet,
+            encoded,
             min_score=0.0,
             min_margin=0.0,
         )
-        for _, cue in queries
+        for _, _, cue_packet in queries
     ]
     baseline_s = time.perf_counter() - t0
 
     t0 = time.perf_counter()
     routed = [
         index.retrieve_reference(
-            encode_memory_text(cue),
+            cue_packet,
             prefix_depth=3,
             last_digit_tolerance=1,
             min_candidates=48,
             prime_mode="off",
         )
-        for _, cue in queries
+        for _, _, cue_packet in queries
     ]
     routed_s = time.perf_counter() - t0
 
@@ -319,9 +324,13 @@ def semantic_benchmark():
     ]
 
     diagnostics = []
-    for (expected_id, cue_text), routed_row in zip(queries, routed):
+    for (
+        expected_id,
+        cue_text,
+        cue_packet,
+    ), routed_row in zip(queries, routed):
         cue_word = packet_orbital_word(
-            encode_memory_text(cue_text)
+            cue_packet
         )
         target_word = packet_orbital_word(
             encoded[expected_id]
@@ -375,6 +384,20 @@ def semantic_benchmark():
         "queries": len(queries),
         "baseline_seconds": baseline_s,
         "routed_seconds": routed_s,
+        "timing_comparability": (
+            "both full and routed paths reuse the same "
+            "pre-encoded candidate and cue packets"
+        ),
+        "candidate_evaluation_reduction": (
+            len(candidates)
+            / (
+                sum(
+                    row["evaluated"]
+                    for row in routed
+                )
+                / len(routed)
+            )
+        ),
         "top1_agreement_with_full": sum(
             a == b
             for a, b in zip(
