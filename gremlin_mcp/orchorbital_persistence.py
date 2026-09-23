@@ -11,6 +11,7 @@ from typing import Any, Mapping
 from gremlin_mcp.orchorbital_context import OrbitalContextStore
 from gremlin_mcp.orchorbital_executor import OrchorbitalExecutor
 from gremlin_mcp.orchorbital_fabric import OrchorbitalFabric
+from gremlin_mcp.orchorbital_local import LocalAdapterRegistry
 
 SCHEMA = "GREMLIN_ORCHORBITAL_RUNTIME_CHECKPOINT_V0_1"
 STORE_SCHEMA = "GREMLIN_ORCHORBITAL_RUNTIME_SQLITE_WAL_V0_1"
@@ -124,6 +125,7 @@ def restore_runtime_checkpoint(
     checkpoint: Mapping[str, Any],
     *,
     broker: Any,
+    local_adapters: LocalAdapterRegistry | None = None,
 ) -> OrchorbitalExecutor:
     """Restore fabric -> context -> executor and verify cross-layer commitments."""
 
@@ -211,6 +213,7 @@ def restore_runtime_checkpoint(
         fabric=fabric,
         broker=broker,
         context_store=context_store,
+        local_adapters=local_adapters,
     )
     if restored.execution_id != execution_id:
         raise ValueError("runtime restored execution_id mismatch")
@@ -435,10 +438,12 @@ class SQLiteOrchorbitalRuntimeStore:
         execution_id: str,
         *,
         broker: Any,
+        local_adapters: LocalAdapterRegistry | None = None,
     ) -> OrchorbitalExecutor:
         return restore_runtime_checkpoint(
             self.load_checkpoint(execution_id),
             broker=broker,
+            local_adapters=local_adapters,
         )
 
     def journal_mode(self) -> str:
