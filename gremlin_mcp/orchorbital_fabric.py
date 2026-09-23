@@ -163,34 +163,56 @@ class OrchorbitalFabric:
         node_id: str,
         *,
         path: frozenset[str] = frozenset(),
+        memo: dict[str, bool] | None = None,
     ) -> bool:
         """True only when a node resolves to successful CLOSED work.
 
         FAILED/QUARANTINED nodes never satisfy a dependency by themselves.
         They may resolve through one explicit replacement, and their historical
-        local join children must also resolve successfully.
+        local join children must also resolve successfully. A caller may supply
+        a per-snapshot memo so repeated dependency checks do not traverse the
+        same recovery subtree again.
         """
 
         if node_id in path:
             raise RuntimeError("closure resolution contains a cycle")
+        cache = {} if memo is None else memo
+        if node_id in cache:
+            return cache[node_id]
+
         node = self._nodes[node_id]
         if node.status == "CLOSED":
+            cache[node_id] = True
             return True
         if node.status == OPEN:
+            cache[node_id] = False
             return False
         if node.status not in {"FAILED", "QUARANTINED"}:
+            cache[node_id] = False
             return False
 
         replacement_id = self._replacements.get(node_id)
         if replacement_id is None:
+            cache[node_id] = False
             return False
         next_path = path | {node_id}
-        if not self._closure_satisfied(replacement_id, path=next_path):
+        if not self._closure_satisfied(
+            replacement_id,
+            path=next_path,
+            memo=cache,
+        ):
+            cache[node_id] = False
             return False
-        return all(
-            self._closure_satisfied(child_id, path=next_path)
+        resolved = all(
+            self._closure_satisfied(
+                child_id,
+                path=next_path,
+                memo=cache,
+            )
             for child_id in self._joins[node_id]
         )
+        cache[node_id] = resolved
+        return resolved
 
     def _assert_invariants(self) -> None:
         if set(self._nodes) != set(self._causal) or set(self._nodes) != set(self._joins):
@@ -243,17 +265,9 @@ class OrchorbitalFabric:
 
         if _has_cycle(caller_graph):
             raise RuntimeError("caller provenance graph contains a cycle")
-        for node_id in self._nodes:
-            current = node_id
-            seen: set[str] = set()
-            while current != self._authority_root_id:
-                if current in seen:
-                    raise RuntimeError("caller provenance graph contains a cycle")
-                seen.add(current)
-                caller = self._nodes[current].caller_id
-                if caller is None:
-                    raise RuntimeError("caller provenance does not reach authority root")
-                current = caller
+        # Every non-root node has exactly one in-fabric caller, root has none,
+        # and caller_graph is acyclic. In a finite graph those conditions imply
+        # every caller chain terminates at the unique authority root.
 
         if _has_cycle(self._causal):
             raise RuntimeError("causal graph contains a cycle")
@@ -283,15 +297,22 @@ class OrchorbitalFabric:
         if _has_cycle(self._blocking_graph()):
             raise RuntimeError("blocking graph contains a cross-relation cycle")
 
+        closure_memo: dict[str, bool] = {}
         for node_id, node in self._nodes.items():
             if node.status == "CLOSED":
                 if any(
-                    not self._closure_satisfied(dependency_id)
+                    not self._closure_satisfied(
+                        dependency_id,
+                        memo=closure_memo,
+                    )
                     for dependency_id in self._causal[node_id]
                 ):
                     raise RuntimeError("closed node has unresolved causal dependency")
                 if any(
-                    not self._closure_satisfied(child_id)
+                    not self._closure_satisfied(
+                        child_id,
+                        memo=closure_memo,
+                    )
                     for child_id in self._joins[node_id]
                 ):
                     raise RuntimeError("closed node has unresolved join dependency")
@@ -302,7 +323,10 @@ class OrchorbitalFabric:
                 node_id
                 for node_id in self._nodes
                 if node_id != self._authority_root_id
-                and not self._closure_satisfied(node_id)
+                and not self._closure_satisfied(
+                    node_id,
+                    memo=closure_memo,
+                )
             ]
             if unresolved:
                 raise RuntimeError("closed authority root has unresolved fabric work")
@@ -1266,12 +1290,14 @@ class OrchorbitalFabric:
                 "caller_is_provenance_not_center": True,
                 "caller_cycles_allowed": False,
                 "caller_chain_reaches_authority_root": True,
+                "caller_root_reachability_single_pass": True,
                 "causal_edges_sealed_after_start": True,
                 "center_cycles_allowed": True,
                 "causal_cycles_allowed": False,
                 "join_cycles_allowed": False,
                 "cross_relation_blocking_cycles_allowed": False,
                 "failed_or_quarantined_counts_as_closed": False,
+                "closure_resolution_memoized_per_audit": True,
                 "lifecycle_invariants_fail_loud": True,
                 "coordination_point_weight_active_in_routing": False,
                 "center_ranking_single_locality_traversal": True,

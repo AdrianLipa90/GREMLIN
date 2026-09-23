@@ -688,3 +688,24 @@ for candidate sorting.
 T^36 phase distance and barycenter preference remain tie-breaks after graph
 locality. This is an algorithmic routing optimization; no end-to-end speedup
 multiplier is inferred from it alone.
+
+
+## Invariant-audit traversal hardening
+
+Caller provenance validation no longer walks every caller chain separately.
+
+The invariant set already enforces:
+
+1. the authority root is the only node allowed to have no caller;
+2. every non-root caller points to an existing node;
+3. the caller relation is acyclic.
+
+For a finite graph in which every non-root node has exactly one caller, these
+conditions imply that every caller chain terminates at the unique authority
+root. The former second per-node ancestry walk was therefore redundant and has
+been removed without weakening the invariant.
+
+Successful-closure resolution for FAILED/QUARANTINED replacement chains and
+historical joins is memoized within each coherent invariant audit. The memo is
+not persisted across mutations, so topology/lifecycle changes cannot reuse a
+stale resolution result.

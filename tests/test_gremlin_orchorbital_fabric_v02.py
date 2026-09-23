@@ -1375,3 +1375,56 @@ def test_center_ranking_uses_one_locality_traversal_for_many_candidates(monkeypa
     assert calls == 1
     assert set(ranked[:8]) == {candidate.node_id for candidate in candidates[:8]}
     assert fabric.receipt()["center_ranking_single_locality_traversal"] is True
+
+
+
+def test_non_root_missing_caller_still_fails_loud_after_single_pass_optimization() -> None:
+    from dataclasses import replace
+
+    fabric = OrchorbitalFabric()
+    node = fabric.spawn(
+        "AUTH:ROOT",
+        "SPIDER",
+        node_id="NO-CALLER",
+        join_to_caller=False,
+    )
+    fabric._nodes[node.node_id] = replace(
+        fabric._nodes[node.node_id],
+        caller_id=None,
+    )
+
+    with pytest.raises(RuntimeError, match="missing caller provenance"):
+        fabric.receipt()
+
+
+def test_closure_resolution_memo_reuses_replacement_result_within_snapshot() -> None:
+    fabric = OrchorbitalFabric()
+    source = fabric.spawn(
+        "AUTH:ROOT",
+        "SPIDER",
+        obligations=("graph",),
+        node_id="MEMO-SOURCE",
+        join_to_caller=False,
+    )
+    replacement = fabric.spawn(
+        "AUTH:ROOT",
+        "OWL",
+        obligations=("graph",),
+        node_id="MEMO-REPLACEMENT",
+        join_to_caller=False,
+    )
+    fabric.fail(source.node_id, reason="memo test")
+    fabric.bind_replacement(source.node_id, replacement.node_id)
+    finish_local(fabric, replacement.node_id, "memo-result")
+    fabric.close(replacement.node_id)
+
+    memo: dict[str, bool] = {}
+    assert fabric._closure_satisfied(source.node_id, memo=memo) is True
+    assert memo[source.node_id] is True
+    assert memo[replacement.node_id] is True
+    before = dict(memo)
+    assert fabric._closure_satisfied(source.node_id, memo=memo) is True
+    assert memo == before
+    receipt = fabric.receipt()
+    assert receipt["caller_root_reachability_single_pass"] is True
+    assert receipt["closure_resolution_memoized_per_audit"] is True
