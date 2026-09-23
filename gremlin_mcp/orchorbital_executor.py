@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 import hashlib
 import json
@@ -345,7 +345,7 @@ class OrchorbitalExecutor:
         *,
         center_by_operator: Mapping[str, str] | None = None,
         candidate_centers_by_operator: Mapping[str, Iterable[str]] | None = None,
-        phase36_by_operator: Mapping[str, Iterable[float]] | None = None,
+        phase36_by_operator: Mapping[str, Sequence[float]] | None = None,
         join_to_caller: bool = True,
         allocation_key: str | None = None,
     ) -> OctopusAllocation:
