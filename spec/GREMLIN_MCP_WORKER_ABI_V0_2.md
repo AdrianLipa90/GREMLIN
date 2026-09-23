@@ -490,3 +490,108 @@ are reused by batch selection instead of being recomputed.
 
 These changes are exact-path optimizations: no approximate nearest-neighbor or
 heuristic candidate truncation is enabled by v0.2.5.
+
+
+## ABI v0.2.6 — same-species orbital ancestry index
+
+The queue index now has an additional privacy-safe ancestry layer for warm
+receiver claims.
+
+Canonical tasks remain indexed by species. When a canonical task contains a
+verified full orchorbital context packet, GREMLIN also indexes the deepest
+bounded context-frame commitments:
+
+```text
+species
+  -> context frame commitment
+      -> queued task ids
+```
+
+Only BLAKE2b frame commitments are used as index keys. Raw context values never
+enter the routing index.
+
+### Activation boundary
+
+The ancestry index is intentionally conservative.
+
+It is used only when:
+
+1. the worker requests an explicit species; and
+2. the worker supplies one or more verified-format `known_context_frames`.
+
+Cold claims and multi-species claims retain the complete species-queue
+candidate semantics.
+
+### Smallest warm bucket
+
+If several receiver-known frame commitments are present in the selected
+species queue, GREMLIN chooses the smallest non-empty matching bucket.
+
+This matters for nested orbital context:
+
+```text
+root commitment       -> potentially thousands of tasks
+branch commitment     -> tens of tasks
+local parent frame    -> a few tasks
+```
+
+A warm worker therefore begins routing from the narrowest known local branch
+rather than scanning every queued task of the species.
+
+### Fairness window
+
+Warm locality is not an exclusive filter.
+
+The candidate set also receives a bounded oldest-task fairness window from the
+same species queue:
+
+```text
+warm ancestry bucket
++
+up to min(32, max(4, requested_limit)) oldest non-local queued tasks
+```
+
+This keeps unrelated work visible to the normal phase/state/urgency scoring
+instead of silently starving it.
+
+The ancestry index reduces candidate materialization; it does not bypass the
+existing geometry/phase/state scheduler.
+
+### Queue lifecycle
+
+An ancestry membership exists only while a task is QUEUED.
+
+```text
+enqueue  -> species index + ancestry index
+claim    -> remove from both indexes before LEASED
+expiry   -> return to both indexes
+submit   -> remain absent because DONE
+restart  -> rebuild both indexes from durable canonical task payloads
+```
+
+The index itself is ephemeral and is not persisted as authority-bearing state.
+
+### Measurement boundary
+
+The v0.2.6 routing benchmark uses one species only:
+
+```text
+SPIDER warm orbit tasks
+SPIDER unrelated orbit tasks
+```
+
+The worker advertises a warm parent-frame commitment and the benchmark counts
+how many task scheduler views must be materialized before selecting its batch.
+
+A structural ratio above 200x therefore means:
+
+```text
+full same-species queue candidate inspections
+------------------------------------------------
+ancestry-index candidate inspections
+```
+
+for that synthetic fixture.
+
+It is explicitly **not** a 200x wall-clock, model, token, or end-to-end runtime
+claim.
