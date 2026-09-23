@@ -691,11 +691,29 @@ class OrchorbitalExecutor:
                 "output": partial_output,
             }
 
+        prior_reduction: dict[str, object] | None = None
+        if node.reduction_complete:
+            if (
+                not isinstance(node.reduction_commitment, str)
+                or node.node_id not in self._reduction_results
+            ):
+                raise RuntimeError(
+                    f"failed node reduction payload is unavailable: {node.node_id}"
+                )
+            prior_reduction = {
+                "reduction_input_commitment": self._reduction_input_commitments.get(
+                    node.node_id
+                ),
+                "reduction_commitment": node.reduction_commitment,
+                "output": deepcopy(self._reduction_results[node.node_id]),
+            }
+
         recovery_core = {
             "source_node_id": node.node_id,
             "source_status": node.status,
             "source_species": node.species,
             "source_partial_result": partial_result,
+            "source_prior_reduction": prior_reduction,
             "replacement": replacement,
             "source_join_results": stranded_children,
         }
