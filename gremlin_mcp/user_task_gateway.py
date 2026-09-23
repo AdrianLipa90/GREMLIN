@@ -35,6 +35,16 @@ _RESEARCH_RE = re.compile(
 _REPO_RE = re.compile(r"\b(repo|repository|github|branch|pull request|\bpr\b|merge|commit)\b", re.I)
 _LIBRARY_RE = re.compile(r"\b(library|noema|plik|file|folder|artifact|artefakt)\b", re.I)
 _WORD_RE = re.compile(r"[^\W\d_][\w\-']*", re.UNICODE)
+_CONTINUATION_RE = re.compile(
+    r"^(?:continue|continue\s+this|go\s+on|keep\s+going|same|do\s+it|do\s+that|"
+    r"kontynuuj|dalej|jedź\s+dalej|jedz\s+dalej|rób\s+dalej|rob\s+dalej|"
+    r"zrób\s+to|zrob\s+to|to\s+dalej|tak|ok|okej)[.!?\s]*$",
+    re.I,
+)
+_DEICTIC_RE = re.compile(
+    r"\b(this|that|it|same|previous|above|to|tego|tym|tamto|poprzedni|poprzednie)\b",
+    re.I,
+)
 
 
 def _canonical(value: Any) -> bytes:
@@ -100,6 +110,18 @@ def _seed_terms(task: str, compiled: Mapping[str, Any], *, limit: int = 8) -> li
         if len(out) >= limit:
             break
     return out
+
+
+def _context_routing_mode(task: str, has_context: bool) -> str:
+    if not has_context:
+        return "NO_CONTEXT"
+    stripped = " ".join(task.strip().split())
+    if _CONTINUATION_RE.fullmatch(stripped):
+        return "CONTINUATION_CONTEXT"
+    words = _WORD_RE.findall(stripped)
+    if len(words) <= 6 and _DEICTIC_RE.search(stripped):
+        return "CONTINUATION_CONTEXT"
+    return "TASK_ONLY"
 
 
 def _intent_flags(task: str) -> dict[str, bool]:
@@ -232,6 +254,8 @@ def build_user_task_plan(
 
     compiler = SemanticGraphTransformer(max_neighbors=max_neighbors)
     compiled = compiler.compile([text, *docs])
+    task_compiled = compiled if not docs else compiler.compile([text])
+    context_routing_mode = _context_routing_mode(text, bool(docs))
     seeds = _seed_terms(text, compiled)
     if seeds:
         cone = compiler.causal_cone(compiled, seeds, depth=causal_depth)
@@ -248,9 +272,15 @@ def build_user_task_plan(
 
     flags = _intent_flags(text)
     active_terms = [str(row["term"]) for row in active_graph["nodes"][:128]]
+    task_terms = [str(row["term"]) for row in task_compiled["graph"]["nodes"][:128]]
+    routing_terms = (
+        active_terms
+        if context_routing_mode == "CONTINUATION_CONTEXT"
+        else task_terms
+    )
     semantic_payload = {
         "task": text,
-        "active_terms": active_terms,
+        "active_terms": routing_terms,
         "intent_flags": flags,
     }
     semantic_route = route(
@@ -324,6 +354,12 @@ def build_user_task_plan(
         "request_id": request_id,
         "task_sha256": hashlib.sha256(text.encode("utf-8")).hexdigest(),
         "semantic_graph": compact_graph,
+        "context_routing": {
+            "mode": context_routing_mode,
+            "context_count": len(docs),
+            "context_may_change_species_membership": context_routing_mode == "CONTINUATION_CONTEXT",
+            "task_only_for_explicit_new_task": True,
+        },
         "octopus": {
             "status": semantic_route.get("status"),
             "semantic_route": semantic_species,
@@ -357,6 +393,7 @@ def build_user_task_plan(
             "semantic_graph_compiled": True,
             "phasenav_bound": True,
             "phasenav_overrides_semantic_membership": False,
+            "stale_context_can_override_explicit_task_membership": False,
             "trained_neural_transformer_claim": False,
             "answer_quality_measured": False,
             "production_execution_admitted": False,
