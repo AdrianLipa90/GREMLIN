@@ -21,6 +21,7 @@ on:
       - 'tools/gremlin_orchorbital_routing_index_bench_v01.py'
       - 'tools/gremlin_orchorbital_same_species_scheduler_bench_v01.py'
       - 'tools/gremlin_orchorbital_vector_distance_candidate_v01.py'
+      - 'tools/gremlin_orchorbital_local_join_span_bench_v01.py'
       - 'tools/gremlin_geometry_phase_scheduler_v01.py'
       - 'gremlin_mcp/core.py'
       - 'gremlin_mcp/worker_client.py'
@@ -36,6 +37,7 @@ on:
       - 'tests/test_gremlin_orchorbital_same_species_scheduler_bench_v01.py'
       - 'tests/test_gremlin_orchorbital_vector_distance_candidate_v01.py'
       - 'tests/test_gremlin_orchorbital_vector_shadow_v01.py'
+      - 'tests/test_gremlin_orchorbital_local_join_span_bench_v01.py'
       - 'tests/test_gremlin_orchorbital_vector_selection_equivalence_v01.py'
       - 'tests/test_gremlin_orchorbital_checkpoint_v01.py'
       - 'tests/test_gremlin_orchorbital_local_adapters_v01.py'
@@ -78,6 +80,7 @@ jobs:
           tools/gremlin_orchorbital_routing_index_bench_v01.py
           tools/gremlin_orchorbital_same_species_scheduler_bench_v01.py
           tools/gremlin_orchorbital_vector_distance_candidate_v01.py
+          tools/gremlin_orchorbital_local_join_span_bench_v01.py
           tools/gremlin_geometry_phase_scheduler_v01.py
       - name: Run orchorbital contract suite
         run: >-
@@ -92,6 +95,7 @@ jobs:
           tests/test_gremlin_orchorbital_routing_index_bench_v01.py
           tests/test_gremlin_orchorbital_vector_distance_candidate_v01.py
           tests/test_gremlin_orchorbital_vector_shadow_v01.py
+          tests/test_gremlin_orchorbital_local_join_span_bench_v01.py
           tests/test_gremlin_orchorbital_vector_selection_equivalence_v01.py
           tests/test_gremlin_orchorbital_same_species_scheduler_bench_v01.py
           tests/test_gremlin_orchorbital_checkpoint_v01.py
@@ -124,3 +128,12 @@ jobs:
           assert r['verdict'].startswith('PASS_'), r;
           assert r['summary']['distance_kernel'] == 'SCALAR_EXACT_V0_1', r;
           assert r['summary']['end_to_end_speedup_claim'] is False, r"
+
+      - name: Run local-join structural span benchmark
+        run: >-
+          python -c "from tools.gremlin_orchorbital_local_join_span_bench_v01 import run_benchmark;
+          r=run_benchmark();
+          assert r['verdict'].startswith('PASS_'), r;
+          assert r['summary']['structural_span_ratio'] > 200.0, r;
+          assert r['summary']['end_to_end_speedup_claim'] is False, r;
+          assert r['summary']['two_hundred_x_end_to_end_claim'] is False, r"
