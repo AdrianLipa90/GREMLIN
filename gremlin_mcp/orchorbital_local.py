@@ -24,6 +24,17 @@ def _strict_text(value: Any, field: str, *, maximum: int = 128) -> str:
     return out
 
 
+def _strict_commitment(value: Any, field: str) -> str:
+    out = _strict_text(value, field, maximum=64)
+    if len(out) != 64:
+        raise ValueError(f"{field} must be a 64-character hex commitment")
+    try:
+        int(out, 16)
+    except ValueError as exc:
+        raise ValueError(f"{field} must be hexadecimal") from exc
+    return out.lower()
+
+
 def _canonical(value: Any) -> bytes:
     try:
         return json.dumps(
@@ -42,6 +53,7 @@ class LocalAdapter:
     species: str
     adapter_id: str
     version: str
+    implementation_commitment: str
     handler: LocalHandler
     reducer: LocalHandler | None
     replay_safe: bool
@@ -52,6 +64,7 @@ class LocalAdapter:
             "species": self.species,
             "adapter_id": self.adapter_id,
             "version": self.version,
+            "implementation_commitment": self.implementation_commitment,
             "replay_safe": self.replay_safe,
             "side_effects": self.side_effects,
             "reducer_available": self.reducer is not None,
@@ -80,6 +93,7 @@ class LocalAdapterRegistry:
         *,
         adapter_id: str,
         version: str = "0.1.0",
+        implementation_commitment: str,
         reducer: LocalHandler | None = None,
         replay_safe: bool = True,
         side_effects: bool = False,
@@ -104,6 +118,10 @@ class LocalAdapterRegistry:
             species=name,
             adapter_id=_strict_text(adapter_id, "adapter_id"),
             version=_strict_text(version, "version"),
+            implementation_commitment=_strict_commitment(
+                implementation_commitment,
+                "implementation_commitment",
+            ),
             handler=handler,
             reducer=reducer,
             replay_safe=True,
