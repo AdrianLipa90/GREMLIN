@@ -22,7 +22,7 @@ from gremlin_mcp.workers import WORKER_SPECIES
 from tools.gremlin_geometry_phase_scheduler_v01 import SCHEDULER_KEY
 
 SCHEMA = "GREMLIN_ORCHORBITAL_EXECUTOR_V0_2"
-VERSION = "0.2.2"
+VERSION = "0.2.3"
 CONTEXT_SCHEMA = "GREMLIN_ORCHORBITAL_WORKER_CONTEXT_V0_2"
 DEFAULT_INPUT_SCHEMA = "GREMLIN_ORCHORBITAL_OBLIGATION_INPUT_V0_1"
 DISCOVERY_SCHEMA = "GREMLIN_ORCHORBITAL_DISCOVERY_V0_1"
@@ -1955,6 +1955,11 @@ class OrchorbitalExecutor:
         ).hexdigest()
         if supplied != expected:
             raise ValueError("executor checkpoint commitment mismatch")
+        if core.get("executor_version") != VERSION:
+            raise ValueError(
+                f"executor checkpoint version mismatch: "
+                f"{core.get('executor_version')!r} != {VERSION!r}"
+            )
 
         if not isinstance(fabric, OrchorbitalFabric):
             raise ValueError("fabric must be an OrchorbitalFabric")
