@@ -17,6 +17,7 @@ on:
       - 'gremlin_mcp/server.py'
       - 'gremlin_mcp/tool_catalog.py'
       - 'tools/gremlin_orchorbital_context_transport_bench_v01.py'
+      - 'tools/gremlin_orchorbital_routing_index_bench_v01.py'
       - 'tools/gremlin_geometry_phase_scheduler_v01.py'
       - 'gremlin_mcp/core.py'
       - 'gremlin_mcp/worker_client.py'
@@ -28,6 +29,7 @@ on:
       - 'tests/test_gremlin_orchorbital_worker_transport_v02.py'
       - 'tests/test_gremlin_orchorbital_context_transport_v01.py'
       - 'tests/test_gremlin_orchorbital_context_transport_bench_v01.py'
+      - 'tests/test_gremlin_orchorbital_routing_index_bench_v01.py'
       - 'tests/test_gremlin_orchorbital_checkpoint_v01.py'
       - 'tests/test_gremlin_mcp_worker_client_v02.py'
       - 'tests/test_gremlin_mcp_worker_abi_v02.py'
@@ -64,6 +66,7 @@ jobs:
           gremlin_mcp/core.py
           gremlin_mcp/tool_catalog.py
           tools/gremlin_orchorbital_context_transport_bench_v01.py
+          tools/gremlin_orchorbital_routing_index_bench_v01.py
           tools/gremlin_geometry_phase_scheduler_v01.py
       - name: Run orchorbital contract suite
         run: >-
@@ -75,6 +78,7 @@ jobs:
           tests/test_gremlin_orchorbital_worker_transport_v02.py
           tests/test_gremlin_orchorbital_context_transport_v01.py
           tests/test_gremlin_orchorbital_context_transport_bench_v01.py
+          tests/test_gremlin_orchorbital_routing_index_bench_v01.py
           tests/test_gremlin_orchorbital_checkpoint_v01.py
           tests/test_gremlin_mcp_worker_client_v02.py
           tests/test_gremlin_mcp_worker_abi_v02.py
@@ -86,3 +90,11 @@ jobs:
           python -c "from tools.gremlin_orchorbital_context_transport_bench_v01 import run_benchmark;
           r=run_benchmark(branches=3, depth=4, shared_chars=4096, delta_chars=64, cache_limit=64);
           assert r['verdict'].startswith('PASS_'), r"
+
+      - name: Run structural routing index benchmark
+        run: >-
+          python -c "from tools.gremlin_orchorbital_routing_index_bench_v01 import run_benchmark;
+          r=run_benchmark(target_tasks=4, unrelated_tasks=1024);
+          assert r['verdict'].startswith('PASS_'), r;
+          assert r['summary']['structural_scan_reduction_ratio'] > 200.0, r;
+          assert r['summary']['end_to_end_speedup_claim'] is False, r"
