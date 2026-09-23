@@ -1,0 +1,37 @@
+{
+  "schema": "GREMLIN_HOLOGRAPHIC_ORBITAL_MEMORY_VALIDATION_V0_1",
+  "status": "PASS_LOCAL_REFERENCE",
+  "date": "2026-09-23",
+  "tests": {"passed": 9, "failed": 0},
+  "benchmark": {
+    "scope": "DETERMINISTIC_SYNTHETIC_REFERENCE_ONLY",
+    "records": 768,
+    "queries_per_profile": 96,
+    "profiles": {
+      "BALANCED": {
+        "cluster_recall_at_1": 0.9791666666666666,
+        "exact_full_scan_top1_match": 0.71875,
+        "average_candidate_count": 97.15625,
+        "average_comparison_reduction": 9.495706840971335,
+        "hex_scale": 12.0,
+        "min_candidates": 16,
+        "mapping_commitment": "map:31a63b2a251b7fb2540a90fabcb57fc46c20a79526581875dec4d388f13c9e88"
+      },
+      "AGGRESSIVE": {
+        "cluster_recall_at_1": 0.9583333333333334,
+        "exact_full_scan_top1_match": 0.625,
+        "average_candidate_count": 63.84375,
+        "average_comparison_reduction": 16.187567111017923,
+        "hex_scale": 16.0,
+        "min_candidates": 12,
+        "mapping_commitment": "map:ec42b4bee8b2f55c12a94f59f022e3af78656476d7b578a5238ba3cc9e5e999b"
+      }
+    }
+  },
+  "authority": {
+    "ledger_mutated": false,
+    "production_claim": false,
+    "universal_speedup_claim": false,
+    "main_mutated": false
+  }
+}
