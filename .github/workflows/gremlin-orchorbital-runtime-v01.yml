@@ -9,10 +9,12 @@ on:
       - 'gremlin_mcp/orchorbital_fabric.py'
       - 'gremlin_mcp/orchorbital_allocator.py'
       - 'gremlin_mcp/orchorbital_executor.py'
+      - 'gremlin_mcp/orchorbital_context.py'
       - 'tests/test_gremlin_orchorbital_runtime_v01.py'
       - 'tests/test_gremlin_orchorbital_bridge_v01.py'
       - 'tests/test_gremlin_orchorbital_fabric_v02.py'
       - 'tests/test_gremlin_orchorbital_executor_v02.py'
+      - 'tests/test_gremlin_orchorbital_context_v01.py'
       - 'spec/GREMLIN_ORCHORBITAL_RUNTIME_V0_1.md'
       - 'spec/GREMLIN_ORCHORBITAL_FABRIC_V0_2.md'
       - '.github/workflows/gremlin-orchorbital-runtime-v01.yml'
@@ -37,6 +39,7 @@ jobs:
           gremlin_mcp/orchorbital_fabric.py
           gremlin_mcp/orchorbital_allocator.py
           gremlin_mcp/orchorbital_executor.py
+          gremlin_mcp/orchorbital_context.py
       - name: Run orchorbital contract suite
         run: >-
           python -m pytest -q
@@ -44,3 +47,4 @@ jobs:
           tests/test_gremlin_orchorbital_bridge_v01.py
           tests/test_gremlin_orchorbital_fabric_v02.py
           tests/test_gremlin_orchorbital_executor_v02.py
+          tests/test_gremlin_orchorbital_context_v01.py
