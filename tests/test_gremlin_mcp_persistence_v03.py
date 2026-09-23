@@ -172,6 +172,8 @@ def test_sqlite_hydration_rebuilds_ephemeral_queue_indexes_and_counters(tmp_path
     try:
         restored = second.queue_status()
         assert restored["active_leases"] == 1
+        assert restored["lease_expiry_heap_indexed"] is True
+        assert restored["lease_expiry_heap_entries"] == 1
         assert restored["unfinished_task_count"] == 2
         assert restored["queued_index_counts"]["SPIDER"] == 1
         assert restored["queued_index_counts"]["OWL"] == 0
