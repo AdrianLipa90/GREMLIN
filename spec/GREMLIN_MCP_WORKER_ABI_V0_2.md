@@ -22,7 +22,8 @@ GREMLIN never calls a worker-supplied URL. This avoids callback trust, SSRF and 
 
 ## External worker species
 
-The external Worker ABI accepts scheduler-backed specialist, sensor, transform and synthesis roles:
+The external Worker ABI accepts the 16 dynamic workload roles from the
+canonical 20-role Bestiary registry:
 
 ```text
 SPIDER
@@ -38,10 +39,25 @@ BAT
 CANARY
 SERPENT
 CHAMELEON
+ELEPHANT
+BEES
 BELZEBUB
 ```
 
-`HUMMINGBIRD` remains the capture stage and `OCTOPUS` remains the routing stage inside GREMLIN. `GREMLIN` remains the aggregate root.
+The four control-plane roles remain outside ordinary workload queues:
+
+```text
+HUMMINGBIRD  capture ingress
+OCTOPUS      routing/allocation
+GREMLIN      authority/aggregate root
+FERRET       explicitly authorized actuation boundary
+```
+
+ELEPHANT and BEES are worker-schedulable even though the current validated
+PhaseNav species-carrier surface still contains 18 legacy roles and does not
+yet provide dedicated carriers for them. For explicit T^36 scheduling they use
+an anchor-neutral contribution; GREMLIN does not invent or silently validate a
+carrier.
 
 ## Registration
 
