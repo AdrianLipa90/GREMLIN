@@ -253,3 +253,77 @@ in that cache on the next claim.
 
 No model-token reduction claim is made by this ABI. Receipts expose byte counts
 only; token/runtime gains require separate benchmarks.
+
+
+## ABI v0.2.3 — lease context bundles and transport commitments
+
+When two or more tasks in the same lease carry full orchorbital context
+packets, GREMLIN may replace repeated per-task frame chains with one
+lease-scoped bundle:
+
+```text
+_gremlin_orchorbital_context_bundle
+```
+
+The bundle is a domain-separated BLAKE2b commitment over:
+
+- one deterministic topological sequence of unique context frames;
+- the exact task -> target-frame mapping.
+
+Each affected task receives only a compact committed target reference:
+
+```text
+_gremlin_orchorbital_context_ref
+```
+
+A frame shared by several sibling tasks therefore appears at most once in the
+lease bundle.
+
+A one-task lease keeps the v0.2.2 packet path for backwards compatibility.
+
+### Canonical task vs transport projection
+
+Context bundling changes the payload delivered to the worker but does not
+rewrite the canonical queued task.
+
+Therefore each delivered task view now carries a separate:
+
+```text
+transport_commitment
+```
+
+bound to:
+
+```text
+task_id
+species
+canonical task_commitment
+delivered payload projection
+lease bundle commitment (or null)
+```
+
+The canonical task commitment continues to bind the stored task. The transport
+commitment binds exactly what the worker receives.
+
+The worker SDK verifies the transport commitment before interpreting any
+context reference or invoking the handler.
+
+### Transactionality
+
+Lease bundle validation and task-reference validation are staged before the SDK
+commits new context frames to its local cache.
+
+If any bundle, reference or transport commitment fails verification:
+
+```text
+handler_not_called = true
+receiver_cache_unchanged = true
+```
+
+At the broker boundary, the bundle and every projected task view are built
+before task states are mutated to LEASED.
+
+### Performance claim boundary
+
+Bundle receipts expose byte counts and unique-frame counts. They do not imply a
+token, latency, throughput or end-to-end speedup claim.
