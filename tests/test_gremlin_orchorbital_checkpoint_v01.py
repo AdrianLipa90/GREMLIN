@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from copy import deepcopy
+import hashlib
+import json
 
 import pytest
 
@@ -9,6 +11,7 @@ from gremlin_mcp.orchorbital_context import OrbitalContextStore
 from gremlin_mcp.orchorbital_executor import (
     DISCOVERY_KEY,
     DISCOVERY_SCHEMA,
+    EXECUTOR_CHECKPOINT_DOMAIN,
     OrchorbitalExecutor,
 )
 from gremlin_mcp.orchorbital_fabric import OrchorbitalFabric
@@ -256,3 +259,74 @@ def test_context_restore_rejects_wrong_fabric_even_with_valid_context_checkpoint
 
     with pytest.raises(ValueError, match="fabric topology mismatch"):
         OrbitalContextStore.from_checkpoint(wrong, checkpoints["context"])
+
+
+def _recommit_executor_checkpoint(checkpoint: dict) -> None:
+    core = {
+        key: deepcopy(value)
+        for key, value in checkpoint.items()
+        if key != "checkpoint_commitment"
+    }
+    encoded = json.dumps(
+        core,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+        allow_nan=False,
+    ).encode("utf-8")
+    checkpoint["checkpoint_commitment"] = hashlib.blake2b(
+        EXECUTOR_CHECKPOINT_DOMAIN + encoded,
+        digest_size=32,
+    ).hexdigest()
+
+
+def test_restore_rejects_semantically_forged_worker_to_local_backend_binding(
+    tmp_path,
+) -> None:
+    state_path, checkpoints, ids = _build_checkpointed_runtime(tmp_path)
+    fabric = OrchorbitalFabric.from_checkpoint(checkpoints["fabric"])
+    contexts = OrbitalContextStore.from_checkpoint(fabric, checkpoints["context"])
+    broker = PersistentWorkerBroker(str(state_path))
+    try:
+        forged = deepcopy(checkpoints["executor"])
+        forged["execution_backend_bindings"][ids["parent"]] = "LOCAL"
+        _recommit_executor_checkpoint(forged)
+
+        with pytest.raises(
+            ValueError,
+            match="LOCAL backend without matching adapter",
+        ):
+            OrchorbitalExecutor.from_checkpoint(
+                forged,
+                fabric=fabric,
+                broker=broker,
+                context_store=contexts,
+            )
+    finally:
+        broker.close()
+
+
+def test_restore_rejects_recommitted_started_node_without_backend_binding(
+    tmp_path,
+) -> None:
+    state_path, checkpoints, ids = _build_checkpointed_runtime(tmp_path)
+    fabric = OrchorbitalFabric.from_checkpoint(checkpoints["fabric"])
+    contexts = OrbitalContextStore.from_checkpoint(fabric, checkpoints["context"])
+    broker = PersistentWorkerBroker(str(state_path))
+    try:
+        forged = deepcopy(checkpoints["executor"])
+        del forged["execution_backend_bindings"][ids["parent"]]
+        _recommit_executor_checkpoint(forged)
+
+        with pytest.raises(
+            ValueError,
+            match="started node is missing execution backend binding",
+        ):
+            OrchorbitalExecutor.from_checkpoint(
+                forged,
+                fabric=fabric,
+                broker=broker,
+                context_store=contexts,
+            )
+    finally:
+        broker.close()
