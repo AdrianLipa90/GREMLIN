@@ -109,7 +109,7 @@ jobs:
       - name: Run structural routing index benchmark
         run: >-
           python -c "from tools.gremlin_orchorbital_routing_index_bench_v01 import run_benchmark;
-          r=run_benchmark(target_tasks=4, unrelated_tasks=1024);
+          r=run_benchmark(target_tasks=4, unrelated_tasks=2048);
           assert r['verdict'].startswith('PASS_'), r;
           assert r['summary']['structural_scan_reduction_ratio'] > 200.0, r;
           assert r['summary']['end_to_end_speedup_claim'] is False, r"
