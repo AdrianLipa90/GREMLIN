@@ -8,7 +8,7 @@ from typing import Any
 
 from gremlin_mcp.adaptive_runtime import OperatorTier, ResourceBudget
 from gremlin_mcp.orchorbital_allocator import OctopusAllocation, allocate_invocation
-from gremlin_mcp.orchorbital_context import OrbitalContextStore
+from gremlin_mcp.orchorbital_context import OrbitalContextStore, PACKET_PAYLOAD_KEY
 from gremlin_mcp.orchorbital_fabric import NodeInstance, OrchorbitalFabric
 from gremlin_mcp.workers import WORKER_SPECIES
 from tools.gremlin_geometry_phase_scheduler_v01 import SCHEDULER_KEY
@@ -19,7 +19,7 @@ CONTEXT_SCHEMA = "GREMLIN_ORCHORBITAL_WORKER_CONTEXT_V0_2"
 DISCOVERY_SCHEMA = "GREMLIN_ORCHORBITAL_DISCOVERY_V0_1"
 CONTEXT_KEY = "_gremlin_orchorbital_context"
 DISCOVERY_KEY = "_gremlin_orchorbital_discovery"
-ORBITAL_CONTEXT_PACKET_KEY = "_gremlin_orchorbital_context_packet"
+ORBITAL_CONTEXT_PACKET_KEY = PACKET_PAYLOAD_KEY
 TASK_DOMAIN = b"GREMLIN-ORCHORBITAL-WORKER-TASK/v0.2\x00"
 LOCAL_RESULT_DOMAIN = b"GREMLIN-ORCHORBITAL-LOCAL-RESULT/v0.2\x00"
 MAX_DISCOVERED_OBLIGATIONS = 64
