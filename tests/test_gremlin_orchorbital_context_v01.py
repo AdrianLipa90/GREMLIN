@@ -373,3 +373,136 @@ def test_snapshot_marks_shared_frames_without_exposing_values() -> None:
     serialized = repr(snapshot)
     assert "never-show" not in serialized
     assert "never-show-either" not in serialized
+
+
+def test_delta_only_materialization_cache_is_bounded_and_evicted_frames_reconstruct() -> None:
+    fabric = OrchorbitalFabric(max_nodes=64)
+    store = OrbitalContextStore(fabric, materialization_cache_frames=2)
+    store.bind_root({"shared": "R" * 2048, "level": 0})
+
+    parent_id = "AUTH:ROOT"
+    expected = {"shared": "R" * 2048, "level": 0}
+    node_ids: list[str] = []
+    for level in range(1, 8):
+        node = fabric.spawn(
+            parent_id,
+            "SPIDER",
+            node_id=f"CACHE-{level}",
+            join_to_caller=False,
+        )
+        store.bind_node(
+            node.node_id,
+            base_node_id=parent_id,
+            set_values={"level": level, f"k{level}": level},
+        )
+        expected["level"] = level
+        expected[f"k{level}"] = level
+        node_ids.append(node.node_id)
+        parent_id = node.node_id
+
+    assert len(store._materialized_cache) <= 2
+    assert "CACHE-1" not in store._materialized_cache
+
+    reconstructed = store.materialize(node_ids[-1])
+    assert reconstructed == expected
+    assert len(store._materialized_cache) <= 2
+
+    early = store.materialize("CACHE-1")
+    assert early == {
+        "shared": "R" * 2048,
+        "level": 1,
+        "k1": 1,
+    }
+    assert len(store._materialized_cache) <= 2
+
+
+def test_cache_size_does_not_change_context_frame_commitments() -> None:
+    def build(cache_size: int):
+        fabric = OrchorbitalFabric()
+        child = fabric.spawn(
+            "AUTH:ROOT",
+            "SPIDER",
+            node_id="SAME-CHILD",
+            join_to_caller=False,
+        )
+        store = OrbitalContextStore(
+            fabric,
+            materialization_cache_frames=cache_size,
+        )
+        root = store.bind_root({"shared": "same"})
+        frame = store.bind_node(
+            child.node_id,
+            base_node_id="AUTH:ROOT",
+            set_values={"local": {"x": 1}},
+        )
+        return root.frame_commitment, frame.frame_commitment, store.materialize(
+            child.node_id
+        )
+
+    small = build(1)
+    large = build(128)
+
+    assert small == large
+
+
+def test_packet_after_materialization_cache_eviction_remains_lossless() -> None:
+    fabric = OrchorbitalFabric(max_nodes=32)
+    store = OrbitalContextStore(fabric, materialization_cache_frames=1)
+    store.bind_root({"shared": "root", "counter": 0})
+
+    parent = "AUTH:ROOT"
+    last = None
+    for level in range(1, 6):
+        node = fabric.spawn(
+            parent,
+            "OWL",
+            node_id=f"EVICT-{level}",
+            join_to_caller=False,
+        )
+        store.bind_node(
+            node.node_id,
+            base_node_id=parent,
+            set_values={"counter": level},
+        )
+        parent = node.node_id
+        last = node.node_id
+
+    assert last is not None
+    assert len(store._materialized_cache) == 1
+
+    packet = store.packet(last)
+    decoded = apply_context_packet(packet)
+
+    assert decoded["materialized_context"] == store.materialize(last)
+    assert len(store._materialized_cache) == 1
+
+
+def test_materialized_context_return_isolated_from_cache_mutation() -> None:
+    fabric, a, _ = fabric_with_chain()
+    store = OrbitalContextStore(fabric, materialization_cache_frames=2)
+    store.bind_root({"nested": {"value": 1}})
+    store.inherit_from_caller(a.node_id, set_values={"local": [1, 2, 3]})
+
+    first = store.materialize(a.node_id)
+    first["nested"]["value"] = 999
+    first["local"].append(4)
+
+    second = store.materialize(a.node_id)
+
+    assert second == {
+        "nested": {"value": 1},
+        "local": [1, 2, 3],
+    }
+
+
+def test_snapshot_reports_delta_only_storage_and_cache_bounds() -> None:
+    fabric, a, _ = fabric_with_chain()
+    store = OrbitalContextStore(fabric, materialization_cache_frames=1)
+    store.bind_root({"root": 1})
+    store.inherit_from_caller(a.node_id, set_values={"a": 1})
+
+    snapshot = store.snapshot()
+
+    assert snapshot["delta_only_storage"] is True
+    assert snapshot["materialization_cache_limit_frames"] == 1
+    assert snapshot["materialization_cache_size"] <= 1
