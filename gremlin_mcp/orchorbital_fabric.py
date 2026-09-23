@@ -566,8 +566,6 @@ class OrchorbitalFabric:
 
         with self._lock:
             node = self._require_open(node_id)
-            if not node.self_complete:
-                raise RuntimeError("node local work is not complete")
             unresolved_causal = sorted(
                 dependency
                 for dependency in self._causal[node.node_id]
@@ -602,6 +600,8 @@ class OrchorbitalFabric:
     def close(self, node_id: str) -> NodeInstance:
         with self._lock:
             node = self._require_open(node_id)
+            if not node.self_complete:
+                raise RuntimeError("node local work is not complete")
             unresolved_causal = sorted(
                 dependency
                 for dependency in self._causal[node.node_id]
