@@ -127,3 +127,10 @@ def test_relational_memory_roles_are_admitted_without_requiring_phase36() -> Non
     )
     plan = compile_orchorbital_plan(specs, root_id="A")
     assert {orbit.species for orbit in plan.orbits} == {"GREMLIN", "ELEPHANT", "BEES"}
+
+
+def test_species_registry_drift_fails_loud() -> None:
+    from gremlin_mcp.core import BESTIARY_ROLES
+    from gremlin_mcp.orchorbital_runtime import KNOWN_SPECIES
+
+    assert KNOWN_SPECIES == frozenset(BESTIARY_ROLES)
