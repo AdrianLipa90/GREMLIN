@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+from copy import deepcopy
 from dataclasses import replace
 
 import pytest
@@ -1388,3 +1389,100 @@ def test_reduction_commitment_is_idempotent_but_immutable() -> None:
             parent.node_id,
             reduction_commitment="different-reduction",
         )
+
+
+def test_fabric_checkpoint_restore_preserves_dynamic_orbital_state_exactly() -> None:
+    fabric = OrchorbitalFabric(max_nodes=32)
+    auto = fabric.spawn(
+        "AUTH:ROOT",
+        "SPIDER",
+        obligations=("graph",),
+        join_to_caller=False,
+    )
+    center = fabric.spawn(
+        "AUTH:ROOT",
+        "BEES",
+        node_id="CENTER",
+        join_to_caller=False,
+    )
+    satellite = fabric.spawn(
+        "AUTH:ROOT",
+        "OWL",
+        node_id="SATELLITE",
+        join_to_caller=False,
+    )
+    fabric.recenter(
+        satellite.node_id,
+        center.node_id,
+        reason="checkpoint-test",
+    )
+    fabric.add_coordination_edge(auto.node_id, satellite.node_id)
+    fabric.create_coordination_point(
+        (auto.node_id, center.node_id, satellite.node_id),
+        point_id="CHECKPOINT-HYPEREDGE",
+    )
+    fabric.move_barycenter(
+        center.node_id,
+        reason="checkpoint-test",
+    )
+
+    source = fabric.spawn(
+        "AUTH:ROOT",
+        "MOLE",
+        obligations=("derive",),
+        node_id="SOURCE",
+        join_to_caller=False,
+    )
+    replacement = fabric.spawn(
+        "AUTH:ROOT",
+        "OWL",
+        obligations=("derive",),
+        node_id="REPLACEMENT",
+        join_to_caller=False,
+    )
+    fabric.fail(source.node_id, reason="checkpoint-test-failure")
+    fabric.bind_replacement(source.node_id, replacement.node_id)
+
+    checkpoint = fabric.checkpoint_state()
+    restored = OrchorbitalFabric.from_checkpoint(deepcopy(checkpoint))
+
+    assert restored.topology_commitment() == fabric.topology_commitment()
+    assert restored.computational_barycenter_id == center.node_id
+    assert restored.node(satellite.node_id).center_id == center.node_id
+    assert restored.replacement_for(source.node_id) == replacement.node_id
+    assert restored.coordination_points() == fabric.coordination_points()
+    assert restored.events() == fabric.events()
+    assert restored.checkpoint_state()["checkpoint_commitment"] == checkpoint[
+        "checkpoint_commitment"
+    ]
+
+    next_original = fabric.spawn(
+        "AUTH:ROOT",
+        "SPIDER",
+        obligations=("graph",),
+        join_to_caller=False,
+    )
+    next_restored = restored.spawn(
+        "AUTH:ROOT",
+        "SPIDER",
+        obligations=("graph",),
+        join_to_caller=False,
+    )
+    assert next_restored.node_id == next_original.node_id
+
+
+def test_fabric_checkpoint_tamper_fails_closed() -> None:
+    fabric = OrchorbitalFabric()
+    fabric.spawn(
+        "AUTH:ROOT",
+        "SPIDER",
+        node_id="A",
+        join_to_caller=False,
+    )
+    checkpoint = fabric.checkpoint_state()
+    tampered = deepcopy(checkpoint)
+    tampered["nodes"][1]["center_id"] = "AUTH:ROOT"
+    tampered["nodes"][1]["species"] = "OWL"
+
+    with pytest.raises(ValueError, match="checkpoint commitment mismatch"):
+        OrchorbitalFabric.from_checkpoint(tampered)
