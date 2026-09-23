@@ -14,6 +14,7 @@ MODE = "GEOMETRY_PHASE_STATE_CLUSTERED_V0_1"
 SCHEDULER_KEY = "_gremlin_scheduler"
 DERIVED_PHASE_DOMAIN = b"GREMLIN-GEOMETRY-PHASE-SCHEDULER/v0.1\x00"
 TOKEN_RE = re.compile(r"[A-Za-z0-9_./:+-]+", re.UNICODE)
+CONTEXT_AFFINITY_WEIGHT = 0.08
 
 # These roles remain inside the GREMLIN root/boundary rather than external worker queues.
 CORE_ONLY_SPECIES = frozenset({"HUMMINGBIRD", "OCTOPUS", "GREMLIN", "FERRET"})
@@ -389,11 +390,50 @@ def _noise_cost(states: Sequence[TaskPhaseState]) -> float:
     return 0.60 * intrinsic + 0.40 * transition
 
 
+
+def _normalize_affinity(
+    affinity_by_task: Mapping[str, Iterable[str]] | None,
+    eligible_ids: set[str],
+) -> dict[str, frozenset[str]]:
+    if affinity_by_task is None:
+        return {}
+    if not isinstance(affinity_by_task, Mapping):
+        raise GeometryPhaseSchedulerError("affinity_by_task must be a mapping")
+    out: dict[str, frozenset[str]] = {}
+    for task_id, values in affinity_by_task.items():
+        if task_id not in eligible_ids:
+            continue
+        if isinstance(values, (str, bytes, Mapping)) or not isinstance(values, Iterable):
+            raise GeometryPhaseSchedulerError("task affinity must be an iterable")
+        normalized = frozenset(str(value) for value in values if str(value))
+        out[task_id] = normalized
+    return out
+
+
+def _context_affinity(
+    task_id: str,
+    chosen_ids: Sequence[str],
+    affinity: Mapping[str, frozenset[str]],
+) -> float:
+    candidate = affinity.get(task_id, frozenset())
+    if not candidate or not chosen_ids:
+        return 0.0
+    active: set[str] = set()
+    for chosen_id in chosen_ids:
+        active.update(affinity.get(chosen_id, frozenset()))
+    if not active:
+        return 0.0
+    overlap = len(candidate & active)
+    scale = min(len(candidate), len(active))
+    return 0.0 if scale <= 0 else overlap / scale
+
+
 def select_batch(
     rows: Sequence[Mapping[str, Any]],
     *,
     limit: int,
     now_ns: int,
+    affinity_by_task: Mapping[str, Iterable[str]] | None = None,
 ) -> tuple[list[str], dict[str, Any]]:
     if isinstance(limit, bool) or not isinstance(limit, int) or limit <= 0:
         raise GeometryPhaseSchedulerError("limit must be a positive integer")
@@ -409,6 +449,11 @@ def select_batch(
 
     centroid = phase_centroid(eligible)
     priority = {s.task_id: task_priority(s, centroid, now_ns=now_ns) for s in eligible}
+    affinity = _normalize_affinity(
+        affinity_by_task,
+        {state.task_id for state in eligible},
+    )
+    affinity_active = any(affinity.values())
     seed = max(
         eligible,
         key=lambda s: (priority[s.task_id], -s.noise, s.urgency, s.task_commitment, s.task_id),
@@ -418,13 +463,20 @@ def select_batch(
 
     while remaining and len(chosen) < limit:
         current = chosen[-1]
+        chosen_ids = [state.task_id for state in chosen]
         next_state = max(
             remaining.values(),
             key=lambda s: (
                 0.58 * (1.0 - state_distance(current, s))
                 + 0.25 * priority[s.task_id]
                 + 0.10 * (1.0 - s.noise)
-                + 0.07 * s.urgency,
+                + 0.07 * s.urgency
+                + (
+                    CONTEXT_AFFINITY_WEIGHT
+                    * _context_affinity(s.task_id, chosen_ids, affinity)
+                    if affinity_active
+                    else 0.0
+                ),
                 s.task_commitment,
                 s.task_id,
             ),
@@ -441,12 +493,29 @@ def select_batch(
     for state in chosen:
         phase_sources[state.phase_source] = phase_sources.get(state.phase_source, 0) + 1
 
+    selected_affinities = [
+        _context_affinity(
+            chosen[index].task_id,
+            [state.task_id for state in chosen[:index]],
+            affinity,
+        )
+        for index in range(1, len(chosen))
+    ]
     receipt = {
         "schema": SCHEMA,
         "mode": MODE,
         "selected_task_ids": [s.task_id for s in chosen],
         "fifo_task_ids_proxy": [s.task_id for s in fifo],
         "phase_sources": phase_sources,
+        "context_affinity_active": affinity_active,
+        "context_affinity_weight": (
+            CONTEXT_AFFINITY_WEIGHT if affinity_active else 0.0
+        ),
+        "mean_context_affinity": (
+            0.0
+            if not selected_affinities
+            else sum(selected_affinities) / len(selected_affinities)
+        ),
         "mean_priority": sum(priority[s.task_id] for s in chosen) / len(chosen),
         "transition_cost_selected": selected_transition,
         "transition_cost_fifo_proxy": fifo_transition,
