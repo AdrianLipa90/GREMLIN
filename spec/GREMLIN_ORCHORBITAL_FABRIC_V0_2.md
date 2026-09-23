@@ -1534,3 +1534,47 @@ open and is reported in `adapter_required`.
 `DurableOrchorbitalRuntime.restore(..., local_adapters=...)` forwards the
 registry through the SQLite runtime store into executor restore. This keeps
 store-level restore and façade-level restore semantically identical.
+
+
+## Scalar–vector scheduler shadow validation
+
+The default routing decision kernel remains:
+
+```text
+SCALAR_EXACT_V0_1
+```
+
+A NumPy candidate kernel is available only by explicit opt-in:
+
+```text
+NUMPY_EQUIVALENCE_CANDIDATE_V0_1
+```
+
+The candidate kernel is not enabled as the WorkerBroker decision path.
+
+When `WorkerBroker(vector_distance_shadow=True)` is used, the broker:
+
+1. computes the normal scalar batch selection;
+2. computes the NumPy candidate selection against the same rows, centroid,
+   context-affinity state and receiver-cache state;
+3. compares the selected task IDs;
+4. performs this comparison before any task changes to LEASED;
+5. fails closed if the selections differ;
+6. otherwise leases the scalar-selected tasks and records the shadow result.
+
+This provides live-workload selection equivalence telemetry without changing the
+routing decision.
+
+The default is `vector_distance_shadow=False`.
+
+The current vector benchmark additionally checks deterministic synthetic
+fixtures for:
+
+- numerical distance equivalence;
+- nearest/farthest index equivalence;
+- exact batch-selection equivalence;
+- context-affinity equivalence;
+- receiver-cache-affinity equivalence.
+
+These are bounded fixture results, not a universal proof and not an end-to-end
+speedup claim.
