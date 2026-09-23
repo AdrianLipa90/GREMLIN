@@ -177,6 +177,13 @@ def test_local_child_join_blocks_only_its_consumer() -> None:
     assert a.node_id not in fabric.closable_nodes()
 
     fabric.close(child.node_id)
+    assert a.node_id not in fabric.closable_nodes()
+    assert a.node_id in fabric.reduction_candidates()
+
+    fabric.mark_reduction_complete(
+        a.node_id,
+        reduction_commitment="a-reduction",
+    )
     assert a.node_id in fabric.closable_nodes()
 
 
@@ -820,6 +827,12 @@ def test_failed_node_never_satisfies_join_without_explicit_replacement() -> None
     finish_local(fabric, replacement.node_id, "replacement-result")
     fabric.close(replacement.node_id)
 
+    assert parent.node_id not in fabric.closable_nodes()
+    assert parent.node_id in fabric.reduction_candidates()
+    fabric.mark_reduction_complete(
+        parent.node_id,
+        reduction_commitment="parent-reduction",
+    )
     assert parent.node_id in fabric.closable_nodes()
 
 
@@ -1315,4 +1328,63 @@ def test_deterministic_allocation_key_cannot_be_reused_for_different_work() -> N
             operators(),
             budget=BUDGET,
             allocation_key="same-key",
+        )
+
+
+def test_joined_node_cannot_close_without_explicit_reduction() -> None:
+    fabric = OrchorbitalFabric()
+    parent = fabric.spawn(
+        "AUTH:ROOT",
+        "MOLE",
+        node_id="REDUCE-PARENT",
+        join_to_caller=False,
+    )
+    child = fabric.spawn(
+        parent.node_id,
+        "OWL",
+        node_id="REDUCE-CHILD",
+    )
+    finish_local(fabric, parent.node_id, "parent-result")
+    finish_local(fabric, child.node_id, "child-result")
+    fabric.close(child.node_id)
+
+    assert parent.node_id in fabric.reduction_candidates()
+    with pytest.raises(RuntimeError, match="explicit local reduction"):
+        fabric.close(parent.node_id)
+
+    fabric.mark_reduction_complete(
+        parent.node_id,
+        reduction_commitment="reduction-commitment",
+    )
+    fabric.close(parent.node_id)
+    assert fabric.node(parent.node_id).status == "CLOSED"
+
+
+def test_reduction_commitment_is_idempotent_but_immutable() -> None:
+    fabric = OrchorbitalFabric()
+    parent = fabric.spawn(
+        "AUTH:ROOT",
+        "MOLE",
+        node_id="REDUCE-IDEMPOTENT",
+        join_to_caller=False,
+    )
+    child = fabric.spawn(parent.node_id, "OWL", node_id="REDUCE-LEAF")
+    finish_local(fabric, parent.node_id, "parent-result")
+    finish_local(fabric, child.node_id, "child-result")
+    fabric.close(child.node_id)
+
+    first = fabric.mark_reduction_complete(
+        parent.node_id,
+        reduction_commitment="same-reduction",
+    )
+    second = fabric.mark_reduction_complete(
+        parent.node_id,
+        reduction_commitment="same-reduction",
+    )
+    assert first == second
+
+    with pytest.raises(RuntimeError, match="reduction is already complete"):
+        fabric.mark_reduction_complete(
+            parent.node_id,
+            reduction_commitment="different-reduction",
         )
