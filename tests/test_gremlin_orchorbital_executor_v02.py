@@ -9,6 +9,7 @@ from gremlin_mcp.orchorbital_executor import (
     DISCOVERY_KEY,
     DISCOVERY_SCHEMA,
     ORBITAL_CONTEXT_PACKET_KEY,
+    REDUCTION_TASK_KEY,
     OrchorbitalExecutor,
 )
 from gremlin_mcp.orchorbital_fabric import OrchorbitalFabric
@@ -688,3 +689,152 @@ def test_recovery_effective_result_preserves_partial_replacement_and_stranded_ch
     assert recovery["source_join_results"][0]["output"] == {
         "stranded": "evidence"
     }
+
+
+def test_worker_parent_receives_deterministic_reduction_continuation_after_children_return() -> None:
+    fabric, broker, executor = executor_with_worker(execution_id="reduction-continuation")
+    parent = allocate_invocation(
+        fabric,
+        "AUTH:ROOT",
+        ("graph",),
+        operators(),
+        budget=BUDGET,
+    ).nodes[0]
+    executor.ensure_dispatched(parent.node_id, {"query": "graph"})
+
+    _claim_and_submit(
+        broker,
+        species="SPIDER",
+        output={
+            "graph": "candidate",
+            DISCOVERY_KEY: {
+                "schema": DISCOVERY_SCHEMA,
+                "obligations": ["audit"],
+            },
+        },
+    )
+    first = executor.reconcile_node(parent.node_id)
+    child_id = first["allocation"]["node_ids"][0]
+
+    executor.ensure_dispatched(child_id, {"query": "audit"})
+    _claim_and_submit(
+        broker,
+        species="OWL",
+        output={"audit": "child-candidate"},
+    )
+    executor.reconcile_node(child_id)
+
+    first_settle = executor.settle_local_joins()
+    assert child_id in first_settle["closed"]
+    assert parent.node_id in first_settle["reduction_required"]
+
+    first_dispatch = executor.ensure_reduction_dispatched(parent.node_id)
+    replay_dispatch = executor.ensure_reduction_dispatched(parent.node_id)
+    assert replay_dispatch.task_id == first_dispatch.task_id
+    assert replay_dispatch.task_commitment == first_dispatch.task_commitment
+    assert first_dispatch.species == "SPIDER"
+
+    lease = broker.claim("worker-1", species="SPIDER", limit=1)
+    assert len(lease["tasks"]) == 1
+    reduction_task = lease["tasks"][0]
+    assert reduction_task["task_id"] == first_dispatch.task_id
+
+    reduction_input = reduction_task["payload"]["input"]
+    assert reduction_input["kind"] == "ORCHORBITAL_LOCAL_REDUCTION"
+    packet = reduction_input[REDUCTION_TASK_KEY]
+    assert packet["node_id"] == parent.node_id
+    assert packet["self_output"]["graph"] == "candidate"
+    assert packet["join_results"][0]["resolved_node_id"] == child_id
+    assert packet["join_results"][0]["output"] == {
+        "audit": "child-candidate"
+    }
+
+    broker.submit(
+        "worker-1",
+        lease["lease_id"],
+        [
+            {
+                "task_id": first_dispatch.task_id,
+                "output": {
+                    "graph": "candidate",
+                    "audit": "integrated",
+                },
+            }
+        ],
+    )
+    reduction = executor.reconcile_reduction(parent.node_id)
+
+    assert reduction["state"] == "REDUCTION_COMPLETE"
+    assert reduction["changed"] is True
+    assert fabric.node(parent.node_id).reduction_complete is True
+
+    final_settle = executor.settle_local_joins()
+    assert parent.node_id in final_settle["closed"]
+    assert fabric.node(parent.node_id).status == "CLOSED"
+
+
+def test_reduction_continuation_cannot_spawn_new_children_after_join_seal() -> None:
+    fabric, broker, executor = executor_with_worker(execution_id="reduction-seal")
+    parent = fabric.spawn(
+        "AUTH:ROOT",
+        "SPIDER",
+        node_id="REDUCE-PARENT",
+        join_to_caller=False,
+    )
+    child = fabric.spawn(
+        parent.node_id,
+        "OWL",
+        node_id="REDUCE-CHILD",
+    )
+
+    fabric.mark_started(parent.node_id)
+    broker.enqueue(
+        "SPIDER",
+        {"seed": True},
+        task_id=executor.deterministic_task_id(parent.node_id),
+    )
+    lease = broker.claim("worker-1", species="SPIDER", limit=1)
+    broker.submit(
+        "worker-1",
+        lease["lease_id"],
+        [{"task_id": lease["tasks"][0]["task_id"], "output": {"parent": True}}],
+    )
+    executor.reconcile_node(parent.node_id)
+
+    fabric.mark_started(child.node_id)
+    broker.enqueue(
+        "OWL",
+        {"child": True},
+        task_id=executor.deterministic_task_id(child.node_id),
+    )
+    child_lease = broker.claim("worker-1", species="OWL", limit=1)
+    broker.submit(
+        "worker-1",
+        child_lease["lease_id"],
+        [{"task_id": child_lease["tasks"][0]["task_id"], "output": {"child": True}}],
+    )
+    executor.reconcile_node(child.node_id)
+    executor.settle_local_joins()
+
+    dispatch = executor.ensure_reduction_dispatched(parent.node_id)
+    reduction_lease = broker.claim("worker-1", species="SPIDER", limit=1)
+    broker.submit(
+        "worker-1",
+        reduction_lease["lease_id"],
+        [
+            {
+                "task_id": dispatch.task_id,
+                "output": {
+                    DISCOVERY_KEY: {
+                        "schema": DISCOVERY_SCHEMA,
+                        "obligations": ["derive"],
+                    }
+                },
+            }
+        ],
+    )
+
+    receipt = executor.reconcile_reduction(parent.node_id)
+
+    assert receipt["state"] == "QUARANTINED_REDUCTION_DISCOVERY_AFTER_SEAL"
+    assert fabric.node(parent.node_id).status == "QUARANTINED"
