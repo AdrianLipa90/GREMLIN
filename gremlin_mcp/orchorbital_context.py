@@ -20,6 +20,8 @@ FRAME_DOMAIN = b"GREMLIN-ORCHORBITAL-CONTEXT-FRAME/v0.1\x00"
 MATERIALIZED_DOMAIN = b"GREMLIN-ORCHORBITAL-CONTEXT-MATERIALIZED/v0.1\x00"
 PACKET_DOMAIN = b"GREMLIN-ORCHORBITAL-CONTEXT-PACKET/v0.1\x00"
 BUNDLE_DOMAIN = b"GREMLIN-ORCHORBITAL-CONTEXT-BUNDLE/v0.1\x00"
+CONTEXT_CHECKPOINT_SCHEMA = "GREMLIN_ORCHORBITAL_CONTEXT_CHECKPOINT_V0_1"
+CONTEXT_CHECKPOINT_DOMAIN = b"GREMLIN-ORCHORBITAL-CONTEXT-CHECKPOINT/v0.1\x00"
 MAX_CONTEXT_KEYS = 4096
 
 
@@ -396,6 +398,186 @@ class OrbitalContextStore:
             "actual_model_token_accounting": False,
             "token_saving_claim": False,
         }
+
+    def checkpoint_state(self) -> dict[str, object]:
+        """Full sensitive context lineage for restart, not telemetry."""
+
+        frames = [
+            self._frames[frame_id]
+            for frame_id in sorted(
+                self._frames,
+                key=lambda frame_id: (
+                    self._frames[frame_id].depth,
+                    frame_id,
+                ),
+            )
+        ]
+        core: dict[str, object] = {
+            "schema": CONTEXT_CHECKPOINT_SCHEMA,
+            "fabric_topology_commitment": self.fabric.topology_commitment(),
+            "frames": [
+                {
+                    "node_id": frame.node_id,
+                    "base_node_id": frame.base_node_id,
+                    "base_frame_commitment": frame.base_frame_commitment,
+                    "frame_commitment": frame.frame_commitment,
+                    "materialized_commitment": frame.materialized_commitment,
+                    "depth": frame.depth,
+                    "set_values": deepcopy(frame.set_values),
+                    "delete_keys": list(frame.delete_keys),
+                }
+                for frame in frames
+            ],
+            "sensitive_raw_context_deltas": True,
+            "materialized_contexts_duplicated": False,
+            "canon_allowed": False,
+        }
+        return {
+            **core,
+            "checkpoint_commitment": hashlib.blake2b(
+                CONTEXT_CHECKPOINT_DOMAIN + _canonical(core),
+                digest_size=32,
+            ).hexdigest(),
+        }
+
+    @classmethod
+    def from_checkpoint(
+        cls,
+        fabric: OrchorbitalFabric,
+        checkpoint: Mapping[str, Any],
+    ) -> "OrbitalContextStore":
+        """Restore immutable context frames through normal binding validation."""
+
+        if not isinstance(fabric, OrchorbitalFabric):
+            raise ValueError("fabric must be an OrchorbitalFabric")
+        if not isinstance(checkpoint, Mapping):
+            raise ValueError("context checkpoint must be a mapping")
+        if checkpoint.get("schema") != CONTEXT_CHECKPOINT_SCHEMA:
+            raise ValueError("invalid context checkpoint schema")
+        supplied = _strict_commitment(
+            checkpoint.get("checkpoint_commitment"),
+            "context checkpoint commitment",
+        )
+        core = {
+            key: deepcopy(value)
+            for key, value in checkpoint.items()
+            if key != "checkpoint_commitment"
+        }
+        expected = hashlib.blake2b(
+            CONTEXT_CHECKPOINT_DOMAIN + _canonical(core),
+            digest_size=32,
+        ).hexdigest()
+        if supplied != expected:
+            raise ValueError("context checkpoint commitment mismatch")
+
+        claimed_topology = _strict_commitment(
+            core.get("fabric_topology_commitment"),
+            "fabric_topology_commitment",
+        )
+        if fabric.topology_commitment() != claimed_topology:
+            raise ValueError("context checkpoint fabric topology mismatch")
+
+        raw_frames = core.get("frames")
+        if not isinstance(raw_frames, list):
+            raise ValueError("context checkpoint frames must be a list")
+        parsed: list[dict[str, Any]] = []
+        seen_ids: set[str] = set()
+        for index, raw in enumerate(raw_frames):
+            if not isinstance(raw, Mapping):
+                raise ValueError(f"context checkpoint frame[{index}] must be an object")
+            frame_id = _strict_text(
+                raw.get("node_id"),
+                f"context frame[{index}].node_id",
+            )
+            if frame_id in seen_ids:
+                raise ValueError("duplicate context frame id in checkpoint")
+            seen_ids.add(frame_id)
+            depth = raw.get("depth")
+            if isinstance(depth, bool) or not isinstance(depth, int) or depth < 0:
+                raise ValueError("context frame depth must be a non-negative integer")
+            base_raw = raw.get("base_node_id")
+            base_id = (
+                None
+                if base_raw is None
+                else _strict_text(
+                    base_raw,
+                    f"context frame[{index}].base_node_id",
+                )
+            )
+            base_commitment_raw = raw.get("base_frame_commitment")
+            base_commitment = (
+                None
+                if base_commitment_raw is None
+                else _strict_commitment(
+                    base_commitment_raw,
+                    f"context frame[{index}].base_frame_commitment",
+                )
+            )
+            set_values_raw = raw.get("set_values")
+            if not isinstance(set_values_raw, Mapping):
+                raise ValueError("context checkpoint set_values must be a mapping")
+            delete_raw = raw.get("delete_keys")
+            if not isinstance(delete_raw, list):
+                raise ValueError("context checkpoint delete_keys must be a list")
+            parsed.append(
+                {
+                    "node_id": frame_id,
+                    "base_node_id": base_id,
+                    "base_frame_commitment": base_commitment,
+                    "frame_commitment": _strict_commitment(
+                        raw.get("frame_commitment"),
+                        f"context frame[{index}].frame_commitment",
+                    ),
+                    "materialized_commitment": _strict_commitment(
+                        raw.get("materialized_commitment"),
+                        f"context frame[{index}].materialized_commitment",
+                    ),
+                    "depth": depth,
+                    "set_values": _strict_mapping(
+                        set_values_raw,
+                        f"context frame[{index}].set_values",
+                    ),
+                    "delete_keys": _strict_delete_keys(delete_raw),
+                }
+            )
+
+        restored = cls(fabric)
+        for row in sorted(parsed, key=lambda item: (item["depth"], item["node_id"])):
+            frame_id = str(row["node_id"])
+            base_id = row["base_node_id"]
+            if base_id is None:
+                if frame_id != fabric.authority_root_id:
+                    raise ValueError("only restored authority root may have no context base")
+                actual = restored.bind_root(row["set_values"])
+            else:
+                try:
+                    fabric.node(frame_id)
+                except ValueError:
+                    actual = restored.bind_shared_frame(
+                        frame_id,
+                        base_frame_id=str(base_id),
+                        set_values=row["set_values"],
+                        delete_keys=row["delete_keys"],
+                    )
+                else:
+                    actual = restored.bind_node(
+                        frame_id,
+                        base_node_id=str(base_id),
+                        set_values=row["set_values"],
+                        delete_keys=row["delete_keys"],
+                    )
+            if (
+                actual.base_node_id != base_id
+                or actual.base_frame_commitment != row["base_frame_commitment"]
+                or actual.frame_commitment != row["frame_commitment"]
+                or actual.materialized_commitment != row["materialized_commitment"]
+                or actual.depth != row["depth"]
+            ):
+                raise ValueError("restored context frame commitment mismatch")
+
+        if len(restored._frames) != len(parsed):
+            raise RuntimeError("restored context frame count mismatch")
+        return restored
 
     def snapshot(self) -> dict[str, object]:
         return {
@@ -922,6 +1104,7 @@ __all__ = [
     "BUNDLE_REF_PAYLOAD_KEY",
     "BUNDLE_REF_SCHEMA",
     "BUNDLE_SCHEMA",
+    "CONTEXT_CHECKPOINT_SCHEMA",
     "ContextFrame",
     "MAX_CONTEXT_KEYS",
     "OrbitalContextStore",
