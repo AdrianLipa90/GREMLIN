@@ -635,27 +635,11 @@ def test_execution_backend_binding_survives_late_local_adapter_registration() ->
 
 def test_reduction_backend_binding_survives_late_local_reducer_registration() -> None:
     registry = LocalAdapterRegistry()
-
-    def local_handler(request):
-        return {
-            "coherence": "needs-graph",
-            DISCOVERY_KEY: {
-                "schema": DISCOVERY_SCHEMA,
-                "obligations": ["graph"],
-            },
-        }
-
-    registry.register(
-        "BEES",
-        local_handler,
-        adapter_id="late-reducer-bees-v1",
-        implementation_commitment="2" * 64,
-    )
     fabric = OrchorbitalFabric()
     broker = WorkerBroker()
     broker.register_worker(
         "late-reducer-worker",
-        ["SPIDER", "BEES"],
+        ["BEES", "SPIDER"],
         vector_width=4,
         max_batch=4,
     )
@@ -689,38 +673,80 @@ def test_reduction_backend_binding_survives_late_local_reducer_registration() ->
         allocation_key="late-reducer-parent",
     ).nodes[0]
 
+    # Parent has no adapter yet, so execution is irreversibly bound to worker.
     step1 = executor.orchestration_step()
-    child_dispatch = next(
+    parent_dispatch = next(
         row
         for row in step1["worker_dispatch"]["dispatched"]
+        if row["node_id"] == parent.node_id
+    )
+    parent_lease = broker.claim(
+        "late-reducer-worker",
+        species="BEES",
+        limit=1,
+    )
+    assert parent_lease["tasks"][0]["task_id"] == parent_dispatch["task_id"]
+    broker.submit(
+        "late-reducer-worker",
+        parent_lease["lease_id"],
+        [
+            {
+                "task_id": parent_dispatch["task_id"],
+                "output": {
+                    "coherence": "needs-graph",
+                    DISCOVERY_KEY: {
+                        "schema": DISCOVERY_SCHEMA,
+                        "obligations": ["graph"],
+                    },
+                },
+            }
+        ],
+    )
+
+    step2 = executor.orchestration_step()
+    child_dispatch = next(
+        row
+        for row in step2["worker_dispatch"]["dispatched"]
         if row["species"] == "SPIDER"
     )
-    child_lease = broker.claim("late-reducer-worker", species="SPIDER", limit=1)
+    child_lease = broker.claim(
+        "late-reducer-worker",
+        species="SPIDER",
+        limit=1,
+    )
     broker.submit(
         "late-reducer-worker",
         child_lease["lease_id"],
         [{"task_id": child_dispatch["task_id"], "output": {"graph": "pass"}}],
     )
 
-    step2 = executor.orchestration_step()
+    step3 = executor.orchestration_step()
     reduction_dispatch = next(
         row
-        for row in step2["reduction_dispatch"]["dispatched"]
+        for row in step3["reduction_dispatch"]["dispatched"]
         if row["node_id"] == parent.node_id
     )
     assert executor.receipt()["reduction_backend_bindings"][parent.node_id] == "WORKER"
 
     reducer_called = False
 
+    def late_handler(request):
+        return {"coherence": "local-must-not-replace-execution"}
+
     def late_reducer(request):
         nonlocal reducer_called
         reducer_called = True
-        return {"coherence": "must-not-run"}
+        return {"coherence": "local-must-not-replace-reduction"}
 
-    # Re-registering the same species with different callable is forbidden.
-    # The existing adapter object is immutable, so build a new executor-level
-    # registry would be a checkpoint-level drift. Here we prove the live binding
-    # directly by replacing no registry state and calling the worker completion.
+    # Local backend becomes available only after worker reduction was bound.
+    registry.register(
+        "BEES",
+        late_handler,
+        reducer=late_reducer,
+        adapter_id="late-bees-reducer-v1",
+        implementation_commitment="3" * 64,
+    )
+
     reduction_lease = broker.claim(
         "late-reducer-worker",
         species="BEES",
@@ -737,9 +763,11 @@ def test_reduction_backend_binding_survives_late_local_reducer_registration() ->
             }
         ],
     )
-    step3 = executor.orchestration_step()
+    step4 = executor.orchestration_step()
 
     assert reducer_called is False
     assert fabric.node(parent.node_id).status == "CLOSED"
+    assert executor.receipt()["execution_backend_bindings"][parent.node_id] == "WORKER"
     assert executor.receipt()["reduction_backend_bindings"][parent.node_id] == "WORKER"
-    assert step3["local_reduction"]["completed"] == []
+    assert step4["local_reduction"]["completed"] == []
+
