@@ -662,3 +662,84 @@ def test_octopus_rejects_ambiguous_explicit_and_candidate_center_policy() -> Non
                 "SPIDER:T0": (anchor.node_id,),
             },
         )
+
+
+def test_n_node_coordination_point_creates_locality_without_causal_edges() -> None:
+    fabric = OrchorbitalFabric()
+    a = fabric.spawn("AUTH:ROOT", "SPIDER", node_id="A", join_to_caller=False)
+    b = fabric.spawn("AUTH:ROOT", "MOLE", node_id="B", join_to_caller=False)
+    c = fabric.spawn("AUTH:ROOT", "OWL", node_id="C", join_to_caller=False)
+
+    point = fabric.create_coordination_point(
+        (a.node_id, b.node_id, c.node_id),
+        point_id="L1",
+        weight=2.0,
+    )
+
+    assert point.point_id == "L1"
+    assert point.physical_claim is False
+    assert fabric.locality_distance(a.node_id, b.node_id) == 1.0
+    assert fabric.locality_distance(a.node_id, c.node_id) == 1.0
+
+    receipt = fabric.receipt()
+    assert receipt["coordination_point_count"] == 1
+    assert receipt["causal_edge_count"] == 0
+
+
+def test_coordination_point_requires_unique_open_members() -> None:
+    fabric = OrchorbitalFabric()
+    a = fabric.spawn("AUTH:ROOT", "SPIDER", node_id="A", join_to_caller=False)
+    b = fabric.spawn("AUTH:ROOT", "MOLE", node_id="B", join_to_caller=False)
+
+    with pytest.raises(ValueError, match="members must be unique"):
+        fabric.create_coordination_point((a.node_id, a.node_id))
+
+    finish_local(fabric, b.node_id, "b")
+    fabric.close(b.node_id)
+
+    with pytest.raises(RuntimeError, match="node is not open"):
+        fabric.create_coordination_point((a.node_id, b.node_id))
+
+
+def test_octopus_center_ranking_can_use_n_node_coordination_point() -> None:
+    fabric = OrchorbitalFabric()
+    caller = fabric.spawn(
+        "AUTH:ROOT",
+        "MOLE",
+        node_id="CALLER",
+        join_to_caller=False,
+    )
+    preferred = fabric.spawn(
+        "AUTH:ROOT",
+        "BEES",
+        node_id="PREFERRED",
+        phase36=phase(2.0),
+        join_to_caller=False,
+    )
+    other = fabric.spawn(
+        "AUTH:ROOT",
+        "OWL",
+        node_id="OTHER",
+        phase36=phase(0.1),
+        join_to_caller=False,
+    )
+    fabric.create_coordination_point(
+        (caller.node_id, preferred.node_id),
+        point_id="LOCAL",
+    )
+
+    allocation = allocate_invocation(
+        fabric,
+        caller.node_id,
+        ("graph",),
+        operators(),
+        budget=BUDGET,
+        candidate_centers_by_operator={
+            "SPIDER:T0": (other.node_id, preferred.node_id),
+        },
+        phase36_by_operator={
+            "SPIDER:T0": phase(0.1),
+        },
+    )
+
+    assert allocation.nodes[0].center_id == preferred.node_id
