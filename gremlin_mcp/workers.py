@@ -599,6 +599,9 @@ class WorkerBroker:
             )
             batch_limit = min(requested_limit, worker.max_batch, lane, int(metrics["eligible_count"]))
             context_affinity = affinity_by_species[selected_species]
+            centroid = metrics.get("centroid")
+            if not isinstance(centroid, list):
+                raise RuntimeError("selected species centroid is unavailable")
             selected_ids, batch_scheduler = select_batch(
                 rows,
                 limit=batch_limit,
@@ -606,6 +609,7 @@ class WorkerBroker:
                 affinity_by_task=context_affinity,
                 receiver_known_affinity=known_frames,
                 precomputed_states=self._task_phase_state,
+                precomputed_centroid=centroid,
             )
             if not selected_ids:
                 return {
