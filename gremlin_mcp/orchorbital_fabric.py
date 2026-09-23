@@ -203,6 +203,7 @@ class OrchorbitalFabric:
         self._joins: dict[str, set[str]] = {}
         self._coordination: set[tuple[str, str]] = set()
         self._coordination_points: dict[str, CoordinationPoint] = {}
+        self._replacements: dict[str, str] = {}
         self._events: list[dict[str, Any]] = []
 
         root = NodeInstance(
@@ -263,6 +264,51 @@ class OrchorbitalFabric:
         self._node_counter += 1
         return f"N{self._node_counter:06d}:{species}"
 
+    def _blocking_graph(self) -> dict[str, set[str]]:
+        """Union of every relation that can block successful subtree closure."""
+
+        graph = {
+            node_id: set(self._causal[node_id]) | set(self._joins[node_id])
+            for node_id in self._nodes
+        }
+        for source_id, replacement_id in self._replacements.items():
+            graph[source_id].add(replacement_id)
+        return graph
+
+    def _closure_satisfied(
+        self,
+        node_id: str,
+        *,
+        path: frozenset[str] = frozenset(),
+    ) -> bool:
+        """True only when a node resolves to successful CLOSED work.
+
+        FAILED/QUARANTINED nodes never satisfy a dependency by themselves.
+        They may resolve through one explicit replacement, and their historical
+        local join children must also resolve successfully.
+        """
+
+        if node_id in path:
+            raise RuntimeError("closure resolution contains a cycle")
+        node = self._nodes[node_id]
+        if node.status == "CLOSED":
+            return True
+        if node.status == OPEN:
+            return False
+        if node.status not in {"FAILED", "QUARANTINED"}:
+            return False
+
+        replacement_id = self._replacements.get(node_id)
+        if replacement_id is None:
+            return False
+        next_path = path | {node_id}
+        if not self._closure_satisfied(replacement_id, path=next_path):
+            return False
+        return all(
+            self._closure_satisfied(child_id, path=next_path)
+            for child_id in self._joins[node_id]
+        )
+
     def _assert_invariants(self) -> None:
         if set(self._nodes) != set(self._causal) or set(self._nodes) != set(self._joins):
             raise RuntimeError("node/edge registry drift detected")
@@ -322,6 +368,27 @@ class OrchorbitalFabric:
             raise RuntimeError("causal graph contains a cycle")
         if _has_cycle(self._joins):
             raise RuntimeError("join graph contains a cycle")
+
+        replacement_targets: set[str] = set()
+        for source_id, replacement_id in self._replacements.items():
+            if source_id not in self._nodes or replacement_id not in self._nodes:
+                raise RuntimeError("replacement edge points outside fabric")
+            source = self._nodes[source_id]
+            if source_id == self._authority_root_id:
+                raise RuntimeError("authority root cannot be replaced")
+            if source.status not in {"FAILED", "QUARANTINED"}:
+                raise RuntimeError("only failed or quarantined nodes may be replaced")
+            if source_id == replacement_id:
+                raise RuntimeError("node cannot replace itself")
+            if replacement_id in replacement_targets:
+                raise RuntimeError("replacement target must be unique")
+            replacement_targets.add(replacement_id)
+            replacement = self._nodes[replacement_id]
+            if not set(source.obligations) <= set(replacement.obligations):
+                raise RuntimeError("replacement does not cover source obligations")
+
+        if _has_cycle(self._blocking_graph()):
+            raise RuntimeError("blocking graph contains a cross-relation cycle")
 
         for edge in self._coordination:
             if len(edge) != 2 or not set(edge) <= self._nodes.keys():
@@ -396,6 +463,8 @@ class OrchorbitalFabric:
 
         with self._lock:
             caller = self._require_open(caller_id)
+            if caller.self_complete:
+                raise RuntimeError("self-complete node cannot spawn new work")
             if len(self._nodes) + len(rows) > self._max_nodes:
                 raise RuntimeError("orchorbital node budget exceeded")
 
@@ -492,6 +561,9 @@ class OrchorbitalFabric:
             if _has_cycle(self._causal):
                 self._causal[node_id] = old
                 raise ValueError("causal dependency would create a cycle")
+            if _has_cycle(self._blocking_graph()):
+                self._causal[node_id] = old
+                raise ValueError("blocking dependency would create a cross-relation cycle")
             self._record(
                 "CAUSAL_EDGE_ADD",
                 node_id,
@@ -501,8 +573,10 @@ class OrchorbitalFabric:
 
     def add_join_dependency(self, consumer_id: str, child_id: str) -> None:
         with self._lock:
-            self._require_open(consumer_id)
+            consumer = self._require_open(consumer_id)
             self._require(child_id)
+            if consumer.self_complete:
+                raise RuntimeError("join dependencies are sealed after self completion")
             if consumer_id == child_id:
                 raise ValueError("self join dependency")
             old = set(self._joins[consumer_id])
@@ -510,6 +584,9 @@ class OrchorbitalFabric:
             if _has_cycle(self._joins):
                 self._joins[consumer_id] = old
                 raise ValueError("join dependency would create a cycle")
+            if _has_cycle(self._blocking_graph()):
+                self._joins[consumer_id] = old
+                raise ValueError("blocking dependency would create a cross-relation cycle")
             self._record(
                 "JOIN_EDGE_ADD",
                 consumer_id,
@@ -754,7 +831,7 @@ class OrchorbitalFabric:
                     and not node.execution_started
                     and not node.self_complete
                     and all(
-                        self._nodes[dependency].status == "CLOSED"
+                        self._closure_satisfied(dependency)
                         for dependency in self._causal[node_id]
                     )
                 )
@@ -782,7 +859,7 @@ class OrchorbitalFabric:
             unresolved_causal = sorted(
                 dependency
                 for dependency in self._causal[node.node_id]
-                if self._nodes[dependency].status != "CLOSED"
+                if not self._closure_satisfied(dependency)
             )
             if unresolved_causal:
                 raise RuntimeError(
@@ -808,11 +885,11 @@ class OrchorbitalFabric:
                     if node.status == OPEN
                     and node.self_complete
                     and all(
-                        self._nodes[dependency].status == "CLOSED"
+                        self._closure_satisfied(dependency)
                         for dependency in self._causal[node_id]
                     )
                     and all(
-                        self._nodes[child].status == "CLOSED"
+                        self._closure_satisfied(child)
                         for child in self._joins[node_id]
                     )
                 )
@@ -833,7 +910,7 @@ class OrchorbitalFabric:
             unresolved_causal = sorted(
                 dependency
                 for dependency in self._causal[node.node_id]
-                if self._nodes[dependency].status != "CLOSED"
+                if not self._closure_satisfied(dependency)
             )
             if unresolved_causal:
                 raise RuntimeError(
@@ -861,6 +938,137 @@ class OrchorbitalFabric:
             self._assert_invariants()
             return self._nodes[node.node_id]
 
+    def _terminalize_unsuccessful(
+        self,
+        node_id: str,
+        *,
+        status: str,
+        reason: str,
+    ) -> NodeInstance:
+        if status not in {"FAILED", "QUARANTINED"}:
+            raise ValueError("unsuccessful terminal status must be FAILED or QUARANTINED")
+        why = _strict_text(reason, "reason")
+
+        with self._lock:
+            node = self._require_open(node_id)
+            if node.node_id == self._authority_root_id:
+                raise RuntimeError("authority root failure requires external governance")
+
+            fallback_id = node.caller_id or self._authority_root_id
+            fallback = self._require_open(fallback_id)
+
+            # A crash/quarantine cannot require cooperation from the failed node.
+            # Re-home every live satellite explicitly and audibly.
+            satellites = sorted(
+                other_id
+                for other_id, other in self._nodes.items()
+                if other.status == OPEN and other.center_id == node.node_id
+            )
+            for satellite_id in satellites:
+                satellite = self._nodes[satellite_id]
+                target_id = fallback.node_id
+                if target_id == satellite_id:
+                    target_id = self._authority_root_id
+                target = self._require_open(target_id)
+                self._nodes[satellite_id] = replace(
+                    satellite,
+                    center_id=target.node_id,
+                )
+                self._record(
+                    "NODE_RECENTER_FAILOVER",
+                    satellite_id,
+                    failed_center_id=node.node_id,
+                    new_center_id=target.node_id,
+                    reason=why,
+                )
+
+            self._nodes[node.node_id] = replace(node, status=status)
+            self._record(
+                f"NODE_{status}",
+                node.node_id,
+                reason=why,
+            )
+
+            if self._barycenter_id == node.node_id:
+                old_barycenter = self._barycenter_id
+                self._barycenter_id = fallback.node_id
+                self._record(
+                    "BARYCENTER_FAILOVER",
+                    fallback.node_id,
+                    old_barycenter_id=old_barycenter,
+                    reason=why,
+                )
+
+            self._assert_invariants()
+            return self._nodes[node.node_id]
+
+    def fail(self, node_id: str, *, reason: str) -> NodeInstance:
+        """Terminal fail-closed state; never counts as successful closure."""
+
+        return self._terminalize_unsuccessful(
+            node_id,
+            status="FAILED",
+            reason=reason,
+        )
+
+    def quarantine(self, node_id: str, *, reason: str) -> NodeInstance:
+        """Terminal quarantine; never counts as successful closure."""
+
+        return self._terminalize_unsuccessful(
+            node_id,
+            status="QUARANTINED",
+            reason=reason,
+        )
+
+    def bind_replacement(
+        self,
+        source_id: str,
+        replacement_id: str,
+    ) -> None:
+        """Append an explicit recovery edge for FAILED/QUARANTINED work.
+
+        Existing causal/join edges are not rewritten. Any consumer waiting on
+        source_id resolves only after the replacement and the source's already
+        spawned join children resolve successfully.
+        """
+
+        with self._lock:
+            source = self._require(source_id)
+            replacement = self._require(replacement_id)
+            if source.node_id == self._authority_root_id:
+                raise RuntimeError("authority root cannot be replaced")
+            if source.status not in {"FAILED", "QUARANTINED"}:
+                raise RuntimeError("replacement source must be failed or quarantined")
+            if source.node_id == replacement.node_id:
+                raise ValueError("node cannot replace itself")
+            if not set(source.obligations) <= set(replacement.obligations):
+                raise ValueError("replacement does not cover source obligations")
+
+            prior = self._replacements.get(source.node_id)
+            if prior is not None:
+                if prior == replacement.node_id:
+                    return
+                raise RuntimeError("replacement is already bound")
+            if replacement.node_id in self._replacements.values():
+                raise RuntimeError("replacement target is already bound to another source")
+
+            self._replacements[source.node_id] = replacement.node_id
+            if _has_cycle(self._blocking_graph()):
+                del self._replacements[source.node_id]
+                raise ValueError("replacement would create a blocking cycle")
+
+            self._record(
+                "NODE_REPLACEMENT_BIND",
+                source.node_id,
+                replacement_id=replacement.node_id,
+            )
+            self._assert_invariants()
+
+    def replacement_for(self, source_id: str) -> str | None:
+        with self._lock:
+            source = self._require(source_id)
+            return self._replacements.get(source.node_id)
+
     def close(self, node_id: str) -> NodeInstance:
         with self._lock:
             node = self._require_open(node_id)
@@ -869,7 +1077,7 @@ class OrchorbitalFabric:
             unresolved_causal = sorted(
                 dependency
                 for dependency in self._causal[node.node_id]
-                if self._nodes[dependency].status != "CLOSED"
+                if not self._closure_satisfied(dependency)
             )
             if unresolved_causal:
                 raise RuntimeError(
@@ -878,7 +1086,7 @@ class OrchorbitalFabric:
             unresolved_join = sorted(
                 child
                 for child in self._joins[node.node_id]
-                if self._nodes[child].status != "CLOSED"
+                if not self._closure_satisfied(child)
             )
             if unresolved_join:
                 raise RuntimeError(
@@ -946,6 +1154,7 @@ class OrchorbitalFabric:
                 ),
                 "coordination_edge_count": len(self._coordination),
                 "coordination_point_count": len(self._coordination_points),
+                "replacement_edge_count": len(self._replacements),
                 "caller_is_provenance_not_center": True,
                 "caller_cycles_allowed": False,
                 "caller_chain_reaches_authority_root": True,
@@ -953,6 +1162,8 @@ class OrchorbitalFabric:
                 "center_cycles_allowed": True,
                 "causal_cycles_allowed": False,
                 "join_cycles_allowed": False,
+                "cross_relation_blocking_cycles_allowed": False,
+                "failed_or_quarantined_counts_as_closed": False,
                 "authority_root_stable": True,
                 "species_position_fixed": False,
                 "canon_allowed": False,
