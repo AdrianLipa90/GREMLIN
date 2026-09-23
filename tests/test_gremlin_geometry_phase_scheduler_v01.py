@@ -224,6 +224,8 @@ def test_optional_context_affinity_prefers_shared_orbital_ancestry() -> None:
     assert receipt["context_affinity_active"] is True
     assert receipt["context_affinity_weight"] > 0.0
     assert receipt["mean_context_affinity"] == 1.0
+    assert receipt["context_affinity_bitset_used"] is True
+    assert receipt["context_affinity_commitment_count"] == 3
 
 
 def test_receiver_cache_affinity_can_break_equal_geometry_seed_tie() -> None:
@@ -261,6 +263,8 @@ def test_receiver_cache_affinity_can_break_equal_geometry_seed_tie() -> None:
     assert receipt["receiver_cache_affinity_active"] is True
     assert receipt["receiver_cache_affinity_weight"] > 0.0
     assert receipt["mean_receiver_cache_affinity"] == 0.5
+    assert receipt["receiver_cache_affinity_precomputed"] is True
+    assert receipt["context_affinity_bitset_used"] is True
 
 
 def test_species_selection_accepts_small_receiver_locality_bias() -> None:
@@ -608,3 +612,56 @@ def test_bestiary_registry_partitions_exactly_into_dynamic_and_control_plane() -
     assert DYNAMIC_WORKLOAD_SPECIES.isdisjoint(CONTROL_PLANE_SPECIES)
     assert DYNAMIC_WORKLOAD_SPECIES | CONTROL_PLANE_SPECIES == BESTIARY_ROLE_NAMES
     assert set(WORKER_SPECIES) == set(DYNAMIC_WORKLOAD_SPECIES)
+
+
+def test_bitset_affinity_selection_matches_legacy_set_overlap_ordering() -> None:
+    rows = [
+        {
+            "task_id": "seed-bits",
+            "species": "FOX",
+            "payload": _payload("seed-bits", 1.2, urgency=1.0),
+            "task_commitment": "commit-seed-bits",
+            "created_ns": 1,
+        },
+        {
+            "task_id": "deep-bits",
+            "species": "FOX",
+            "payload": _payload("deep-bits", 1.2),
+            "task_commitment": "commit-a-deep",
+            "created_ns": 2,
+        },
+        {
+            "task_id": "shallow-bits",
+            "species": "FOX",
+            "payload": _payload("shallow-bits", 1.2),
+            "task_commitment": "commit-b-shallow",
+            "created_ns": 3,
+        },
+        {
+            "task_id": "other-bits",
+            "species": "FOX",
+            "payload": _payload("other-bits", 1.2),
+            "task_commitment": "commit-c-other",
+            "created_ns": 4,
+        },
+    ]
+    affinity = {
+        "seed-bits": ("root", "a", "a1", "a2"),
+        "deep-bits": ("root", "a", "a1", "a2", "a3"),
+        "shallow-bits": ("root", "a"),
+        "other-bits": ("root", "b", "b1", "b2"),
+    }
+
+    selected, receipt = select_batch(
+        rows,
+        limit=3,
+        now_ns=10_000_000_000,
+        affinity_by_task=affinity,
+        receiver_known_affinity=("root", "a", "a1"),
+    )
+
+    assert selected[0] == "seed-bits"
+    assert selected[1] == "deep-bits"
+    assert receipt["context_affinity_bitset_used"] is True
+    assert receipt["context_affinity_commitment_count"] == 8
+    assert receipt["receiver_cache_affinity_precomputed"] is True
