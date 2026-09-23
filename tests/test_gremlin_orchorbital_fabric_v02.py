@@ -931,6 +931,7 @@ def test_failure_uses_nearest_open_caller_when_direct_caller_is_closed() -> None
         join_to_caller=False,
     )
 
+    fabric.recenter(child.node_id, "AUTH:ROOT")
     finish_local(fabric, ancestor.node_id, "ancestor")
     fabric.close(ancestor.node_id)
     fabric.fail(child.node_id, reason="child crash after caller close")
