@@ -324,12 +324,16 @@ class OrchorbitalExecutor:
         worker_running = tuple(
             node_id
             for node_id in running
-            if self.fabric.node(node_id).species in WORKER_DISPATCHABLE_SPECIES
+            if self._worker_execution_active(
+                self.fabric.node(node_id).species
+            )
         )
         local_running = tuple(
             node_id
             for node_id in running
-            if self.fabric.node(node_id).species not in WORKER_DISPATCHABLE_SPECIES
+            if not self._worker_execution_active(
+                self.fabric.node(node_id).species
+            )
         )
         return {
             "schema": SCHEMA,
@@ -868,8 +872,8 @@ class OrchorbitalExecutor:
 
     def reconcile_node(self, node_id: str) -> dict[str, object]:
         node = self.fabric.node(node_id)
-        if node.species not in WORKER_DISPATCHABLE_SPECIES:
-            raise RuntimeError("node is not WorkerBroker-dispatchable")
+        if not self._worker_execution_active(node.species):
+            raise RuntimeError("node is not bound to the WorkerBroker backend")
         if node.status != "OPEN":
             return {
                 "node_id": node.node_id,
@@ -2093,6 +2097,11 @@ class OrchorbitalExecutor:
             "execution_id": self.execution_id,
             "worker_dispatchable_species": sorted(WORKER_DISPATCHABLE_SPECIES),
             "local_execution_species": sorted(LOCAL_EXECUTION_SPECIES),
+            "active_local_adapter_species": (
+                []
+                if self.local_adapters is None
+                else list(self.local_adapters.manifest()["species"])
+            ),
             "local_adapter_manifest": (
                 None
                 if self.local_adapters is None
@@ -2104,7 +2113,7 @@ class OrchorbitalExecutor:
                 {
                     node.species
                     for node in self.fabric.nodes()
-                    if node.species not in WORKER_DISPATCHABLE_SPECIES
+                    if not self._worker_execution_active(node.species)
                 }
             ),
             "worker_ready_count": len(frontier["worker_ready"]),
