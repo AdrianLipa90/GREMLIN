@@ -412,6 +412,8 @@ class OrchorbitalFabric:
                 raise RuntimeError("only failed or quarantined nodes may be replaced")
             if source_id == replacement_id:
                 raise RuntimeError("node cannot replace itself")
+            if replacement_id == self._authority_root_id:
+                raise RuntimeError("authority root cannot serve as a replacement target")
             if replacement_id in replacement_targets:
                 raise RuntimeError("replacement target must be unique")
             replacement_targets.add(replacement_id)
@@ -1155,6 +1157,8 @@ class OrchorbitalFabric:
                 raise RuntimeError("replacement source must be failed or quarantined")
             if source.node_id == replacement.node_id:
                 raise ValueError("node cannot replace itself")
+            if replacement.node_id == self._authority_root_id:
+                raise ValueError("authority root cannot serve as a replacement target")
             if not set(source.obligations) <= set(replacement.obligations):
                 raise ValueError("replacement does not cover source obligations")
 
@@ -1247,6 +1251,26 @@ class OrchorbitalFabric:
             self._record("NODE_CLOSE", node.node_id)
             self._assert_invariants()
             return self._nodes[node.node_id]
+
+    def is_resolved(self, node_id: str) -> bool:
+        """Public fail-closed closure predicate including replacement chains."""
+
+        with self._lock:
+            node = self._require(node_id)
+            return self._closure_satisfied(node.node_id)
+
+    def unresolved_terminal_nodes(self) -> tuple[str, ...]:
+        """FAILED/QUARANTINED nodes that still block successful closure."""
+
+        with self._lock:
+            return tuple(
+                sorted(
+                    node_id
+                    for node_id, node in self._nodes.items()
+                    if node.status in {"FAILED", "QUARANTINED"}
+                    and not self._closure_satisfied(node_id)
+                )
+            )
 
     def topology_snapshot(
         self,
@@ -1370,6 +1394,15 @@ class OrchorbitalFabric:
                 "coordination_edge_count": len(self._coordination),
                 "coordination_point_count": len(self._coordination_points),
                 "replacement_edge_count": len(self._replacements),
+                "failed_node_count": sum(
+                    node.status == "FAILED" for node in self._nodes.values()
+                ),
+                "quarantined_node_count": sum(
+                    node.status == "QUARANTINED" for node in self._nodes.values()
+                ),
+                "unresolved_terminal_node_count": len(
+                    self.unresolved_terminal_nodes()
+                ),
                 "caller_is_provenance_not_center": True,
                 "caller_cycles_allowed": False,
                 "caller_chain_reaches_authority_root": True,
