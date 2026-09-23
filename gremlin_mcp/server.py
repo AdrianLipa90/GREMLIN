@@ -173,15 +173,36 @@ def gremlin_handle_user_task(
     task: str,
     context: list[str] | None = None,
     request_id: RequestId | None = None,
-    dispatch_mode: str = "PLAN",
     max_species: RouteMaxSpecies = 4,
     min_score: RouteMinScore = 2.0,
     relative_cutoff: RouteRelativeCutoff = 0.45,
 ) -> dict[str, Any]:
-    """Primary GREMLIN + PhaseNav entrypoint for ordinary user tasks."""
-    mode = str(dispatch_mode).strip().upper()
-    if mode not in {"PLAN", "QUEUE"}:
-        raise ValueError("dispatch_mode must be PLAN or QUEUE")
+    """Primary read-only GREMLIN + PhaseNav entrypoint for ordinary user tasks."""
+    return build_user_task_plan(
+        task,
+        context=context,
+        request_id=request_id,
+        max_species=max_species,
+        min_score=min_score,
+        relative_cutoff=relative_cutoff,
+    )
+
+
+@mcp.tool(
+    title=tool_title("gremlin_queue_user_task"),
+    description=tool_description("gremlin_queue_user_task"),
+    annotations=tool_annotations("gremlin_queue_user_task"),
+)
+@mcp_error_boundary("gremlin_queue_user_task")
+def gremlin_queue_user_task(
+    task: str,
+    context: list[str] | None = None,
+    request_id: RequestId | None = None,
+    max_species: RouteMaxSpecies = 4,
+    min_score: RouteMinScore = 2.0,
+    relative_cutoff: RouteRelativeCutoff = 0.45,
+) -> dict[str, Any]:
+    """Plan one user task and queue only its admitted GREMLIN specialists locally."""
     plan = build_user_task_plan(
         task,
         context=context,
@@ -190,11 +211,11 @@ def gremlin_handle_user_task(
         min_score=min_score,
         relative_cutoff=relative_cutoff,
     )
-    if mode == "PLAN" or not plan["execution"]["route_species"]:
+    if not plan["execution"]["route_species"]:
         return {
             **plan,
-            "dispatch_mode": mode,
             "dispatch": None,
+            "queue_status": "DIRECT_NOT_QUEUED",
         }
     queued = fanout(
         broker,
@@ -211,8 +232,8 @@ def gremlin_handle_user_task(
     )
     return {
         **plan,
-        "dispatch_mode": mode,
         "dispatch": queued,
+        "queue_status": "SPECIALISTS_QUEUED",
     }
 
 
