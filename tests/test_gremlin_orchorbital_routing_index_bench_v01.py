@@ -19,6 +19,12 @@ def test_same_species_orchorbital_index_exceeds_200x_candidate_scan_reduction() 
     assert summary["fairness_candidate_count"] <= 4
     assert summary["structural_scan_reduction_ratio"] > 200.0
     assert summary["candidate_inspection_reduction_fraction"] > 0.99
+    assert summary["greedy_pairwise_evaluation_reduction_ratio"] > 200.0
+    assert summary["greedy_phase_axis_evaluation_reduction_ratio"] > 200.0
+    assert (
+        summary["warm_greedy_pairwise_state_distance_evaluations"]
+        < summary["cold_greedy_pairwise_state_distance_evaluations"]
+    )
     assert summary["exact_target_orbit_only"] is True
     assert summary["no_cross_orbit_claim"] is True
     assert summary["context_ancestry_index_active"] is True
@@ -41,6 +47,12 @@ def test_same_species_routing_index_benchmark_is_deterministic_in_structural_met
         "avoided_candidate_inspections",
         "candidate_inspection_reduction_fraction",
         "structural_scan_reduction_ratio",
+        "cold_greedy_pairwise_state_distance_evaluations",
+        "warm_greedy_pairwise_state_distance_evaluations",
+        "greedy_pairwise_evaluation_reduction_ratio",
+        "cold_greedy_phase_axis_evaluations_proxy",
+        "warm_greedy_phase_axis_evaluations_proxy",
+        "greedy_phase_axis_evaluation_reduction_ratio",
         "exact_target_orbit_only",
         "no_cross_orbit_claim",
         "context_ancestry_index_active",
