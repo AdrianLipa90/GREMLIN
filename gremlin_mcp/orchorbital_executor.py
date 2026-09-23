@@ -33,6 +33,8 @@ TASK_DOMAIN = b"GREMLIN-ORCHORBITAL-WORKER-TASK/v0.2\x00"
 LOCAL_RESULT_DOMAIN = b"GREMLIN-ORCHORBITAL-LOCAL-RESULT/v0.2\x00"
 LOCAL_EXECUTION_DOMAIN = b"GREMLIN-ORCHORBITAL-LOCAL-EXECUTION/v0.2\x00"
 LOCAL_REDUCTION_DOMAIN = b"GREMLIN-ORCHORBITAL-LOCAL-REDUCTION/v0.2\x00"
+EXECUTION_BACKENDS = frozenset({"WORKER", "LOCAL"})
+REDUCTION_BACKENDS = frozenset({"WORKER", "LOCAL"})
 DISCOVERY_CONTEXT_DOMAIN = b"GREMLIN-ORCHORBITAL-DISCOVERY-CONTEXT/v0.2\x00"
 REDUCTION_INPUT_DOMAIN = b"GREMLIN-ORCHORBITAL-REDUCTION-INPUT/v0.2\x00"
 REDUCTION_OUTPUT_DOMAIN = b"GREMLIN-ORCHORBITAL-REDUCTION-OUTPUT/v0.2\x00"
@@ -274,6 +276,8 @@ class OrchorbitalExecutor:
         self._local_results: dict[str, Any] = {}
         self._reduction_results: dict[str, Any] = {}
         self._reduction_input_commitments: dict[str, str] = {}
+        self._execution_backend_bindings: dict[str, str] = {}
+        self._reduction_backend_bindings: dict[str, str] = {}
 
     def deterministic_task_id(self, node_id: str) -> str:
         return _task_id(self.execution_id, self.fabric.node(node_id))
@@ -292,17 +296,73 @@ class OrchorbitalExecutor:
             and self.local_adapters.has_reducer(species)
         )
 
-    def _worker_execution_active(self, species: str) -> bool:
-        return (
-            species in WORKER_DISPATCHABLE_SPECIES
-            and not self._local_adapter_active(species)
+    def _preferred_execution_backend(self, species: str) -> str:
+        if self._local_adapter_active(species):
+            return "LOCAL"
+        if species in WORKER_DISPATCHABLE_SPECIES:
+            return "WORKER"
+        return "LOCAL"
+
+    def _preferred_reduction_backend(self, species: str) -> str:
+        if self._local_reducer_active(species):
+            return "LOCAL"
+        if species in WORKER_DISPATCHABLE_SPECIES:
+            return "WORKER"
+        return "LOCAL"
+
+    def _execution_backend(self, node_id: str) -> str:
+        node = self.fabric.node(node_id)
+        return self._execution_backend_bindings.get(
+            node.node_id,
+            self._preferred_execution_backend(node.species),
         )
 
-    def _worker_reduction_active(self, species: str) -> bool:
-        return (
-            species in WORKER_DISPATCHABLE_SPECIES
-            and not self._local_reducer_active(species)
+    def _reduction_backend(self, node_id: str) -> str:
+        node = self.fabric.node(node_id)
+        return self._reduction_backend_bindings.get(
+            node.node_id,
+            self._preferred_reduction_backend(node.species),
         )
+
+    def _bind_execution_backend(self, node_id: str, backend: str) -> str:
+        node = self.fabric.node(node_id)
+        if backend not in EXECUTION_BACKENDS:
+            raise ValueError("invalid execution backend")
+        prior = self._execution_backend_bindings.get(node.node_id)
+        if prior is not None and prior != backend:
+            raise RuntimeError(
+                f"execution backend drift detected for {node.node_id}: "
+                f"{prior} -> {backend}"
+            )
+        self._execution_backend_bindings[node.node_id] = backend
+        return backend
+
+    def _bind_reduction_backend(self, node_id: str, backend: str) -> str:
+        node = self.fabric.node(node_id)
+        if backend not in REDUCTION_BACKENDS:
+            raise ValueError("invalid reduction backend")
+        prior = self._reduction_backend_bindings.get(node.node_id)
+        if prior is not None and prior != backend:
+            raise RuntimeError(
+                f"reduction backend drift detected for {node.node_id}: "
+                f"{prior} -> {backend}"
+            )
+        self._reduction_backend_bindings[node.node_id] = backend
+        return backend
+
+    def _worker_execution_active(self, species: str) -> bool:
+        """Species-level preference only; node-level routing uses bindings."""
+        return self._preferred_execution_backend(species) == "WORKER"
+
+    def _worker_reduction_active(self, species: str) -> bool:
+        """Species-level preference only; node-level routing uses bindings."""
+        return self._preferred_reduction_backend(species) == "WORKER"
+
+    def _node_worker_execution_active(self, node_id: str) -> bool:
+        return self._execution_backend(node_id) == "WORKER"
+
+    def _node_worker_reduction_active(self, node_id: str) -> bool:
+        return self._reduction_backend(node_id) == "WORKER"
 
     def frontier(self) -> dict[str, object]:
         ready = tuple(self.fabric.ready_nodes())
@@ -310,30 +370,22 @@ class OrchorbitalExecutor:
         worker_ready = tuple(
             node_id
             for node_id in ready
-            if self._worker_execution_active(
-                self.fabric.node(node_id).species
-            )
+            if self._node_worker_execution_active(node_id)
         )
         local_ready = tuple(
             node_id
             for node_id in ready
-            if not self._worker_execution_active(
-                self.fabric.node(node_id).species
-            )
+            if not self._node_worker_execution_active(node_id)
         )
         worker_running = tuple(
             node_id
             for node_id in running
-            if self._worker_execution_active(
-                self.fabric.node(node_id).species
-            )
+            if self._node_worker_execution_active(node_id)
         )
         local_running = tuple(
             node_id
             for node_id in running
-            if not self._worker_execution_active(
-                self.fabric.node(node_id).species
-            )
+            if not self._node_worker_execution_active(node_id)
         )
         return {
             "schema": SCHEMA,
@@ -391,14 +443,11 @@ class OrchorbitalExecutor:
             raise RuntimeError("only open nodes may be dispatched")
         if node.self_complete:
             raise RuntimeError("self-complete node cannot be dispatched")
-        if not self._worker_execution_active(node.species):
-            if self._local_adapter_active(node.species):
-                raise RuntimeError(
-                    f"species is bound to active local adapter: {node.species}"
-                )
+        if self._execution_backend(node.node_id) != "WORKER":
             raise RuntimeError(
-                f"species requires local/core execution adapter: {node.species}"
+                f"node is bound to local execution backend: {node.node_id}"
             )
+        self._bind_execution_backend(node.node_id, "WORKER")
 
         task_id = _task_id(self.execution_id, node)
         worker_payload = self._worker_payload(node, input_payload)
@@ -523,6 +572,11 @@ class OrchorbitalExecutor:
         if self.local_adapters is None or not self.local_adapters.has(node.species):
             raise RuntimeError(f"local adapter is not registered for {node.species}")
 
+        if self._execution_backend(node.node_id) != "LOCAL":
+            raise RuntimeError(
+                f"node is bound to worker execution backend: {node.node_id}"
+            )
+        self._bind_execution_backend(node.node_id, "LOCAL")
         request = self._local_execution_request(
             node.node_id,
             input_payload=input_payload,
@@ -872,7 +926,7 @@ class OrchorbitalExecutor:
 
     def reconcile_node(self, node_id: str) -> dict[str, object]:
         node = self.fabric.node(node_id)
-        if not self._worker_execution_active(node.species):
+        if not self._node_worker_execution_active(node.node_id):
             raise RuntimeError("node is not bound to the WorkerBroker backend")
         if node.status != "OPEN":
             return {
@@ -977,7 +1031,7 @@ class OrchorbitalExecutor:
         failures: list[dict[str, str]] = []
         for node_id in tuple(self.fabric.running_nodes()):
             node = self.fabric.node(node_id)
-            if not self._worker_execution_active(node.species):
+            if not self._node_worker_execution_active(node.node_id):
                 continue
             try:
                 rows.append(self.reconcile_node(node_id))
@@ -1000,8 +1054,9 @@ class OrchorbitalExecutor:
 
     def start_local(self, node_id: str) -> NodeInstance:
         node = self.fabric.node(node_id)
-        if self._worker_execution_active(node.species):
+        if self._execution_backend(node.node_id) == "WORKER":
             raise RuntimeError("active worker backend node must use WorkerBroker")
+        self._bind_execution_backend(node.node_id, "LOCAL")
         return self.fabric.mark_started(node.node_id)
 
     def complete_local(
@@ -1010,8 +1065,9 @@ class OrchorbitalExecutor:
         output: Any,
     ) -> dict[str, object]:
         node = self.fabric.node(node_id)
-        if self._worker_execution_active(node.species):
+        if self._execution_backend(node.node_id) == "WORKER":
             raise RuntimeError("active worker backend node must use WorkerBroker")
+        self._bind_execution_backend(node.node_id, "LOCAL")
         if not node.execution_started:
             node = self.fabric.mark_started(node.node_id)
         commitment = _local_result_commitment(
@@ -1363,6 +1419,11 @@ class OrchorbitalExecutor:
                 f"local reduction adapter is not registered for {node.species}"
             )
 
+        if self._reduction_backend(node.node_id) != "LOCAL":
+            raise RuntimeError(
+                f"node is bound to worker reduction backend: {node.node_id}"
+            )
+        self._bind_reduction_backend(node.node_id, "LOCAL")
         request = self._local_reduction_request(node.node_id)
         try:
             output = self.local_adapters.reduce(node.species, request)
@@ -1412,7 +1473,7 @@ class OrchorbitalExecutor:
 
         for node_id in self.fabric.reduction_candidates():
             node = self.fabric.node(node_id)
-            if self._worker_reduction_active(node.species):
+            if self._node_worker_reduction_active(node.node_id):
                 continue
             if node.species in CORE_BOUNDARY_SPECIES:
                 core_boundary_required.append(node.node_id)
@@ -1460,14 +1521,11 @@ class OrchorbitalExecutor:
         node = self.fabric.node(node_id)
         if node.status != "OPEN":
             raise RuntimeError("reduction target must remain open")
-        if not self._worker_reduction_active(node.species):
-            if self._local_reducer_active(node.species):
-                raise RuntimeError(
-                    f"reduction is bound to active local reducer: {node.species}"
-                )
+        if self._reduction_backend(node.node_id) != "WORKER":
             raise RuntimeError(
-                f"reduction requires local/core adapter for species: {node.species}"
+                f"node is bound to local reduction backend: {node.node_id}"
             )
+        self._bind_reduction_backend(node.node_id, "WORKER")
         if node.reduction_complete:
             raise RuntimeError("node reduction is already complete")
 
@@ -1513,7 +1571,7 @@ class OrchorbitalExecutor:
         local_required: list[str] = []
         for node_id in self.fabric.reduction_candidates():
             node = self.fabric.node(node_id)
-            if not self._worker_reduction_active(node.species):
+            if not self._node_worker_reduction_active(node.node_id):
                 local_required.append(node.node_id)
                 continue
             try:
@@ -1561,7 +1619,7 @@ class OrchorbitalExecutor:
                 "changed": False,
                 "reduction_commitment": node.reduction_commitment,
             }
-        if not self._worker_reduction_active(node.species):
+        if not self._node_worker_reduction_active(node.node_id):
             raise RuntimeError("node requires active local/core reduction adapter")
 
         packet = self.build_reduction_packet(node.node_id)
@@ -1637,7 +1695,7 @@ class OrchorbitalExecutor:
         failures: list[dict[str, str]] = []
         for node_id in self.fabric.reduction_candidates():
             node = self.fabric.node(node_id)
-            if not self._worker_reduction_active(node.species):
+            if not self._node_worker_reduction_active(node.node_id):
                 continue
             try:
                 rows.append(self.reconcile_reduction(node.node_id))
@@ -1845,6 +1903,12 @@ class OrchorbitalExecutor:
             "reduction_input_commitments": dict(
                 sorted(self._reduction_input_commitments.items())
             ),
+            "execution_backend_bindings": dict(
+                sorted(self._execution_backend_bindings.items())
+            ),
+            "reduction_backend_bindings": dict(
+                sorted(self._reduction_backend_bindings.items())
+            ),
             "worker_broker_state_included": False,
             "worker_broker_state_required_external": True,
             "sensitive_result_payloads": True,
@@ -1991,6 +2055,8 @@ class OrchorbitalExecutor:
         raw_local = core.get("local_results")
         raw_reductions = core.get("reduction_results")
         raw_inputs = core.get("reduction_input_commitments")
+        raw_execution_backends = core.get("execution_backend_bindings")
+        raw_reduction_backends = core.get("reduction_backend_bindings")
         if not isinstance(raw_local, Mapping):
             raise ValueError("executor checkpoint local_results must be a mapping")
         if not isinstance(raw_reductions, Mapping):
@@ -1999,21 +2065,38 @@ class OrchorbitalExecutor:
             raise ValueError(
                 "executor checkpoint reduction_input_commitments must be a mapping"
             )
+        if not isinstance(raw_execution_backends, Mapping):
+            raise ValueError(
+                "executor checkpoint execution_backend_bindings must be a mapping"
+            )
+        if not isinstance(raw_reduction_backends, Mapping):
+            raise ValueError(
+                "executor checkpoint reduction_backend_bindings must be a mapping"
+            )
+
+        execution_backends: dict[str, str] = {}
+        for raw_node_id, raw_backend in raw_execution_backends.items():
+            node_id = _strict_text(raw_node_id, "execution backend node_id")
+            fabric.node(node_id)
+            if not isinstance(raw_backend, str) or raw_backend not in EXECUTION_BACKENDS:
+                raise ValueError("executor checkpoint execution backend is invalid")
+            execution_backends[node_id] = raw_backend
+
+        reduction_backends: dict[str, str] = {}
+        for raw_node_id, raw_backend in raw_reduction_backends.items():
+            node_id = _strict_text(raw_node_id, "reduction backend node_id")
+            fabric.node(node_id)
+            if not isinstance(raw_backend, str) or raw_backend not in REDUCTION_BACKENDS:
+                raise ValueError("executor checkpoint reduction backend is invalid")
+            reduction_backends[node_id] = raw_backend
 
         local_results: dict[str, Any] = {}
         for raw_node_id, output in raw_local.items():
             node_id = _strict_text(raw_node_id, "local result node_id")
             node = fabric.node(node_id)
-            if (
-                node.species in WORKER_DISPATCHABLE_SPECIES
-                and not (
-                    node.species in LOCAL_EXECUTION_SPECIES
-                    and local_adapters is not None
-                    and local_adapters.has(node.species)
-                )
-            ):
+            if execution_backends.get(node_id) != "LOCAL":
                 raise ValueError(
-                    "worker-backed node cannot own executor-local result payload"
+                    "executor-local result requires LOCAL backend binding"
                 )
             if not node.self_complete or not isinstance(node.result_commitment, str):
                 raise ValueError("local result node is not self-complete")
@@ -2059,7 +2142,7 @@ class OrchorbitalExecutor:
             if (
                 node.self_complete
                 and node.node_id not in local_results
-                and node.species not in WORKER_DISPATCHABLE_SPECIES
+                and execution_backends.get(node.node_id) == "LOCAL"
                 and node.result_commitment is not None
             ):
                 raise ValueError(
@@ -2070,7 +2153,7 @@ class OrchorbitalExecutor:
                     f"executor checkpoint is missing reduction result: {node.node_id}"
                 )
             if (
-                node.species in WORKER_DISPATCHABLE_SPECIES
+                execution_backends.get(node.node_id) == "WORKER"
                 and node.self_complete
                 and node.result_commitment is not None
                 and node.node_id not in local_results
@@ -2087,15 +2170,15 @@ class OrchorbitalExecutor:
         restored._local_results = local_results
         restored._reduction_results = reduction_results
         restored._reduction_input_commitments = reduction_inputs
+        restored._execution_backend_bindings = execution_backends
+        restored._reduction_backend_bindings = reduction_backends
         return restored
 
     def receipt(self) -> dict[str, object]:
         frontier = self.frontier()
         reduction_candidates = tuple(self.fabric.reduction_candidates())
         manual_local_reduction_required = any(
-            not self._worker_reduction_active(
-                self.fabric.node(node_id).species
-            )
+            not self._node_worker_reduction_active(node_id)
             and not self._local_reducer_active(
                 self.fabric.node(node_id).species
             )
@@ -2107,6 +2190,12 @@ class OrchorbitalExecutor:
             "execution_id": self.execution_id,
             "worker_dispatchable_species": sorted(WORKER_DISPATCHABLE_SPECIES),
             "local_execution_species": sorted(LOCAL_EXECUTION_SPECIES),
+            "execution_backend_bindings": dict(
+                sorted(self._execution_backend_bindings.items())
+            ),
+            "reduction_backend_bindings": dict(
+                sorted(self._reduction_backend_bindings.items())
+            ),
             "active_local_adapter_species": (
                 []
                 if self.local_adapters is None
@@ -2123,7 +2212,7 @@ class OrchorbitalExecutor:
                 {
                     node.species
                     for node in self.fabric.nodes()
-                    if not self._worker_execution_active(node.species)
+                    if not self._node_worker_execution_active(node.node_id)
                 }
             ),
             "worker_ready_count": len(frontier["worker_ready"]),
