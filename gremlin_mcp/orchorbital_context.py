@@ -158,6 +158,7 @@ class OrbitalContextStore:
             raise ValueError("materialization_cache_frames must be a positive integer")
         self.fabric = fabric
         self._frames: dict[str, ContextFrame] = {}
+        self._shared_frame_ids: set[str] = set()
         self._materialization_cache_frames = materialization_cache_frames
         self._materialized_cache: OrderedDict[str, dict[str, Any]] = OrderedDict()
 
@@ -330,13 +331,15 @@ class OrbitalContextStore:
         fid = _strict_text(frame_id, "frame_id")
         if not fid.startswith("CTX:"):
             raise ValueError("shared context frame id must start with CTX:")
-        return self._bind(
+        frame = self._bind(
             node_id=fid,
             base_node_id=_strict_text(base_frame_id, "base_frame_id"),
             set_values={} if set_values is None else set_values,
             delete_keys=delete_keys,
             require_fabric_node=False,
         )
+        self._shared_frame_ids.add(fid)
+        return frame
 
     def inherit_from_caller(
         self,
@@ -671,7 +674,7 @@ class OrbitalContextStore:
                 {
                     **self._frames[node_id].public_view(),
                     "frame_kind": (
-                        "SHARED" if node_id.startswith("CTX:") else "NODE"
+                        "SHARED" if node_id in self._shared_frame_ids else "NODE"
                     ),
                 }
                 for node_id in sorted(self._frames)
