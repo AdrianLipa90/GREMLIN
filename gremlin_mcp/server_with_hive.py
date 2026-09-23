@@ -20,6 +20,9 @@ from .memory_anti_entropy import (
     plan_hive_delta,
 )
 from .research_executor import execute_research
+from .semantic_graph_transformer import SemanticGraphTransformer
+from .semantic_graph_bestiary import build_bestiary_handoff, build_hive_exchange_candidate
+from .memory_capabilities import authorize_memory_requests
 from .owl_runtime_audit import owl_runtime_boundary
 from .server import build_parser as build_base_parser
 from .server import configure_state, mcp, standalone_phasenav_self_test
@@ -401,6 +404,69 @@ def gremlin_hive_research_execute(
         "hive_ingest": ingest,
         "authority": "SHARED_COGNITION_ONLY",
     }
+
+
+
+@mcp.tool()
+@owl_runtime_boundary
+def gremlin_semantic_graph_compile(
+    documents: list[str],
+    max_neighbors: int = 8,
+    min_confidence: float = 0.52,
+) -> dict[str, Any]:
+    """Compile unstructured text into compact typed relation tokens without mutating Hive."""
+    return SemanticGraphTransformer(
+        max_neighbors=max_neighbors,
+        min_confidence=min_confidence,
+    ).compile(documents)
+
+
+@mcp.tool()
+@owl_runtime_boundary
+def gremlin_semantic_graph_causal_cone(
+    compiled: dict[str, Any],
+    seeds: list[str],
+    depth: int = 2,
+) -> dict[str, Any]:
+    """Return the bounded active semantic subgraph around the query seeds."""
+    return SemanticGraphTransformer.causal_cone(compiled, seeds, depth=depth)
+
+
+@mcp.tool()
+@owl_runtime_boundary
+def gremlin_semantic_graph_bestiary_handoff(
+    compiled: dict[str, Any],
+    subject_id: str,
+    generation_id: str,
+    task_id: str,
+) -> dict[str, Any]:
+    """Build exact capability-scoped SPIDER -> ELEPHANT -> BEES handoff receipts."""
+    return build_bestiary_handoff(
+        compiled,
+        subject_id=subject_id,
+        generation_id=generation_id,
+        task_id=task_id,
+        authorize=lambda role, requests: authorize_memory_requests(
+            role,
+            requests,
+            task_id=task_id,
+        ),
+    )
+
+
+@mcp.tool()
+@owl_runtime_boundary
+def gremlin_semantic_graph_hive_exchange_candidate(
+    compiled: dict[str, Any],
+    subject_id: str,
+    generation_id: str,
+) -> dict[str, Any]:
+    """Build a read-only content-addressed candidate packet for existing Hive ingest."""
+    return build_hive_exchange_candidate(
+        compiled,
+        subject_id=subject_id,
+        generation_id=generation_id,
+    )
 
 
 def build_parser():
