@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import OrderedDict
 from collections.abc import Iterable, Mapping
 from copy import deepcopy
 from dataclasses import dataclass
@@ -23,6 +24,7 @@ BUNDLE_DOMAIN = b"GREMLIN-ORCHORBITAL-CONTEXT-BUNDLE/v0.1\x00"
 CONTEXT_CHECKPOINT_SCHEMA = "GREMLIN_ORCHORBITAL_CONTEXT_CHECKPOINT_V0_1"
 CONTEXT_CHECKPOINT_DOMAIN = b"GREMLIN-ORCHORBITAL-CONTEXT-CHECKPOINT/v0.1\x00"
 MAX_CONTEXT_KEYS = 4096
+DEFAULT_MATERIALIZATION_CACHE_FRAMES = 128
 
 
 def _canonical(value: Any) -> bytes:
@@ -140,12 +142,77 @@ class ContextFrame:
 class OrbitalContextStore:
     """Immutable base+delta context lineage keyed by orchorbital node identity."""
 
-    def __init__(self, fabric: OrchorbitalFabric) -> None:
+    def __init__(
+        self,
+        fabric: OrchorbitalFabric,
+        *,
+        materialization_cache_frames: int = DEFAULT_MATERIALIZATION_CACHE_FRAMES,
+    ) -> None:
         if not isinstance(fabric, OrchorbitalFabric):
             raise ValueError("fabric must be an OrchorbitalFabric")
+        if (
+            isinstance(materialization_cache_frames, bool)
+            or not isinstance(materialization_cache_frames, int)
+            or materialization_cache_frames < 1
+        ):
+            raise ValueError("materialization_cache_frames must be a positive integer")
         self.fabric = fabric
         self._frames: dict[str, ContextFrame] = {}
-        self._materialized: dict[str, dict[str, Any]] = {}
+        self._materialization_cache_frames = materialization_cache_frames
+        self._materialized_cache: OrderedDict[str, dict[str, Any]] = OrderedDict()
+
+    def _cache_materialized(
+        self,
+        frame_id: str,
+        context: Mapping[str, Any],
+    ) -> None:
+        fid = _strict_text(frame_id, "frame_id")
+        if fid in self._materialized_cache:
+            del self._materialized_cache[fid]
+        self._materialized_cache[fid] = deepcopy(dict(context))
+        while len(self._materialized_cache) > self._materialization_cache_frames:
+            self._materialized_cache.popitem(last=False)
+
+    def _materialize_frame(self, frame_id: str) -> dict[str, Any]:
+        fid = _strict_text(frame_id, "frame_id")
+        cached = self._materialized_cache.get(fid)
+        if cached is not None:
+            del self._materialized_cache[fid]
+            self._materialized_cache[fid] = cached
+            return deepcopy(cached)
+
+        if fid not in self._frames:
+            raise ValueError("node context is not bound")
+
+        chain: list[ContextFrame] = []
+        current_id = fid
+        base_context: dict[str, Any] | None = None
+        while True:
+            cached = self._materialized_cache.get(current_id)
+            if cached is not None:
+                del self._materialized_cache[current_id]
+                self._materialized_cache[current_id] = cached
+                base_context = deepcopy(cached)
+                break
+
+            frame = self._frames.get(current_id)
+            if frame is None:
+                raise RuntimeError("context lineage references an unbound base frame")
+            chain.append(frame)
+            if frame.base_node_id is None:
+                base_context = {}
+                break
+            current_id = frame.base_node_id
+
+        context = {} if base_context is None else base_context
+        for frame in reversed(chain):
+            for key in frame.delete_keys:
+                context.pop(key, None)
+            context.update(deepcopy(frame.set_values))
+            if _materialized_commitment(context) != frame.materialized_commitment:
+                raise RuntimeError("context materialization commitment mismatch")
+            self._cache_materialized(frame.node_id, context)
+        return deepcopy(context)
 
     def _bind(
         self,
@@ -192,7 +259,7 @@ class OrbitalContextStore:
             base_frame = self._frames.get(base_id)
             if base_frame is None:
                 raise ValueError("base node context is not bound")
-            base_context = deepcopy(self._materialized[base_id])
+            base_context = self._materialize_frame(base_id)
             base_commitment = base_frame.frame_commitment
             depth = base_frame.depth + 1
 
@@ -226,7 +293,7 @@ class OrbitalContextStore:
             raise RuntimeError("node context is immutable once bound")
 
         self._frames[canonical_id] = frame
-        self._materialized[canonical_id] = deepcopy(materialized)
+        self._cache_materialized(canonical_id, materialized)
         return frame
 
     def bind_root(self, context: Mapping[str, Any]) -> ContextFrame:
@@ -323,9 +390,9 @@ class OrbitalContextStore:
 
     def materialize(self, node_id: str) -> dict[str, Any]:
         nid = _strict_text(node_id, "node_id")
-        if nid not in self._materialized:
+        if nid not in self._frames:
             raise ValueError("node context is not bound")
-        return deepcopy(self._materialized[nid])
+        return self._materialize_frame(nid)
 
     def packet(
         self,
@@ -382,7 +449,7 @@ class OrbitalContextStore:
             PACKET_DOMAIN + _canonical(core),
             digest_size=32,
         ).hexdigest()
-        materialized_bytes = len(_canonical(self._materialized[target.node_id]))
+        materialized_bytes = len(_canonical(self._materialize_frame(target.node_id)))
         packet_bytes = len(_canonical(core))
         return {
             **core,
@@ -584,6 +651,9 @@ class OrbitalContextStore:
             "schema": SCHEMA,
             "authority_root_id": self.fabric.authority_root_id,
             "frame_count": len(self._frames),
+            "delta_only_storage": True,
+            "materialization_cache_limit_frames": self._materialization_cache_frames,
+            "materialization_cache_size": len(self._materialized_cache),
             "frames": [
                 {
                     **self._frames[node_id].public_view(),
@@ -1106,6 +1176,7 @@ __all__ = [
     "BUNDLE_SCHEMA",
     "CONTEXT_CHECKPOINT_SCHEMA",
     "ContextFrame",
+    "DEFAULT_MATERIALIZATION_CACHE_FRAMES",
     "MAX_CONTEXT_KEYS",
     "OrbitalContextStore",
     "PACKET_PAYLOAD_KEY",
