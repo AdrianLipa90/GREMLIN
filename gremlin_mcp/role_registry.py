@@ -25,4 +25,24 @@ BESTIARY_ROLES: dict[str, dict[str, str]] = {
 
 BESTIARY_ROLE_NAMES = frozenset(BESTIARY_ROLES)
 
-__all__ = ["BESTIARY_ROLES", "BESTIARY_ROLE_NAMES"]
+# These roles are architectural boundaries, not ordinary exact-cover workers.
+CORE_BOUNDARY_SPECIES = frozenset({"HUMMINGBIRD", "OCTOPUS", "GREMLIN", "FERRET"})
+
+# These roles are legitimate execution modules but do not yet have validated
+# external PhaseNav worker carriers. They require explicit local adapters.
+LOCAL_EXECUTION_SPECIES = frozenset({"ELEPHANT", "BEES"})
+
+ROUTABLE_EXECUTION_SPECIES = (
+    BESTIARY_ROLE_NAMES - CORE_BOUNDARY_SPECIES
+)
+
+if not LOCAL_EXECUTION_SPECIES <= ROUTABLE_EXECUTION_SPECIES:
+    raise RuntimeError("local execution species must be routable execution species")
+
+__all__ = [
+    "BESTIARY_ROLES",
+    "BESTIARY_ROLE_NAMES",
+    "CORE_BOUNDARY_SPECIES",
+    "LOCAL_EXECUTION_SPECIES",
+    "ROUTABLE_EXECUTION_SPECIES",
+]
