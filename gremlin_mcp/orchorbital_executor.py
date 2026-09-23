@@ -338,10 +338,18 @@ class OrchorbitalExecutor:
         if not isinstance(overrides, Mapping):
             raise ValueError("payload_overrides must be a mapping")
         frontier = self.frontier()
+        retry_missing: list[str] = []
+        for node_id in frontier["worker_running"]:
+            task_id = self.deterministic_task_id(node_id)
+            try:
+                self.broker.task_result(task_id)
+            except ValueError as exc:
+                if "unknown task_id" not in str(exc):
+                    raise
+                retry_missing.append(node_id)
         candidate_ids = tuple(
             dict.fromkeys(
-                tuple(frontier["worker_ready"])
-                + tuple(frontier["worker_running"])
+                tuple(frontier["worker_ready"]) + tuple(retry_missing)
             )
         )
         payloads: dict[str, Mapping[str, Any]] = {}
