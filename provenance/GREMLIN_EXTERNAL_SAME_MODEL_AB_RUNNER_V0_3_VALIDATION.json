@@ -1,0 +1,42 @@
+{
+  "schema": "GREMLIN_EXTERNAL_SAME_MODEL_AB_RUNNER_VALIDATION_V0_3",
+  "status": "PASS_RUNNER_AND_SCORER_DRY_RUN_MODEL_NOT_RUN",
+  "canon_allowed": false,
+  "model_execution_performed": false,
+  "mock_adapter_only": true,
+  "full_run_receipt_count": 432,
+  "runner_result": {
+    "status": "PASS_RUNNER_COMPLETED",
+    "receipts": 432,
+    "model": "same-model-test"
+  },
+  "scorer_result": {
+    "status": "PASS_SCORED",
+    "model": "same-model-test"
+  },
+  "test_suite": {
+    "status": "PASS",
+    "pytest": "13 passed in 0.14s"
+  },
+  "preserved_failures": [
+    {
+      "stage": "runner unit test",
+      "failure": "oracle-leak assertion searched for literal word cancelled, which legitimately appeared in policy text",
+      "classification": "TEST_FALSE_POSITIVE",
+      "repair": "changed to structural exact-object oracle leak check"
+    },
+    {
+      "stage": "runner CLI dry-run",
+      "failure": "ModuleNotFoundError for repo-local mock adapter because script directory, not repo root, was on sys.path",
+      "classification": "RUNNER_ERGONOMICS_BUG",
+      "repair": "load_adapter now inserts repository ROOT into sys.path before import"
+    }
+  ],
+  "post_repair_validation": {
+    "runner_without_manual_pythonpath": "PASS_432_RECEIPTS",
+    "scorer_on_432_mock_receipts": "PASS_SCORED",
+    "all_tests": "PASS_13_OF_13"
+  },
+  "claim_boundary": "This validates runner/scorer mechanics only. same-model-test is a deterministic mock adapter and provides no foundation-model quality evidence.",
+  "receipt_sha256": "9a502c82519997d13496335654c77e773843babace62e582fda4c09dea269a49"
+}
