@@ -30,6 +30,7 @@ on:
       - 'tests/test_gremlin_orchorbital_context_transport_bench_v01.py'
       - 'tests/test_gremlin_mcp_worker_client_v02.py'
       - 'tests/test_gremlin_mcp_worker_abi_v02.py'
+      - 'tests/test_gremlin_mcp_persistence_v03.py'
       - 'tests/test_gremlin_geometry_phase_scheduler_v01.py'
       - 'spec/GREMLIN_ORCHORBITAL_FABRIC_V0_2.md'
       - '.github/workflows/gremlin-orchorbital-v02.yml'
@@ -75,6 +76,7 @@ jobs:
           tests/test_gremlin_orchorbital_context_transport_bench_v01.py
           tests/test_gremlin_mcp_worker_client_v02.py
           tests/test_gremlin_mcp_worker_abi_v02.py
+          tests/test_gremlin_mcp_persistence_v03.py
           tests/test_gremlin_geometry_phase_scheduler_v01.py
 
       - name: Run bounded context transport benchmark
