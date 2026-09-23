@@ -482,6 +482,7 @@ class OrbitalContextStore:
         core: dict[str, object] = {
             "schema": CONTEXT_CHECKPOINT_SCHEMA,
             "fabric_topology_commitment": self.fabric.topology_commitment(),
+            "materialization_cache_frames": self._materialization_cache_frames,
             "frames": [
                 {
                     "node_id": frame.node_id,
@@ -608,7 +609,19 @@ class OrbitalContextStore:
                 }
             )
 
-        restored = cls(fabric)
+        cache_frames = core.get("materialization_cache_frames")
+        if (
+            isinstance(cache_frames, bool)
+            or not isinstance(cache_frames, int)
+            or cache_frames < 1
+        ):
+            raise ValueError(
+                "context checkpoint materialization_cache_frames must be positive"
+            )
+        restored = cls(
+            fabric,
+            materialization_cache_frames=cache_frames,
+        )
         for row in sorted(parsed, key=lambda item: (item["depth"], item["node_id"])):
             frame_id = str(row["node_id"])
             base_id = row["base_node_id"]
