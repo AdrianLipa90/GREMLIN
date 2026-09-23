@@ -365,7 +365,7 @@ class OrbitalContextStore:
 def apply_context_packet(
     packet: Mapping[str, Any],
     *,
-    known_contexts: Mapping[str, Mapping[str, Any]] = {},
+    known_contexts: Mapping[str, Mapping[str, Any]] | None = None,
 ) -> dict[str, object]:
     """Verify and materialize a worker-side context packet.
 
