@@ -75,7 +75,7 @@ class HoloMemoryTests(unittest.TestCase):
                 "memory_id": f"m{i}",
                 "ledger_record_id": f"hive:{i}",
                 "packet": packet(i % 6, seed=i),
-                "orbit_index": i % 3,
+                "priority_orbit_index": i % 3,
                 "priority": 0.5,
             }
             for i in range(20)
@@ -116,7 +116,7 @@ class HoloMemoryTests(unittest.TestCase):
         self.assertEqual(rec, original)
         self.assertEqual(row["ledger_record_id"], "hive:abc")
         self.assertEqual(row["memory_id"], "subject-a")
-        self.assertEqual(row["orbit_index"], 7)
+        self.assertEqual(row["priority_orbit_index"], 7)
 
     def test_patch_moire_is_candidate_only(self):
         idx = HoloMemoryIndex()
@@ -153,7 +153,7 @@ class HoloMemoryTests(unittest.TestCase):
                     memory_id=mid,
                     ledger_record_id="hive:" + mid,
                     packet=p,
-                    orbit_index=row,
+                    priority_orbit_index=row,
                     priority=0.5,
                 )
         target = "r3-017"
@@ -195,14 +195,14 @@ class HoloMemoryTests(unittest.TestCase):
                         memory_id=mid,
                         ledger_record_id="hive:" + mid,
                         packet=p,
-                        orbit_index=orbit,
+                        priority_orbit_index=orbit,
+                        semantic_orbit_id=f"semantic:{orbit}",
                     )
         target = "o7-r4-5"
         out = idx.retrieve(
             packets[target],
             patch_radius=0,
-            orbit_radius=0,
-            orbit_index=7,
+            semantic_orbit_ids=["semantic:7"],
             fallback_full=False,
         )
         self.assertEqual(out["picked"], target)
@@ -414,10 +414,11 @@ class HoloMemoryTests(unittest.TestCase):
             hex_scale=2.0,
         )
         self.assertEqual(index.count, 2)
-        self.assertFalse(receipt["orbit_map_bound"])
+        self.assertFalse(receipt["semantic_orbit_map_bound"])
         self.assertTrue(
             all(
-                origin["orbit_source"] == "UNBOUND_DEFAULT_ZERO"
+                origin["semantic_orbit_source"]
+                == "SEMANTIC_ORBIT_UNBOUND"
                 for origin in receipt["origins"]
             )
         )
@@ -445,8 +446,38 @@ class HoloMemoryTests(unittest.TestCase):
         with self.assertRaises(NoemaTraceBridgeError):
             materialize_noema_traces(
                 [trace],
-                orbit_map={},
+                semantic_orbit_map={},
             )
+
+
+    def test_priority_orbit_is_not_semantic_filter_by_default(self):
+        idx = HoloMemoryIndex(hex_scale=2.0)
+        a = encode_memory_text(
+            "relational memory coherence overlap"
+        )
+        b = encode_memory_text(
+            "relational memory coherence overlap"
+        )
+        idx.add(
+            memory_id="inner",
+            ledger_record_id="hive:inner",
+            packet=a,
+            priority_orbit_index=0,
+            semantic_orbit_id="memory",
+        )
+        idx.add(
+            memory_id="outer",
+            ledger_record_id="hive:outer",
+            packet=b,
+            priority_orbit_index=35,
+            semantic_orbit_id="memory",
+        )
+        ids = idx.shortlist(
+            a,
+            patch_radius=0,
+            semantic_orbit_ids=["memory"],
+        )
+        self.assertEqual(set(ids), {"inner", "outer"})
 
 
 if __name__ == "__main__":
