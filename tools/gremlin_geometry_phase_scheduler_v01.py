@@ -7,6 +7,7 @@ import math
 import re
 from typing import Any, Iterable, Mapping, Sequence
 
+from gremlin_mcp.role_registry import CONTROL_PLANE_SPECIES, DYNAMIC_WORKLOAD_SPECIES
 from tools.gremlin_bestiary_phasenav_phase_gates_v01 import DIM, TAU, PhaseGate36, SPECIES
 
 SCHEMA = "GREMLIN_GEOMETRY_PHASE_STATE_SCHEDULER_V0_1"
@@ -18,9 +19,10 @@ CONTEXT_AFFINITY_WEIGHT = 0.08
 RECEIVER_CACHE_AFFINITY_WEIGHT = 0.06
 RECEIVER_SPECIES_AFFINITY_WEIGHT = 0.04
 
-# These roles remain inside the GREMLIN root/boundary rather than external worker queues.
-CORE_ONLY_SPECIES = frozenset({"HUMMINGBIRD", "OCTOPUS", "GREMLIN", "FERRET"})
-SCHEDULER_SPECIES = tuple(name for name in SPECIES if name not in CORE_ONLY_SPECIES)
+# Control-plane classification comes from the canonical 20-role registry.
+CORE_ONLY_SPECIES = CONTROL_PLANE_SPECIES
+SCHEDULER_SPECIES = tuple(sorted(DYNAMIC_WORKLOAD_SPECIES))
+PHASENAV_CARRIER_SPECIES = frozenset(SPECIES)
 
 
 class GeometryPhaseSchedulerError(ValueError):
@@ -255,6 +257,11 @@ def _anchor_resonance(state: TaskPhaseState) -> float:
     # Explicit PhaseNav states are allowed to use the species carrier as a real
     # scheduling coordinate. Fallback content fingerprints remain anchor-neutral.
     if state.phase_source != "EXPLICIT_T36":
+        return 0.5
+    # ELEPHANT/BEES are valid dynamic Bestiary roles but do not yet have
+    # validated PhaseNav species carriers. Keep their anchor contribution
+    # neutral rather than inventing a carrier.
+    if state.species not in PHASENAV_CARRIER_SPECIES:
         return 0.5
     anchor = PhaseGate36(state.species).phase_bias
     return 1.0 - phase_distance(state.phase36, anchor)
@@ -616,6 +623,13 @@ def scheduler_manifest() -> dict[str, Any]:
         "fifo_primary": False,
         "fifo_proxy_only": True,
         "explicit_phase_supported": True,
+        "dynamic_workload_species": list(SCHEDULER_SPECIES),
+        "validated_phasenav_carrier_species": sorted(
+            PHASENAV_CARRIER_SPECIES & frozenset(SCHEDULER_SPECIES)
+        ),
+        "anchor_neutral_dynamic_species": sorted(
+            frozenset(SCHEDULER_SPECIES) - PHASENAV_CARRIER_SPECIES
+        ),
         "derived_phase": "LOCALITY_ORIENTED_STRUCTURAL_TEXT_PHASE_V0_1",
         "token_saving_claim": False,
         "noise_reduction_metric": "PROXY_UNTIL_END_TO_END_TOKEN_BENCHMARK",
