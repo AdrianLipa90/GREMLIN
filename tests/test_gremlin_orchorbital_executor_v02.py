@@ -134,7 +134,7 @@ def test_frontier_separates_worker_and_local_core_nodes() -> None:
     )
     local = fabric.spawn(
         "AUTH:ROOT",
-        "BEES",
+        "OCTOPUS",
         node_id="LOCAL",
         join_to_caller=False,
     )
@@ -248,8 +248,8 @@ def test_local_role_uses_same_completion_contract_without_worker_queue() -> None
     fabric, _, executor = executor_with_worker()
     node = fabric.spawn(
         "AUTH:ROOT",
-        "BEES",
-        node_id="BEES-LOCAL",
+        "OCTOPUS",
+        node_id="OCTOPUS-LOCAL",
         join_to_caller=False,
     )
 
@@ -264,8 +264,8 @@ def test_local_result_can_discover_recursive_worker_obligation() -> None:
     fabric, _, executor = executor_with_worker()
     local = fabric.spawn(
         "AUTH:ROOT",
-        "BEES",
-        node_id="BEES-LOCAL",
+        "OCTOPUS",
+        node_id="OCTOPUS-LOCAL",
         join_to_caller=False,
     )
 
@@ -589,7 +589,7 @@ def test_reduction_output_is_bound_to_exact_join_inputs() -> None:
     fabric, broker, executor = executor_with_worker()
     parent = fabric.spawn(
         "AUTH:ROOT",
-        "BEES",
+        "OCTOPUS",
         node_id="LOCAL-REDUCE-PARENT",
         join_to_caller=False,
     )
@@ -633,7 +633,7 @@ def test_join_results_are_not_silently_ignored_by_settle() -> None:
     fabric, broker, executor = executor_with_worker()
     parent = fabric.spawn(
         "AUTH:ROOT",
-        "BEES",
+        "OCTOPUS",
         node_id="NO-SILENT-PARENT",
         join_to_caller=False,
     )
@@ -663,13 +663,13 @@ def test_recovery_effective_result_preserves_partial_replacement_and_stranded_ch
 
     source = fabric.spawn(
         "AUTH:ROOT",
-        "BEES",
+        "OCTOPUS",
         obligations=("recover-me",),
         node_id="FAILED-SOURCE",
     )
     stranded = fabric.spawn(
         source.node_id,
-        "ELEPHANT",
+        "HUMMINGBIRD",
         obligations=("stranded-evidence",),
         node_id="STRANDED-CHILD",
     )
@@ -678,7 +678,7 @@ def test_recovery_effective_result_preserves_partial_replacement_and_stranded_ch
 
     replacement = fabric.spawn(
         "AUTH:ROOT",
-        "BEES",
+        "OCTOPUS",
         obligations=("recover-me",),
         node_id="RECOVERY-NODE",
         join_to_caller=False,
