@@ -12,7 +12,7 @@ PRODUCT_ONLY = {
 }
 
 REFERENCE_ONLY = {
-    "gremlin_handle_user_task",
+    "gremlin_handle_user_task",\n    "gremlin_queue_user_task",
     "gremlin_phasenav_status",
     "gremlin_phasenav_reference_sweep",
     "gremlin_phasenav_threeway",
@@ -35,11 +35,11 @@ def _tool_contract(tool) -> dict:
 
 def test_tool_catalog_covers_every_declared_tool_exactly() -> None:
     declared = set(REFERENCE_MCP_TOOLS) | set(PRODUCT_MCP_TOOLS)
-    assert len(declared) == 36
+    assert len(declared) == 37
     assert set(TOOL_DESCRIPTIONS) == declared
 
     manifest = catalog_manifest()
-    assert manifest["tool_count"] == 36
+    assert manifest["tool_count"] == 37
     assert set(manifest["tools"]) == declared
 
     for name in sorted(declared):
@@ -59,7 +59,7 @@ def test_declared_surface_difference_is_exact_and_intentional() -> None:
     product = set(PRODUCT_MCP_TOOLS)
     shared = reference & product
 
-    assert len(reference) == 34
+    assert len(reference) == 35
     assert len(product) == 29
     assert len(shared) == 27
     assert product - reference == PRODUCT_ONLY
