@@ -1217,3 +1217,70 @@ def test_coordination_point_creation_rolls_back_on_invariant_failure(monkeypatch
 
     assert fabric.coordination_points() == ()
     assert fabric.events() == before_events
+
+
+def test_coordination_point_is_not_materialized_as_quadratic_clique() -> None:
+    fabric = OrchorbitalFabric(max_nodes=80)
+    members = [
+        fabric.spawn(
+            "AUTH:ROOT",
+            "SPIDER",
+            node_id=f"N{index}",
+            join_to_caller=False,
+        )
+        for index in range(64)
+    ]
+    fabric.create_coordination_point(
+        tuple(node.node_id for node in members),
+        point_id="HYPEREDGE",
+    )
+
+    direct = fabric._locality_adjacency()
+    assert members[1].node_id not in direct[members[0].node_id]
+    assert fabric.locality_distance(members[0].node_id, members[-1].node_id) == 1.0
+    assert fabric.receipt()["coordination_point_clique_materialized"] is False
+
+
+def test_authority_root_cannot_be_used_as_replacement_target() -> None:
+    fabric = OrchorbitalFabric()
+    source = fabric.spawn(
+        "AUTH:ROOT",
+        "SPIDER",
+        node_id="SOURCE",
+        join_to_caller=False,
+    )
+    fabric.fail(source.node_id, reason="worker failure")
+
+    with pytest.raises(ValueError, match="authority root cannot serve"):
+        fabric.bind_replacement(source.node_id, "AUTH:ROOT")
+
+
+def test_resolution_diagnostics_distinguish_terminal_from_resolved() -> None:
+    fabric = OrchorbitalFabric()
+    source = fabric.spawn(
+        "AUTH:ROOT",
+        "SPIDER",
+        obligations=("graph",),
+        node_id="SOURCE",
+        join_to_caller=False,
+    )
+    fabric.fail(source.node_id, reason="worker failure")
+
+    assert fabric.is_resolved(source.node_id) is False
+    assert fabric.unresolved_terminal_nodes() == (source.node_id,)
+    assert fabric.receipt()["unresolved_terminal_node_count"] == 1
+
+    replacement = fabric.spawn(
+        "AUTH:ROOT",
+        "OWL",
+        obligations=("graph",),
+        node_id="REPLACEMENT",
+        join_to_caller=False,
+    )
+    fabric.bind_replacement(source.node_id, replacement.node_id)
+    finish_local(fabric, replacement.node_id, "replacement")
+    fabric.close(replacement.node_id)
+
+    assert fabric.is_resolved(source.node_id) is True
+    assert fabric.unresolved_terminal_nodes() == ()
+    assert fabric.receipt()["unresolved_terminal_node_count"] == 0
