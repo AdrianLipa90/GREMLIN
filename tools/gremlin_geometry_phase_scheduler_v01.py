@@ -525,6 +525,26 @@ def select_batch(
         {state.task_id for state in eligible},
     )
     affinity_active = any(affinity.values())
+    affinity_commitments = sorted(
+        {
+            commitment
+            for signature in affinity.values()
+            for commitment in signature
+        }
+    )
+    affinity_bit_index = {
+        commitment: index
+        for index, commitment in enumerate(affinity_commitments)
+    }
+    affinity_bits: dict[str, int] = {}
+    affinity_sizes: dict[str, int] = {}
+    if affinity_active:
+        for task_id, signature in affinity.items():
+            bits = 0
+            for commitment in signature:
+                bits |= 1 << affinity_bit_index[commitment]
+            affinity_bits[task_id] = bits
+            affinity_sizes[task_id] = len(signature)
     if receiver_known_affinity is None:
         receiver_known = frozenset()
     else:
@@ -541,10 +561,16 @@ def select_batch(
     receiver_affinity_active = bool(receiver_known) and affinity_active
     receiver_scores: dict[str, float] = {}
     if receiver_affinity_active:
-        for task_id, signature in affinity.items():
-            if signature:
+        receiver_known_bits = 0
+        for commitment in receiver_known:
+            index = affinity_bit_index.get(commitment)
+            if index is not None:
+                receiver_known_bits |= 1 << index
+        for task_id, bits in affinity_bits.items():
+            size = affinity_sizes.get(task_id, 0)
+            if size > 0:
                 receiver_scores[task_id] = (
-                    len(signature & receiver_known) / len(signature)
+                    (bits & receiver_known_bits).bit_count() / size
                 )
 
     def receiver_score(task_id: str) -> float:
@@ -570,19 +596,26 @@ def select_batch(
 
     while remaining and len(chosen) < limit:
         current = chosen[-1]
-        active_affinity: set[str] = set()
+        active_affinity_bits = 0
         if affinity_active:
             for selected_state in chosen:
-                active_affinity.update(
-                    affinity.get(selected_state.task_id, frozenset())
+                active_affinity_bits |= affinity_bits.get(
+                    selected_state.task_id,
+                    0,
                 )
+        active_affinity_size = active_affinity_bits.bit_count()
 
         def active_context_affinity(task_id: str) -> float:
-            candidate = affinity.get(task_id, frozenset())
-            if not candidate or not active_affinity:
+            candidate_bits = affinity_bits.get(task_id, 0)
+            candidate_size = affinity_sizes.get(task_id, 0)
+            if (
+                candidate_bits == 0
+                or candidate_size <= 0
+                or active_affinity_size <= 0
+            ):
                 return 0.0
-            overlap = len(candidate & active_affinity)
-            scale = min(len(candidate), len(active_affinity))
+            overlap = (candidate_bits & active_affinity_bits).bit_count()
+            scale = min(candidate_size, active_affinity_size)
             return 0.0 if scale <= 0 else overlap / scale
 
         def candidate_score(state: TaskPhaseState) -> float:
@@ -680,6 +713,8 @@ def select_batch(
         "distance_kernel": "SCALAR_EXACT_V0_1",
         "active_context_affinity_union_reused": True,
         "receiver_cache_affinity_precomputed": receiver_affinity_active,
+        "context_affinity_bitset_used": affinity_active,
+        "context_affinity_commitment_count": len(affinity_commitments),
         "ready_count": len(eligible),
         "queued_count": len(states),
         "fifo_used_for_selection": False,
