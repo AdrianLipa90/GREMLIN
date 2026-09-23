@@ -18,7 +18,7 @@ The gateway is intended to be the first GREMLIN call for a user task. It does no
 4. Repository/write/send/deploy style tasks remain plan-only until the host obtains the normal explicit authorization.
 5. Raw context documents are compiled into the semantic graph and represented to workers by graph tokens plus content commitments; raw context is not duplicated into the worker payload.
 6. Live NOEMA state is a witness only in v0.1. It does not override semantic routing.
-7. No canon promotion or production execution authority is granted.
+7. No canon promotion or production execution authority is granted.\n8. Routing metadata must not become semantic evidence. Counters and bookkeeping fields stay outside the OCTOPUS cue surface, preventing self-routing contamination.
 
 ## Modes
 
