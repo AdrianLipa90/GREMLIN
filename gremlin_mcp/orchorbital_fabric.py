@@ -96,6 +96,7 @@ class NodeInstance:
     obligations: tuple[str, ...]
     phase36: tuple[float, ...] | None
     status: str
+    execution_started: bool
     self_complete: bool
     result_commitment: str | None
     spawned_seq: int
@@ -184,6 +185,7 @@ class OrchorbitalFabric:
             obligations=(),
             phase36=None,
             status=OPEN,
+            execution_started=False,
             self_complete=False,
             result_commitment=None,
             spawned_seq=0,
@@ -373,6 +375,7 @@ class OrchorbitalFabric:
                         obligations=row.obligations,
                         phase36=row.phase36,
                         status=OPEN,
+                        execution_started=False,
                         self_complete=False,
                         result_commitment=None,
                         spawned_seq=self._seq + 1,
@@ -416,8 +419,10 @@ class OrchorbitalFabric:
 
     def add_causal_dependency(self, node_id: str, dependency_id: str) -> None:
         with self._lock:
-            self._require_open(node_id)
+            node = self._require_open(node_id)
             self._require(dependency_id)
+            if node.execution_started:
+                raise RuntimeError("causal dependencies are sealed after execution starts")
             if node_id == dependency_id:
                 raise ValueError("self causal dependency")
             old = set(self._causal[node_id])
@@ -452,8 +457,8 @@ class OrchorbitalFabric:
 
     def add_coordination_edge(self, left_id: str, right_id: str) -> None:
         with self._lock:
-            self._require(left_id)
-            self._require(right_id)
+            self._require_open(left_id)
+            self._require_open(right_id)
             if left_id == right_id:
                 raise ValueError("coordination self-loop is not allowed")
             edge = tuple(sorted((left_id, right_id)))
@@ -527,6 +532,7 @@ class OrchorbitalFabric:
                     node_id
                     for node_id, node in self._nodes.items()
                     if node.status == OPEN
+                    and not node.execution_started
                     and not node.self_complete
                     and all(
                         self._nodes[dependency].status == "CLOSED"
@@ -534,6 +540,45 @@ class OrchorbitalFabric:
                     )
                 )
             )
+
+    def running_nodes(self) -> tuple[str, ...]:
+        """Open nodes with local execution started but no local result yet."""
+
+        with self._lock:
+            return tuple(
+                sorted(
+                    node_id
+                    for node_id, node in self._nodes.items()
+                    if node.status == OPEN
+                    and node.execution_started
+                    and not node.self_complete
+                )
+            )
+
+    def mark_started(self, node_id: str) -> NodeInstance:
+        """Seal causal prerequisites and mark local execution as started."""
+
+        with self._lock:
+            node = self._require_open(node_id)
+            if not node.execution_started:
+                raise RuntimeError("node local execution has not started")
+            unresolved_causal = sorted(
+                dependency
+                for dependency in self._causal[node.node_id]
+                if self._nodes[dependency].status != "CLOSED"
+            )
+            if unresolved_causal:
+                raise RuntimeError(
+                    f"causal dependencies are not closed: {unresolved_causal!r}"
+                )
+            if node.self_complete:
+                raise RuntimeError("node local work is already complete")
+            if node.execution_started:
+                return node
+            self._nodes[node.node_id] = replace(node, execution_started=True)
+            self._record("NODE_EXECUTION_START", node.node_id)
+            self._assert_invariants()
+            return self._nodes[node.node_id]
 
     def closable_nodes(self) -> tuple[str, ...]:
         """Ready nodes whose local join dependencies are also CLOSED."""
@@ -664,6 +709,9 @@ class OrchorbitalFabric:
                 "open_node_count": sum(
                     node.status == OPEN for node in self._nodes.values()
                 ),
+                "started_node_count": sum(
+                    node.execution_started for node in self._nodes.values()
+                ),
                 "self_complete_node_count": sum(
                     node.self_complete for node in self._nodes.values()
                 ),
@@ -679,6 +727,7 @@ class OrchorbitalFabric:
                 ),
                 "coordination_edge_count": len(self._coordination),
                 "caller_is_provenance_not_center": True,
+                "causal_edges_sealed_after_start": True,
                 "center_cycles_allowed": True,
                 "causal_cycles_allowed": False,
                 "join_cycles_allowed": False,
