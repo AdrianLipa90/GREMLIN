@@ -25,6 +25,7 @@ TASK_DOMAIN = b"GREMLIN-ORCHORBITAL-WORKER-TASK/v0.2\x00"
 LOCAL_RESULT_DOMAIN = b"GREMLIN-ORCHORBITAL-LOCAL-RESULT/v0.2\x00"
 REDUCTION_INPUT_DOMAIN = b"GREMLIN-ORCHORBITAL-REDUCTION-INPUT/v0.2\x00"
 REDUCTION_OUTPUT_DOMAIN = b"GREMLIN-ORCHORBITAL-REDUCTION-OUTPUT/v0.2\x00"
+RECOVERY_EFFECTIVE_DOMAIN = b"GREMLIN-ORCHORBITAL-RECOVERY-EFFECTIVE/v0.2\x00"
 REDUCTION_SCHEMA = "GREMLIN_ORCHORBITAL_REDUCTION_V0_1"
 MAX_DISCOVERED_OBLIGATIONS = 64
 WORKER_DISPATCHABLE_SPECIES = frozenset(WORKER_SPECIES)
@@ -623,28 +624,96 @@ class OrchorbitalExecutor:
             )
         return commitment, output
 
-    def _effective_result(self, node_id: str) -> dict[str, object]:
-        resolved_id = self._resolved_success_node_id(node_id)
-        node = self.fabric.node(resolved_id)
+    def _closed_effective_result(self, node_id: str) -> dict[str, object]:
+        node = self.fabric.node(node_id)
+        if node.status != "CLOSED":
+            raise RuntimeError(f"effective result node is not closed: {node.node_id}")
         if node.reduction_complete:
             commitment = node.reduction_commitment
             if not isinstance(commitment, str) or not commitment:
                 raise RuntimeError(
-                    f"reduction commitment is unavailable: {resolved_id}"
+                    f"reduction commitment is unavailable: {node.node_id}"
                 )
-            if resolved_id not in self._reduction_results:
+            if node.node_id not in self._reduction_results:
                 raise RuntimeError(
-                    f"reduction payload is unavailable: {resolved_id}"
+                    f"reduction payload is unavailable: {node.node_id}"
                 )
-            output = deepcopy(self._reduction_results[resolved_id])
+            output = deepcopy(self._reduction_results[node.node_id])
         else:
-            commitment, output = self._self_result(resolved_id)
+            commitment, output = self._self_result(node.node_id)
         return {
-            "requested_node_id": node_id,
-            "resolved_node_id": resolved_id,
-            "species": node.species,
+            "requested_node_id": node.node_id,
+            "resolved_node_id": node.node_id,
+            "source_status": "CLOSED",
+            "source_species": node.species,
+            "resolved_species": node.species,
+            "recovery": False,
             "effective_result_commitment": commitment,
             "output": output,
+        }
+
+    def _effective_result(
+        self,
+        node_id: str,
+        *,
+        path: frozenset[str] = frozenset(),
+    ) -> dict[str, object]:
+        if node_id in path:
+            raise RuntimeError("effective-result recovery contains a cycle")
+        node = self.fabric.node(node_id)
+        if node.status == "CLOSED":
+            return self._closed_effective_result(node.node_id)
+        if node.status == "OPEN":
+            raise RuntimeError(f"effective result node is unresolved: {node.node_id}")
+        if node.status not in {"FAILED", "QUARANTINED"}:
+            raise RuntimeError(f"unsupported effective result state: {node.status}")
+
+        replacement_id = self.fabric.replacement_for(node.node_id)
+        if replacement_id is None:
+            raise RuntimeError(
+                f"node has no successful replacement: {node.node_id}"
+            )
+        next_path = path | {node.node_id}
+        replacement = self._effective_result(
+            replacement_id,
+            path=next_path,
+        )
+        stranded_children = [
+            self._effective_result(child_id, path=next_path)
+            for child_id in self.fabric.join_dependencies(node.node_id)
+        ]
+
+        partial_result: dict[str, object] | None = None
+        if node.self_complete and node.result_commitment is not None:
+            partial_commitment, partial_output = self._self_result(node.node_id)
+            partial_result = {
+                "result_commitment": partial_commitment,
+                "output": partial_output,
+            }
+
+        recovery_core = {
+            "source_node_id": node.node_id,
+            "source_status": node.status,
+            "source_species": node.species,
+            "source_partial_result": partial_result,
+            "replacement": replacement,
+            "source_join_results": stranded_children,
+        }
+        recovery_commitment = hashlib.blake2b(
+            RECOVERY_EFFECTIVE_DOMAIN + _canonical(recovery_core),
+            digest_size=32,
+        ).hexdigest()
+        return {
+            "requested_node_id": node.node_id,
+            "resolved_node_id": replacement["resolved_node_id"],
+            "source_status": node.status,
+            "source_species": node.species,
+            "resolved_species": replacement["resolved_species"],
+            "recovery": True,
+            "effective_result_commitment": recovery_commitment,
+            "output": {
+                "recovery": recovery_core,
+            },
         }
 
     def build_reduction_packet(self, node_id: str) -> dict[str, object]:
