@@ -1,6 +1,9 @@
 name: GREMLIN Orchorbital Runtime v0.2
 
 on:
+  push:
+    branches:
+      - 'feat/orchorbital-*'
   pull_request:
     paths:
       - 'gremlin_mcp/role_registry.py'
