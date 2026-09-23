@@ -1012,3 +1012,144 @@ authority signals and not semantic truth claims.
 
 Dynamic center migration remains separate from immutable context lineage.
 Already committed worker tasks are not silently rewritten when a center moves.
+
+
+## Durable runtime checkpoint / restore
+
+The orchorbital runtime is now restartable without collapsing its dynamic
+topology into the older flat WorkerBroker model.
+
+Three runtime layers expose commitment-bound full checkpoints:
+
+```text
+OrchorbitalFabric
+OrbitalContextStore
+OrchorbitalExecutor
+```
+
+These are combined into one runtime envelope:
+
+```text
+GREMLIN_ORCHORBITAL_RUNTIME_CHECKPOINT_V0_1
+```
+
+and may be persisted in a dedicated SQLite WAL store.
+
+### Separation from WorkerBroker durability
+
+The runtime checkpoint deliberately does **not** duplicate WorkerBroker state.
+
+```text
+orchorbital runtime WAL
+    fabric topology
+    immutable context lineage
+    local/core results
+    semantic reduction results
+
+worker WAL
+    worker registrations
+    canonical tasks
+    leases
+    candidate results
+```
+
+The executor checkpoint records that WorkerBroker persistence is externally
+required. During restore, completed worker nodes are verified against the
+restored broker task/result commitments before the executor is admitted.
+
+Queued or in-flight deterministic tasks may still be retried by the normal
+executor recovery path when missing. Completed worker results may not be
+silently reconstructed or invented.
+
+### Fabric checkpoint
+
+The full fabric restart state contains:
+
+- every node including caller and mutable center relations;
+- raw obligations;
+- causal and local-join graphs;
+- coordination edges and n-node coordination points;
+- replacement/failover mappings;
+- computational barycenter;
+- event sequence and complete event log;
+- node-id counter;
+- lifecycle and reduction commitments;
+- the privacy-safe topology commitment.
+
+Restore verifies the envelope commitment, reconstructs all internal relations,
+runs the normal fabric invariants, and requires the restored topology
+commitment to equal the recorded one.
+
+### Context checkpoint
+
+Context persistence stores immutable base+delta frames only.
+
+Materialized contexts are not duplicated. Restore rebuilds them through the
+normal frame binding validators and requires each reconstructed:
+
+- base commitment;
+- frame commitment;
+- materialized commitment;
+- depth
+
+to match the checkpoint.
+
+This preserves the separation between mutable execution centers and immutable
+context lineage across process restarts.
+
+### Executor checkpoint
+
+Executor-only state stores:
+
+- execution id;
+- operator tiers/capabilities/costs;
+- resource budget;
+- local-core result payloads;
+- semantic reduction result payloads;
+- reduction-input commitments;
+- exact fabric/context commitments.
+
+Worker task/lease/result state is excluded.
+
+### Atomic runtime store
+
+`SQLiteOrchorbitalRuntimeStore` uses:
+
+```text
+journal_mode = WAL
+synchronous = FULL
+BEGIN IMMEDIATE
+read-back verification before COMMIT
+```
+
+with one committed runtime row per execution id.
+
+The outer runtime commitment binds the exact inner fabric, context and executor
+checkpoints. Tampering with stored JSON while leaving the commitment column
+unchanged therefore fails closed before restore.
+
+### Mid-orbit restart target
+
+The dedicated restart test checkpoints the runtime in this state:
+
+```text
+parent local work complete
+child returned and CLOSED
+parent reduction continuation QUEUED
+process restart
+```
+
+After reopening both the worker WAL and runtime WAL, the test requires:
+
+```text
+same topology commitment
+same parent/child materialized contexts
+same deterministic parent reduction task id
+same queued reduction task
+parent reduction completes
+parent subtree closes
+authority root remains OPEN
+global synthesis barrier remains false
+```
+
+No performance multiplier follows from restart durability itself.
