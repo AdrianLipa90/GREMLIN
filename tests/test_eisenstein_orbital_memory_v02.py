@@ -11,6 +11,7 @@ from gremlin_mcp.eisenstein_orbital_memory import (
     RecursiveEisensteinAddress,
     centered_hex_count,
     centered_hex_eisenstein,
+    packet_orbital_routes,
     packet_orbital_word,
     prefix_neighborhood,
     prime_channel_signature,
@@ -317,6 +318,70 @@ class EisensteinMemoryV02Tests(unittest.TestCase):
         self.assertFalse(
             out["authority"]["canon_allowed"]
         )
+
+
+    def test_semantic_packet_is_holographic_route_bundle(self):
+        packet = {
+            **packet_for_word((0, 1, 2, 3, 4, 5)),
+            "concept_atoms": [
+                "geometry.stella",
+                "geometry.poles",
+                "geometry.lateral",
+            ],
+            "numeric_atoms": [],
+            "lexical_atoms": ["stella", "poles", "vertices"],
+        }
+        routes, source, route_class = packet_orbital_routes(packet)
+        self.assertEqual(route_class, "SEMANTIC_ATOM_BUNDLE")
+        self.assertEqual(
+            source,
+            "SEMANTIC_ATOM_HOLOGRAPHIC_BUNDLE",
+        )
+        self.assertEqual(len(routes), 3)
+        self.assertTrue(all(len(route) == 6 for route in routes))
+
+    def test_shared_semantic_atom_yields_shared_orbit(self):
+        left = {
+            **packet_for_word((0, 1, 2, 3, 4, 5)),
+            "concept_atoms": [
+                "geometry.poles",
+                "geometry.stella",
+            ],
+            "numeric_atoms": [],
+            "lexical_atoms": ["compound"],
+        }
+        right = {
+            **packet_for_word((5, 4, 3, 2, 1, 0)),
+            "concept_atoms": [
+                "geometry.poles",
+                "projection.shared",
+            ],
+            "numeric_atoms": [],
+            "lexical_atoms": ["axis"],
+        }
+        l_routes, _, l_class = packet_orbital_routes(left)
+        r_routes, _, r_class = packet_orbital_routes(right)
+        self.assertEqual(l_class, "SEMANTIC_ATOM_BUNDLE")
+        self.assertEqual(r_class, "SEMANTIC_ATOM_BUNDLE")
+        self.assertTrue(set(l_routes).intersection(r_routes))
+
+    def test_lexical_fallback_is_typed_separately(self):
+        packet = {
+            **packet_for_word((0, 1, 2, 3, 4, 5)),
+            "concept_atoms": [],
+            "numeric_atoms": [],
+            "lexical_atoms": [
+                "alpha", "beta", "gamma", "delta"
+            ],
+        }
+        routes, source, route_class = packet_orbital_routes(packet)
+        self.assertEqual(route_class, "LEXICAL_FALLBACK_BUNDLE")
+        self.assertEqual(
+            source,
+            "LEXICAL_ATOM_HOLOGRAPHIC_BUNDLE",
+        )
+        self.assertGreaterEqual(len(routes), 1)
+        self.assertLessEqual(len(routes), 8)
 
 
 if __name__ == "__main__":
