@@ -450,3 +450,62 @@ def test_runtime_store_restore_requires_matching_local_adapter_manifest(tmp_path
             )
     finally:
         store.close()
+
+
+def test_durable_runtime_restore_forwards_local_adapter_registry(tmp_path) -> None:
+    runtime_path = tmp_path / "durable-local-adapter.sqlite3"
+    fabric = OrchorbitalFabric()
+    contexts = OrbitalContextStore(fabric)
+    contexts.bind_root({"shared": "durable-local"})
+
+    registry = LocalAdapterRegistry()
+    registry.register(
+        "BEES",
+        lambda request: {"coherence": "pass"},
+        adapter_id="bees-durable-v1",
+        implementation_commitment="d" * 64,
+    )
+    executor = OrchorbitalExecutor(
+        execution_id="durable-local-flow",
+        fabric=fabric,
+        broker=WorkerBroker(),
+        operators=(
+            OperatorTier(
+                "BEES",
+                0,
+                frozenset({"coherence"}),
+                ResourceCost(1, 1, 1, 1),
+            ),
+        ),
+        budget=BUDGET,
+        context_store=contexts,
+        local_adapters=registry,
+    )
+    node = executor.allocate(
+        "AUTH:ROOT",
+        ("coherence",),
+        allocation_key="durable-local-node",
+    ).nodes[0]
+    executor.orchestration_step()
+    assert fabric.node(node.node_id).status == "CLOSED"
+
+    store = SQLiteOrchorbitalRuntimeStore(runtime_path)
+    try:
+        store.save(executor)
+        restored = DurableOrchorbitalRuntime.restore(
+            store,
+            "durable-local-flow",
+            broker=WorkerBroker(),
+            local_adapters=registry,
+        )
+        assert restored.executor.local_adapters is registry
+
+        with pytest.raises(ValueError, match="local adapter manifest mismatch"):
+            DurableOrchorbitalRuntime.restore(
+                store,
+                "durable-local-flow",
+                broker=WorkerBroker(),
+                local_adapters=None,
+            )
+    finally:
+        store.close()
