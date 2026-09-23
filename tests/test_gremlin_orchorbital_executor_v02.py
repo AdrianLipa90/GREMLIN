@@ -632,3 +632,59 @@ def test_join_results_are_not_silently_ignored_by_settle() -> None:
     assert parent.node_id not in settled["closed"]
     assert parent.node_id in settled["reduction_required"]
     assert fabric.node(parent.node_id).reduction_complete is False
+
+
+def test_recovery_effective_result_preserves_partial_replacement_and_stranded_children() -> None:
+    fabric = OrchorbitalFabric()
+    executor = OrchorbitalExecutor(
+        execution_id="recovery-reduction",
+        fabric=fabric,
+        broker=WorkerBroker(),
+        operators=operators(),
+        budget=BUDGET,
+    )
+
+    source = fabric.spawn(
+        "AUTH:ROOT",
+        "BEES",
+        obligations=("recover-me",),
+        node_id="FAILED-SOURCE",
+    )
+    stranded = fabric.spawn(
+        source.node_id,
+        "ELEPHANT",
+        obligations=("stranded-evidence",),
+        node_id="STRANDED-CHILD",
+    )
+    executor.complete_local(source.node_id, {"source": "partial"})
+    fabric.fail(source.node_id, reason="simulated source failure")
+
+    replacement = fabric.spawn(
+        "AUTH:ROOT",
+        "BEES",
+        obligations=("recover-me",),
+        node_id="RECOVERY-NODE",
+        join_to_caller=False,
+    )
+    fabric.bind_replacement(source.node_id, replacement.node_id)
+
+    executor.complete_local(stranded.node_id, {"stranded": "evidence"})
+    executor.complete_local(replacement.node_id, {"replacement": "result"})
+    settled = executor.settle_local_joins()
+    assert stranded.node_id in settled["closed"]
+    assert replacement.node_id in settled["closed"]
+    assert fabric.is_resolved(source.node_id) is True
+
+    executor.complete_local("AUTH:ROOT", {"root": "candidate"})
+    assert "AUTH:ROOT" in fabric.reduction_candidates()
+
+    packet = executor.build_reduction_packet("AUTH:ROOT")
+    recovered = packet["join_results"][0]
+    assert recovered["requested_node_id"] == source.node_id
+    assert recovered["recovery"] is True
+    recovery = recovered["output"]["recovery"]
+    assert recovery["source_partial_result"]["output"] == {"source": "partial"}
+    assert recovery["replacement"]["output"] == {"replacement": "result"}
+    assert recovery["source_join_results"][0]["output"] == {
+        "stranded": "evidence"
+    }
