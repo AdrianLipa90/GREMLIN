@@ -215,3 +215,66 @@ def test_optional_context_affinity_prefers_shared_orbital_ancestry() -> None:
     assert receipt["context_affinity_active"] is True
     assert receipt["context_affinity_weight"] > 0.0
     assert receipt["mean_context_affinity"] == 1.0
+
+
+def test_receiver_cache_affinity_can_break_equal_geometry_seed_tie() -> None:
+    rows = [
+        {
+            "task_id": "cached",
+            "species": "FOX",
+            "payload": _payload("cached", 1.0),
+            "task_commitment": "commit-a-cached",
+            "created_ns": 1,
+        },
+        {
+            "task_id": "uncached",
+            "species": "FOX",
+            "payload": _payload("uncached", 1.0),
+            "task_commitment": "commit-z-uncached",
+            "created_ns": 2,
+        },
+    ]
+
+    plain, _ = select_batch(rows, limit=1, now_ns=10_000_000_000)
+    localized, receipt = select_batch(
+        rows,
+        limit=1,
+        now_ns=10_000_000_000,
+        affinity_by_task={
+            "cached": ("root", "branch-a"),
+            "uncached": ("root", "branch-b"),
+        },
+        receiver_known_affinity=("branch-a",),
+    )
+
+    assert plain == ["uncached"]
+    assert localized == ["cached"]
+    assert receipt["receiver_cache_affinity_active"] is True
+    assert receipt["receiver_cache_affinity_weight"] > 0.0
+    assert receipt["mean_receiver_cache_affinity"] == 0.5
+
+
+def test_species_selection_accepts_small_receiver_locality_bias() -> None:
+    now = 10_000_000_000
+    raven = [_row("r1", "RAVEN", 1.0, 1)]
+    serpent = [_row("s1", "SERPENT", 1.0, 1)]
+
+    plain, _ = choose_species(
+        {"RAVEN": raven, "SERPENT": serpent},
+        now_ns=now,
+        cadence_hint={"RAVEN": 0.0, "SERPENT": 0.0},
+    )
+    localized, receipt = choose_species(
+        {"RAVEN": raven, "SERPENT": serpent},
+        now_ns=now,
+        cadence_hint={"RAVEN": 0.0, "SERPENT": 0.0},
+        locality_hint={"RAVEN": 1.0, "SERPENT": 0.0},
+    )
+
+    assert localized == "RAVEN"
+    assert receipt["selection_basis"] == (
+        "GEOMETRY_PHASE_STATE_PLUS_RECEIVER_LOCALITY_THEN_CADENCE"
+    )
+    assert receipt["queues"]["RAVEN"]["receiver_locality_hint"] == 1.0
+    assert receipt["receiver_species_affinity_weight"] > 0.0
+    assert plain in {"RAVEN", "SERPENT"}
