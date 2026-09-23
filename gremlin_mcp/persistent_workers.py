@@ -13,6 +13,7 @@ from gremlin_mcp.workers import (
     _normalize_id,
     _normalize_species,
     _strict_int,
+    _validate_canonical_context_payload,
 )
 
 
@@ -159,6 +160,7 @@ class PersistentWorkerBroker(WorkerBroker):
             import time
 
             self._reap_expired(time.time_ns())
+            self._rebuild_indexes()
         except Exception as exc:
             raise RuntimeError("GREMLIN SQLite worker state failed closed during hydration") from exc
 
@@ -182,6 +184,8 @@ class PersistentWorkerBroker(WorkerBroker):
             )
             if expected != task.task_commitment:
                 raise ValueError("persisted task commitment mismatch")
+            _validate_canonical_context_payload(task.payload)
+            self._validate_task_memory_authorization(task)
             if task.state == "QUEUED":
                 if task.lease_id is not None or task.leased_to is not None or task.lease_expires_ns is not None:
                     raise ValueError("queued persisted task contains lease lineage")
