@@ -462,3 +462,102 @@ def test_active_local_adapter_prevents_duplicate_worker_dispatch_for_same_node()
 
     assert broker.queue_status()["tasks"]["ELEPHANT"]["QUEUED"] == 0
     assert fabric.node(node.node_id).execution_started is False
+
+
+def test_local_handler_without_local_reducer_falls_back_to_same_species_worker_reduction() -> None:
+    registry = LocalAdapterRegistry()
+    registry.register(
+        "BEES",
+        lambda request: {
+            "coherence": "needs-graph",
+            DISCOVERY_KEY: {
+                "schema": DISCOVERY_SCHEMA,
+                "obligations": ["graph"],
+            },
+        },
+        adapter_id="bees-local-handler-worker-reducer-v1",
+        implementation_commitment=BEES_IMPL,
+    )
+
+    fabric = OrchorbitalFabric()
+    broker = WorkerBroker()
+    broker.register_worker(
+        "mixed-worker",
+        ["SPIDER", "BEES"],
+        vector_width=4,
+        max_batch=4,
+    )
+    contexts = OrbitalContextStore(fabric)
+    contexts.bind_root({"shared": "mixed-backend"})
+    executor = OrchorbitalExecutor(
+        execution_id="bees-mixed-backend",
+        fabric=fabric,
+        broker=broker,
+        operators=(
+            OperatorTier(
+                "BEES",
+                0,
+                frozenset({"coherence"}),
+                ResourceCost(1, 1, 1, 1),
+            ),
+            OperatorTier(
+                "SPIDER",
+                0,
+                frozenset({"graph"}),
+                ResourceCost(1, 1, 1, 1),
+            ),
+        ),
+        budget=BUDGET,
+        context_store=contexts,
+        local_adapters=registry,
+    )
+    parent = executor.allocate(
+        "AUTH:ROOT",
+        ("coherence",),
+        allocation_key="mixed-backend-parent",
+    ).nodes[0]
+
+    step1 = executor.orchestration_step()
+    child_id = next(
+        row["node_id"]
+        for row in step1["worker_dispatch"]["dispatched"]
+        if row["species"] == "SPIDER"
+    )
+    child_lease = broker.claim("mixed-worker", species="SPIDER", limit=1)
+    broker.submit(
+        "mixed-worker",
+        child_lease["lease_id"],
+        [
+            {
+                "task_id": child_lease["tasks"][0]["task_id"],
+                "output": {"graph": "pass"},
+            }
+        ],
+    )
+
+    step2 = executor.orchestration_step()
+    assert fabric.node(child_id).status == "CLOSED"
+    assert step2["local_reduction"]["completed"] == []
+    reduction = next(
+        row
+        for row in step2["reduction_dispatch"]["dispatched"]
+        if row["node_id"] == parent.node_id
+    )
+    assert reduction["species"] == "BEES"
+
+    reduction_lease = broker.claim("mixed-worker", species="BEES", limit=1)
+    assert reduction_lease["tasks"][0]["task_id"] == reduction["task_id"]
+    broker.submit(
+        "mixed-worker",
+        reduction_lease["lease_id"],
+        [
+            {
+                "task_id": reduction["task_id"],
+                "output": {"coherence": "worker-reduced"},
+            }
+        ],
+    )
+    step3 = executor.orchestration_step()
+
+    assert fabric.node(parent.node_id).status == "CLOSED"
+    assert step3["global_synthesis_barrier_required"] is False
