@@ -337,3 +337,49 @@ def test_static_v01_paths_are_explicitly_compatibility_only() -> None:
     assert RUNTIME_SUPERSEDED_BY == "GREMLIN_ORCHORBITAL_FABRIC_V0_2"
     assert BRIDGE_COMPATIBILITY_ONLY is True
     assert BRIDGE_SUPERSEDED_BY == "GREMLIN_OCTOPUS_ORCHORBITAL_ALLOCATOR_V0_2"
+
+
+def test_invocation_depth_tracks_runtime_lineage_not_species() -> None:
+    fabric = OrchorbitalFabric()
+    a = fabric.spawn("AUTH:ROOT", "MOLE", node_id="A", join_to_caller=False)
+    b = fabric.spawn(a.node_id, "SPIDER", node_id="B", join_to_caller=False)
+    c = fabric.spawn(b.node_id, "MOLE", node_id="C", join_to_caller=False)
+
+    assert a.invocation_depth == 1
+    assert b.invocation_depth == 2
+    assert c.invocation_depth == 3
+    assert fabric.receipt()["max_invocation_depth"] == 3
+
+
+def test_recursive_growth_is_bounded_by_node_budget_not_species_depth() -> None:
+    fabric = OrchorbitalFabric(max_nodes=3)
+    a = fabric.spawn("AUTH:ROOT", "MOLE", node_id="A", join_to_caller=False)
+    fabric.spawn(a.node_id, "SPIDER", node_id="B", join_to_caller=False)
+
+    with pytest.raises(RuntimeError, match="node budget exceeded"):
+        fabric.spawn("B", "OWL", node_id="C", join_to_caller=False)
+
+    assert fabric.receipt()["node_count"] == 3
+
+
+def test_open_satellites_must_be_recentered_before_center_closes() -> None:
+    fabric = OrchorbitalFabric()
+    center = fabric.spawn(
+        "AUTH:ROOT",
+        "BEES",
+        node_id="CENTER",
+        join_to_caller=False,
+    )
+    satellite = fabric.spawn(
+        "AUTH:ROOT",
+        "SPIDER",
+        node_id="SAT",
+        center_id=center.node_id,
+        join_to_caller=False,
+    )
+
+    with pytest.raises(RuntimeError, match="recenter open satellites"):
+        fabric.close(center.node_id)
+
+    fabric.recenter(satellite.node_id, "AUTH:ROOT")
+    fabric.close(center.node_id)
