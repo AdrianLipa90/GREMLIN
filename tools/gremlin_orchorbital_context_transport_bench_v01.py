@@ -6,13 +6,28 @@ from pathlib import Path
 
 from gremlin_mcp.orchorbital_context import (
     OrbitalContextStore,
+    apply_context_bundle,
     apply_context_packet,
+    bundle_context_packets,
+    context_bundle_reference,
     reduce_context_packet,
 )
 from gremlin_mcp.orchorbital_fabric import OrchorbitalFabric
 
 OUT = Path("provenance/GREMLIN_ORCHORBITAL_CONTEXT_TRANSPORT_BENCHMARK_V0_1.json")
 SCHEMA = "GREMLIN_ORCHORBITAL_CONTEXT_TRANSPORT_BENCHMARK_V0_1"
+
+
+def _json_size(value: object) -> int:
+    return len(
+        json.dumps(
+            value,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+            allow_nan=False,
+        ).encode("utf-8")
+    )
 
 
 def _positive_int(value: int, field: str, *, minimum: int = 1) -> int:
@@ -122,6 +137,120 @@ def run_benchmark(
         while len(cache) > cache_limit:
             cache.popitem(last=False)
 
+    # Separate same-lease sibling benchmark. Every level fans out from one
+    # shared orbital parent, so all tasks in a lease genuinely share ancestry.
+    bundle_fabric = OrchorbitalFabric(max_nodes=1 + branches * depth)
+    bundle_contexts = OrbitalContextStore(bundle_fabric)
+    bundle_contexts.bind_root(
+        {
+            "request": "R" * shared_chars,
+            "memory_projection": "M" * shared_chars,
+            "constraints": {
+                "authority": "candidate-only",
+                "routing": "orchorbital-bundle",
+                "deterministic": True,
+            },
+        }
+    )
+    shared_parent = bundle_fabric.authority_root_id
+    level_nodes: list[list[str]] = []
+    for level in range(depth):
+        current_level: list[str] = []
+        for sibling in range(branches):
+            node_id = f"L{level:03d}:S{sibling:03d}"
+            node = bundle_fabric.spawn(
+                shared_parent,
+                "SPIDER",
+                node_id=node_id,
+                obligations=(f"level-{level}-sibling-{sibling}",),
+                join_to_caller=False,
+            )
+            bundle_contexts.inherit_from_caller(
+                node.node_id,
+                set_values={
+                    "local_node": node.node_id,
+                    "local_delta": (
+                        f"level={level};sibling={sibling};"
+                        + chr(65 + (sibling % 26)) * delta_chars
+                    ),
+                },
+            )
+            current_level.append(node.node_id)
+        level_nodes.append(current_level)
+        shared_parent = current_level[0]
+
+    bundle_cache: OrderedDict[str, dict[str, object]] = OrderedDict()
+    same_lease_packet_bytes = 0
+    bundle_transport_bytes = 0
+    bundle_full_packet_bytes = 0
+    bundle_unique_frames = 0
+    bundle_exact_reconstruction = True
+
+    for current_level in level_nodes:
+        known_before = tuple(bundle_cache)
+        packets = {
+            node_id: bundle_contexts.packet(node_id)
+            for node_id in current_level
+        }
+        for packet in packets.values():
+            reduced = reduce_context_packet(
+                packet,
+                receiver_known_frames=known_before,
+            )
+            same_lease_packet_bytes += int(reduced["packet_bytes"])
+            bundle_full_packet_bytes += int(packet["packet_bytes"])
+
+        bundle = bundle_context_packets(
+            packets,
+            receiver_known_frames=known_before,
+        )
+        decoded_bundle = apply_context_bundle(
+            bundle,
+            known_contexts=bundle_cache,
+        )
+        refs = {
+            node_id: context_bundle_reference(bundle, node_id)
+            for node_id in current_level
+        }
+        bundle_transport_bytes += int(bundle["bundle_bytes"]) + sum(
+            _json_size(ref) for ref in refs.values()
+        )
+        bundle_unique_frames += int(bundle["unique_frame_count"])
+
+        updates = decoded_bundle["cache_updates"]
+        if not isinstance(updates, dict):
+            raise RuntimeError("context bundle decoder returned invalid cache_updates")
+        staged = dict(bundle_cache)
+        for commitment, materialized in updates.items():
+            if not isinstance(commitment, str) or not isinstance(materialized, dict):
+                raise RuntimeError("context bundle cache update is invalid")
+            staged[commitment] = dict(materialized)
+
+        for node_id, ref in refs.items():
+            target = ref["target_frame_commitment"]
+            materialized = staged.get(target)
+            expected = bundle_contexts.materialize(node_id)
+            if materialized != expected:
+                bundle_exact_reconstruction = False
+                raise RuntimeError(
+                    f"context bundle reconstruction mismatch at {node_id}"
+                )
+
+        bundle_cache = OrderedDict(staged.items())
+        while len(bundle_cache) > cache_limit:
+            bundle_cache.popitem(last=False)
+
+    bundle_saving_fraction = (
+        0.0
+        if same_lease_packet_bytes <= 0
+        else 1.0 - bundle_transport_bytes / same_lease_packet_bytes
+    )
+    bundle_ratio = (
+        1.0
+        if bundle_transport_bytes <= 0
+        else same_lease_packet_bytes / bundle_transport_bytes
+    )
+
     task_count = len(traversal)
     saving_fraction = (
         0.0
@@ -135,7 +264,12 @@ def run_benchmark(
     )
     verdict = (
         "PASS_LOSSLESS_CONTEXT_TRANSPORT_REDUCTION"
-        if exact_reconstruction and transport_packet_bytes < full_packet_bytes
+        if (
+            exact_reconstruction
+            and bundle_exact_reconstruction
+            and transport_packet_bytes < full_packet_bytes
+            and bundle_transport_bytes < same_lease_packet_bytes
+        )
         else "FAIL_CONTEXT_TRANSPORT_REDUCTION"
     )
 
@@ -163,6 +297,13 @@ def run_benchmark(
             "delivered_frame_count": delivered_frames,
             "final_cached_frame_count": len(cache),
             "exact_reconstruction": exact_reconstruction,
+            "same_lease_packet_bytes": same_lease_packet_bytes,
+            "bundle_transport_bytes": bundle_transport_bytes,
+            "bundle_byte_saving_fraction_vs_same_lease_packets": bundle_saving_fraction,
+            "same_lease_packets_to_bundle_ratio": bundle_ratio,
+            "bundle_full_packet_bytes": bundle_full_packet_bytes,
+            "bundle_unique_frame_count": bundle_unique_frames,
+            "bundle_exact_reconstruction": bundle_exact_reconstruction,
             "canonical_task_commitment_changed": False,
             "actual_model_token_accounting": False,
             "actual_model_billing_accounting": False,
