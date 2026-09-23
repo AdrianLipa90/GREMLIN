@@ -219,6 +219,64 @@ def restore_runtime_checkpoint(
     return restored
 
 
+class DurableOrchorbitalRuntime:
+    """Small durability façade around executor + runtime checkpoint store.
+
+    It does not own WorkerBroker persistence. A PersistentWorkerBroker should be
+    used separately when queue/task/lease/result durability is required.
+    """
+
+    def __init__(
+        self,
+        executor: OrchorbitalExecutor,
+        store: "SQLiteOrchorbitalRuntimeStore",
+    ) -> None:
+        if not isinstance(executor, OrchorbitalExecutor):
+            raise ValueError("executor must be an OrchorbitalExecutor")
+        if not isinstance(store, SQLiteOrchorbitalRuntimeStore):
+            raise ValueError("store must be a SQLiteOrchorbitalRuntimeStore")
+        self.executor = executor
+        self.store = store
+
+    @property
+    def execution_id(self) -> str:
+        return self.executor.execution_id
+
+    def checkpoint(self) -> dict[str, object]:
+        return self.store.save(self.executor)
+
+    def orchestration_step(
+        self,
+        payload_overrides: Mapping[str, Mapping[str, Any]] | None = None,
+    ) -> dict[str, object]:
+        """Advance once, then durably checkpoint the resulting runtime state."""
+
+        step = self.executor.orchestration_step(payload_overrides)
+        checkpoint = self.store.save(self.executor)
+        return {
+            "schema": SCHEMA,
+            "execution_id": self.execution_id,
+            "step": step,
+            "checkpoint": checkpoint,
+            "checkpoint_after_step": True,
+            "worker_broker_state_included": False,
+            "canon_allowed": False,
+        }
+
+    @classmethod
+    def restore(
+        cls,
+        store: "SQLiteOrchorbitalRuntimeStore",
+        execution_id: str,
+        *,
+        broker: Any,
+    ) -> "DurableOrchorbitalRuntime":
+        if not isinstance(store, SQLiteOrchorbitalRuntimeStore):
+            raise ValueError("store must be a SQLiteOrchorbitalRuntimeStore")
+        executor = store.restore(execution_id, broker=broker)
+        return cls(executor, store)
+
+
 class SQLiteOrchorbitalRuntimeStore:
     """Durable single-row-per-execution store for orchorbital runtime state."""
 
@@ -408,6 +466,7 @@ class SQLiteOrchorbitalRuntimeStore:
 
 __all__ = [
     "CHECKPOINT_DOMAIN",
+    "DurableOrchorbitalRuntime",
     "SCHEMA",
     "STORE_SCHEMA",
     "SQLiteOrchorbitalRuntimeStore",
