@@ -421,3 +421,72 @@ The runtime must fail loudly if:
 - a control-plane role is supplied as an adaptive workload operator;
 - a dynamic role disappears from WorkerBroker admission because of carrier
   registry drift.
+
+
+## ABI v0.2.5 — exact routing indexes and cached immutable scheduler state
+
+v0.2.5 removes repeated routing work without changing task semantics.
+
+The broker now keeps derived, rebuildable runtime indexes:
+
+```text
+queued_by_species
+lease_expiry_min_heap
+task_context_affinity
+task_phase_state
+unfinished_task_count
+```
+
+These are **not** new canonical state. Canonical task, lease and result records
+remain the source of truth. SQLite restore rebuilds the indexes and verifies the
+persisted task/context/memory contracts before routing resumes.
+
+### Species queue index
+
+Claim no longer scans every task to find one species queue.
+
+```text
+old structural candidate search:
+all broker tasks -> filter requested species
+
+v0.2.5:
+requested species -> queued task ids directly
+```
+
+A synthetic skew fixture with 4 target tasks and 1024 unrelated tasks yields:
+
+```text
+naive candidate inspections proxy = 1028
+indexed candidate inspections      = 4
+structural scan reduction ratio    = 257x
+```
+
+This is a candidate-inspection count only. It is **not** a 257x wall-clock,
+latency, throughput or end-to-end GREMLIN speedup claim.
+
+### Indexed lease expiry
+
+Active lease expiry is maintained in a min-heap.
+
+Claim/reap no longer scans every active lease. Completed leases may leave stale
+heap entries, which are ignored by lease-id/expiry verification and periodically
+compacted. SQLite hydration rebuilds the heap from canonical active leases before
+expiry processing.
+
+### Immutable task phase-state cache
+
+Scheduler parsing of immutable task payloads now occurs at admission/hydration.
+The resulting `TaskPhaseState` is reused by:
+
+- species queue scoring;
+- geometry lane metrics;
+- batch selection.
+
+Lineage checks bind cached state to task id, species, task commitment and
+creation timestamp. Any mismatch fails closed.
+
+The selected species metrics and 36D centroid computed during species selection
+are reused by batch selection instead of being recomputed.
+
+These changes are exact-path optimizations: no approximate nearest-neighbor or
+heuristic candidate truncation is enabled by v0.2.5.
