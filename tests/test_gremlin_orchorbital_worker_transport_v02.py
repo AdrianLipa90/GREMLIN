@@ -3,8 +3,12 @@ from __future__ import annotations
 from copy import deepcopy
 
 from gremlin_mcp.orchorbital_context import (
+    BUNDLE_PAYLOAD_KEY,
+    BUNDLE_REF_PAYLOAD_KEY,
+    BUNDLE_SCHEMA,
     PACKET_PAYLOAD_KEY,
     OrbitalContextStore,
+    apply_context_bundle,
     apply_context_packet,
 )
 from gremlin_mcp.orchorbital_fabric import OrchorbitalFabric
@@ -212,3 +216,110 @@ def test_malformed_context_packet_cannot_strand_task_in_lease() -> None:
     assert broker._tasks["ctx-malformed"].leased_to is None
     assert broker._tasks["ctx-malformed"].lease_expires_ns is None
     assert broker.queue_status()["active_leases"] == 0
+
+
+def test_multi_task_lease_deduplicates_shared_context_into_one_bundle() -> None:
+    fabric = OrchorbitalFabric()
+    first = fabric.spawn(
+        "AUTH:ROOT",
+        "SPIDER",
+        node_id="CTX-A",
+        join_to_caller=False,
+    )
+    second = fabric.spawn(
+        "AUTH:ROOT",
+        "SPIDER",
+        node_id="CTX-B",
+        join_to_caller=False,
+    )
+    store = OrbitalContextStore(fabric)
+    store.bind_root(
+        {
+            "shared": "S" * 8192,
+            "memory": "M" * 8192,
+            "mode": "root",
+        }
+    )
+    store.inherit_from_caller(first.node_id, set_values={"mode": "a", "local": "A"})
+    store.inherit_from_caller(second.node_id, set_values={"mode": "b", "local": "B"})
+
+    broker = WorkerBroker()
+    broker.register_worker("ctx-bundle-worker", ["SPIDER"], vector_width=64, max_batch=8)
+    scheduler = {"phase36": [0.1] * 36}
+    queued_a = broker.enqueue(
+        "SPIDER",
+        {
+            "input": {"query": "same-cluster"},
+            "_gremlin_scheduler": scheduler,
+            PACKET_PAYLOAD_KEY: store.packet(first.node_id),
+        },
+        task_id="ctx-bundle-a",
+    )
+    queued_b = broker.enqueue(
+        "SPIDER",
+        {
+            "input": {"query": "same-cluster"},
+            "_gremlin_scheduler": scheduler,
+            PACKET_PAYLOAD_KEY: store.packet(second.node_id),
+        },
+        task_id="ctx-bundle-b",
+    )
+
+    lease = broker.claim("ctx-bundle-worker", species="SPIDER", limit=2)
+    assert lease["batch_size"] == 2
+    bundle = lease[BUNDLE_PAYLOAD_KEY]
+    assert bundle is not None
+    assert bundle["schema"] == BUNDLE_SCHEMA
+    assert bundle["unique_frame_count"] == 3
+
+    commitments = {
+        queued_a["task_id"]: queued_a["task_commitment"],
+        queued_b["task_id"]: queued_b["task_commitment"],
+    }
+    refs = {}
+    for task in lease["tasks"]:
+        payload = task["payload"]
+        assert PACKET_PAYLOAD_KEY not in payload
+        assert BUNDLE_REF_PAYLOAD_KEY in payload
+        assert task["task_commitment"] == commitments[task["task_id"]]
+        refs[task["task_id"]] = payload[BUNDLE_REF_PAYLOAD_KEY]
+
+    decoded = apply_context_bundle(bundle)
+    updates = decoded["cache_updates"]
+    assert updates[refs["ctx-bundle-a"]["target_frame_commitment"]] == store.materialize(
+        first.node_id
+    )
+    assert updates[refs["ctx-bundle-b"]["target_frame_commitment"]] == store.materialize(
+        second.node_id
+    )
+
+    transport = lease["orchorbital_context_transport"]
+    assert transport["bundle_used"] is True
+    assert transport["bundle_unique_frame_count"] == 3
+    assert transport["transport_packet_bytes"] < transport["full_packet_bytes"]
+    assert transport["canonical_task_commitment_unchanged"] is True
+
+    assert broker._tasks["ctx-bundle-a"].payload[PACKET_PAYLOAD_KEY] == store.packet(
+        first.node_id
+    )
+    assert broker._tasks["ctx-bundle-b"].payload[PACKET_PAYLOAD_KEY] == store.packet(
+        second.node_id
+    )
+
+
+def test_single_context_task_keeps_backward_compatible_packet_transport() -> None:
+    _, node, store = _context_task()
+    broker = WorkerBroker()
+    broker.register_worker("ctx-single-worker", ["SPIDER"])
+    broker.enqueue(
+        "SPIDER",
+        {PACKET_PAYLOAD_KEY: store.packet(node.node_id)},
+        task_id="ctx-single",
+    )
+
+    lease = broker.claim("ctx-single-worker", species="SPIDER", limit=1)
+
+    assert lease[BUNDLE_PAYLOAD_KEY] is None
+    assert PACKET_PAYLOAD_KEY in lease["tasks"][0]["payload"]
+    assert BUNDLE_REF_PAYLOAD_KEY not in lease["tasks"][0]["payload"]
+    assert lease["orchorbital_context_transport"]["bundle_used"] is False
