@@ -11,6 +11,7 @@ on:
       - 'gremlin_mcp/orchorbital_allocator.py'
       - 'gremlin_mcp/orchorbital_executor.py'
       - 'gremlin_mcp/orchorbital_context.py'
+      - 'gremlin_mcp/orchorbital_persistence.py'
       - 'gremlin_mcp/workers.py'
       - 'gremlin_mcp/persistent_workers.py'
       - 'gremlin_mcp/server.py'
@@ -23,6 +24,7 @@ on:
       - 'tests/test_gremlin_orchorbital_fabric_v02.py'
       - 'tests/test_gremlin_orchorbital_executor_v02.py'
       - 'tests/test_gremlin_orchorbital_context_v01.py'
+      - 'tests/test_gremlin_orchorbital_persistence_v01.py'
       - 'tests/test_gremlin_orchorbital_worker_transport_v02.py'
       - 'tests/test_gremlin_orchorbital_context_transport_v01.py'
       - 'tests/test_gremlin_orchorbital_context_transport_bench_v01.py'
@@ -51,6 +53,7 @@ jobs:
           gremlin_mcp/orchorbital_allocator.py
           gremlin_mcp/orchorbital_executor.py
           gremlin_mcp/orchorbital_context.py
+          gremlin_mcp/orchorbital_persistence.py
           gremlin_mcp/workers.py
           gremlin_mcp/persistent_workers.py
           gremlin_mcp/worker_client.py
@@ -66,6 +69,7 @@ jobs:
           tests/test_gremlin_orchorbital_fabric_v02.py
           tests/test_gremlin_orchorbital_executor_v02.py
           tests/test_gremlin_orchorbital_context_v01.py
+          tests/test_gremlin_orchorbital_persistence_v01.py
           tests/test_gremlin_orchorbital_worker_transport_v02.py
           tests/test_gremlin_orchorbital_context_transport_v01.py
           tests/test_gremlin_orchorbital_context_transport_bench_v01.py
