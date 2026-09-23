@@ -345,8 +345,9 @@ class HoloMemoryIndex:
         cue: Mapping[str, Any],
         *,
         patch_radius: int = 1,
-        orbit_radius: int | None = None,
-        orbit_index: int = 0,
+        semantic_orbit_ids: Sequence[str] | None = None,
+        priority_orbit_radius: int | None = None,
+        priority_orbit_index: int = 0,
         fallback_full: bool = True,
     ) -> dict[str, Any]:
         shortlist = list(
@@ -397,8 +398,9 @@ class HoloMemoryIndex:
         cue: Mapping[str, Any],
         *,
         patch_radius: int = 1,
-        orbit_radius: int | None = None,
-        orbit_index: int = 0,
+        semantic_orbit_ids: Sequence[str] | None = None,
+        priority_orbit_radius: int | None = None,
+        priority_orbit_index: int = 0,
         fallback_full: bool = True,
     ) -> dict[str, Any]:
         """Shortlist holographically, then preserve GREMLIN semantic scorer."""
@@ -408,8 +410,9 @@ class HoloMemoryIndex:
             self.shortlist(
                 cue,
                 patch_radius=patch_radius,
-                orbit_radius=orbit_radius,
-                orbit_index=orbit_index,
+                semantic_orbit_ids=semantic_orbit_ids,
+                priority_orbit_radius=priority_orbit_radius,
+                priority_orbit_index=priority_orbit_index,
             )
         )
         fallback_used = False
