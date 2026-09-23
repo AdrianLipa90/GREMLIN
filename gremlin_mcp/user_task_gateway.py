@@ -251,7 +251,6 @@ def build_user_task_plan(
     semantic_payload = {
         "task": text,
         "active_terms": active_terms,
-        "relation_count": len(active_graph["relations"]),
         "intent_flags": flags,
     }
     semantic_route = route(
