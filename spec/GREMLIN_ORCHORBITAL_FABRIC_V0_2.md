@@ -1480,3 +1480,57 @@ SQLite hydration.
 The synthetic routing-index benchmark may exceed 200x in **candidate inspection
 reduction** under heavily skewed multi-species queues. This does not establish a
 200x end-to-end speedup.
+
+
+## Execution-role partition
+
+GREMLIN v0.2 uses one canonical role partition.
+
+```text
+control plane / authority boundaries:
+HUMMINGBIRD, OCTOPUS, GREMLIN, FERRET
+
+routable workload roles:
+all Bestiary roles except the control-plane set
+
+local execution modules without external carrier:
+ELEPHANT, BEES
+```
+
+Control-plane roles cannot be admitted as adaptive exact-cover execution
+operators.
+
+`ELEPHANT` and `BEES` are valid workload operators, but they require an
+explicit local adapter until validated external worker carriers exist.
+
+### Local adapter contract
+
+A local adapter must declare:
+
+- species;
+- adapter id;
+- adapter version;
+- a 64-hex implementation commitment;
+- replay-safe = true;
+- side-effects = false;
+- optional local reducer.
+
+The implementation commitment is included in the executor checkpoint manifest.
+A durable runtime restore therefore rejects a missing or different local
+adapter manifest.
+
+No callable code is serialized into the checkpoint.
+
+Local adapter execution is integrated into the same non-blocking orchestration
+step as WorkerBroker execution. A local module may recursively discover worker
+children, and an optional local reducer may close its subtree once those
+children resolve.
+
+Missing adapters never silently fall back to another species. The node remains
+open and is reported in `adapter_required`.
+
+### Durable façade restore
+
+`DurableOrchorbitalRuntime.restore(..., local_adapters=...)` forwards the
+registry through the SQLite runtime store into executor restore. This keeps
+store-level restore and façade-level restore semantically identical.
