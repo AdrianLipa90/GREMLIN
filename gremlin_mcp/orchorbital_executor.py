@@ -243,18 +243,6 @@ class OrchorbitalExecutor:
             {
                 row.species
                 for row in rows
-                if row.species not in ROUTABLE_EXECUTION_SPECIES
-            }
-        )
-        if invalid_operator_species:
-            raise ValueError(
-                "core boundary species cannot be exact-cover execution operators: "
-                f"{invalid_operator_species!r}"
-            )
-        invalid_operator_species = sorted(
-            {
-                row.species
-                for row in rows
                 if row.species not in DYNAMIC_WORKLOAD_SPECIES
             }
         )
@@ -412,6 +400,193 @@ class OrchorbitalExecutor:
             "center_id": node.center_id,
             "invocation_depth": node.invocation_depth,
             "authority_root_id": node.authority_root_id,
+        }
+
+    def _local_execution_request(
+        self,
+        node_id: str,
+        *,
+        input_payload: Mapping[str, Any] | None = None,
+    ) -> dict[str, object]:
+        if self.local_adapters is None:
+            raise RuntimeError("local adapter registry is not configured")
+        node = self.fabric.node(node_id)
+        if node.species not in LOCAL_EXECUTION_SPECIES:
+            raise RuntimeError(
+                f"species is not a local execution module: {node.species}"
+            )
+        adapter = self.local_adapters.adapter(node.species)
+        payload = (
+            self.default_input_payload(node.node_id)
+            if input_payload is None
+            else dict(input_payload)
+        )
+        _canonical(payload)
+
+        context_frame_commitment: str | None = None
+        materialized_context: dict[str, Any] | None = None
+        if self.context_store is not None:
+            frame = self.context_store.frame(node.node_id)
+            context_frame_commitment = frame.frame_commitment
+            materialized_context = self.context_store.materialize(node.node_id)
+
+        key_core = {
+            "execution_id": self.execution_id,
+            "node_id": node.node_id,
+            "species": node.species,
+            "adapter": adapter.public_view(),
+            "obligations": list(node.obligations),
+            "input": payload,
+            "context_frame_commitment": context_frame_commitment,
+        }
+        execution_key = hashlib.blake2b(
+            LOCAL_EXECUTION_DOMAIN + _canonical(key_core),
+            digest_size=32,
+        ).hexdigest()
+        return {
+            "schema": "GREMLIN_ORCHORBITAL_LOCAL_EXECUTION_REQUEST_V0_1",
+            "execution_key": execution_key,
+            "execution_id": self.execution_id,
+            "node_id": node.node_id,
+            "species": node.species,
+            "authority_root_id": node.authority_root_id,
+            "caller_id": node.caller_id,
+            "center_id": node.center_id,
+            "obligations": list(node.obligations),
+            "invocation_depth": node.invocation_depth,
+            "adapter": adapter.public_view(),
+            "input": payload,
+            "context_frame_commitment": context_frame_commitment,
+            "context": materialized_context,
+            "replay_safe": True,
+            "side_effects_allowed": False,
+            "canon_allowed": False,
+        }
+
+    def execute_local_node(
+        self,
+        node_id: str,
+        *,
+        input_payload: Mapping[str, Any] | None = None,
+    ) -> dict[str, object]:
+        node = self.fabric.node(node_id)
+        if node.status != "OPEN":
+            raise RuntimeError("local execution target must remain open")
+        if node.self_complete:
+            return {
+                "node_id": node.node_id,
+                "state": "SELF_COMPLETE",
+                "changed": False,
+            }
+        if node.species not in LOCAL_EXECUTION_SPECIES:
+            raise RuntimeError(
+                f"species is not eligible for local adapter execution: {node.species}"
+            )
+        if self.local_adapters is None or not self.local_adapters.has(node.species):
+            raise RuntimeError(f"local adapter is not registered for {node.species}")
+
+        request = self._local_execution_request(
+            node.node_id,
+            input_payload=input_payload,
+        )
+        if not node.execution_started:
+            self.fabric.mark_started(node.node_id)
+
+        try:
+            output = self.local_adapters.execute(node.species, request)
+        except Exception as exc:
+            self.fabric.fail(
+                node.node_id,
+                reason=f"local adapter execution failed: {type(exc).__name__}: {exc}",
+            )
+            return {
+                "node_id": node.node_id,
+                "state": "FAILED_LOCAL_ADAPTER",
+                "changed": True,
+                "error": f"{type(exc).__name__}: {exc}",
+            }
+
+        try:
+            receipt = self.complete_local(node.node_id, output)
+        except Exception as exc:
+            current = self.fabric.node(node.node_id)
+            if current.status == "OPEN":
+                self.fabric.quarantine(
+                    node.node_id,
+                    reason=(
+                        "local adapter output/integration failed: "
+                        f"{type(exc).__name__}: {exc}"
+                    ),
+                )
+            return {
+                "node_id": node.node_id,
+                "state": "QUARANTINED_LOCAL_ADAPTER_OUTPUT",
+                "changed": True,
+                "error": f"{type(exc).__name__}: {exc}",
+            }
+        return {
+            **receipt,
+            "execution_key": request["execution_key"],
+            "adapter": request["adapter"],
+            "local_adapter": True,
+        }
+
+    def execute_local_frontier(
+        self,
+        payload_overrides: Mapping[str, Mapping[str, Any]] | None = None,
+    ) -> dict[str, object]:
+        overrides: Mapping[str, Mapping[str, Any]] = (
+            {} if payload_overrides is None else payload_overrides
+        )
+        if not isinstance(overrides, Mapping):
+            raise ValueError("payload_overrides must be a mapping")
+
+        frontier = self.frontier()
+        candidate_ids = tuple(
+            dict.fromkeys(
+                tuple(frontier["local_ready"]) + tuple(frontier["local_running"])
+            )
+        )
+        completed: list[dict[str, object]] = []
+        failures: list[dict[str, str]] = []
+        adapter_required: list[str] = []
+        core_boundary_required: list[str] = []
+
+        for node_id in candidate_ids:
+            node = self.fabric.node(node_id)
+            if node.species in CORE_BOUNDARY_SPECIES:
+                core_boundary_required.append(node.node_id)
+                continue
+            if node.species not in LOCAL_EXECUTION_SPECIES:
+                adapter_required.append(node.node_id)
+                continue
+            if self.local_adapters is None or not self.local_adapters.has(node.species):
+                adapter_required.append(node.node_id)
+                continue
+            try:
+                completed.append(
+                    self.execute_local_node(
+                        node.node_id,
+                        input_payload=overrides.get(node.node_id),
+                    )
+                )
+            except Exception as exc:
+                failures.append(
+                    {
+                        "node_id": node.node_id,
+                        "error": f"{type(exc).__name__}: {exc}",
+                    }
+                )
+
+        return {
+            "schema": SCHEMA,
+            "execution_id": self.execution_id,
+            "completed": completed,
+            "adapter_required": sorted(set(adapter_required)),
+            "core_boundary_required": sorted(set(core_boundary_required)),
+            "failures": failures,
+            "canon_allowed": False,
+            "execution_admitted": False,
         }
 
     def dispatch_ready(
