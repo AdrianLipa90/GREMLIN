@@ -244,6 +244,7 @@ class OrchorbitalFabric:
         if root.caller_id is not None or root.center_id is not None:
             raise RuntimeError("authority root boundary invariant violated")
 
+        caller_graph: dict[str, set[str]] = {}
         for node_id, node in self._nodes.items():
             if node.authority_root_id != self._authority_root_id:
                 raise RuntimeError("authority root drift detected")
@@ -267,6 +268,26 @@ class OrchorbitalFabric:
                 raise RuntimeError("causal edge points outside fabric")
             if not self._joins[node_id] <= self._nodes.keys():
                 raise RuntimeError("join edge points outside fabric")
+            if node_id == self._authority_root_id:
+                caller_graph[node_id] = set()
+            else:
+                if node.caller_id is None:
+                    raise RuntimeError("non-root node is missing caller provenance")
+                caller_graph[node_id] = {node.caller_id}
+
+        if _has_cycle(caller_graph):
+            raise RuntimeError("caller provenance graph contains a cycle")
+        for node_id in self._nodes:
+            current = node_id
+            seen: set[str] = set()
+            while current != self._authority_root_id:
+                if current in seen:
+                    raise RuntimeError("caller provenance graph contains a cycle")
+                seen.add(current)
+                caller = self._nodes[current].caller_id
+                if caller is None:
+                    raise RuntimeError("caller provenance does not reach authority root")
+                current = caller
 
         if _has_cycle(self._causal):
             raise RuntimeError("causal graph contains a cycle")
@@ -727,6 +748,8 @@ class OrchorbitalFabric:
                 ),
                 "coordination_edge_count": len(self._coordination),
                 "caller_is_provenance_not_center": True,
+                "caller_cycles_allowed": False,
+                "caller_chain_reaches_authority_root": True,
                 "causal_edges_sealed_after_start": True,
                 "center_cycles_allowed": True,
                 "causal_cycles_allowed": False,
