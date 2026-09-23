@@ -203,7 +203,7 @@ def build_user_task_plan(
     context: Sequence[str] | None = None,
     request_id: str | None = None,
     max_species: int = 4,
-    max_total_species: int = 6,
+    max_total_species: int = 7,
     min_score: float = 2.0,
     relative_cutoff: float = 0.45,
     max_neighbors: int = 6,
