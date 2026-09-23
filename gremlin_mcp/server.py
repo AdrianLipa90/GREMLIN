@@ -609,6 +609,7 @@ def gremlin_worker_claim(
     species: str | None = None,
     limit: WorkerClaimLimit | None = None,
     lease_seconds: WorkerLeaseSeconds | None = None,
+    known_context_frames: list[str] | None = None,
 ) -> dict[str, Any]:
     """Claim one bounded same-species batch using GREMLIN orbit/vector lane limits."""
     return broker.claim(
@@ -616,6 +617,7 @@ def gremlin_worker_claim(
         species=species,
         limit=limit,
         lease_seconds=lease_seconds,
+        known_context_frames=known_context_frames or (),
     )
 
 
