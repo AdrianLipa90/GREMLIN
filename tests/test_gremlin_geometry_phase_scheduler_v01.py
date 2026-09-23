@@ -512,3 +512,74 @@ def test_bees_and_elephant_accept_explicit_t36_without_invented_species_anchor()
         assert lease["tasks"][0]["task_id"] == f"{species.lower()}-task"
         queue = lease["scheduler"]["species_selection"]["queues"][species]
         assert queue["explicit_phase_fraction"] == 1.0
+
+
+def test_precomputed_states_preserve_exact_batch_selection() -> None:
+    rows = [
+        {
+            "task_id": f"cached-{index}",
+            "species": "FOX",
+            "payload": _payload(
+                f"cached-{index}",
+                0.2 + 0.01 * index,
+                urgency=(index % 3) / 2.0,
+            ),
+            "task_commitment": f"commit-{index:03d}",
+            "created_ns": index + 1,
+        }
+        for index in range(12)
+    ]
+    states = {
+        row["task_id"]: task_phase_state(row)
+        for row in rows
+    }
+
+    baseline_ids, baseline = select_batch(
+        rows,
+        limit=6,
+        now_ns=10_000_000_000,
+        affinity_by_task={
+            row["task_id"]: ("root", f"branch-{int(index / 4)}")
+            for index, row in enumerate(rows)
+        },
+        receiver_known_affinity=("root",),
+    )
+    cached_ids, cached = select_batch(
+        rows,
+        limit=6,
+        now_ns=10_000_000_000,
+        affinity_by_task={
+            row["task_id"]: ("root", f"branch-{int(index / 4)}")
+            for index, row in enumerate(rows)
+        },
+        receiver_known_affinity=("root",),
+        precomputed_states=states,
+    )
+
+    assert cached_ids == baseline_ids
+    assert cached["transition_cost_selected"] == baseline["transition_cost_selected"]
+    assert cached["noise_cost_selected"] == baseline["noise_cost_selected"]
+    assert cached["mean_priority"] == baseline["mean_priority"]
+    assert baseline["precomputed_state_cache_used"] is False
+    assert cached["precomputed_state_cache_used"] is True
+
+
+def test_precomputed_state_lineage_mismatch_fails_closed() -> None:
+    row = {
+        "task_id": "cached-one",
+        "species": "FOX",
+        "payload": _payload("cached-one", 0.5),
+        "task_commitment": "commit-cached-one",
+        "created_ns": 1,
+    }
+    state = task_phase_state(row)
+    drifted = dict(row)
+    drifted["task_commitment"] = "commit-drift"
+
+    with pytest.raises(GeometryPhaseSchedulerError, match="lineage mismatch"):
+        select_batch(
+            [drifted],
+            limit=1,
+            now_ns=10,
+            precomputed_states={"cached-one": state},
+        )
