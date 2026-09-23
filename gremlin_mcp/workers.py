@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 from dataclasses import asdict, dataclass
+from itertools import islice
 import hashlib
 import heapq
 import json
@@ -39,7 +40,7 @@ from tools.gremlin_geometry_phase_scheduler_v01 import (
 )
 
 WORKER_SCHEMA = "GREMLIN_MCP_WORKER_ABI_V0_2"
-WORKER_ABI_VERSION = "0.2.5"
+WORKER_ABI_VERSION = "0.2.6"
 COMMITMENT_DOMAIN = b"GREMLIN-MCP-WORKER-ABI/v0.2\x00"
 TRANSPORT_COMMITMENT_DOMAIN = b"GREMLIN-MCP-WORKER-TRANSPORT/v0.2\x00"
 MAX_IDENTIFIER_CHARS = 128
@@ -47,6 +48,8 @@ MAX_WORKER_VECTOR_WIDTH = 1024
 MAX_WORKER_BATCH = 128
 MAX_LEASE_SECONDS = 300
 MAX_CONTEXT_FRAME_CACHE_KEYS = 4096
+MAX_CONTEXT_INDEX_DEPTH = 8
+MAX_CONTEXT_FAIRNESS_WINDOW = 32
 
 MEMORY_REQUESTS_KEY = "_gremlin_memory_requests"
 MEMORY_AUTHORIZATION_KEY = "_gremlin_memory_authorization"
@@ -340,6 +343,9 @@ class WorkerBroker:
             name: {} for name in WORKER_SPECIES
         }
         self._task_context_affinity: dict[str, tuple[str, ...]] = {}
+        self._queued_by_context_frame: dict[
+            str, dict[str, dict[str, None]]
+        ] = {name: {} for name in WORKER_SPECIES}
         self._task_phase_state: dict[str, Any] = {}
         self._unfinished_count = 0
         self._lock = RLock()
@@ -353,6 +359,12 @@ class WorkerBroker:
         else:
             self._task_context_affinity.pop(task.task_id, None)
 
+    def _context_index_keys(self, task_id: str) -> tuple[str, ...]:
+        affinity = self._task_context_affinity.get(task_id, ())
+        if not affinity:
+            return ()
+        return tuple(affinity[-MAX_CONTEXT_INDEX_DEPTH:])
+
     def _queue_index_add(self, task: TaskRecord) -> None:
         if task.state != "QUEUED":
             raise RuntimeError("only queued tasks may enter the queue index")
@@ -361,11 +373,28 @@ class WorkerBroker:
             raise RuntimeError("task species has no queue index")
         bucket[task.task_id] = None
 
+        context_index = self._queued_by_context_frame.get(task.species)
+        if context_index is None:
+            raise RuntimeError("task species has no context queue index")
+        for frame_commitment in self._context_index_keys(task.task_id):
+            context_index.setdefault(frame_commitment, {})[task.task_id] = None
+
     def _queue_index_remove(self, task: TaskRecord) -> None:
         bucket = self._queued_by_species.get(task.species)
         if bucket is None:
             raise RuntimeError("task species has no queue index")
         bucket.pop(task.task_id, None)
+
+        context_index = self._queued_by_context_frame.get(task.species)
+        if context_index is None:
+            raise RuntimeError("task species has no context queue index")
+        for frame_commitment in self._context_index_keys(task.task_id):
+            frame_bucket = context_index.get(frame_commitment)
+            if frame_bucket is None:
+                continue
+            frame_bucket.pop(task.task_id, None)
+            if not frame_bucket:
+                context_index.pop(frame_commitment, None)
 
     def _rebuild_lease_heap(self) -> None:
         self._lease_expiry_heap = [
@@ -382,6 +411,9 @@ class WorkerBroker:
     def _rebuild_indexes(self) -> None:
         self._queued_by_species = {name: {} for name in WORKER_SPECIES}
         self._task_context_affinity = {}
+        self._queued_by_context_frame = {
+            name: {} for name in WORKER_SPECIES
+        }
         self._task_phase_state = {}
         self._unfinished_count = 0
         for task in self._tasks.values():
@@ -406,6 +438,96 @@ class WorkerBroker:
             self._validate_task_memory_authorization(task)
             rows.append(self._scheduler_task_view(task))
         return rows
+
+    def _indexed_candidate_rows(
+        self,
+        species: str,
+        known_frames: tuple[str, ...],
+        *,
+        requested_limit: int,
+    ) -> tuple[list[dict[str, Any]], dict[str, object]]:
+        """Return a bounded warm-context candidate set plus oldest fairness rows.
+
+        This is activated only for an explicitly requested species. Cold-start
+        and multi-species claims retain the complete species-queue semantics.
+        """
+
+        species_bucket = self._queued_by_species.get(species)
+        context_index = self._queued_by_context_frame.get(species)
+        if species_bucket is None or context_index is None:
+            raise RuntimeError("species routing indexes are unavailable")
+        queue_count = len(species_bucket)
+        fallback = {
+            "active": False,
+            "hit": False,
+            "species_queue_count": queue_count,
+            "indexed_local_count": 0,
+            "fairness_candidate_count": 0,
+            "candidate_count": queue_count,
+            "candidate_scan_reduction_proxy": 0.0,
+            "selected_context_frame_commitment": None,
+            "max_index_depth": MAX_CONTEXT_INDEX_DEPTH,
+        }
+        if not known_frames or queue_count <= 1:
+            return self._queued_rows(species), fallback
+
+        hits: list[tuple[int, str, dict[str, None]]] = []
+        for frame_commitment in known_frames:
+            frame_bucket = context_index.get(frame_commitment)
+            if frame_bucket:
+                hits.append((len(frame_bucket), frame_commitment, frame_bucket))
+        if not hits:
+            return self._queued_rows(species), fallback
+
+        local_count, selected_frame, local_bucket = min(
+            hits,
+            key=lambda row: (row[0], row[1]),
+        )
+        local_ids = tuple(local_bucket)
+        selected: dict[str, None] = {
+            task_id: None for task_id in local_ids
+        }
+
+        fairness_limit = max(
+            4,
+            min(MAX_CONTEXT_FAIRNESS_WINDOW, requested_limit),
+        )
+        fairness_added = 0
+        for task_id in islice(species_bucket, 0, queue_count):
+            if task_id in selected:
+                continue
+            selected[task_id] = None
+            fairness_added += 1
+            if fairness_added >= fairness_limit:
+                break
+
+        rows: list[dict[str, Any]] = []
+        for task_id in selected:
+            task = self._tasks.get(task_id)
+            if task is None:
+                raise RuntimeError("context queue index references a missing task")
+            if task.species != species or task.state != "QUEUED":
+                raise RuntimeError("context queue index/task state drift detected")
+            self._validate_task_memory_authorization(task)
+            rows.append(self._scheduler_task_view(task))
+
+        candidate_count = len(rows)
+        reduction = (
+            0.0
+            if queue_count <= 0
+            else 1.0 - candidate_count / queue_count
+        )
+        return rows, {
+            "active": True,
+            "hit": True,
+            "species_queue_count": queue_count,
+            "indexed_local_count": local_count,
+            "fairness_candidate_count": fairness_added,
+            "candidate_count": candidate_count,
+            "candidate_scan_reduction_proxy": reduction,
+            "selected_context_frame_commitment": selected_frame,
+            "max_index_depth": MAX_CONTEXT_INDEX_DEPTH,
+        }
 
     def register_worker(
         self,
@@ -527,11 +649,38 @@ class WorkerBroker:
                     raise ValueError("worker is not registered for requested species")
                 candidate_names = (requested,)
 
+            requested_limit = (
+                worker.max_batch
+                if limit is None
+                else _strict_int(limit, field="limit", minimum=1)
+            )
             queue_rows: dict[str, list[dict[str, Any]]] = {}
+            candidate_scope: dict[str, dict[str, object]] = {}
+            explicit_species = species is not None
             for name in candidate_names:
-                rows = self._queued_rows(name)
+                if explicit_species and known_frames:
+                    rows, scope = self._indexed_candidate_rows(
+                        name,
+                        known_frames,
+                        requested_limit=requested_limit,
+                    )
+                else:
+                    rows = self._queued_rows(name)
+                    queue_count = len(self._queued_by_species[name])
+                    scope = {
+                        "active": False,
+                        "hit": False,
+                        "species_queue_count": queue_count,
+                        "indexed_local_count": 0,
+                        "fairness_candidate_count": 0,
+                        "candidate_count": len(rows),
+                        "candidate_scan_reduction_proxy": 0.0,
+                        "selected_context_frame_commitment": None,
+                        "max_index_depth": MAX_CONTEXT_INDEX_DEPTH,
+                    }
                 if rows:
                     queue_rows[name] = rows
+                    candidate_scope[name] = scope
 
             cadence_hint = {
                 name: service_omega(PROFILES[name])
@@ -594,10 +743,12 @@ class WorkerBroker:
                 cluster_coherence=float(metrics["cluster_coherence"]),
                 legacy_cap=legacy_cap,
             )
-            requested_limit = worker.max_batch if limit is None else _strict_int(
-                limit, field="limit", minimum=1
+            batch_limit = min(
+                requested_limit,
+                worker.max_batch,
+                lane,
+                int(metrics["eligible_count"]),
             )
-            batch_limit = min(requested_limit, worker.max_batch, lane, int(metrics["eligible_count"]))
             context_affinity = affinity_by_species[selected_species]
             centroid = metrics.get("centroid")
             if not isinstance(centroid, list):
@@ -815,6 +966,10 @@ class WorkerBroker:
                     "mode": GEOMETRY_SCHEDULER_MODE,
                     "species_selection": species_scheduler,
                     "batch_selection": batch_scheduler,
+                    "context_candidate_scope": candidate_scope.get(
+                        selected_species,
+                        {},
+                    ),
                     "legacy_orbit_lane_cap": legacy_cap,
                     "geometry_lane_width": lane,
                     "fifo_primary": False,
@@ -935,6 +1090,19 @@ class WorkerBroker:
                 "precomputed_phase_state_count": len(self._task_phase_state),
                 "queued_index_counts": {
                     name: len(self._queued_by_species[name])
+                    for name in WORKER_SPECIES
+                },
+                "context_ancestry_indexed": True,
+                "context_index_max_depth": MAX_CONTEXT_INDEX_DEPTH,
+                "context_index_bucket_counts": {
+                    name: len(self._queued_by_context_frame[name])
+                    for name in WORKER_SPECIES
+                },
+                "context_index_member_references": {
+                    name: sum(
+                        len(bucket)
+                        for bucket in self._queued_by_context_frame[name].values()
+                    )
                     for name in WORKER_SPECIES
                 },
                 "tasks": counts,
