@@ -1,0 +1,55 @@
+{
+  "schema": "GREMLIN_HOLOGRAPHIC_ORBITAL_MEMORY_LIVE_REMAP_V0_1",
+  "status": "PASS_LIVE_REMAP_CANDIDATE_ONLY",
+  "date": "2026-09-23",
+  "authority": {
+    "candidate_only": true,
+    "canon_allowed": false,
+    "ledger_mutated": false,
+    "physical_qhtri_claim": false
+  },
+  "source": {
+    "surface_root": "/dev/shm/ciel_noema",
+    "terminal_receipt": "rt-720c6b2e4d89f11945eb",
+    "terminal_receipt_sha256": "7d0dc8a69b4d042666f39632d878c58d11283a1cb9c15429259ae251d0ac69d9",
+    "trace_sha256": "baf57cf8e99ac466bd73453a5466eb79303eac691a18abfa7c13efa3a186e423",
+    "shape": [8, 36],
+    "source_event_id": "gremlin:whisper:sha256:5441d4942f50c1098c51f4625f9ca3c93437d486bc04e918f1bc21dfe2081091"
+  },
+  "balanced": {
+    "hex_scale": 12.0,
+    "mapping_commitment": "map:f20ea0aea68390149983bc593ce416e32aeeab19f173f1288121ce0035f94acb",
+    "candidate_reduction_range": [1.6, 4.0]
+  },
+  "aggressive": {
+    "hex_scale": 16.0,
+    "mapping_commitment": "map:ff748673e32850c7bed434b803e3cb5a3d0e1e56cfa9a3ebe478c90d224693c0",
+    "candidate_reduction_range": [1.6, 4.0]
+  },
+  "hologram": {
+    "projection_commitment": "holo:1e238f0dc857d9f246083c823295efdaa62505ab988139078107ab7a219fb689",
+    "global_coherence": 0.34104387125834484,
+    "amplitude_min": 0.07414052087648237,
+    "amplitude_max": 0.7295920711993844,
+    "strongest_pairwise_moire_overlap": {
+      "left": 0,
+      "right": 5,
+      "score": 0.4297682610618611
+    },
+    "weakest_pairwise_moire_overlap": {
+      "left": 2,
+      "right": 7,
+      "score": 0.0194781785124696
+    }
+  },
+  "live_aux_phase_transport": {
+    "gain": 0.25,
+    "roundtrip_rms_error": 6.47630097698008e-17,
+    "verdict": "PASS_REVERSIBLE_NUMERIC"
+  },
+  "interpretation_limits": [
+    "Eight live vectors are sufficient to validate remapping/reversibility, not performance scaling.",
+    "The runtime vectors are PhaseNav-derived candidate coordinates and are not automatically durable factual memories.",
+    "No physical QHTRI or human-memory mechanism is inferred."
+  ]
+}
