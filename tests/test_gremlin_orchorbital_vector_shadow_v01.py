@@ -3,6 +3,7 @@ from __future__ import annotations
 import pytest
 
 import gremlin_mcp.workers as workers_module
+from gremlin_mcp.persistent_workers import PersistentWorkerBroker
 from gremlin_mcp.workers import WorkerBroker
 from tools.gremlin_geometry_phase_scheduler_v01 import (
     NUMPY_DISTANCE_KERNEL_CANDIDATE,
@@ -116,3 +117,49 @@ def test_vector_shadow_is_disabled_by_default() -> None:
     assert shadow["enabled"] is False
     assert shadow["selection_equivalent"] is None
     assert broker.queue_status()["vector_distance_shadow_enabled"] is False
+
+
+def test_persistent_worker_shadow_survives_restart_without_persisting_mode(tmp_path) -> None:
+    state = tmp_path / "shadow-workers.sqlite3"
+    broker = PersistentWorkerBroker(
+        str(state),
+        vector_distance_shadow=True,
+    )
+    broker.register_worker(
+        "persistent-shadow",
+        ["SPIDER"],
+        vector_width=8,
+        max_batch=8,
+    )
+    for index in range(10):
+        broker.enqueue(
+            "SPIDER",
+            payload(index),
+            task_id=f"persistent-shadow-{index:03d}",
+        )
+    lease = broker.claim(
+        "persistent-shadow",
+        species="SPIDER",
+        limit=4,
+    )
+    assert lease["scheduler"]["batch_selection"]["vector_distance_shadow"][
+        "selection_equivalent"
+    ] is True
+    broker.close()
+
+    reopened_default = PersistentWorkerBroker(str(state))
+    try:
+        assert reopened_default.queue_status()["vector_distance_shadow_enabled"] is False
+        # Runtime shadow mode is configuration, not persisted canonical state.
+        assert reopened_default.queue_status()["unfinished_task_count"] == 10
+    finally:
+        reopened_default.close()
+
+    reopened_shadow = PersistentWorkerBroker(
+        str(state),
+        vector_distance_shadow=True,
+    )
+    try:
+        assert reopened_shadow.queue_status()["vector_distance_shadow_enabled"] is True
+    finally:
+        reopened_shadow.close()
