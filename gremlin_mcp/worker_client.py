@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from copy import deepcopy
 import inspect
 import json
 import math
@@ -9,7 +10,14 @@ from typing import Any, Awaitable, Callable
 
 from mcp import Client
 
-from gremlin_mcp.orchorbital_context import PACKET_PAYLOAD_KEY, apply_context_packet
+from gremlin_mcp.orchorbital_context import (
+    BUNDLE_PAYLOAD_KEY,
+    BUNDLE_REF_PAYLOAD_KEY,
+    BUNDLE_REF_SCHEMA,
+    PACKET_PAYLOAD_KEY,
+    apply_context_bundle,
+    apply_context_packet,
+)
 
 BatchHandler = Callable[[dict[str, Any]], Iterable[Mapping[str, Any]] | Awaitable[Iterable[Mapping[str, Any]]]]
 ORBITAL_CONTEXT_MATERIALIZED_KEY = "orchorbital_context"
@@ -160,6 +168,34 @@ class GremlinWorkerClient:
         expected: set[str] = set()
         context_packet_count = 0
         context_cache_hits = 0
+
+        bundle = claim.get(BUNDLE_PAYLOAD_KEY)
+        bundle_targets: Mapping[str, Any] = {}
+        provisional_cache: dict[str, dict[str, Any]] | None = None
+        if bundle is not None:
+            if not isinstance(bundle, Mapping):
+                raise GremlinWorkerClientError("worker claim context bundle must be an object")
+            try:
+                decoded_bundle = apply_context_bundle(
+                    bundle,
+                    known_contexts=self._context_cache,
+                )
+            except ValueError as exc:
+                raise GremlinWorkerClientError(
+                    "worker claim context bundle verification failed"
+                ) from exc
+            raw_targets = decoded_bundle.get("task_targets")
+            raw_updates = decoded_bundle.get("cache_updates")
+            if not isinstance(raw_targets, Mapping) or not isinstance(raw_updates, Mapping):
+                raise GremlinWorkerClientError("decoded context bundle is invalid")
+            bundle_targets = raw_targets
+            provisional_cache = deepcopy(self._context_cache)
+            for commitment, materialized in raw_updates.items():
+                if not isinstance(commitment, str) or not isinstance(materialized, Mapping):
+                    raise GremlinWorkerClientError("context bundle cache update is invalid")
+                provisional_cache[commitment] = deepcopy(dict(materialized))
+
+        seen_bundle_targets: set[str] = set()
         for index, task in enumerate(tasks):
             task_id = task.get("task_id")
             if not isinstance(task_id, str) or not task_id.strip():
@@ -168,6 +204,49 @@ class GremlinWorkerClient:
                 raise GremlinWorkerClientError("worker claim contains duplicate task_id")
             expected.add(task_id)
             payload = task.get("payload")
+            if isinstance(payload, Mapping) and BUNDLE_REF_PAYLOAD_KEY in payload:
+                if bundle is None or provisional_cache is None:
+                    raise GremlinWorkerClientError(
+                        f"worker claim task {index} has context reference without bundle"
+                    )
+                if PACKET_PAYLOAD_KEY in payload:
+                    raise GremlinWorkerClientError(
+                        f"worker claim task {index} mixes context packet and bundle reference"
+                    )
+                raw_ref = payload[BUNDLE_REF_PAYLOAD_KEY]
+                if not isinstance(raw_ref, Mapping) or raw_ref.get("schema") != BUNDLE_REF_SCHEMA:
+                    raise GremlinWorkerClientError(
+                        f"worker claim task {index} has invalid context bundle reference"
+                    )
+                expected_target = bundle_targets.get(task_id)
+                if not isinstance(expected_target, Mapping):
+                    raise GremlinWorkerClientError(
+                        f"worker claim task {index} is missing from context bundle targets"
+                    )
+                ref_core = {
+                    "target_node_id": raw_ref.get("target_node_id"),
+                    "target_frame_commitment": raw_ref.get("target_frame_commitment"),
+                    "target_materialized_commitment": raw_ref.get(
+                        "target_materialized_commitment"
+                    ),
+                }
+                if ref_core != dict(expected_target):
+                    raise GremlinWorkerClientError(
+                        f"worker claim task {index} context reference mismatches bundle"
+                    )
+                target_commitment = raw_ref.get("target_frame_commitment")
+                materialized = provisional_cache.get(target_commitment)
+                if not isinstance(target_commitment, str) or not isinstance(
+                    materialized, Mapping
+                ):
+                    raise GremlinWorkerClientError(
+                        f"worker claim task {index} target context is unavailable"
+                    )
+                task[ORBITAL_CONTEXT_MATERIALIZED_KEY] = deepcopy(dict(materialized))
+                context_packet_count += 1
+                seen_bundle_targets.add(task_id)
+                continue
+
             if isinstance(payload, Mapping) and PACKET_PAYLOAD_KEY in payload:
                 raw_packet = payload[PACKET_PAYLOAD_KEY]
                 if not isinstance(raw_packet, Mapping):
@@ -194,18 +273,38 @@ class GremlinWorkerClient:
                         raise GremlinWorkerClientError("context cache update is invalid")
                     if commitment in self._context_cache:
                         del self._context_cache[commitment]
-                    self._context_cache[commitment] = dict(materialized)
+                    self._context_cache[commitment] = deepcopy(dict(materialized))
                 target_commitment = decoded.get("target_frame_commitment")
                 materialized = decoded.get("materialized_context")
                 if not isinstance(target_commitment, str) or not isinstance(materialized, Mapping):
                     raise GremlinWorkerClientError("decoded target context is invalid")
                 if target_commitment in self._context_cache:
                     del self._context_cache[target_commitment]
-                self._context_cache[target_commitment] = dict(materialized)
+                self._context_cache[target_commitment] = deepcopy(dict(materialized))
                 while len(self._context_cache) > self.max_context_frames:
                     oldest = next(iter(self._context_cache))
                     del self._context_cache[oldest]
-                task[ORBITAL_CONTEXT_MATERIALIZED_KEY] = dict(materialized)
+                task[ORBITAL_CONTEXT_MATERIALIZED_KEY] = deepcopy(dict(materialized))
+
+        if bundle is not None:
+            expected_bundle_targets = set(bundle_targets)
+            if seen_bundle_targets != expected_bundle_targets:
+                raise GremlinWorkerClientError(
+                    "worker claim bundle targets must match task context references exactly"
+                )
+            if provisional_cache is None:
+                raise GremlinWorkerClientError("context bundle cache staging is unavailable")
+            self._context_cache = provisional_cache
+            while len(self._context_cache) > self.max_context_frames:
+                oldest = next(iter(self._context_cache))
+                del self._context_cache[oldest]
+            context_cache_hits += sum(
+                1
+                for task_id in seen_bundle_targets
+                if isinstance(bundle_targets.get(task_id), Mapping)
+                and bundle_targets[task_id].get("target_frame_commitment")
+                in self._context_cache
+            )
 
         envelope = {
             "schema": "GREMLIN_MCP_WORKER_BATCH_V0_2",
@@ -217,6 +316,7 @@ class GremlinWorkerClient:
             "scheduler": claim.get("scheduler"),
             "context_pack": claim.get("context_pack"),
             "orchorbital_context_transport": claim.get("orchorbital_context_transport"),
+            BUNDLE_PAYLOAD_KEY: bundle,
             "orchorbital_context_cache": {
                 "cached_frame_count": len(self._context_cache),
                 "packet_task_count": context_packet_count,
