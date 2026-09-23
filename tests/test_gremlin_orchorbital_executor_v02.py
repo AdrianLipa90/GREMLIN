@@ -1231,3 +1231,61 @@ def test_multi_child_discovery_uses_one_shared_handoff_frame_without_copying_del
         row[DISCOVERY_HANDOFF_CONTEXT_KEY]["summary"] == "shared-once"
         for row in materialized
     )
+
+
+def test_adaptive_executor_rejects_control_plane_species_as_workload_operator() -> None:
+    fabric = OrchorbitalFabric()
+    control_operator = (
+        OperatorTier(
+            "OCTOPUS",
+            0,
+            frozenset({"route"}),
+            ResourceCost(1, 1, 1, 1),
+        ),
+    )
+
+    with pytest.raises(ValueError, match="control-plane or unknown species"):
+        OrchorbitalExecutor(
+            execution_id="bad-control-operator",
+            fabric=fabric,
+            broker=WorkerBroker(),
+            operators=control_operator,
+            budget=BUDGET,
+        )
+
+
+def test_bees_dynamic_operator_enters_worker_frontier_not_local_core() -> None:
+    fabric = OrchorbitalFabric()
+    broker = WorkerBroker()
+    broker.register_worker(
+        "bees-worker",
+        ["BEES"],
+        vector_width=4,
+        max_batch=4,
+    )
+    executor = OrchorbitalExecutor(
+        execution_id="bees-dynamic",
+        fabric=fabric,
+        broker=broker,
+        operators=(
+            OperatorTier(
+                "BEES",
+                0,
+                frozenset({"cohere"}),
+                ResourceCost(1, 1, 1, 1),
+            ),
+        ),
+        budget=BUDGET,
+    )
+
+    allocation = executor.allocate(
+        "AUTH:ROOT",
+        ("cohere",),
+        allocation_key="bees-dynamic-root",
+    )
+    node = allocation.nodes[0]
+    frontier = executor.frontier()
+
+    assert node.species == "BEES"
+    assert node.node_id in frontier["worker_ready"]
+    assert node.node_id not in frontier["local_ready"]
