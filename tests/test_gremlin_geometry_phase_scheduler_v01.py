@@ -356,3 +356,115 @@ def test_context_affinity_does_not_change_selection_when_absent() -> None:
     assert empty_receipt["context_affinity_active"] is False
     assert empty_receipt["receiver_cache_affinity_active"] is False
     assert baseline_receipt["selected_task_ids"] == empty_receipt["selected_task_ids"]
+
+
+def test_context_affinity_cannot_override_large_phase_state_distance() -> None:
+    rows = [
+        {
+            "task_id": "seed",
+            "species": "FOX",
+            "payload": _payload("seed", 0.00, urgency=1.0),
+            "task_commitment": "commit-seed",
+            "created_ns": 1,
+        },
+        {
+            "task_id": "phase-near",
+            "species": "FOX",
+            "payload": _payload("phase-near", 0.03),
+            "task_commitment": "commit-phase-near",
+            "created_ns": 2,
+        },
+        {
+            "task_id": "context-near-phase-far",
+            "species": "FOX",
+            "payload": _payload("context-near-phase-far", 2.80),
+            "task_commitment": "commit-context-far",
+            "created_ns": 3,
+        },
+    ]
+
+    selected, receipt = select_batch(
+        rows,
+        limit=2,
+        now_ns=10_000_000_000,
+        affinity_by_task={
+            "seed": ("root", "branch-a"),
+            "phase-near": ("root", "branch-b"),
+            "context-near-phase-far": ("root", "branch-a"),
+        },
+    )
+
+    assert selected == ["seed", "phase-near"]
+    assert receipt["context_affinity_active"] is True
+    assert 0.0 < receipt["context_affinity_weight"] < 0.10
+
+
+def test_receiver_species_locality_cannot_override_large_geometry_gap() -> None:
+    now = 10_000_000_000
+    coherent = [
+        _row("r1", "RAVEN", 1.00, 1),
+        _row("r2", "RAVEN", 1.01, 2),
+        _row("r3", "RAVEN", 1.02, 3),
+        _row("r4", "RAVEN", 1.03, 4),
+    ]
+    incoherent = [
+        _row("s1", "SERPENT", 0.0, 1),
+        _row("s2", "SERPENT", 1.57, 2),
+        _row("s3", "SERPENT", 3.14, 3),
+        _row("s4", "SERPENT", 4.71, 4),
+    ]
+
+    selected, receipt = choose_species(
+        {"RAVEN": coherent, "SERPENT": incoherent},
+        now_ns=now,
+        cadence_hint={"RAVEN": 0.0, "SERPENT": 0.0},
+        locality_hint={"RAVEN": 0.0, "SERPENT": 1.0},
+    )
+
+    assert selected == "RAVEN"
+    assert receipt["receiver_species_affinity_weight"] < 0.10
+    assert (
+        receipt["queues"]["RAVEN"]["effective_queue_score"]
+        > receipt["queues"]["SERPENT"]["effective_queue_score"]
+    )
+
+
+def test_unknown_affinity_task_ids_are_neutral() -> None:
+    rows = [
+        _row("a", "FOX", 0.10, 1),
+        _row("b", "FOX", 0.12, 2),
+        _row("c", "FOX", 0.14, 3),
+    ]
+
+    baseline, _ = select_batch(
+        rows,
+        limit=2,
+        now_ns=10_000_000_000,
+    )
+    selected, receipt = select_batch(
+        rows,
+        limit=2,
+        now_ns=10_000_000_000,
+        affinity_by_task={
+            "not-in-queue": ("root", "branch-x"),
+        },
+    )
+
+    assert selected == baseline
+    assert receipt["context_affinity_active"] is False
+
+
+def test_malformed_affinity_input_fails_closed() -> None:
+    rows = [_row("a", "FOX", 0.10, 1)]
+
+    try:
+        select_batch(
+            rows,
+            limit=1,
+            now_ns=10_000_000_000,
+            affinity_by_task={"a": "not-an-iterable-of-commitments"},
+        )
+    except ValueError as exc:
+        assert "task affinity must be an iterable" in str(exc)
+    else:
+        raise AssertionError("malformed context affinity must fail closed")
