@@ -392,6 +392,51 @@ class WorkerBroker:
             }
             chosen = [by_id[task_id] for task_id in selected_ids]
             batch_size = len(chosen)
+
+            # Build and validate the receiver-specific transport view before
+            # mutating any task or lease state. A malformed context packet must
+            # never strand a task in LEASED state.
+            transport_payloads: dict[str, dict[str, Any]] = {}
+            cache_hits = 0
+            original_context_bytes = 0
+            transported_context_bytes = 0
+            for task in chosen:
+                payload = deepcopy(task.payload)
+                raw_packet = payload.get(PACKET_PAYLOAD_KEY)
+                if raw_packet is not None:
+                    if not isinstance(raw_packet, Mapping):
+                        raise RuntimeError("orchorbital context packet must be an object")
+                    reduced = reduce_context_packet(
+                        raw_packet,
+                        receiver_known_frames=known_frames,
+                    )
+                    source_bytes = raw_packet.get("packet_bytes")
+                    reduced_bytes = reduced.get("packet_bytes")
+                    if (
+                        isinstance(source_bytes, bool)
+                        or not isinstance(source_bytes, int)
+                        or isinstance(reduced_bytes, bool)
+                        or not isinstance(reduced_bytes, int)
+                    ):
+                        raise RuntimeError(
+                            "orchorbital context packet byte accounting is invalid"
+                        )
+                    original_context_bytes += source_bytes
+                    transported_context_bytes += reduced_bytes
+                    if reduced.get("cache_hit_frame_commitment") is not None:
+                        cache_hits += 1
+                    payload[PACKET_PAYLOAD_KEY] = reduced
+                transport_payloads[task.task_id] = payload
+
+            transport_pack_rows = [
+                {
+                    "task_id": task.task_id,
+                    "payload": transport_payloads[task.task_id],
+                }
+                for task in chosen
+            ]
+            context_pack = pack_context(transport_pack_rows)
+
             ttl = self._lease_seconds if lease_seconds is None else _strict_int(
                 lease_seconds, field="lease_seconds", minimum=1, maximum=MAX_LEASE_SECONDS
             )
@@ -413,37 +458,11 @@ class WorkerBroker:
             self._leases[lease_id] = lease
             omega = service_omega(PROFILES[selected_species]) if selected_species in PROFILES else None
             task_views = [self._task_view(task, include_payload=True) for task in chosen]
-            cache_hits = 0
-            original_context_bytes = 0
-            transported_context_bytes = 0
             for task_view in task_views:
-                payload = task_view.get("payload")
-                if not isinstance(payload, dict):
-                    raise RuntimeError("worker task payload view must be a dictionary")
-                raw_packet = payload.get(PACKET_PAYLOAD_KEY)
-                if raw_packet is None:
-                    continue
-                if not isinstance(raw_packet, Mapping):
-                    raise RuntimeError("orchorbital context packet must be an object")
-                reduced = reduce_context_packet(
-                    raw_packet,
-                    receiver_known_frames=known_frames,
-                )
-                source_bytes = raw_packet.get("packet_bytes")
-                reduced_bytes = reduced.get("packet_bytes")
-                if (
-                    isinstance(source_bytes, bool)
-                    or not isinstance(source_bytes, int)
-                    or isinstance(reduced_bytes, bool)
-                    or not isinstance(reduced_bytes, int)
-                ):
-                    raise RuntimeError("orchorbital context packet byte accounting is invalid")
-                original_context_bytes += source_bytes
-                transported_context_bytes += reduced_bytes
-                if reduced.get("cache_hit_frame_commitment") is not None:
-                    cache_hits += 1
-                payload[PACKET_PAYLOAD_KEY] = reduced
-            context_pack = pack_context(task_views)
+                task_id = task_view.get("task_id")
+                if not isinstance(task_id, str) or task_id not in transport_payloads:
+                    raise RuntimeError("worker task transport lineage is invalid")
+                task_view["payload"] = deepcopy(transport_payloads[task_id])
             return {
                 "schema": WORKER_SCHEMA,
                 "worker_id": wid,
