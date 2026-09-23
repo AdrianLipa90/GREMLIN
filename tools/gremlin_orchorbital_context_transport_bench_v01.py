@@ -43,15 +43,23 @@ def run_benchmark(
     shared_chars: int = 16_384,
     delta_chars: int = 192,
     cache_limit: int = 256,
+    store_cache_frames: int = 8,
 ) -> dict[str, object]:
     branches = _positive_int(branches, "branches")
     depth = _positive_int(depth, "depth")
     shared_chars = _positive_int(shared_chars, "shared_chars", minimum=128)
     delta_chars = _positive_int(delta_chars, "delta_chars", minimum=8)
     cache_limit = _positive_int(cache_limit, "cache_limit")
+    store_cache_frames = _positive_int(
+        store_cache_frames,
+        "store_cache_frames",
+    )
 
     fabric = OrchorbitalFabric(max_nodes=1 + branches * depth)
-    contexts = OrbitalContextStore(fabric)
+    contexts = OrbitalContextStore(
+        fabric,
+        materialization_cache_frames=store_cache_frames,
+    )
     contexts.bind_root(
         {
             "request": "R" * shared_chars,
@@ -140,7 +148,10 @@ def run_benchmark(
     # Separate same-lease sibling benchmark. Every level fans out from one
     # shared orbital parent, so all tasks in a lease genuinely share ancestry.
     bundle_fabric = OrchorbitalFabric(max_nodes=1 + branches * depth)
-    bundle_contexts = OrbitalContextStore(bundle_fabric)
+    bundle_contexts = OrbitalContextStore(
+        bundle_fabric,
+        materialization_cache_frames=store_cache_frames,
+    )
     bundle_contexts.bind_root(
         {
             "request": "R" * shared_chars,
@@ -264,6 +275,58 @@ def run_benchmark(
         else same_lease_packet_bytes / bundle_transport_bytes
     )
 
+    def storage_proxy(store: OrbitalContextStore) -> dict[str, float | int]:
+        frame_ids = sorted(store._frames)
+        eager_materialized_bytes = sum(
+            _json_size(store.materialize(frame_id))
+            for frame_id in frame_ids
+        )
+        delta_frame_bytes = sum(
+            _json_size(
+                {
+                    "node_id": frame.node_id,
+                    "base_node_id": frame.base_node_id,
+                    "base_frame_commitment": frame.base_frame_commitment,
+                    "frame_commitment": frame.frame_commitment,
+                    "materialized_commitment": frame.materialized_commitment,
+                    "depth": frame.depth,
+                    "set_values": frame.set_values,
+                    "delete_keys": list(frame.delete_keys),
+                }
+            )
+            for frame in store._frames.values()
+        )
+        cache_materialized_bytes = sum(
+            _json_size(value)
+            for value in store._materialized_cache.values()
+        )
+        delta_plus_cache_bytes = delta_frame_bytes + cache_materialized_bytes
+        reduction = (
+            0.0
+            if eager_materialized_bytes <= 0
+            else 1.0 - delta_plus_cache_bytes / eager_materialized_bytes
+        )
+        ratio = (
+            1.0
+            if delta_plus_cache_bytes <= 0
+            else eager_materialized_bytes / delta_plus_cache_bytes
+        )
+        return {
+            "frame_count": len(frame_ids),
+            "cache_limit_frames": store._materialization_cache_frames,
+            "cached_materialized_frame_count": len(store._materialized_cache),
+            "eager_materialized_bytes_proxy": eager_materialized_bytes,
+            "delta_frame_bytes_proxy": delta_frame_bytes,
+            "cache_materialized_bytes_proxy": cache_materialized_bytes,
+            "delta_plus_cache_bytes_proxy": delta_plus_cache_bytes,
+            "storage_byte_reduction_fraction_proxy": reduction,
+            "eager_to_delta_plus_cache_ratio_proxy": ratio,
+            "actual_python_heap_accounting": False,
+        }
+
+    context_storage = storage_proxy(contexts)
+    bundle_context_storage = storage_proxy(bundle_contexts)
+
     task_count = len(traversal)
     saving_fraction = (
         0.0
@@ -282,6 +345,12 @@ def run_benchmark(
             and bundle_exact_reconstruction
             and transport_packet_bytes < full_packet_bytes
             and bundle_transport_bytes < same_lease_packet_bytes
+            and float(
+                context_storage["storage_byte_reduction_fraction_proxy"]
+            ) > 0.0
+            and float(
+                bundle_context_storage["storage_byte_reduction_fraction_proxy"]
+            ) > 0.0
         )
         else "FAIL_CONTEXT_TRANSPORT_REDUCTION"
     )
@@ -295,6 +364,7 @@ def run_benchmark(
             "shared_chars_per_root_field": shared_chars,
             "delta_chars_per_node": delta_chars,
             "cache_limit_frames": cache_limit,
+            "store_materialization_cache_frames": store_cache_frames,
             "traversal": "DEPTH_ROUND_ROBIN_BRANCHES",
             "species": "SPIDER",
             "same_lease_shared_frame": True,
@@ -322,6 +392,8 @@ def run_benchmark(
             "bundle_full_packet_bytes": bundle_full_packet_bytes,
             "bundle_unique_frame_count": bundle_unique_frames,
             "bundle_exact_reconstruction": bundle_exact_reconstruction,
+            "context_storage": context_storage,
+            "bundle_context_storage": bundle_context_storage,
             "canonical_task_commitment_changed": False,
             "actual_model_token_accounting": False,
             "actual_model_billing_accounting": False,
@@ -331,8 +403,9 @@ def run_benchmark(
         },
         "verdict": verdict,
         "claim_scope": (
-            "BYTE_TRANSPORT_REDUCTION_FOR_THIS_SYNTHETIC_ORCHORBITAL_CONTEXT_FIXTURE_ONLY; "
-            "LOSSLESS_RECONSTRUCTION_VERIFIED; NOT A TOKEN, BILLING, LATENCY OR 200X CLAIM"
+            "BYTE_TRANSPORT_AND_SERIALIZED_STORAGE_PROXY_REDUCTION_FOR_THIS_SYNTHETIC_"
+            "ORCHORBITAL_CONTEXT_FIXTURE_ONLY; LOSSLESS_RECONSTRUCTION_VERIFIED; "
+            "NOT ACTUAL PYTHON HEAP, TOKEN, BILLING, LATENCY OR 200X CLAIM"
         ),
         "authority": {
             "production_runtime_write": False,
