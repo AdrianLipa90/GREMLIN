@@ -415,3 +415,84 @@ def test_worker_claim_prefers_same_orbital_context_branch_when_geometry_ties() -
     assert scheduler["context_affinity_active"] is True
     assert scheduler["mean_context_affinity"] > 0.5
     assert lease["orchorbital_context_transport"]["bundle_used"] is True
+
+
+def test_worker_claim_species_selection_prefers_receiver_cached_branch_on_geometry_tie() -> None:
+    fabric = OrchorbitalFabric()
+    parent_a = fabric.spawn(
+        "AUTH:ROOT",
+        "BEES",
+        node_id="SPECIES-PARENT-A",
+        join_to_caller=False,
+    )
+    parent_b = fabric.spawn(
+        "AUTH:ROOT",
+        "BEES",
+        node_id="SPECIES-PARENT-B",
+        join_to_caller=False,
+    )
+    spider = fabric.spawn(
+        parent_a.node_id,
+        "SPIDER",
+        node_id="SPECIES-SPIDER",
+        join_to_caller=False,
+    )
+    owl = fabric.spawn(
+        parent_b.node_id,
+        "OWL",
+        node_id="SPECIES-OWL",
+        join_to_caller=False,
+    )
+
+    store = OrbitalContextStore(fabric)
+    store.bind_root({"shared": "root"})
+    store.inherit_from_caller(parent_a.node_id, set_values={"branch": "A"})
+    store.inherit_from_caller(parent_b.node_id, set_values={"branch": "B"})
+    store.inherit_from_caller(spider.node_id, set_values={"leaf": "SPIDER"})
+    store.inherit_from_caller(owl.node_id, set_values={"leaf": "OWL"})
+
+    broker = WorkerBroker()
+    broker.register_worker(
+        "species-locality-worker",
+        ["SPIDER", "OWL"],
+        vector_width=8,
+        max_batch=2,
+    )
+    common_scheduler = {
+        "phase36": [1.25] * 36,
+        "ready": True,
+        "noise": 0.05,
+        "urgency": 0.0,
+        "temperature": 0.4,
+    }
+    broker.enqueue(
+        "SPIDER",
+        {
+            "_gremlin_scheduler": common_scheduler,
+            PACKET_PAYLOAD_KEY: store.packet(spider.node_id),
+        },
+        task_id="cached-species-task",
+    )
+    broker.enqueue(
+        "OWL",
+        {
+            "_gremlin_scheduler": common_scheduler,
+            PACKET_PAYLOAD_KEY: store.packet(owl.node_id),
+        },
+        task_id="other-species-task",
+    )
+
+    parent_a_frame = store.frame(parent_a.node_id).frame_commitment
+    lease = broker.claim(
+        "species-locality-worker",
+        known_context_frames=(parent_a_frame,),
+        limit=1,
+    )
+
+    assert lease["species"] == "SPIDER"
+    selection = lease["scheduler"]["species_selection"]
+    assert selection["selection_basis"] == (
+        "GEOMETRY_PHASE_STATE_PLUS_RECEIVER_LOCALITY_THEN_CADENCE"
+    )
+    assert selection["queues"]["SPIDER"]["receiver_locality_hint"] > 0.0
+    assert selection["queues"]["OWL"]["receiver_locality_hint"] == 0.0
