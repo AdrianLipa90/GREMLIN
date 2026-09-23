@@ -447,10 +447,9 @@ class OrchorbitalExecutor:
             raise RuntimeError(
                 f"node is bound to local execution backend: {node.node_id}"
             )
-        self._bind_execution_backend(node.node_id, "WORKER")
-
         task_id = _task_id(self.execution_id, node)
         worker_payload = self._worker_payload(node, input_payload)
+        self._bind_execution_backend(node.node_id, "WORKER")
         if not node.execution_started:
             node = self.fabric.mark_started(node.node_id)
         task = self.broker.enqueue(
@@ -576,11 +575,11 @@ class OrchorbitalExecutor:
             raise RuntimeError(
                 f"node is bound to worker execution backend: {node.node_id}"
             )
-        self._bind_execution_backend(node.node_id, "LOCAL")
         request = self._local_execution_request(
             node.node_id,
             input_payload=input_payload,
         )
+        self._bind_execution_backend(node.node_id, "LOCAL")
         if not node.execution_started:
             self.fabric.mark_started(node.node_id)
 
@@ -1423,8 +1422,8 @@ class OrchorbitalExecutor:
             raise RuntimeError(
                 f"node is bound to worker reduction backend: {node.node_id}"
             )
-        self._bind_reduction_backend(node.node_id, "LOCAL")
         request = self._local_reduction_request(node.node_id)
+        self._bind_reduction_backend(node.node_id, "LOCAL")
         try:
             output = self.local_adapters.reduce(node.species, request)
         except Exception as exc:
@@ -1525,11 +1524,11 @@ class OrchorbitalExecutor:
             raise RuntimeError(
                 f"node is bound to local reduction backend: {node.node_id}"
             )
-        self._bind_reduction_backend(node.node_id, "WORKER")
         if node.reduction_complete:
             raise RuntimeError("node reduction is already complete")
 
         packet = self.build_reduction_packet(node.node_id)
+        self._bind_reduction_backend(node.node_id, "WORKER")
         input_commitment = str(packet["reduction_input_commitment"])
         task_id = _reduction_task_id(
             self.execution_id,
