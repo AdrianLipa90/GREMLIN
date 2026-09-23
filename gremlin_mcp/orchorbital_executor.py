@@ -24,6 +24,7 @@ DISCOVERY_KEY = "_gremlin_orchorbital_discovery"
 ORBITAL_CONTEXT_PACKET_KEY = PACKET_PAYLOAD_KEY
 TASK_DOMAIN = b"GREMLIN-ORCHORBITAL-WORKER-TASK/v0.2\x00"
 LOCAL_RESULT_DOMAIN = b"GREMLIN-ORCHORBITAL-LOCAL-RESULT/v0.2\x00"
+DISCOVERY_CONTEXT_DOMAIN = b"GREMLIN-ORCHORBITAL-DISCOVERY-CONTEXT/v0.2\x00"
 REDUCTION_INPUT_DOMAIN = b"GREMLIN-ORCHORBITAL-REDUCTION-INPUT/v0.2\x00"
 REDUCTION_OUTPUT_DOMAIN = b"GREMLIN-ORCHORBITAL-REDUCTION-OUTPUT/v0.2\x00"
 REDUCTION_TASK_DOMAIN = b"GREMLIN-ORCHORBITAL-REDUCTION-TASK/v0.2\x00"
@@ -88,6 +89,19 @@ def _task_id(execution_id: str, node: NodeInstance) -> str:
     ).encode("utf-8")
     digest = hashlib.blake2b(TASK_DOMAIN + raw, digest_size=20).hexdigest()
     return f"orch-v02-{digest}"
+
+
+def _discovery_context_frame_id(
+    execution_id: str,
+    caller_id: str,
+    discovery_key: str,
+) -> str:
+    raw = "\x00".join((execution_id, caller_id, discovery_key)).encode("utf-8")
+    digest = hashlib.blake2b(
+        DISCOVERY_CONTEXT_DOMAIN + raw,
+        digest_size=16,
+    ).hexdigest()
+    return f"CTX:DISC:{digest}"
 
 
 def _reduction_task_id(
@@ -563,13 +577,44 @@ class OrchorbitalExecutor:
                 "orchorbital discovery handoff requires an OrbitalContextStore"
             )
 
-        return self.allocate(
-            caller_id,
+        caller = self.fabric.node(caller_id)
+        if caller.status != "OPEN":
+            raise RuntimeError("caller node must be open")
+        if self.context_store is not None:
+            self.context_store.frame(caller.node_id)
+
+        allocation = allocate_invocation(
+            self.fabric,
+            caller.node_id,
             ordered,
+            self.operators,
+            budget=self.budget,
             join_to_caller=True,
             allocation_key=f"{self.execution_id}:{key}",
-            child_context_set_values=context_delta,
+            max_states=self.max_states,
         )
+
+        if self.context_store is not None:
+            shared_frame_id = _discovery_context_frame_id(
+                self.execution_id,
+                caller.node_id,
+                key,
+            )
+            self.context_store.bind_shared_frame(
+                shared_frame_id,
+                base_frame_id=caller.node_id,
+                set_values={} if context_delta is None else context_delta,
+            )
+            for node in allocation.nodes:
+                if node.caller_id != caller.node_id:
+                    raise RuntimeError(
+                        "discovery allocation caller/context lineage mismatch"
+                    )
+                self.context_store.bind_node(
+                    node.node_id,
+                    base_node_id=shared_frame_id,
+                )
+        return allocation
 
     def reconcile_node(self, node_id: str) -> dict[str, object]:
         node = self.fabric.node(node_id)
