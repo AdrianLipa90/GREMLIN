@@ -1316,3 +1316,21 @@ def test_deterministic_allocation_key_cannot_be_reused_for_different_work() -> N
             budget=BUDGET,
             allocation_key="same-key",
         )
+
+
+
+def test_fabric_reexports_canonical_orchorbital_types() -> None:
+    from gremlin_mcp.orchorbital_fabric import (
+        CoordinationPoint as FabricCoordinationPoint,
+        NodeInstance as FabricNodeInstance,
+        SpawnRequest as FabricSpawnRequest,
+    )
+    from gremlin_mcp.orchorbital_types import (
+        CoordinationPoint as TypesCoordinationPoint,
+        NodeInstance as TypesNodeInstance,
+        SpawnRequest as TypesSpawnRequest,
+    )
+
+    assert FabricNodeInstance is TypesNodeInstance
+    assert FabricSpawnRequest is TypesSpawnRequest
+    assert FabricCoordinationPoint is TypesCoordinationPoint

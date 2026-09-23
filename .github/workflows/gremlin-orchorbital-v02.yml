@@ -5,6 +5,7 @@ on:
     paths:
       - 'gremlin_mcp/role_registry.py'
       - 'gremlin_mcp/orchorbital_fabric.py'
+      - 'gremlin_mcp/orchorbital_types.py'
       - 'gremlin_mcp/orchorbital_allocator.py'
       - 'gremlin_mcp/orchorbital_executor.py'
       - 'gremlin_mcp/orchorbital_context.py'
@@ -40,6 +41,7 @@ jobs:
           python -m py_compile
           gremlin_mcp/role_registry.py
           gremlin_mcp/orchorbital_fabric.py
+          gremlin_mcp/orchorbital_types.py
           gremlin_mcp/orchorbital_allocator.py
           gremlin_mcp/orchorbital_executor.py
           gremlin_mcp/orchorbital_context.py

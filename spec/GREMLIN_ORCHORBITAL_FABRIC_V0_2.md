@@ -640,3 +640,25 @@ The execution bridge adds tests for:
 - deepest-first local subtree closure;
 - execution-id task namespace separation;
 - exactly-once deterministic OCTOPUS allocation.
+
+
+## Module boundary hardening
+
+The v0.2 working tree separates immutable model primitives from the stateful
+fabric implementation.
+
+`gremlin_mcp/orchorbital_types.py` owns:
+
+- phase and lifecycle constants;
+- strict identifier/species/phase validation;
+- graph-cycle and phase-distance pure helpers;
+- `NodeInstance`;
+- `SpawnRequest`;
+- `CoordinationPoint`.
+
+`gremlin_mcp/orchorbital_fabric.py` owns mutable runtime topology, lifecycle,
+locality, failover, closure and audit snapshots.
+
+The fabric re-exports the public primitives so existing imports remain stable.
+This split is dependency-leaf -> state-machine only; the types module never
+imports the fabric and therefore cannot create an orchestration import cycle.
