@@ -464,3 +464,179 @@ dynamic fabric
 
 Only after that bridge is validated should the global flat synthesis path be
 removed from the critical path.
+
+
+## WorkerBroker execution bridge
+
+The dynamic fabric now has a dedicated execution bridge:
+
+```text
+gremlin_mcp/orchorbital_executor.py
+```
+
+The bridge does not move topology semantics into WorkerBroker. WorkerBroker
+remains responsible for bounded queueing, same-species leasing, result
+commitments and lease expiry. The fabric remains responsible for caller
+provenance, causal readiness, joins, centers, barycenter, failure and recovery.
+
+The execution loop is:
+
+```text
+fabric.ready_nodes()
+  -> deterministic worker task id
+  -> WorkerBroker.enqueue()
+  -> lease / compute / submit
+  -> WorkerBroker result commitment
+  -> optional discovery validation
+  -> OCTOPUS deterministic recursive allocation
+  -> node.self_complete
+  -> local join closure
+```
+
+### Deterministic task identity
+
+Worker task identity is derived from:
+
+```text
+execution_id
+authority_root_id
+node_id
+```
+
+and a domain-separated BLAKE2b commitment.
+
+The current mutable orbital center is deliberately not part of task identity.
+A node may be recentered while its worker task remains the same logical work.
+
+The task payload includes an immutable node execution context:
+
+- execution id;
+- node id;
+- species;
+- authority root;
+- caller provenance;
+- obligations;
+- optional phase36;
+- invocation depth.
+
+It does not include the global topology snapshot as task identity. The global
+topology changes during recursive execution and would make retries appear as
+payload drift.
+
+### Recoverable two-phase dispatch
+
+A fabric node may be marked execution-started before enqueue succeeds. This is
+recoverable rather than silently rolled back.
+
+The executor recomputes the same deterministic task id and may replay enqueue.
+WorkerBroker accepts the replay only when content is identical. Different
+content under the same deterministic task id fails closed as task-content
+drift.
+
+Therefore:
+
+```text
+started + task absent  -> retry enqueue
+started + task queued  -> no duplicate
+started + task leased  -> no duplicate
+started + task done    -> reconcile result
+```
+
+### Recursive worker discovery
+
+A worker cannot select or directly instantiate another Bestiary species.
+
+A worker may only emit:
+
+```json
+{
+  "_gremlin_orchorbital_discovery": {
+    "schema": "GREMLIN_ORCHORBITAL_DISCOVERY_V0_1",
+    "obligations": ["..."]
+  }
+}
+```
+
+The executor validates this envelope. OCTOPUS then runs the exact minimal
+capability cover again and allocates the required subnodes.
+
+Malformed discovery is quarantined fail-closed.
+
+### Exactly-once recursive allocation
+
+Recursive discovery uses the completed worker result commitment as an
+`allocation_key`.
+
+OCTOPUS derives deterministic node identities from:
+
+```text
+caller node
+allocation key
+selected operator id
+```
+
+If reconciliation repeats after a process crash, the same child nodes are
+reused. A partial deterministic allocation fails loudly rather than being
+silently completed.
+
+This closes the critical crash window:
+
+```text
+worker result committed
+  -> children allocated
+  -> process crash
+  -> reconcile again
+  -> same children recovered
+  -> parent self-complete
+```
+
+without duplicate subtrees.
+
+### Local/core execution boundary
+
+The current external WorkerBroker continues to admit only the validated
+scheduler species.
+
+Roles outside that set, including GREMLIN core boundaries and roles not yet
+promoted onto the external scheduler carrier, appear explicitly in the local
+frontier. They are never silently dispatched to an unsupported worker queue.
+
+Local execution uses the same lifecycle contract:
+
+```text
+mark_started
+-> optional OCTOPUS discovery
+-> result commitment
+-> mark_self_complete
+-> local join closure
+```
+
+### Local closure
+
+The executor closes completed non-root subtrees deepest-first.
+
+Before closing a node it explicitly:
+
+- drains open satellites away from the closing center;
+- moves the computational barycenter when required;
+- preserves the authority root;
+- leaves the root open for final aggregation/governance.
+
+There is no implicit global BELZEBUB barrier in this path.
+
+## New validation targets
+
+The execution bridge adds tests for:
+
+- deterministic and idempotent worker dispatch;
+- recovery from started-but-not-yet-enqueued state;
+- rejection of deterministic task payload drift;
+- worker/local frontier separation;
+- worker discovery -> OCTOPUS -> recursive subnode;
+- crash after child allocation but before parent self-complete;
+- malformed discovery quarantine;
+- local-role completion without WorkerBroker;
+- local-role recursive discovery;
+- deepest-first local subtree closure;
+- execution-id task namespace separation;
+- exactly-once deterministic OCTOPUS allocation.
