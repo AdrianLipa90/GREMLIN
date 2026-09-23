@@ -375,3 +375,49 @@ bounded weight.
 
 This is a routing optimization only. It grants no authority and makes no
 end-to-end latency or speedup claim.
+
+
+## ABI v0.2.4 — canonical Bestiary workload partition
+
+The public worker-species enum now derives from the canonical 20-role Bestiary
+registry rather than the older 18-role PhaseNav carrier list.
+
+The partition is:
+
+```text
+20 Bestiary roles
+= 16 dynamic workload species
++ 4 control-plane species
+```
+
+Control-plane:
+
+```text
+HUMMINGBIRD
+OCTOPUS
+GREMLIN
+FERRET
+```
+
+Dynamic workload:
+
+```text
+SPIDER RAVEN HOUND MOLE OWL ANT MANTIS
+FOX BEAVER BAT CANARY SERPENT CHAMELEON
+ELEPHANT BEES BELZEBUB
+```
+
+The worker scheduler therefore admits ELEPHANT and BEES.
+
+This does **not** claim that those two roles have validated PhaseNav species
+carriers. The current carrier surface remains 18 legacy roles. When ELEPHANT or
+BEES provides explicit T^36 state, the species-anchor term is neutral until a
+separate carrier validation exists.
+
+The runtime must fail loudly if:
+
+- the Bestiary registry is not exactly partitioned by dynamic/control-plane
+  role sets;
+- a control-plane role is supplied as an adaptive workload operator;
+- a dynamic role disappears from WorkerBroker admission because of carrier
+  registry drift.
