@@ -278,3 +278,81 @@ def test_species_selection_accepts_small_receiver_locality_bias() -> None:
     assert receipt["queues"]["RAVEN"]["receiver_locality_hint"] == 1.0
     assert receipt["receiver_species_affinity_weight"] > 0.0
     assert plain in {"RAVEN", "SERPENT"}
+
+
+def test_context_affinity_prefers_deeper_shared_ancestry_over_root_only() -> None:
+    rows = [
+        {
+            "task_id": "seed-deep",
+            "species": "FOX",
+            "payload": _payload("seed-deep", 1.0, urgency=1.0),
+            "task_commitment": "commit-seed-deep",
+            "created_ns": 1,
+        },
+        {
+            "task_id": "same-branch",
+            "species": "FOX",
+            "payload": _payload("same-branch", 1.0),
+            "task_commitment": "commit-a-same-branch",
+            "created_ns": 2,
+        },
+        {
+            "task_id": "root-only",
+            "species": "FOX",
+            "payload": _payload("root-only", 1.0),
+            "task_commitment": "commit-z-root-only",
+            "created_ns": 3,
+        },
+    ]
+
+    selected, receipt = select_batch(
+        rows,
+        limit=2,
+        now_ns=10_000_000_000,
+        affinity_by_task={
+            "seed-deep": ("root", "branch-a", "parent-a1"),
+            "same-branch": ("root", "branch-a", "parent-a1", "child-a2"),
+            "root-only": ("root", "branch-b", "parent-b1"),
+        },
+    )
+
+    assert selected == ["seed-deep", "same-branch"]
+    assert receipt["context_affinity_active"] is True
+    assert receipt["mean_context_affinity"] > 0.5
+
+
+def test_context_affinity_does_not_change_selection_when_absent() -> None:
+    rows = [
+        {
+            "task_id": "a",
+            "species": "FOX",
+            "payload": _payload("a", 0.5),
+            "task_commitment": "commit-a",
+            "created_ns": 1,
+        },
+        {
+            "task_id": "b",
+            "species": "FOX",
+            "payload": _payload("b", 0.5),
+            "task_commitment": "commit-b",
+            "created_ns": 2,
+        },
+    ]
+
+    baseline, baseline_receipt = select_batch(
+        rows,
+        limit=2,
+        now_ns=10_000_000_000,
+    )
+    explicit_empty, empty_receipt = select_batch(
+        rows,
+        limit=2,
+        now_ns=10_000_000_000,
+        affinity_by_task={},
+        receiver_known_affinity=(),
+    )
+
+    assert explicit_empty == baseline
+    assert empty_receipt["context_affinity_active"] is False
+    assert empty_receipt["receiver_cache_affinity_active"] is False
+    assert baseline_receipt["selected_task_ids"] == empty_receipt["selected_task_ids"]
