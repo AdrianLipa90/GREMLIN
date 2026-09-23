@@ -1037,3 +1037,104 @@ def test_topology_commitment_is_deterministic_and_changes_with_topology() -> Non
 
     assert left.topology_commitment() != right.topology_commitment()
     assert left.receipt()["topology_commitment"] == left.topology_commitment()
+
+
+def test_cross_relation_cycle_during_spawn_rolls_back_entire_batch() -> None:
+    fabric = OrchorbitalFabric()
+    caller = fabric.spawn(
+        "AUTH:ROOT",
+        "MOLE",
+        node_id="CALLER",
+        join_to_caller=False,
+    )
+    before_nodes = fabric.nodes()
+    before_events = fabric.events()
+
+    with pytest.raises(RuntimeError, match="blocking graph contains"):
+        fabric.spawn(
+            caller.node_id,
+            "OWL",
+            node_id="CYCLIC",
+            causal_dependencies=(caller.node_id,),
+            join_to_caller=True,
+        )
+
+    assert fabric.nodes() == before_nodes
+    assert fabric.events() == before_events
+    with pytest.raises(ValueError, match="unknown node_id"):
+        fabric.node("CYCLIC")
+
+
+def test_duplicate_edges_are_idempotent_and_do_not_pollute_event_log() -> None:
+    fabric = OrchorbitalFabric()
+    a = fabric.spawn("AUTH:ROOT", "SPIDER", node_id="A", join_to_caller=False)
+    b = fabric.spawn("AUTH:ROOT", "OWL", node_id="B", join_to_caller=False)
+
+    fabric.add_causal_dependency(a.node_id, b.node_id)
+    first_event_count = len(fabric.events())
+    fabric.add_causal_dependency(a.node_id, b.node_id)
+    assert len(fabric.events()) == first_event_count
+
+    other = OrchorbitalFabric()
+    x = other.spawn("AUTH:ROOT", "MOLE", node_id="X", join_to_caller=False)
+    y = other.spawn("AUTH:ROOT", "OWL", node_id="Y", join_to_caller=False)
+    other.add_join_dependency(x.node_id, y.node_id)
+    join_event_count = len(other.events())
+    other.add_join_dependency(x.node_id, y.node_id)
+    assert len(other.events()) == join_event_count
+
+    other.add_coordination_edge(x.node_id, y.node_id)
+    coordination_event_count = len(other.events())
+    other.add_coordination_edge(x.node_id, y.node_id)
+    assert len(other.events()) == coordination_event_count
+
+
+def test_corrupted_closed_state_with_unresolved_join_fails_loud() -> None:
+    fabric = OrchorbitalFabric()
+    parent = fabric.spawn(
+        "AUTH:ROOT",
+        "MOLE",
+        node_id="PARENT",
+        join_to_caller=False,
+    )
+    child = fabric.spawn(
+        parent.node_id,
+        "OWL",
+        node_id="CHILD",
+    )
+    fabric.mark_started(parent.node_id)
+    fabric.mark_self_complete(parent.node_id, result_commitment="parent-local")
+
+    fabric._nodes[parent.node_id] = replace(
+        fabric._nodes[parent.node_id],
+        status="CLOSED",
+    )
+
+    with pytest.raises(RuntimeError, match="closed node has unresolved join"):
+        fabric.receipt()
+
+
+def test_corrupted_open_node_cannot_point_to_terminal_center() -> None:
+    fabric = OrchorbitalFabric()
+    center = fabric.spawn(
+        "AUTH:ROOT",
+        "BEES",
+        node_id="CENTER",
+        join_to_caller=False,
+    )
+    satellite = fabric.spawn(
+        "AUTH:ROOT",
+        "SPIDER",
+        node_id="SATELLITE",
+        join_to_caller=False,
+    )
+    finish_local(fabric, center.node_id, "center")
+    fabric.close(center.node_id)
+
+    fabric._nodes[satellite.node_id] = replace(
+        fabric._nodes[satellite.node_id],
+        center_id=center.node_id,
+    )
+
+    with pytest.raises(RuntimeError, match="terminal center"):
+        fabric.receipt()
