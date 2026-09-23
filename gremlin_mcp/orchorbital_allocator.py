@@ -111,6 +111,7 @@ class OctopusAllocation:
     nodes: tuple[NodeInstance, ...]
     obligation_to_node: tuple[tuple[str, str], ...]
     operator_to_node: tuple[tuple[str, str], ...]
+    operator_to_center: tuple[tuple[str, str], ...]
 
     def receipt(self) -> dict[str, object]:
         return {
@@ -123,6 +124,7 @@ class OctopusAllocation:
             "node_ids": [node.node_id for node in self.nodes],
             "obligation_to_node": dict(self.obligation_to_node),
             "operator_to_node": dict(self.operator_to_node),
+            "operator_to_center": dict(self.operator_to_center),
             "recursive_invocation_allowed": True,
             "species_position_fixed": False,
             "caller_is_provenance_not_center": True,
@@ -143,6 +145,7 @@ def allocate_invocation(
     *,
     budget: ResourceBudget,
     center_by_operator: Mapping[str, str] | None = None,
+    candidate_centers_by_operator: Mapping[str, Iterable[str]] | None = None,
     phase36_by_operator: Mapping[str, Sequence[float]] | None = None,
     join_to_caller: bool = True,
     max_states: int = 65_536,
@@ -155,8 +158,9 @@ def allocate_invocation(
     the allocator again, producing subnodes and sub-subnodes without assigning
     any fixed hierarchy to a species.
 
-    caller_id is immutable provenance. center_by_operator controls non-causal
-    locality and may point to any currently open node in the same fabric.
+    caller_id is immutable provenance. center_by_operator fixes a non-causal
+    center explicitly. candidate_centers_by_operator lets OCTOPUS choose among
+    open candidates by fabric locality with optional T^36 tie-breaking.
     """
 
     if not isinstance(fabric, OrchorbitalFabric):
@@ -183,6 +187,17 @@ def allocate_invocation(
         field="center_by_operator",
         route_ids=route_ids,
     )
+    candidate_center_map = _validate_operator_map(
+        candidate_centers_by_operator,
+        field="candidate_centers_by_operator",
+        route_ids=route_ids,
+    )
+    overlap = set(center_map) & set(candidate_center_map)
+    if overlap:
+        raise ValueError(
+            "center_by_operator and candidate_centers_by_operator overlap: "
+            f"{sorted(overlap)!r}"
+        )
     phase_map = _validate_operator_map(
         phase36_by_operator,
         field="phase36_by_operator",
@@ -191,13 +206,28 @@ def allocate_invocation(
     partition = _partition_obligations(ordered, route)
 
     requests: list[SpawnRequest] = []
+    selected_centers: list[tuple[str, str]] = []
     ordered_operators = tuple(
         sorted(route.operators, key=lambda operator: operator.operator_id)
     )
     for operator in ordered_operators:
         operator_id = operator.operator_id
-        center_id = center_map.get(operator_id, caller.node_id)
         phase = phase_map.get(operator_id)
+        if operator_id in center_map:
+            center_id = _strict_text(
+                center_map[operator_id],
+                f"center_by_operator[{operator_id}]",
+            )
+        elif operator_id in candidate_center_map:
+            ranked = fabric.rank_centers(
+                caller.node_id,
+                candidate_center_map[operator_id],
+                phase36=phase,
+            )
+            center_id = ranked[0]
+        else:
+            center_id = caller.node_id
+        selected_centers.append((operator_id, center_id))
         requests.append(
             SpawnRequest(
                 species=operator.species,
@@ -229,6 +259,7 @@ def allocate_invocation(
         nodes=nodes,
         obligation_to_node=tuple(obligation_to_node),
         operator_to_node=operator_to_node,
+        operator_to_center=tuple(selected_centers),
     )
 
 
