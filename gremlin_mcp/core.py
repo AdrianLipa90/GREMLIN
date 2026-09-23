@@ -54,7 +54,7 @@ REFERENCE_MCP_TOOL_GROUPS: dict[str, tuple[str, ...]] = {
         "gremlin_research_hound_provenance", "gremlin_research_guarded", "gremlin_research_relational",
     ),
     "orchestration": (
-        "gremlin_auto_fanout", "gremlin_fanout", "gremlin_collect", "gremlin_synthesize", "gremlin_prototype",
+        "gremlin_handle_user_task", "gremlin_auto_fanout", "gremlin_fanout", "gremlin_collect", "gremlin_synthesize", "gremlin_prototype",
     ),
     "phasenav": (
         "gremlin_phasenav_status", "gremlin_phasenav_reference_sweep", "gremlin_phasenav_threeway",
