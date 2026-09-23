@@ -10,6 +10,8 @@ from gremlin_mcp.role_registry import BESTIARY_ROLE_NAMES
 
 SCHEMA = "GREMLIN_ORCHORBITAL_RUNTIME_V0_1"
 VERSION = "0.1.0"
+COMPATIBILITY_ONLY = True
+SUPERSEDED_BY = "GREMLIN_ORCHORBITAL_FABRIC_V0_2"
 AUTHORITY = "COGNITIVE_ROUTING_ONLY"
 EPISTEMIC = "CHYBA"
 TAU = 2.0 * math.pi
@@ -401,6 +403,8 @@ def plan_receipt(plan: OrchorbitalPlan) -> dict[str, object]:
         "root_join_fan_in": plan.global_join_fan_in,
         "coordination_edge_count": len(plan.coordination_edges),
         "topology": "RECURSIVE_FORK_LOCAL_JOIN",
+        "compatibility_only": COMPATIBILITY_ONLY,
+        "superseded_by": SUPERSEDED_BY,
         "global_specialist_barrier": False,
         "authority": AUTHORITY,
         "epistemic": EPISTEMIC,
@@ -414,6 +418,7 @@ def plan_receipt(plan: OrchorbitalPlan) -> dict[str, object]:
 
 __all__ = [
     "AUTHORITY",
+    "COMPATIBILITY_ONLY",
     "DIM",
     "EPISTEMIC",
     "KNOWN_SPECIES",
@@ -421,6 +426,7 @@ __all__ = [
     "OrbitSpec",
     "OrchorbitalPlan",
     "SCHEMA",
+    "SUPERSEDED_BY",
     "TAU",
     "VERSION",
     "compile_orchorbital_plan",
