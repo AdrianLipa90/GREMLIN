@@ -1,0 +1,67 @@
+{
+  "schema": "GREMLIN_BESTIARY_LIVE_SCALING_MATRIX_20260920",
+  "source_path": "tools/gremlin_bestiary_live_bench_v02.py",
+  "source_blob_sha": "e78ffd8ded532091adef7b7e4c968a4aa090b53f",
+  "execution_surface": "/dev/shm/ciel_noema",
+  "noema_tether_status": "ACTIVE",
+  "seed": 616,
+  "completed_rows": [
+    {
+      "items": 1000,
+      "workers": 1,
+      "serial_items_s": 251.73769990379506,
+      "matched_items_s": 246.60782010080726,
+      "bestiary_items_s": 362.7961799262684,
+      "speedup_vs_serial": 1.4411674535237107,
+      "speedup_vs_matched": 1.4711462912164188,
+      "bestiary_p50_ms": 1390.6968844999028,
+      "bestiary_p95_ms": 2613.2632099997863,
+      "integrity": "PASS/PASS",
+      "candidate": false,
+      "receipt_sha256": "f875674804d877a050508554f3a0e7ef1dfb185c541d065e72d9f03f63514fec"
+    },
+    {
+      "items": 1000,
+      "workers": 2,
+      "serial_items_s": 249.6645123128921,
+      "matched_items_s": 469.09070769059497,
+      "bestiary_items_s": 729.2966761820289,
+      "speedup_vs_serial": 2.9211066860316843,
+      "speedup_vs_matched": 1.5547028841659807,
+      "bestiary_p50_ms": 716.3112700004604,
+      "bestiary_p95_ms": 1299.830968000606,
+      "integrity": "PASS/PASS",
+      "candidate": false,
+      "receipt_sha256": "f70590c3e8fd41a923d4a34917157ff50767d35b8d69a54997824cab448efb0f"
+    },
+    {
+      "items": 1000,
+      "workers": 5,
+      "serial_items_s": 261.44506375260664,
+      "matched_items_s": 707.8957547104869,
+      "bestiary_items_s": 1011.9089387402604,
+      "speedup_vs_serial": 3.87044576101763,
+      "speedup_vs_matched": 1.4294603859492105,
+      "bestiary_p50_ms": 548.7519844996314,
+      "bestiary_p95_ms": 954.065867999816,
+      "integrity": "PASS/PASS",
+      "candidate": false,
+      "receipt_sha256": "d5aef69802d1be1bc821d8c01740f037183934045423dcbc3cdedf026d37398c"
+    }
+  ],
+  "incomplete_rows": [
+    {
+      "items": 2500,
+      "workers": 5,
+      "status": "INCOMPLETE_TOOL_TIMEOUT",
+      "verdict": null,
+      "receipt": null
+    }
+  ],
+  "observations": {
+    "integrity_all_completed": "PASS",
+    "historical_candidate_threshold_10x_met": false,
+    "performance_is_variable_across_independent_runs": true,
+    "single_run_promotion_forbidden": true
+  }
+}

@@ -1,0 +1,138 @@
+{
+  "schema": "GREMLIN_FULL_BENCHMARK_MANIFEST_V0_1",
+  "version": "0.1.0",
+  "date": "2026-09-20",
+  "authority": {
+    "epistemic": "CHYBA",
+    "canon_allowed": false,
+    "production_runtime_write": false
+  },
+  "lanes": [
+    {
+      "id": "constitution_non_bypass_ablation",
+      "status": "EXECUTABLE_NOW",
+      "artifact": "benchmarks/gremlin_full_system_v01.py",
+      "promotion_rule": "EXACT_INVARIANTS_ONLY"
+    },
+    {
+      "id": "constitutional_fault_injection",
+      "status": "EXECUTABLE_NOW",
+      "artifact": "benchmarks/gremlin_full_system_v01.py",
+      "promotion_rule": "EXACT_EXPECTED_OUTCOMES"
+    },
+    {
+      "id": "runtime_mutation_reachability",
+      "status": "EXECUTABLE_NOW",
+      "artifact": "tools/gremlin_runtime_coverage_audit_v01.py",
+      "promotion_rule": "ALL_DISCOVERED_ROOT_TO_SINK_PATHS_GUARDED"
+    },
+    {
+      "id": "constitutional_control_plane_latency",
+      "status": "EXECUTABLE_NOW",
+      "artifact": "benchmarks/gremlin_full_system_v01.py",
+      "promotion_rule": "MEASURE_ONLY"
+    },
+    {
+      "id": "ledger_scaling",
+      "status": "EXECUTABLE_NOW",
+      "artifact": "benchmarks/gremlin_full_system_v01.py",
+      "promotion_rule": "PRESERVATION_EXACT_PERFORMANCE_MEASURE_ONLY"
+    },
+    {
+      "id": "memory_anti_entropy_convergence",
+      "status": "EXECUTABLE_NOW",
+      "artifact": "benchmarks/gremlin_memory_governance_v01.py",
+      "promotion_rule": "EXACT_MISSING_SET_AND_ZERO_DIVERGENCE"
+    },
+    {
+      "id": "durable_hive_recovery",
+      "status": "EXECUTABLE_NOW",
+      "artifact": "benchmarks/gremlin_memory_governance_v01.py",
+      "promotion_rule": "EXACT_RECORD_RECOVERY"
+    },
+    {
+      "id": "raphael_success_rollback",
+      "status": "EXECUTABLE_NOW",
+      "artifact": "benchmarks/gremlin_memory_governance_v01.py",
+      "promotion_rule": "EXACT_AUTHORITY_EXPIRY_AND_ROLLBACK"
+    },
+    {
+      "id": "research_orchestrator",
+      "status": "EXECUTABLE_NOW",
+      "artifact": "benchmarks/gremlin_research_orchestrator_v02.py",
+      "promotion_rule": "HISTORICAL_PREREGISTERED_GATES_UNCHANGED"
+    },
+    {
+      "id": "ood_routing",
+      "status": "EXECUTABLE_NOW",
+      "artifact": "benchmarks/gremlin_ood_routing_v06.py",
+      "promotion_rule": "HISTORICAL_PREREGISTERED_GATES_UNCHANGED"
+    },
+    {
+      "id": "bestiary_virtual_topology",
+      "status": "EXECUTABLE_NOW",
+      "artifact": "tools/gremlin_bestiary_bench_v01.py",
+      "promotion_rule": "HISTORICAL_CANDIDATE_GATE_PRESERVED"
+    },
+    {
+      "id": "geometry_phase_scheduler",
+      "status": "EXECUTABLE_NOW",
+      "artifact": "tools/gremlin_geometry_phase_scheduler_bench_v01.py",
+      "promotion_rule": "HISTORICAL_SYNTHETIC_GATE_PRESERVED"
+    },
+    {
+      "id": "phasenav_scalar_vector",
+      "status": "EXECUTABLE_NOW",
+      "artifact": "tools/gremlin_bestiary_phasenav_numpy_bench_v01.py",
+      "promotion_rule": "EQUIVALENCE_EXACT_PERFORMANCE_MEASURE_ONLY"
+    },
+    {
+      "id": "bestiary_live_wallclock",
+      "status": "MEASURED_LIVE",
+      "artifact": "provenance/GREMLIN_BESTIARY_LIVE_SCALING_MATRIX_20260920.json",
+      "promotion_rule": "INTEGRITY_EXACT_PERFORMANCE_DESCRIPTIVE"
+    },
+    {
+      "id": "browsecomp_plus_external_retrieval_citation",
+      "status": "EXTERNAL_DATA_REQUIRED",
+      "artifact": "gremlin_mcp/external_eval.py",
+      "promotion_rule": "OFFICIAL_CORPUS_AND_EVALUATOR_PROVENANCE_REQUIRED"
+    },
+    {
+      "id": "browsecomp_plus_answer_correctness",
+      "status": "EXTERNAL_SEMANTIC_JUDGE_REQUIRED",
+      "artifact": "spec/GREMLIN_EXTERNAL_RESEARCH_EVAL_V0_1.md",
+      "promotion_rule": "NO_LOCAL_SUBSTITUTE"
+    },
+    {
+      "id": "deepresearch_bench",
+      "status": "OPEN_ADAPTER_NOT_IMPLEMENTED",
+      "artifact": "spec/GREMLIN_EXTERNAL_RESEARCH_EVAL_V0_1.md",
+      "promotion_rule": "ADAPTER_AND_OFFICIAL_EVALUATOR_REQUIRED"
+    },
+    {
+      "id": "drnoise_robustness",
+      "status": "OPEN_ADAPTER_NOT_IMPLEMENTED",
+      "artifact": "spec/GREMLIN_EXTERNAL_RESEARCH_EVAL_V0_1.md",
+      "promotion_rule": "PAIRED_CLEAN_NOISY_EXTERNAL_RUN_REQUIRED"
+    },
+    {
+      "id": "cross_device_hardware_matrix",
+      "status": "OPEN_REPRODUCIBLE_BENCHMARK_NOT_FROZEN",
+      "artifact": null,
+      "promotion_rule": "SAME_FROZEN_WORKLOAD_AND_RECEIPTS_REQUIRED"
+    },
+    {
+      "id": "production_slo_capacity",
+      "status": "OPEN_POLICY_NOT_JUSTIFIED",
+      "artifact": null,
+      "promotion_rule": "NO_ARBITRARY_SLO"
+    }
+  ],
+  "completeness_rule": {
+    "full_internal_claim_requires_all_internal_exact_lanes": true,
+    "full_external_quality_claim_requires_external_data_and_judge_lanes": true,
+    "missing_lane_cannot_be_omitted_from_report": true,
+    "performance_cannot_compensate_safety_or_correctness_failure": true
+  }
+}
