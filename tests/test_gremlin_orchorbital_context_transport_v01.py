@@ -409,7 +409,44 @@ def test_worker_sdk_bundle_validation_is_transactional(monkeypatch) -> None:
     monkeypatch.setattr(worker, "_call", fake_call)
 
     async def exercise():
-        with pytest.raises(Exception, match="context reference mismatches bundle"):
+        with pytest.raises(Exception, match="transport commitment mismatch"):
+            await worker._run_once(object(), species="SPIDER")
+
+    asyncio.run(exercise())
+    assert worker._context_cache == {}
+    assert called is False
+
+
+def test_worker_sdk_rejects_any_projected_payload_tamper_before_handler(monkeypatch) -> None:
+    _, _, _, lease = _bundle_claim_for_sdk()
+    tampered = deepcopy(lease)
+    tampered["tasks"][0]["payload"]["input"]["query"] = "TAMPERED-AFTER-CLAIM"
+
+    called = False
+
+    def handler(batch):
+        nonlocal called
+        called = True
+        return []
+
+    worker = GremlinWorkerClient(
+        object(),
+        worker_id="sdk-transport-tamper",
+        species=["SPIDER"],
+        handler=handler,
+        max_batch=8,
+        max_context_frames=16,
+    )
+
+    async def fake_call(client, tool, arguments):
+        if tool == "gremlin_worker_claim":
+            return tampered
+        raise AssertionError("submit must not be reached")
+
+    monkeypatch.setattr(worker, "_call", fake_call)
+
+    async def exercise():
+        with pytest.raises(Exception, match="transport commitment mismatch"):
             await worker._run_once(object(), species="SPIDER")
 
     asyncio.run(exercise())
