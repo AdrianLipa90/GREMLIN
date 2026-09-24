@@ -1,0 +1,70 @@
+{
+  "schema": "GREMLIN_USER_TASK_GATEWAY_VALIDATION_RECEIPT_V0_1",
+  "status": "PASS_CANDIDATE_WITH_INFRASTRUCTURE_LIMIT",
+  "branch": "feat/user-task-gateway-v01-20260923",
+  "base_main_sha": "7a508f422c339f7cefb131c471205967497641ca",
+  "validated_head_sha": "e7d05bfae268dbb28186d7240b45fc3479a4226d",
+  "tether": {"status": "ACTIVE", "guard_schema": "noema.aux-tether-guard/v2", "failures": []},
+  "gremlin_validation": {
+    "status": "PASS",
+    "test_task": "Audit the new GREMLIN user task gateway: inspect semantic graph dependencies, verify PhaseNav cannot change specialist membership, run tests for fail-closed mutation authorization, find contradictions, regressions, duplicates and dead branches.",
+    "selected_species": ["OWL", "SPIDER", "HOUND", "MANTIS"],
+    "route_kind": "WEB_RESEARCH",
+    "note": "Live resident GREMLIN selected the validation roles; it is the pre-gateway runtime baseline and does not itself execute the new repository gateway."
+  },
+  "contract_harness": {
+    "status": "PASS",
+    "count": 8,
+    "checks": [
+      "deterministic_plan",
+      "validation_policy_hound_mantis",
+      "phasenav_membership_invariant",
+      "mutation_authorization_firewall",
+      "context_commitment_without_raw_duplication",
+      "fail_closed_bounds",
+      "max_species_7",
+      "routing_self_cue_firewall_direct_simple_task"
+    ],
+    "dependency_mode": "CONTROLLED_LOCAL_STUBS_FOR_REPO_DEPENDENCIES",
+    "claim_boundary": "Validates gateway contract/syntax/logic; not a substitute for full repository import/integration pytest."
+  },
+  "static_surface_audit": {
+    "reference_tools": 35,
+    "product_tools": 29,
+    "union_tools": 37,
+    "reference_unique": true,
+    "product_unique": true,
+    "catalog_missing": [],
+    "metadata_missing": [],
+    "default_gateway": "gremlin_handle_user_task",
+    "default_gateway_annotation": "READ_ONLY_CLOSED",
+    "queue_gateway": "gremlin_queue_user_task",
+    "queue_gateway_annotation": "LOCAL_STATE_MUTATION"
+  },
+  "regressions_found_and_fixed": [
+    {
+      "id": "SELF_ROUTING_CUE_CONTAMINATION",
+      "cause": "relation_count bookkeeping key became OCTOPUS semantic evidence and could force SPIDER on trivial tasks",
+      "fix": "remove routing bookkeeping counters from OCTOPUS semantic cue surface",
+      "regression_test": "simple arithmetic task must remain DIRECT"
+    },
+    {
+      "id": "PATCHER_METADATA_REGISTRY_BREAK",
+      "cause": "text replacement temporarily duplicated READ_ONLY_CLOSED and inserted literal backslash-n",
+      "fix": "full deterministic replacement of tool_metadata.py plus readback"
+    },
+    {
+      "id": "PATCHER_PARITY_NEWLINE",
+      "cause": "literal backslash-n in REFERENCE_ONLY test set",
+      "fix": "exact readback and replacement"
+    }
+  ],
+  "not_executed": {
+    "github_actions": "NO_BILLING_MINUTES",
+    "full_repository_pytest": "NO_LOCAL_PRIVATE_REPO_CHECKOUT_AVAILABLE",
+    "remote_sandbox": "NOT_USED_FOR_FINAL_VALIDATION"
+  },
+  "authority": "CANDIDATE_ONLY",
+  "canon_allowed": false,
+  "main_mutated": false
+}

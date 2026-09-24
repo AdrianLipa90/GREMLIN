@@ -8,6 +8,7 @@ READ_ONLY_CLOSED = frozenset({
     "gremlin_status",
     "gremlin_bestiary",
     "gremlin_species",
+    "gremlin_handle_user_task",
     "gremlin_plan",
     "gremlin_route",
     "gremlin_relation_parse",
@@ -36,6 +37,7 @@ READ_ONLY_OPEN_WORLD = frozenset({
 })
 
 LOCAL_STATE_MUTATIONS = frozenset({
+    "gremlin_queue_user_task",
     "gremlin_auto_fanout",
     "gremlin_fanout",
     "gremlin_synthesize",

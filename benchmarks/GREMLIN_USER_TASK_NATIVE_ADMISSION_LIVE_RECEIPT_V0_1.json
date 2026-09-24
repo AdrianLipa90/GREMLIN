@@ -1,0 +1,47 @@
+{
+  "schema": "GREMLIN_USER_TASK_NATIVE_ADMISSION_LIVE_RECEIPT_V0_1",
+  "status": "PASS",
+  "repo_branch": "feat/user-task-gateway-v01-20260923",
+  "noema_autoboot_current": "V7_R5_R4_TELEKOM_V6_NATIVE_GREMLIN_ADMISSION_V1",
+  "noema_bundle_sha256": "7a8c9a96a9f34b579a07297803db714aa59fd473997b3267376be5b91ab0acb6",
+  "runtime_source_sha256": "a7984e64ceebf298be23c0dde7482488f37bed23302c73baf0a3e248985bf8b8",
+  "live_tests": {
+    "continuation": {
+      "input": "Kontynuuj",
+      "context_mode": "CONTINUATION_CONTEXT",
+      "route_species": ["HOUND", "MANTIS"],
+      "live_gremlin_route_species": ["OWL"],
+      "phasenav_may_change_membership": false,
+      "status": "PASS"
+    },
+    "explicit_new_task": {
+      "input": "What is twelve times seventeen?",
+      "context_mode": "TASK_ONLY",
+      "route_kind": "DIRECT",
+      "route_species": [],
+      "shadow_route_species": ["OWL"],
+      "status": "PASS"
+    },
+    "isolated_cold_boot": {
+      "guard": "ACTIVE",
+      "failures": [],
+      "turn_schema": "NOEMA_TURN_ACTIVE_V2",
+      "native_admission": "PASS",
+      "status": "PASS"
+    }
+  },
+  "boundary": {
+    "repo_owns": "gateway semantics and MCP/user-turn admission reference contract",
+    "noema_autoboot_owns": "STARTPROMPT host hook, telemetry lifecycle, continuity and persistent activation",
+    "underlying_model_router_modified": false
+  },
+  "invariants": [
+    "explicit new tasks cannot inherit stale context for specialist membership",
+    "continuation prompts may use current_task and active_path",
+    "PhaseNav may order but not change specialist membership",
+    "admission grants no external-effect authority",
+    "shadow A/B remains observational and separate"
+  ],
+  "authority": "CANDIDATE_ONLY",
+  "canon_allowed": false
+}
