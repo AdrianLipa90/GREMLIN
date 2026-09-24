@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any
 
 SCHEMA = "GREMLIN_TAU2_NATIVE_RECEIPT_V0_1"
-VERSION = "0.1.1"
+VERSION = "0.1.2"
 PINNED_TAU2_COMMIT = "b7ea9074c1cba482b30687fecdb5c8425fd6f619"
 INFRASTRUCTURE_ERROR = "infrastructure_error"
 SUCCESS_TOLERANCE = 1e-6
@@ -209,15 +209,18 @@ def import_tau2_results(
             raise ValueError(
                 f"simulation {sim.get('id')!r} trial must be integer"
             )
-        reward = _reward(sim)
+        term = sim.get("termination_reason")
+        if not isinstance(term, str) or not term:
+            raise ValueError("termination_reason must be non-empty string")
+        if term == INFRASTRUCTURE_ERROR and sim.get("reward_info") is None:
+            reward = None
+        else:
+            reward = _reward(sim)
         duration = _finite_optional(sim.get("duration"), "duration")
         if duration is None:
             raise ValueError("duration cannot be null")
         agent_cost = _finite_optional(sim.get("agent_cost"), "agent_cost")
         user_cost = _finite_optional(sim.get("user_cost"), "user_cost")
-        term = sim.get("termination_reason")
-        if not isinstance(term, str) or not term:
-            raise ValueError("termination_reason must be non-empty string")
 
         row = {
             "simulation_id": sim.get("id"),
@@ -230,7 +233,8 @@ def import_tau2_results(
             "user_cost": user_cost,
         }
         grouped[str(task_id)].append(row)
-        raw_reward_values.append(reward)
+        if reward is not None:
+            raw_reward_values.append(reward)
         raw_durations.append(duration)
         termination[term] += 1
 
@@ -254,7 +258,8 @@ def import_tau2_results(
         rewards = [r["reward"] for r in rows]
         ordered_prefix = {
             f"first_{k}_all_success": all(
-                _is_successful(value) for value in rewards[:k]
+                value is not None and _is_successful(value)
+                for value in rewards[:k]
             )
             for k in range(1, num_trials + 1)
         }
@@ -262,9 +267,13 @@ def import_tau2_results(
             r for r in rows
             if r["termination_reason"] != INFRASTRUCTURE_ERROR
         ]
+        if any(r["reward"] is None for r in evaluated):
+            raise ValueError(
+                f"task {task_id} non-infrastructure simulation missing reward"
+            )
         evaluated_flat.extend(evaluated)
         success_count = sum(
-            int(_is_successful(r["reward"])) for r in evaluated
+            int(_is_successful(float(r["reward"]))) for r in evaluated
         )
         task_rows.append(
             {
@@ -308,7 +317,7 @@ def import_tau2_results(
             for k in range(1, min(n, max_k) + 1)
         }
 
-    evaluated_rewards = [r["reward"] for r in evaluated_flat]
+    evaluated_rewards = [float(r["reward"]) for r in evaluated_flat]
     evaluated_durations = [r["duration_s"] for r in evaluated_flat]
     evaluated_agent_costs = [
         r["agent_cost"]
@@ -370,7 +379,7 @@ def import_tau2_results(
             "raw_diagnostics": {
                 "native_reward_mean_all_simulations": (
                     statistics.fmean(raw_reward_values)
-                    if raw_reward_values else 0.0
+                    if raw_reward_values else None
                 ),
                 "duration_s_all_simulations": {
                     "median": statistics.median(raw_durations),

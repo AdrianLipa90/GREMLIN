@@ -42,8 +42,9 @@ def _sim(
     reward,
     *,
     termination_reason="agent_stop",
+    include_reward_info=True,
 ):
-    return {
+    row = {
         "id": sim_id,
         "task_id": task_id,
         "trial": trial,
@@ -51,9 +52,11 @@ def _sim(
         "termination_reason": termination_reason,
         "agent_cost": 0.1,
         "user_cost": 0.05,
-        "reward_info": {"reward": reward},
         "messages": [],
     }
+    if include_reward_info:
+        row["reward_info"] = {"reward": reward}
+    return row
 
 
 def test_native_rewards_generate_upstream_compatible_pass_hat_k(tmp_path: Path) -> None:
@@ -103,6 +106,7 @@ def test_infrastructure_errors_are_excluded_and_block_comparison_ready(
             1,
             0.0,
             termination_reason="infrastructure_error",
+            include_reward_info=False,
         ),
         _sim("b0", "B", 0, 1.0),
         _sim("b1", "B", 1, 1.0),
@@ -192,4 +196,21 @@ def test_missing_trial_fails_closed(tmp_path: Path) -> None:
         encoding="utf-8",
     )
     with pytest.raises(RuntimeError, match="expected 2"):
+        import_tau2_results(path)
+
+
+def test_non_infrastructure_missing_reward_still_fails_closed(tmp_path: Path) -> None:
+    sims = [
+        _sim(
+            "a0",
+            "A",
+            0,
+            0.0,
+            include_reward_info=False,
+        ),
+        _sim("a1", "A", 1, 1.0),
+    ]
+    path = tmp_path / "results.json"
+    path.write_text(json.dumps(_metadata(sims)), encoding="utf-8")
+    with pytest.raises(ValueError, match="missing reward_info"):
         import_tau2_results(path)

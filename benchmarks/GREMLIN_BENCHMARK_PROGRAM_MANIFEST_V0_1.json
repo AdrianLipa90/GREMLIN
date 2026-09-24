@@ -118,7 +118,7 @@
     },
     {
       "id": "TAU2_NATIVE_IMPORT",
-      "status": "ADAPTER_HARDENED_NATIVE_RUN_PENDING",
+      "status": "ADAPTER_HARDENED_V0_1_2_NATIVE_RUN_PENDING",
       "upstream_pin": "b7ea9074c1cba482b30687fecdb5c8425fd6f619",
       "pin_artifact": "benchmarks/GREMLIN_TAU2_UPSTREAM_PIN_V0_1.json",
       "adapter": "tools/gremlin_tau2_receipt_adapter_v01.py",
@@ -132,7 +132,8 @@
         "pass_hat_k": "comb(success_count,k)/comb(num_trials,k)",
         "ordered_prefix_metric_is_tau2_pass_k": false,
         "trial_ids_required": "0..num_trials-1"
-      }
+      },
+      "infrastructure_placeholder": "reward_info may be absent only when termination_reason=infrastructure_error"
     }
   ],
   "preserved_failures": [
@@ -195,6 +196,11 @@
       "id": "TAU2_INFRA_ERROR_METRIC_DIVERGENCE",
       "status": "REPAIRED_AND_PRESERVED",
       "detail": "Adapter v0.1.0 included all simulations in aggregate reward/pass diagnostics. Pinned tau2 metrics exclude infrastructure_error simulations. v0.1.1 mirrors that filtering and marks such runs comparison_ready=false."
+    },
+    {
+      "id": "TAU2_INFRA_REWARD_INFO_NULL_UNHANDLED",
+      "status": "REPAIRED_AND_PRESERVED",
+      "detail": "Pinned tau2 make_infra_failure_sim emits infrastructure_error with reward_info=None. Adapter v0.1.1 attempted to parse reward before filtering and would reject a valid upstream infrastructure placeholder. v0.1.2 permits missing reward only for infrastructure_error and still excludes it from tau2-compatible metrics."
     }
   ],
   "hard_gates": [

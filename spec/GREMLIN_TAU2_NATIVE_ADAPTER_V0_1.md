@@ -15,7 +15,7 @@ The pin is mandatory. A results file produced by another τ² commit fails close
 
 GREMLIN does not replace the τ² evaluator. It imports native `reward_info.reward` values after the pinned upstream evaluator has completed.
 
-Version 0.1.1 also mirrors the pinned upstream **agent metric semantics**:
+Version 0.1.2 mirrors the pinned upstream **agent metric semantics**:
 
 [
 \widehat{pass^k}=\frac{\binom{c}{k}}{\binom{n}{k}},
@@ -78,3 +78,16 @@ The receipt binds:
 ## Next gate
 
 A legitimate GREMLIN τ² result still requires actual execution on the pinned upstream benchmark with identical model/configuration across comparison arms. This adapter only guarantees that native results are imported without changing the evaluator's semantics.
+
+
+## Infrastructure placeholder compatibility
+
+At the pinned upstream commit, `make_infra_failure_sim()` constructs an
+`infrastructure_error` SimulationRun without `reward_info`. Adapter v0.1.2
+therefore accepts a missing reward only for infrastructure-error placeholders,
+preserves that trial in raw provenance, and excludes it from τ²-compatible
+metrics. Missing reward information on any non-infrastructure simulation still
+fails closed.
+
+This behavior was added after direct inspection of
+`src/tau2/runner/controller.py` at the pinned upstream commit.
