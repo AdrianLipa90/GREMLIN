@@ -147,6 +147,11 @@
       "id": "SYSTEMS_COMMIT_SHA_UNVERIFIED_INPUT",
       "status": "REPAIRED_AND_PRESERVED",
       "detail": "Initial systems harness accepted commit_sha as an argument without verifying the real checkout. Repaired with exact git top-level, HEAD equality, clean-tree and source-file SHA-256 binding."
+    },
+    {
+      "id": "BENCHMARK_MANIFEST_LITERAL_BACKSLASH_N",
+      "status": "REPAIRED_AND_PRESERVED",
+      "detail": "A writeback serialized a literal backslash-n after the closing JSON brace, making the manifest invalid JSON. Detected during post-write parse verification and repaired immediately."
     }
   ],
   "hard_gates": [
@@ -172,4 +177,4 @@
     }
   ],
   "promotion_rule": "No candidate track may be promoted to canon or marketed as competitor superiority until its own hard gate is satisfied."
-}\n
+}
