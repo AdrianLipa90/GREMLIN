@@ -1,0 +1,29 @@
+{
+  "schema": "GREMLIN_BIO_OS_CONTINUOUS_RELATIONAL_MEDIUM_PROVENANCE_V0_1",
+  "status": "CANDIDATE_RECORDED",
+  "date": "2026-09-24",
+  "source_branch": "feat/bio-os-continuous-relational-medium-v01-20260924",
+  "base_main_sha": "7a508f422c339f7cefb131c471205967497641ca",
+  "cross_repo": {
+    "repository": "AdrianLipa90/The-Fundamental-Theory-of-Informational-Relations",
+    "branch": "feat/tir-fractal-orbital-gravity-v0-1-20260924",
+    "commit": "f5ab9010f96383f00784367a7ffef319d0e2fd0c",
+    "artifact": "TIR/foundations/TIR_CONTINUOUS_RELATIONAL_MEDIUM_NAVIER_STOKES_CROSSWALK_V0_1.md"
+  },
+  "distinctions": {
+    "mathematical_crosswalk": true,
+    "it_architecture": true,
+    "physical_validation": false,
+    "global_semantic_tick_required": false,
+    "production_pde_solver_claim": false,
+    "measured_energy_advantage": false
+  },
+  "next_gates": [
+    "long-lived persistent-state benchmark",
+    "active-cone fraction vs graph-size scaling",
+    "reuse/recompute accounting",
+    "controlled crash/recovery continuity",
+    "real host energy telemetry when available"
+  ],
+  "canon_allowed": false
+}

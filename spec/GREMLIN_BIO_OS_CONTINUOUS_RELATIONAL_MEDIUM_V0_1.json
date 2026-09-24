@@ -1,0 +1,48 @@
+{
+  "schema": "GREMLIN_BIO_OS_CONTINUOUS_RELATIONAL_MEDIUM_V0_1",
+  "version": "0.1.0",
+  "status": "CANDIDATE_ARCHITECTURE",
+  "date": "2026-09-24",
+  "semantics": {
+    "persistent_state_required": true,
+    "time_is_state_coordinate": true,
+    "global_semantic_tick_required": false,
+    "global_poll_loop_required": false,
+    "full_graph_rescan_required": false,
+    "stable_relation_recompute_required": false,
+    "local_perturbation_propagation_required": true,
+    "bounded_active_support_required": true,
+    "orbital_activation_semantics": true
+  },
+  "crosswalk": {
+    "continuity_equation": "d_t rho_I + div(rho_I u) = S_I",
+    "material_derivative": "D/Dt = d_t + u.grad",
+    "momentum_form": "rho_I Du/Dt = -grad(Pi_I) + div(Sigma_I) + rho_I F_I + H_I",
+    "navier_stokes_recovery": "CONDITIONAL_MATHEMATICAL_CROSSWALK",
+    "production_pde_integrator_claim": false
+  },
+  "authority": {
+    "candidate_only": true,
+    "canon_allowed": false,
+    "external_effects_authorized": false
+  },
+  "forbidden_claims": {
+    "physical_material_fluid_claim": false,
+    "einstein_equals_navier_stokes_claim": false,
+    "bio_os_validates_tir_physics": false,
+    "measured_energy_advantage_without_telemetry": false,
+    "perfect_continuity_across_host_loss": false
+  },
+  "metrics": {
+    "active_fraction": "active_nodes / total_nodes",
+    "reuse_ratio": "reused_relations / (reused_relations + recomputed_relations)",
+    "recompute_avoidance": "1 - recomputed_stable_relations / eligible_stable_relations",
+    "verified_delta_per_joule": "accepted_verified_delta_units / measured_energy_joules"
+  },
+  "cross_repo_parent": {
+    "repository": "AdrianLipa90/The-Fundamental-Theory-of-Informational-Relations",
+    "branch": "feat/tir-fractal-orbital-gravity-v0-1-20260924",
+    "commit": "f5ab9010f96383f00784367a7ffef319d0e2fd0c",
+    "artifact": "TIR/foundations/TIR_CONTINUOUS_RELATIONAL_MEDIUM_NAVIER_STOKES_CROSSWALK_V0_1.md"
+  }
+}
