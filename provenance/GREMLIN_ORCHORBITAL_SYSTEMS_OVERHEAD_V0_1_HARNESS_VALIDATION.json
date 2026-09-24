@@ -1,0 +1,27 @@
+{
+  "schema": "GREMLIN_ORCHORBITAL_SYSTEMS_OVERHEAD_HARNESS_VALIDATION_V0_1",
+  "status": "PASS_HARNESS_STATIC_VALIDATION_EXECUTION_PENDING_REAL_CHECKOUT",
+  "canon_allowed": false,
+  "real_orchorbital_benchmark_executed": false,
+  "validation": {
+    "python_compile": "PASS",
+    "topology_plan_matrix": "PASS_12_OF_12",
+    "api_signatures_checked_against_repository_source": true,
+    "topologies": ["chain", "wide", "diamond", "layered"],
+    "sizes": [10, 50, 200],
+    "timed_phases": ["build", "snapshot", "commitment", "checkpoint", "restore", "state_transition_run"],
+    "model_calls_required": 0,
+    "network_calls_required": 0,
+    "tool_io_calls_required": 0
+  },
+  "preserved_failures": [
+    {
+      "stage": "local stub-validation import",
+      "classification": "VALIDATOR_IMPORT_NAMESPACE_BUG",
+      "failure": "dataclass resolution failed because dynamically loaded benchmark module was not registered in sys.modules",
+      "repair": "register dynamic module in sys.modules before exec_module",
+      "post_repair": "TOPOLOGY_PLAN_PASS_12_OF_12"
+    }
+  ],
+  "claim_boundary": "The harness is syntactically valid and its topology plans/API contract were checked. No OrchorbitalFabric timing result is claimed until the harness runs against an actual repository checkout at a bound commit SHA."
+}

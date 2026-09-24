@@ -1,0 +1,110 @@
+{
+  "schema": "GREMLIN_EXTERNAL_BENCHMARK_GRAPH_DELTA_V0_2",
+  "status": "CANDIDATE_EXTERNAL_RESEARCH",
+  "parent_graph": "benchmarks/GREMLIN_EXTERNAL_BENCHMARK_GRAPH_V0_1.json",
+  "created_utc": "2026-09-24",
+  "canon_allowed": false,
+  "claim_boundary": "Adds task-shape-dependent orchestration evidence. Values are source-native observations, not a cross-framework leaderboard or GREMLIN quality score.",
+  "nodes": [
+    {
+      "id": "source:orchestra-bench",
+      "type": "SOURCE",
+      "name": "orchestra-bench",
+      "url": "https://github.com/Himanshu-Sangshetti/orchestra-bench",
+      "evidence_class": "C_OPEN_REPRODUCIBLE_BENCHMARK"
+    },
+    {
+      "id": "hypothesis:H5",
+      "type": "HYPOTHESIS",
+      "name": "Orchestration strategy should depend on task shape rather than defaulting to maximal autonomy."
+    },
+    {
+      "id": "policy:strategy-gate-v01",
+      "type": "CANDIDATE_POLICY",
+      "name": "GREMLIN_ORCHESTRATION_STRATEGY_GATE_V0_1"
+    }
+  ],
+  "observations": [
+    {
+      "id": "obs:orchestra:local:qwen3-8b",
+      "source": "source:orchestra-bench",
+      "setting": "synthetic labelled single-shot local pilot",
+      "model": "qwen3:8b",
+      "n_per_cell": 60,
+      "success": {"single": 0.95, "explicit": 0.95, "self_orch": 0.75, "hybrid": 0.75}
+    },
+    {
+      "id": "obs:orchestra:local:qwen3-14b",
+      "source": "source:orchestra-bench",
+      "setting": "synthetic labelled single-shot local pilot",
+      "model": "qwen3:14b",
+      "n_per_cell": 60,
+      "success": {"single": 0.85, "explicit": 0.95, "self_orch": 0.65, "hybrid": 0.65}
+    },
+    {
+      "id": "obs:orchestra:local:llama31-8b",
+      "source": "source:orchestra-bench",
+      "setting": "synthetic labelled single-shot local pilot",
+      "model": "llama3.1:8b",
+      "n_per_cell": 60,
+      "success": {"single": 0.25, "explicit": 0.83, "self_orch": 0.35, "hybrid": 0.35},
+      "reported_explicit_minus_single": 0.583
+    },
+    {
+      "id": "obs:orchestra:tau2:haiku45",
+      "source": "source:orchestra-bench",
+      "setting": "tau2 retail validation slice",
+      "model": "Claude Haiku 4.5",
+      "n_per_cell": 15,
+      "success": {"single": 0.40, "explicit": 0.20, "self_orch": 0.60, "hybrid": 0.40}
+    },
+    {
+      "id": "obs:orchestra:tau2:sonnet45",
+      "source": "source:orchestra-bench",
+      "setting": "tau2 retail validation slice",
+      "model": "Claude Sonnet 4.5",
+      "n_per_cell": 15,
+      "success": {"single": 0.53, "explicit": 0.47, "self_orch": 0.53, "hybrid": 0.33}
+    },
+    {
+      "id": "obs:orchestra:cascade",
+      "source": "source:orchestra-bench",
+      "setting": "open-ended live AWS task",
+      "unguarded_delegation_cap_hit": 6,
+      "guarded_hybrid_delegations": 2,
+      "guardrail_delegation_reduction_pct": 66.6666666667
+    },
+    {
+      "id": "obs:orchestra:haiku-cost",
+      "source": "source:orchestra-bench",
+      "setting": "tau2 runtime self-orchestration cost observation",
+      "model": "Claude Haiku 4.5",
+      "delegations": 8.5,
+      "llm_calls_per_episode": 37,
+      "latency_ratio_approx": 3.0
+    }
+  ],
+  "derived_descriptors": {
+    "local_unweighted_mean_success": {
+      "single": 0.6833333333,
+      "explicit": 0.91,
+      "self_orch": 0.5833333333,
+      "hybrid": 0.5833333333
+    },
+    "local_explicit_minus_self_orch_mean": 0.3266666667,
+    "tau2_self_orch_minus_explicit": {
+      "Claude Haiku 4.5": 0.40,
+      "Claude Sonnet 4.5": 0.06
+    },
+    "guardrail_delegation_reduction_pct": 66.6666666667
+  },
+  "edges": [
+    {"source": "obs:orchestra:local:qwen3-8b", "predicate": "SUPPORTS", "target": "hypothesis:H5"},
+    {"source": "obs:orchestra:local:qwen3-14b", "predicate": "SUPPORTS", "target": "hypothesis:H5"},
+    {"source": "obs:orchestra:local:llama31-8b", "predicate": "SUPPORTS", "target": "hypothesis:H5"},
+    {"source": "obs:orchestra:tau2:haiku45", "predicate": "SUPPORTS", "target": "hypothesis:H5"},
+    {"source": "obs:orchestra:tau2:sonnet45", "predicate": "SUPPORTS", "target": "hypothesis:H5"},
+    {"source": "obs:orchestra:cascade", "predicate": "SUPPORTS", "target": "policy:strategy-gate-v01"},
+    {"source": "hypothesis:H5", "predicate": "MOTIVATES", "target": "policy:strategy-gate-v01"}
+  ]
+}

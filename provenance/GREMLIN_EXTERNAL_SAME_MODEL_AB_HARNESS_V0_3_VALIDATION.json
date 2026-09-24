@@ -1,0 +1,21 @@
+{
+  "schema": "GREMLIN_EXTERNAL_SAME_MODEL_AB_HARNESS_VALIDATION_V0_3",
+  "status": "PASS_HARNESS_VALIDATED_MODEL_NOT_RUN",
+  "canon_allowed": false,
+  "model_execution_performed": false,
+  "task_count": 6,
+  "domain_count_levels": 3,
+  "workload_variants": 18,
+  "trials_per_workload": 8,
+  "arms": 3,
+  "full_run_receipt_count": 432,
+  "local_tests": {
+    "pytest": "4 passed in 0.08s",
+    "all_pass_scores_pass1_passk_one": true,
+    "late_trial_failure_reduces_passk_without_changing_pass1": true,
+    "forbidden_tool_fails_exact_state_trial": true,
+    "config_mismatch_fails_closed": true
+  },
+  "claim_boundary": "Validates suite/scorer mechanics only. No foundation-model quality result exists until actual same-model receipts are produced.",
+  "receipt_sha256": "21c94765ef2f7392b870e098f18fda7f1e30370813700144817a916eda711b7f"
+}

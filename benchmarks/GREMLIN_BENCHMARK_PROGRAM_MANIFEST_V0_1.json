@@ -1,0 +1,229 @@
+{
+  "schema": "GREMLIN_BENCHMARK_PROGRAM_MANIFEST_V0_1",
+  "status": "ACTIVE_CANDIDATE_PROGRAM",
+  "created_utc": "2026-09-24",
+  "source_branch": "feat/semantic-graph-transformer-v01-20260923",
+  "parent_head_at_creation": "8b4eca090af17cb3614ab62cf9a9f061ce7a0128",
+  "canon_allowed": false,
+  "tracks": [
+    {
+      "id": "SGT_RUNTIME",
+      "status": "PASS_LOCAL_LIVE_INTERNAL",
+      "artifact": "benchmarks/GREMLIN_SGT_LIVE_AB_V0_1.json",
+      "measures": [
+        "context bytes",
+        "GREMLIN route latency",
+        "dispatch fan-out"
+      ],
+      "does_not_measure": [
+        "answer correctness",
+        "learned semantic quality",
+        "external replication"
+      ],
+      "headline": {
+        "550_sentences_context_reduction_pct": 31.665,
+        "1100_sentences_context_reduction_pct": 65.89,
+        "dispatch_reduction_pct": 50,
+        "small_110_sentence_context_reduction_pct": -17.262
+      }
+    },
+    {
+      "id": "EXTERNAL_EVIDENCE_GRAPH",
+      "status": "PASS_RESEARCH_GRAPH_CANDIDATE",
+      "artifacts": [
+        "benchmarks/GREMLIN_EXTERNAL_BENCHMARK_GRAPH_V0_1.json",
+        "benchmarks/GREMLIN_EXTERNAL_BENCHMARK_GRAPH_V0_2.json",
+        "benchmarks/GREMLIN_EXTERNAL_EVIDENCE_REGISTRY_V0_2.json"
+      ],
+      "claim_boundary": "External source-native observations only; no cross-source winner score."
+    },
+    {
+      "id": "SAME_MODEL_ANSWER_QUALITY",
+      "status": "HARNESS_READY_MODEL_NOT_RUN",
+      "suite": "benchmarks/GREMLIN_EXTERNAL_SAME_MODEL_AB_TASK_SUITE_V0_3.json",
+      "runner": "tools/gremlin_same_model_ab_runner_v03.py",
+      "scorer": "tools/gremlin_same_model_ab_score_v03.py",
+      "workload_variants": 18,
+      "trials_per_workload": 8,
+      "arms": 3,
+      "required_receipts": 432,
+      "metrics": [
+        "pass1",
+        "pass_k",
+        "exact state",
+        "tool trace",
+        "tokens",
+        "model calls",
+        "tool calls",
+        "median/p95 wall latency"
+      ],
+      "blocker": "No independently callable identical foundation-model endpoint is exposed in the current session for all three arms."
+    },
+    {
+      "id": "PURE_SYSTEMS_OVERHEAD",
+      "status": "HARNESS_HARDENED_EXECUTION_PENDING_REAL_CHECKOUT",
+      "spec": "spec/GREMLIN_ORCHORBITAL_SYSTEMS_OVERHEAD_V0_1.md",
+      "runner": "tools/gremlin_orchorbital_systems_overhead_v01.py",
+      "tests": "tests/test_gremlin_orchorbital_systems_overhead_v01.py",
+      "matrix": {
+        "topologies": [
+          "chain",
+          "wide",
+          "diamond",
+          "layered"
+        ],
+        "sizes": [
+          10,
+          50,
+          200
+        ],
+        "warmups": 2,
+        "samples": 9
+      },
+      "timed_phases": [
+        "build",
+        "snapshot",
+        "commitment",
+        "checkpoint",
+        "restore",
+        "state_transition_run"
+      ],
+      "external_io_required": false,
+      "blocker": "Current live GREMLIN runtime bundle does not include the private repository checkout.",
+      "source_binding": [
+        "exact git top-level",
+        "verified git HEAD equals expected commit SHA",
+        "clean working tree",
+        "SHA-256 of runner, orchorbital_fabric.py and role_registry.py"
+      ],
+      "timing_firewall": "Final fabric.receipt audit excluded from state_transition_run timer",
+      "last_execution_attempt": {
+        "status": "BLOCKED_BEFORE_EXECUTION",
+        "reason": "REMOTE_CODE_SANDBOX_NOT_AUTHORIZED",
+        "timing_result_produced": false
+      }
+    },
+    {
+      "id": "ORCHESTRATION_STRATEGY_GATE",
+      "status": "PASS_LOCAL_UNIT_TESTS_CANDIDATE_NOT_WIRED",
+      "module": "gremlin_mcp/orchestration_strategy_gate.py",
+      "spec": "spec/GREMLIN_ORCHESTRATION_STRATEGY_GATE_V0_1.md",
+      "tests": "tests/test_orchestration_strategy_gate_v01.py",
+      "modes": [
+        "DETERMINISTIC_MINIMAL_COVER",
+        "BOUNDED_DYNAMIC_ORCHORBITAL",
+        "HYBRID_GUARDED"
+      ],
+      "production_wiring": false
+    },
+    {
+      "id": "TAU2_NATIVE_IMPORT",
+      "status": "ADAPTER_HARDENED_V0_1_2_NATIVE_RUN_PENDING",
+      "upstream_pin": "b7ea9074c1cba482b30687fecdb5c8425fd6f619",
+      "pin_artifact": "benchmarks/GREMLIN_TAU2_UPSTREAM_PIN_V0_1.json",
+      "adapter": "tools/gremlin_tau2_receipt_adapter_v01.py",
+      "tests": "tests/test_gremlin_tau2_receipt_adapter_v01.py",
+      "spec": "spec/GREMLIN_TAU2_NATIVE_ADAPTER_V0_1.md",
+      "authority": "NATIVE_TAU2_REWARD_INFO",
+      "reward_regrading_by_gremlin": false,
+      "metric_semantics": {
+        "success_tolerance": "1e-6 around reward=1",
+        "infrastructure_errors_excluded": true,
+        "pass_hat_k": "comb(success_count,k)/comb(num_trials,k)",
+        "ordered_prefix_metric_is_tau2_pass_k": false,
+        "trial_ids_required": "0..num_trials-1"
+      },
+      "infrastructure_placeholder": "reward_info may be absent only when termination_reason=infrastructure_error"
+    }
+  ],
+  "preserved_failures": [
+    {
+      "id": "AUTOSTART_TIMEOUT",
+      "status": "PRESERVED",
+      "detail": "Initial first-turn launcher timed out at 30 seconds before child processes later completed; later fresh guard became ACTIVE."
+    },
+    {
+      "id": "SGT_SMALL_INPUT_OVERHEAD",
+      "status": "PRESERVED",
+      "detail": "At 110 sentences, graph representation increased context bytes by 17.262%."
+    },
+    {
+      "id": "RUNNER_ORACLE_TEST_FALSE_POSITIVE",
+      "status": "REPAIRED_AND_PRESERVED",
+      "detail": "Initial oracle-leak unit test matched a legal policy word; repaired to structural exact-object checking."
+    },
+    {
+      "id": "RUNNER_REPO_IMPORT_PATH",
+      "status": "REPAIRED_AND_PRESERVED",
+      "detail": "Initial CLI dry-run missed repo root in sys.path; runner repaired and 432 mock receipts scored successfully."
+    },
+    {
+      "id": "SYSTEMS_STUB_IMPORT_NAMESPACE",
+      "status": "REPAIRED_AND_PRESERVED",
+      "detail": "Local dynamic-import validator omitted sys.modules registration; repaired, topology plan matrix passed 12/12."
+    },
+    {
+      "id": "SYSTEMS_RUN_TIMER_AUDIT_CONTAMINATION",
+      "status": "REPAIRED_AND_PRESERVED",
+      "detail": "Initial systems harness included fabric.receipt() inside state_transition_run timing, adding audit/topology-commitment cost. Repaired by moving the final audit outside the timed region."
+    },
+    {
+      "id": "SYSTEMS_COMMIT_SHA_UNVERIFIED_INPUT",
+      "status": "REPAIRED_AND_PRESERVED",
+      "detail": "Initial systems harness accepted commit_sha as an argument without verifying the real checkout. Repaired with exact git top-level, HEAD equality, clean-tree and source-file SHA-256 binding."
+    },
+    {
+      "id": "BENCHMARK_MANIFEST_LITERAL_BACKSLASH_N",
+      "status": "REPAIRED_AND_PRESERVED",
+      "detail": "A writeback serialized a literal backslash-n after the closing JSON brace, making the manifest invalid JSON. Detected during post-write parse verification and repaired immediately."
+    },
+    {
+      "id": "SYSTEMS_EXTERNAL_SANDBOX_NOT_AUTHORIZED",
+      "status": "PRESERVED_BLOCKER",
+      "detail": "Attempted connector-materialized exact-source execution through the available remote code sandbox failed before code execution with FORBIDDEN: Not authorized, empty team ID. No timing result was produced."
+    },
+    {
+      "id": "TAU2_PASS_K_SEMANTICS_MISMATCH",
+      "status": "REPAIRED_AND_PRESERVED",
+      "detail": "Adapter v0.1.0 used an ordered-prefix all-success diagnostic under pass-k-style naming. Pinned tau2 defines pass^k combinatorially as C(success_count,k)/C(num_trials,k). v0.1.1 now mirrors upstream semantics and keeps prefix success diagnostic under a distinct non-pass^k name."
+    },
+    {
+      "id": "TAU2_TRIAL_CONTIGUITY_UNCHECKED",
+      "status": "REPAIRED_AND_PRESERVED",
+      "detail": "Adapter v0.1.0 checked trial count and duplicates but could accept shifted/non-contiguous trial identifiers. v0.1.1 requires exact IDs 0..num_trials-1."
+    },
+    {
+      "id": "TAU2_INFRA_ERROR_METRIC_DIVERGENCE",
+      "status": "REPAIRED_AND_PRESERVED",
+      "detail": "Adapter v0.1.0 included all simulations in aggregate reward/pass diagnostics. Pinned tau2 metrics exclude infrastructure_error simulations. v0.1.1 mirrors that filtering and marks such runs comparison_ready=false."
+    },
+    {
+      "id": "TAU2_INFRA_REWARD_INFO_NULL_UNHANDLED",
+      "status": "REPAIRED_AND_PRESERVED",
+      "detail": "Pinned tau2 make_infra_failure_sim emits infrastructure_error with reward_info=None. Adapter v0.1.1 attempted to parse reward before filtering and would reject a valid upstream infrastructure placeholder. v0.1.2 permits missing reward only for infrastructure_error and still excludes it from tau2-compatible metrics."
+    }
+  ],
+  "hard_gates": [
+    {
+      "gate": "G1_REAL_SAME_MODEL_AB",
+      "required_for": "end-to-end answer-quality/cost claim",
+      "status": "PENDING"
+    },
+    {
+      "gate": "G2_REAL_ORCHORBITAL_SYSTEMS_RUN",
+      "required_for": "pure orchestration overhead comparison",
+      "status": "PENDING"
+    },
+    {
+      "gate": "G3_EXTERNAL_REPLICATION",
+      "required_for": "independent validation claim",
+      "status": "PENDING"
+    },
+    {
+      "gate": "G4_STRATEGY_GATE_PRODUCTION_WIRING",
+      "required_for": "runtime policy deployment",
+      "status": "BLOCKED_ON_G1_AND_G2"
+    }
+  ],
+  "promotion_rule": "No candidate track may be promoted to canon or marketed as competitor superiority until its own hard gate is satisfied."
+}

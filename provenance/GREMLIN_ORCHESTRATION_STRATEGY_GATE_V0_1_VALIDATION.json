@@ -1,0 +1,15 @@
+{
+  "schema": "GREMLIN_ORCHESTRATION_STRATEGY_GATE_VALIDATION_V0_1",
+  "status": "PASS_LOCAL_UNIT_TESTS_CANDIDATE_ONLY",
+  "canon_allowed": false,
+  "production_wiring": false,
+  "tests": {
+    "pytest": "5 passed in 0.06s",
+    "known_single_shot_deterministic": "PASS",
+    "open_multi_turn_dynamic": "PASS",
+    "mixed_hybrid": "PASS",
+    "uncertainty_fallback": "PASS",
+    "fail_closed_validation": "PASS"
+  },
+  "claim_boundary": "Validates deterministic gate logic only. External calibration motivates policy shape but does not establish production optimality."
+}
