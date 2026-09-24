@@ -96,7 +96,12 @@
         "clean working tree",
         "SHA-256 of runner, orchorbital_fabric.py and role_registry.py"
       ],
-      "timing_firewall": "Final fabric.receipt audit excluded from state_transition_run timer"
+      "timing_firewall": "Final fabric.receipt audit excluded from state_transition_run timer",
+      "last_execution_attempt": {
+        "status": "BLOCKED_BEFORE_EXECUTION",
+        "reason": "REMOTE_CODE_SANDBOX_NOT_AUTHORIZED",
+        "timing_result_produced": false
+      }
     },
     {
       "id": "ORCHESTRATION_STRATEGY_GATE",
@@ -163,6 +168,11 @@
       "id": "BENCHMARK_MANIFEST_LITERAL_BACKSLASH_N",
       "status": "REPAIRED_AND_PRESERVED",
       "detail": "A writeback serialized a literal backslash-n after the closing JSON brace, making the manifest invalid JSON. Detected during post-write parse verification and repaired immediately."
+    },
+    {
+      "id": "SYSTEMS_EXTERNAL_SANDBOX_NOT_AUTHORIZED",
+      "status": "PRESERVED_BLOCKER",
+      "detail": "Attempted connector-materialized exact-source execution through the available remote code sandbox failed before code execution with FORBIDDEN: Not authorized, empty team ID. No timing result was produced."
     }
   ],
   "hard_gates": [
