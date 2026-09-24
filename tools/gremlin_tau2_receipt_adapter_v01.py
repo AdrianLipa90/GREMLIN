@@ -10,8 +10,10 @@ from pathlib import Path
 from typing import Any
 
 SCHEMA = "GREMLIN_TAU2_NATIVE_RECEIPT_V0_1"
-VERSION = "0.1.0"
+VERSION = "0.1.1"
 PINNED_TAU2_COMMIT = "b7ea9074c1cba482b30687fecdb5c8425fd6f619"
+INFRASTRUCTURE_ERROR = "infrastructure_error"
+SUCCESS_TOLERANCE = 1e-6
 
 
 def _load_json(path: Path) -> dict[str, Any]:
@@ -25,7 +27,9 @@ def _sha256_file(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def _discover(input_path: Path) -> tuple[dict[str, Any], list[dict[str, Any]], list[Path]]:
+def _discover(
+    input_path: Path,
+) -> tuple[dict[str, Any], list[dict[str, Any]], list[Path]]:
     path = input_path.resolve()
     if path.is_dir():
         metadata_path = path / "results.json"
@@ -51,7 +55,9 @@ def _discover(input_path: Path) -> tuple[dict[str, Any], list[dict[str, Any]], l
     elif isinstance(inline, list):
         simulations = inline
     else:
-        raise ValueError("results JSON has no simulations list and no simulations directory")
+        raise ValueError(
+            "results JSON has no simulations list and no simulations directory"
+        )
 
     if not simulations:
         raise ValueError("no simulations found")
@@ -82,11 +88,29 @@ def _reward(sim: dict[str, Any]) -> float:
         raise ValueError(f"simulation {sim.get('id')!r} missing reward_info")
     value = info.get("reward")
     if isinstance(value, bool) or not isinstance(value, (int, float)):
-        raise ValueError(f"simulation {sim.get('id')!r} reward must be numeric")
+        raise ValueError(
+            f"simulation {sim.get('id')!r} reward must be numeric"
+        )
     out = float(value)
     if not math.isfinite(out) or not 0.0 <= out <= 1.0:
-        raise ValueError(f"simulation {sim.get('id')!r} reward must be finite in [0,1]")
+        raise ValueError(
+            f"simulation {sim.get('id')!r} reward must be finite in [0,1]"
+        )
     return out
+
+
+def _is_successful(reward: float) -> bool:
+    # Mirrors tau2.metrics.agent_metrics.is_successful at the pinned commit.
+    return (1.0 - SUCCESS_TOLERANCE) <= reward <= (1.0 + SUCCESS_TOLERANCE)
+
+
+def _pass_hat_k(num_trials: int, success_count: int, k: int) -> float:
+    # Mirrors tau2.metrics.agent_metrics.pass_hat_k at the pinned commit.
+    if num_trials < k:
+        raise ValueError(
+            f"Number of trials {num_trials} is less than k {k}."
+        )
+    return math.comb(success_count, k) / math.comb(num_trials, k)
 
 
 def _finite_optional(value: Any, field: str) -> float | None:
@@ -116,13 +140,17 @@ def import_tau2_results(
     expected_num_trials: int | None = None,
     gremlin_commit_sha: str | None = None,
 ) -> dict[str, Any]:
-    if len(expected_tau2_commit) != 40 or any(c not in "0123456789abcdef" for c in expected_tau2_commit):
+    if len(expected_tau2_commit) != 40 or any(
+        c not in "0123456789abcdef" for c in expected_tau2_commit
+    ):
         raise ValueError("expected_tau2_commit must be lowercase 40-char SHA")
     if gremlin_commit_sha is not None and (
         len(gremlin_commit_sha) != 40
         or any(c not in "0123456789abcdef" for c in gremlin_commit_sha)
     ):
-        raise ValueError("gremlin_commit_sha must be lowercase 40-char SHA or null")
+        raise ValueError(
+            "gremlin_commit_sha must be lowercase 40-char SHA or null"
+        )
 
     metadata, simulations, files = _discover(input_path)
     info = metadata.get("info")
@@ -132,14 +160,17 @@ def import_tau2_results(
     tau2_commit = info.get("git_commit")
     if tau2_commit != expected_tau2_commit:
         raise RuntimeError(
-            f"tau2 commit mismatch: expected={expected_tau2_commit} actual={tau2_commit}"
+            f"tau2 commit mismatch: expected={expected_tau2_commit} "
+            f"actual={tau2_commit}"
         )
 
     agent_info = info.get("agent_info")
     env_info = info.get("environment_info")
     user_info = info.get("user_info")
     if not isinstance(agent_info, dict) or not isinstance(env_info, dict):
-        raise ValueError("results info missing agent_info/environment_info")
+        raise ValueError(
+            "results info missing agent_info/environment_info"
+        )
     if not isinstance(user_info, dict):
         raise ValueError("results info missing user_info")
 
@@ -147,21 +178,26 @@ def import_tau2_results(
     if not isinstance(model, str) or not model:
         raise ValueError("agent model identifier missing")
     if expected_model is not None and model != expected_model:
-        raise RuntimeError(f"agent model mismatch: expected={expected_model} actual={model}")
+        raise RuntimeError(
+            f"agent model mismatch: expected={expected_model} actual={model}"
+        )
 
     num_trials = info.get("num_trials")
-    if isinstance(num_trials, bool) or not isinstance(num_trials, int) or num_trials < 1:
+    if (
+        isinstance(num_trials, bool)
+        or not isinstance(num_trials, int)
+        or num_trials < 1
+    ):
         raise ValueError("info.num_trials must be positive integer")
     if expected_num_trials is not None and num_trials != expected_num_trials:
         raise RuntimeError(
-            f"num_trials mismatch: expected={expected_num_trials} actual={num_trials}"
+            f"num_trials mismatch: expected={expected_num_trials} "
+            f"actual={num_trials}"
         )
 
     grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
-    reward_values: list[float] = []
-    durations: list[float] = []
-    agent_costs: list[float] = []
-    user_costs: list[float] = []
+    raw_reward_values: list[float] = []
+    raw_durations: list[float] = []
     termination = Counter()
 
     for sim in simulations:
@@ -170,7 +206,9 @@ def import_tau2_results(
             raise ValueError("simulation missing task_id")
         trial = sim.get("trial")
         if isinstance(trial, bool) or not isinstance(trial, int):
-            raise ValueError(f"simulation {sim.get('id')!r} trial must be integer")
+            raise ValueError(
+                f"simulation {sim.get('id')!r} trial must be integer"
+            )
         reward = _reward(sim)
         duration = _finite_optional(sim.get("duration"), "duration")
         if duration is None:
@@ -192,44 +230,103 @@ def import_tau2_results(
             "user_cost": user_cost,
         }
         grouped[str(task_id)].append(row)
-        reward_values.append(reward)
-        durations.append(duration)
-        if agent_cost is not None:
-            agent_costs.append(agent_cost)
-        if user_cost is not None:
-            user_costs.append(user_cost)
+        raw_reward_values.append(reward)
+        raw_durations.append(duration)
         termination[term] += 1
 
     task_rows = []
+    expected_trials = list(range(num_trials))
+    evaluated_flat: list[dict[str, Any]] = []
     for task_id, rows in sorted(grouped.items()):
         rows = sorted(rows, key=lambda x: x["trial"])
         trials = [r["trial"] for r in rows]
         if len(rows) != num_trials:
             raise RuntimeError(
-                f"task {task_id} has {len(rows)} simulations; expected {num_trials}"
+                f"task {task_id} has {len(rows)} simulations; "
+                f"expected {num_trials}"
             )
-        if len(set(trials)) != len(trials):
-            raise RuntimeError(f"task {task_id} has duplicate trial identifiers")
+        if trials != expected_trials:
+            raise RuntimeError(
+                f"task {task_id} trial identifiers must equal "
+                f"{expected_trials}; actual={trials}"
+            )
+
         rewards = [r["reward"] for r in rows]
+        ordered_prefix = {
+            f"first_{k}_all_success": all(
+                _is_successful(value) for value in rewards[:k]
+            )
+            for k in range(1, num_trials + 1)
+        }
+        evaluated = [
+            r for r in rows
+            if r["termination_reason"] != INFRASTRUCTURE_ERROR
+        ]
+        evaluated_flat.extend(evaluated)
+        success_count = sum(
+            int(_is_successful(r["reward"])) for r in evaluated
+        )
         task_rows.append(
             {
                 "task_id": task_id,
                 "trials": trials,
                 "rewards": rewards,
-                "pass1": rewards[0] == 1.0,
-                "pass_k": all(value == 1.0 for value in rewards),
+                "evaluated_trial_count": len(evaluated),
+                "success_count": success_count,
+                "ordered_prefix_all_success_diagnostic": ordered_prefix,
             }
         )
 
-    pass_rates = {}
-    for k in range(1, num_trials + 1):
-        passing = 0
-        for task in task_rows:
-            if all(value == 1.0 for value in task["rewards"][:k]):
-                passing += 1
-        pass_rates[f"pass_{k}"] = passing / len(task_rows)
+    eligible_tasks = [
+        row for row in task_rows if row["evaluated_trial_count"] > 0
+    ]
+    if eligible_tasks:
+        max_k = min(
+            num_trials,
+            min(row["evaluated_trial_count"] for row in eligible_tasks),
+        )
+    else:
+        max_k = 0
 
-    root = input_path.resolve() if input_path.resolve().is_dir() else input_path.resolve().parent
+    pass_hat_ks: dict[str, float] = {}
+    for k in range(1, max_k + 1):
+        per_task = [
+            _pass_hat_k(
+                row["evaluated_trial_count"],
+                row["success_count"],
+                k,
+            )
+            for row in eligible_tasks
+        ]
+        pass_hat_ks[f"pass_hat_{k}"] = statistics.fmean(per_task)
+
+    for row in task_rows:
+        n = row["evaluated_trial_count"]
+        c = row["success_count"]
+        row["tau2_compatible_pass_hat_k"] = {
+            f"pass_hat_{k}": _pass_hat_k(n, c, k)
+            for k in range(1, min(n, max_k) + 1)
+        }
+
+    evaluated_rewards = [r["reward"] for r in evaluated_flat]
+    evaluated_durations = [r["duration_s"] for r in evaluated_flat]
+    evaluated_agent_costs = [
+        r["agent_cost"]
+        for r in evaluated_flat
+        if r["agent_cost"] is not None
+    ]
+    evaluated_user_costs = [
+        r["user_cost"]
+        for r in evaluated_flat
+        if r["user_cost"] is not None
+    ]
+    infra_error_count = termination.get(INFRASTRUCTURE_ERROR, 0)
+
+    root = (
+        input_path.resolve()
+        if input_path.resolve().is_dir()
+        else input_path.resolve().parent
+    )
     core = {
         "schema": SCHEMA,
         "version": VERSION,
@@ -252,35 +349,85 @@ def import_tau2_results(
         },
         "gremlin_commit_sha": gremlin_commit_sha,
         "metrics": {
-            "native_reward_mean": statistics.fmean(reward_values),
-            "pass_rates": pass_rates,
-            "duration_s": {
-                "median": statistics.median(durations),
-                "p95": _p95(durations),
-                "mean": statistics.fmean(durations),
+            "tau2_compatible": {
+                "avg_reward": (
+                    statistics.fmean(evaluated_rewards)
+                    if evaluated_rewards else 0.0
+                ),
+                "pass_hat_k": pass_hat_ks,
+                "max_k": max_k,
+                "evaluated_simulation_count": len(evaluated_flat),
+                "evaluated_task_count": len(eligible_tasks),
+                "infra_error_count": infra_error_count,
+                "infrastructure_errors_excluded": True,
+                "success_tolerance": SUCCESS_TOLERANCE,
+                "method": (
+                    "Mirrors pinned tau2 agent_metrics: infrastructure errors "
+                    "excluded, success within 1e-6 of reward=1, "
+                    "pass_hat_k=comb(success_count,k)/comb(num_trials,k)."
+                ),
+            },
+            "raw_diagnostics": {
+                "native_reward_mean_all_simulations": (
+                    statistics.fmean(raw_reward_values)
+                    if raw_reward_values else 0.0
+                ),
+                "duration_s_all_simulations": {
+                    "median": statistics.median(raw_durations),
+                    "p95": _p95(raw_durations),
+                    "mean": statistics.fmean(raw_durations),
+                },
+                "ordered_prefix_all_success_is_not_tau2_pass_hat_k": True,
+            },
+            "evaluated_duration_s": {
+                "median": (
+                    statistics.median(evaluated_durations)
+                    if evaluated_durations else None
+                ),
+                "p95": _p95(evaluated_durations),
+                "mean": (
+                    statistics.fmean(evaluated_durations)
+                    if evaluated_durations else None
+                ),
             },
             "agent_cost": {
-                "observed_count": len(agent_costs),
+                "observed_count": len(evaluated_agent_costs),
                 "mean_when_reported": (
-                    statistics.fmean(agent_costs) if agent_costs else None
+                    statistics.fmean(evaluated_agent_costs)
+                    if evaluated_agent_costs else None
                 ),
-                "total_when_reported": sum(agent_costs) if agent_costs else None,
+                "total_when_reported": (
+                    sum(evaluated_agent_costs)
+                    if evaluated_agent_costs else None
+                ),
             },
             "user_cost": {
-                "observed_count": len(user_costs),
+                "observed_count": len(evaluated_user_costs),
                 "mean_when_reported": (
-                    statistics.fmean(user_costs) if user_costs else None
+                    statistics.fmean(evaluated_user_costs)
+                    if evaluated_user_costs else None
                 ),
-                "total_when_reported": sum(user_costs) if user_costs else None,
+                "total_when_reported": (
+                    sum(evaluated_user_costs)
+                    if evaluated_user_costs else None
+                ),
             },
-            "termination_reasons": dict(sorted(termination.items())),
+            "termination_reasons_all_simulations": dict(
+                sorted(termination.items())
+            ),
         },
+        "comparison_ready": (
+            infra_error_count == 0
+            and max_k == num_trials
+            and len(eligible_tasks) == len(task_rows)
+        ),
         "tasks": task_rows,
         "source_binding": _source_binding(files, root),
         "claim_boundary": (
-            "GREMLIN does not re-grade tau2 trajectories. reward/pass metrics are "
-            "aggregated directly from native tau2 reward_info.reward values produced "
-            "by the pinned upstream evaluator."
+            "GREMLIN does not re-grade tau2 trajectories. Reward values are "
+            "read from native tau2 reward_info.reward. pass_hat_k aggregation "
+            "mirrors the pinned upstream metric definition; ordered-prefix "
+            "diagnostics are explicitly not called pass^k."
         ),
     }
     raw = json.dumps(
@@ -297,7 +444,10 @@ def import_tau2_results(
 def main() -> None:
     p = argparse.ArgumentParser()
     p.add_argument("input", type=Path)
-    p.add_argument("--expected-tau2-commit", default=PINNED_TAU2_COMMIT)
+    p.add_argument(
+        "--expected-tau2-commit",
+        default=PINNED_TAU2_COMMIT,
+    )
     p.add_argument("--expected-model")
     p.add_argument("--expected-num-trials", type=int)
     p.add_argument("--gremlin-commit-sha")
@@ -313,7 +463,12 @@ def main() -> None:
     )
     a.out.parent.mkdir(parents=True, exist_ok=True)
     a.out.write_text(
-        json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+        json.dumps(
+            result,
+            ensure_ascii=False,
+            indent=2,
+            sort_keys=True,
+        ) + "\n",
         encoding="utf-8",
     )
     print(
@@ -322,7 +477,10 @@ def main() -> None:
                 "status": result["status"],
                 "domain": result["tau2"]["domain"],
                 "model": result["tau2"]["agent_model"],
-                "pass_rates": result["metrics"]["pass_rates"],
+                "pass_hat_k": result["metrics"]["tau2_compatible"][
+                    "pass_hat_k"
+                ],
+                "comparison_ready": result["comparison_ready"],
                 "receipt_sha256": result["receipt_sha256"],
             },
             sort_keys=True,

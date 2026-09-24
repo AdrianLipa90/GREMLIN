@@ -1,69 +1,80 @@
-# GREMLIN τ-bench Native Receipt Adapter v0.1
+# GREMLIN τ² Native Receipt Adapter v0.1
 
-Status: **ADAPTER READY / NATIVE τ-BENCH EXECUTION NOT YET RUN**  
+Status: **ADAPTER HARDENED / NATIVE τ² EXECUTION NOT YET RUN**  
 `canon_allowed=false`
 
 ## Upstream pin
 
 Repository: `sierra-research/tau2-bench`  
-Pinned main commit: `b7ea9074c1cba482b30687fecdb5c8425fd6f619`  
+Pinned commit: `b7ea9074c1cba482b30687fecdb5c8425fd6f619`  
 Observed upstream commit date: 2026-09-17.
 
-The pin is mandatory. A results file produced by another τ-bench commit fails closed unless the expected pin is explicitly changed and separately reviewed.
-
-## Why importer-first
-
-GREMLIN must not replace τ-bench's evaluator with a home-grown quality score.
-
-The adapter therefore consumes native τ-bench `results.json` / directory-format simulation files after τ-bench has already evaluated trajectories. It reads:
-
-- `info.git_commit`;
-- agent/user implementation and model identifiers;
-- domain and trial count;
-- each `SimulationRun.task_id`, `trial`, `reward_info.reward`, `duration`, cost and termination reason.
-
-GREMLIN does **not** reinterpret reference actions or reconstruct task correctness.
+The pin is mandatory. A results file produced by another τ² commit fails closed unless the pin is deliberately changed and separately reviewed.
 
 ## Native scoring boundary
 
-Current τ-bench evaluates policy-constrained tool interaction through its own environment/action/communication evaluators. Standard task `evaluation_criteria.actions` may be a reference trajectory used to derive target state and is not universally a required exact tool-call trace.
+GREMLIN does not replace the τ² evaluator. It imports native `reward_info.reward` values after the pinned upstream evaluator has completed.
 
-Accordingly, this adapter treats the native `reward_info.reward` as authoritative for τ-bench performance.
+Version 0.1.1 also mirrors the pinned upstream **agent metric semantics**:
 
-## Aggregates
+[
+\widehat{pass^k}=\frac{\binom{c}{k}}{\binom{n}{k}},
+]
 
-For a run with `k` trials per task:
+where `n` is the number of evaluated non-infrastructure trials for a task and `c` is the count of successful trials.
 
-- `pass_1` = fraction of tasks whose first recorded trial has native reward 1.0;
-- `pass_j` = fraction whose first j trials all have reward 1.0;
-- `pass_k` = fraction passing every recorded trial.
+A reward is successful under the same pinned upstream tolerance:
 
-It also records native mean reward, median/P95 duration, reported agent/user costs, termination-reason counts and per-task reward vectors.
+[
+1-10^{-6}\le r\le1+10^{-6}.
+]
 
-No winner score or valuation multiplier is produced.
+`infrastructure_error` simulations are excluded from τ²-compatible reward/pass metrics, matching `tau2.metrics.agent_metrics`. They remain preserved in raw diagnostics and termination counts.
+
+## Trial integrity
+
+For a benchmark run declaring `num_trials=k`, every task must contain exactly the trial identifiers:
+
+`0,1,...,k-1`.
+
+Missing, duplicated, shifted or non-contiguous trial IDs fail closed before aggregation.
+
+## Important correction from adapter v0.1.0
+
+The first adapter draft calculated an ordered-prefix diagnostic ("first k recorded trials all succeed") and labeled the aggregate like a pass-k metric. That is **not** τ²'s upstream `pass^k` definition.
+
+v0.1.1 corrects this:
+
+- official-compatible values are named `pass_hat_k`;
+- ordered-prefix all-success remains available only as a per-task diagnostic;
+- it is explicitly marked as **not** τ² `pass^k`;
+- infrastructure-error filtering and success tolerance now match the pinned upstream implementation.
+
+The earlier semantic mismatch is retained in benchmark provenance rather than silently overwritten.
+
+## Comparison readiness
+
+The receipt sets `comparison_ready=true` only when:
+
+- no infrastructure errors occurred;
+- the full declared `num_trials` remains available for `pass_hat_k`;
+- every task remains represented in the evaluated set.
+
+This is stricter than simply being importable. A run can be correctly imported while still being unsuitable for a clean competitor comparison.
 
 ## Provenance
 
 The receipt binds:
 
-- exact τ-bench upstream commit from native run metadata;
-- expected model identifier when supplied;
-- expected number of trials when supplied;
+- exact upstream τ² commit from native run metadata;
+- expected agent model when supplied;
+- expected trial count when supplied;
 - optional GREMLIN commit SHA;
-- SHA-256 for the source results metadata and all loaded simulation files;
-- aggregate source digest.
+- SHA-256 for loaded result files;
+- aggregate source digest;
+- raw termination counts;
+- the exact metric semantics used.
 
-## Supported storage
+## Next gate
 
-- monolithic text `results.json`;
-- directory-format `results.json + simulations/*.json`.
-
-## Next execution gate
-
-A legitimate GREMLIN τ-bench quality result requires:
-
-1. checkout/install of the pinned τ-bench commit;
-2. a registered GREMLIN candidate agent or externally callable adapter using the same foundation model as the reference arm;
-3. identical domain/task split, user simulator, model configuration, seed policy and trial count;
-4. native τ-bench execution and evaluation;
-5. import through this adapter without reward rewriting.
+A legitimate GREMLIN τ² result still requires actual execution on the pinned upstream benchmark with identical model/configuration across comparison arms. This adapter only guarantees that native results are imported without changing the evaluator's semantics.
