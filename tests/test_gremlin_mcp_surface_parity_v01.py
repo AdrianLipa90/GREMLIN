@@ -12,7 +12,8 @@ PRODUCT_ONLY = {
 }
 
 REFERENCE_ONLY = {
-    "gremlin_handle_user_task",\n    "gremlin_queue_user_task",
+    "gremlin_handle_user_task",
+    "gremlin_queue_user_task",
     "gremlin_phasenav_status",
     "gremlin_phasenav_reference_sweep",
     "gremlin_phasenav_threeway",
