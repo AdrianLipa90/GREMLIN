@@ -1,0 +1,29 @@
+{
+  "schema": "GREMLIN_TAU2_UPSTREAM_PIN_V0_1",
+  "status": "PINNED_NOT_EXECUTED",
+  "canon_allowed": false,
+  "repository": "sierra-research/tau2-bench",
+  "ref": "main",
+  "commit_sha": "b7ea9074c1cba482b30687fecdb5c8425fd6f619",
+  "commit_date_utc": "2026-09-17T21:57:12Z",
+  "agent_contract": {
+    "mode": "half-duplex text",
+    "constructor": [
+      "tools",
+      "domain_policy"
+    ],
+    "methods": [
+      "get_init_state",
+      "generate_next_message"
+    ]
+  },
+  "scoring_boundary": "Use native tau2 reward_info.reward; GREMLIN importer does not re-grade trajectories.",
+  "supported_domains_reference": [
+    "airline",
+    "retail",
+    "telecom",
+    "mock",
+    "banking_knowledge"
+  ],
+  "execution_status": "NOT_RUN"
+}

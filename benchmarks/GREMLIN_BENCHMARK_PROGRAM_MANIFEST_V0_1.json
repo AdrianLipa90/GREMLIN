@@ -110,6 +110,17 @@
         "HYBRID_GUARDED"
       ],
       "production_wiring": false
+    },
+    {
+      "id": "TAU2_NATIVE_IMPORT",
+      "status": "ADAPTER_READY_NATIVE_RUN_PENDING",
+      "upstream_pin": "b7ea9074c1cba482b30687fecdb5c8425fd6f619",
+      "pin_artifact": "benchmarks/GREMLIN_TAU2_UPSTREAM_PIN_V0_1.json",
+      "adapter": "tools/gremlin_tau2_receipt_adapter_v01.py",
+      "tests": "tests/test_gremlin_tau2_receipt_adapter_v01.py",
+      "spec": "spec/GREMLIN_TAU2_NATIVE_ADAPTER_V0_1.md",
+      "authority": "NATIVE_TAU2_REWARD_INFO",
+      "reward_regrading_by_gremlin": false
     }
   ],
   "preserved_failures": [
