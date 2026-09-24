@@ -1,0 +1,40 @@
+{
+  "schema": "GREMLIN_USER_TASK_GATEWAY_POSTWRITE_REPAIR_RECEIPT_V0_1",
+  "status": "PASS_REPAIRED_AND_READBACK_VERIFIED",
+  "created_utc": "2026-09-24",
+  "branch": "feat/user-task-gateway-v01-20260923",
+  "base_main_sha": "7a508f422c339f7cefb131c471205967497641ca",
+  "detected_on_head": "ea38ecd57eb949d57dc4b41704ddffb77c7c9161",
+  "repair_commit": "0880f09c7f0463c13360a8bf35f251f5087e5958",
+  "issue": {
+    "id": "LITERAL_BACKSLASH_N_REGRESSION_POST_RECEIPT",
+    "classification": "SYNTAX_AND_TEXT_SERIALIZATION_REGRESSION",
+    "detail": "Current PR head still contained literal backslash+n sequences in Python source and Markdown even though an earlier validation receipt described that patcher class as repaired."
+  },
+  "repaired_files": [
+    {
+      "path": "gremlin_mcp/tool_catalog.py",
+      "blob_sha": "86d0f717525d9aacb76dfc7263de03abb206aad7",
+      "literal_backslash_n_present_after": false
+    },
+    {
+      "path": "tests/test_gremlin_mcp_surface_parity_v01.py",
+      "blob_sha": "e002abf8c0f82609d152febca6d9234a08c38c01",
+      "literal_backslash_n_present_after": false
+    },
+    {
+      "path": "spec/GREMLIN_USER_TASK_GATEWAY_V0_1.md",
+      "blob_sha": "a8a8528ab5ad8c2d0d7e6d69c0053beab3478845",
+      "literal_backslash_n_present_after": false
+    }
+  ],
+  "validation": {
+    "github_readback": "PASS",
+    "literal_backslash_n_count_after": 0,
+    "full_repository_pytest": "NOT_EXECUTED_NO_LOCAL_PRIVATE_REPO_CHECKOUT",
+    "github_actions": "NOT_USED_NO_BILLING_MINUTES"
+  },
+  "authority": "CANDIDATE_ONLY",
+  "canon_allowed": false,
+  "main_mutated": false
+}
