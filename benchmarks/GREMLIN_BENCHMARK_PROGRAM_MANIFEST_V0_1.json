@@ -10,12 +10,20 @@
       "id": "SGT_RUNTIME",
       "status": "PASS_LOCAL_LIVE_INTERNAL",
       "artifact": "benchmarks/GREMLIN_SGT_LIVE_AB_V0_1.json",
-      "measures": ["context bytes", "GREMLIN route latency", "dispatch fan-out"],
-      "does_not_measure": ["answer correctness", "learned semantic quality", "external replication"],
+      "measures": [
+        "context bytes",
+        "GREMLIN route latency",
+        "dispatch fan-out"
+      ],
+      "does_not_measure": [
+        "answer correctness",
+        "learned semantic quality",
+        "external replication"
+      ],
       "headline": {
         "550_sentences_context_reduction_pct": 31.665,
         "1100_sentences_context_reduction_pct": 65.89,
-        "dispatch_reduction_pct": 50.0,
+        "dispatch_reduction_pct": 50,
         "small_110_sentence_context_reduction_pct": -17.262
       }
     },
@@ -39,24 +47,56 @@
       "trials_per_workload": 8,
       "arms": 3,
       "required_receipts": 432,
-      "metrics": ["pass1", "pass_k", "exact state", "tool trace", "tokens", "model calls", "tool calls", "median/p95 wall latency"],
+      "metrics": [
+        "pass1",
+        "pass_k",
+        "exact state",
+        "tool trace",
+        "tokens",
+        "model calls",
+        "tool calls",
+        "median/p95 wall latency"
+      ],
       "blocker": "No independently callable identical foundation-model endpoint is exposed in the current session for all three arms."
     },
     {
       "id": "PURE_SYSTEMS_OVERHEAD",
-      "status": "HARNESS_READY_EXECUTION_PENDING_REAL_CHECKOUT",
+      "status": "HARNESS_HARDENED_EXECUTION_PENDING_REAL_CHECKOUT",
       "spec": "spec/GREMLIN_ORCHORBITAL_SYSTEMS_OVERHEAD_V0_1.md",
       "runner": "tools/gremlin_orchorbital_systems_overhead_v01.py",
       "tests": "tests/test_gremlin_orchorbital_systems_overhead_v01.py",
       "matrix": {
-        "topologies": ["chain", "wide", "diamond", "layered"],
-        "sizes": [10, 50, 200],
+        "topologies": [
+          "chain",
+          "wide",
+          "diamond",
+          "layered"
+        ],
+        "sizes": [
+          10,
+          50,
+          200
+        ],
         "warmups": 2,
         "samples": 9
       },
-      "timed_phases": ["build", "snapshot", "commitment", "checkpoint", "restore", "state_transition_run"],
+      "timed_phases": [
+        "build",
+        "snapshot",
+        "commitment",
+        "checkpoint",
+        "restore",
+        "state_transition_run"
+      ],
       "external_io_required": false,
-      "blocker": "Current live GREMLIN runtime bundle does not include the private repository checkout."
+      "blocker": "Current live GREMLIN runtime bundle does not include the private repository checkout.",
+      "source_binding": [
+        "exact git top-level",
+        "verified git HEAD equals expected commit SHA",
+        "clean working tree",
+        "SHA-256 of runner, orchorbital_fabric.py and role_registry.py"
+      ],
+      "timing_firewall": "Final fabric.receipt audit excluded from state_transition_run timer"
     },
     {
       "id": "ORCHESTRATION_STRATEGY_GATE",
@@ -64,7 +104,11 @@
       "module": "gremlin_mcp/orchestration_strategy_gate.py",
       "spec": "spec/GREMLIN_ORCHESTRATION_STRATEGY_GATE_V0_1.md",
       "tests": "tests/test_orchestration_strategy_gate_v01.py",
-      "modes": ["DETERMINISTIC_MINIMAL_COVER", "BOUNDED_DYNAMIC_ORCHORBITAL", "HYBRID_GUARDED"],
+      "modes": [
+        "DETERMINISTIC_MINIMAL_COVER",
+        "BOUNDED_DYNAMIC_ORCHORBITAL",
+        "HYBRID_GUARDED"
+      ],
       "production_wiring": false
     }
   ],
@@ -93,13 +137,39 @@
       "id": "SYSTEMS_STUB_IMPORT_NAMESPACE",
       "status": "REPAIRED_AND_PRESERVED",
       "detail": "Local dynamic-import validator omitted sys.modules registration; repaired, topology plan matrix passed 12/12."
+    },
+    {
+      "id": "SYSTEMS_RUN_TIMER_AUDIT_CONTAMINATION",
+      "status": "REPAIRED_AND_PRESERVED",
+      "detail": "Initial systems harness included fabric.receipt() inside state_transition_run timing, adding audit/topology-commitment cost. Repaired by moving the final audit outside the timed region."
+    },
+    {
+      "id": "SYSTEMS_COMMIT_SHA_UNVERIFIED_INPUT",
+      "status": "REPAIRED_AND_PRESERVED",
+      "detail": "Initial systems harness accepted commit_sha as an argument without verifying the real checkout. Repaired with exact git top-level, HEAD equality, clean-tree and source-file SHA-256 binding."
     }
   ],
   "hard_gates": [
-    {"gate": "G1_REAL_SAME_MODEL_AB", "required_for": "end-to-end answer-quality/cost claim", "status": "PENDING"},
-    {"gate": "G2_REAL_ORCHORBITAL_SYSTEMS_RUN", "required_for": "pure orchestration overhead comparison", "status": "PENDING"},
-    {"gate": "G3_EXTERNAL_REPLICATION", "required_for": "independent validation claim", "status": "PENDING"},
-    {"gate": "G4_STRATEGY_GATE_PRODUCTION_WIRING", "required_for": "runtime policy deployment", "status": "BLOCKED_ON_G1_AND_G2"}
+    {
+      "gate": "G1_REAL_SAME_MODEL_AB",
+      "required_for": "end-to-end answer-quality/cost claim",
+      "status": "PENDING"
+    },
+    {
+      "gate": "G2_REAL_ORCHORBITAL_SYSTEMS_RUN",
+      "required_for": "pure orchestration overhead comparison",
+      "status": "PENDING"
+    },
+    {
+      "gate": "G3_EXTERNAL_REPLICATION",
+      "required_for": "independent validation claim",
+      "status": "PENDING"
+    },
+    {
+      "gate": "G4_STRATEGY_GATE_PRODUCTION_WIRING",
+      "required_for": "runtime policy deployment",
+      "status": "BLOCKED_ON_G1_AND_G2"
+    }
   ],
   "promotion_rule": "No candidate track may be promoted to canon or marketed as competitor superiority until its own hard gate is satisfied."
-}
+}\n

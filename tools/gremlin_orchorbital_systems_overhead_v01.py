@@ -7,6 +7,7 @@ import math
 import platform
 import re
 import statistics
+import subprocess
 import sys
 import time
 from dataclasses import dataclass
@@ -16,12 +17,13 @@ from typing import Any
 from gremlin_mcp.orchorbital_fabric import OrchorbitalFabric
 
 SCHEMA = "GREMLIN_ORCHORBITAL_SYSTEMS_OVERHEAD_V0_1"
-VERSION = "0.1.0"
+VERSION = "0.1.1"
 TOPOLOGIES = ("chain", "wide", "diamond", "layered")
 SIZES = (10, 50, 200)
 DEFAULT_WARMUPS = 2
 DEFAULT_SAMPLES = 9
 _SHA40 = re.compile(r"^[0-9a-f]{40}$")
+ROOT = Path(__file__).resolve().parents[1]
 
 
 @dataclass(frozen=True)
@@ -92,12 +94,13 @@ def _build(plan: TopologyPlan) -> OrchorbitalFabric:
 
 
 def _state_transition_run(fabric: OrchorbitalFabric, plan: TopologyPlan) -> None:
+    # Timed body contains lifecycle transitions only. Audit/receipt work is
+    # intentionally outside this timer so run cost cannot be inflated by a
+    # topology commitment or full diagnostic receipt.
     for index, node_id in enumerate(plan.close_order):
         fabric.mark_started(node_id)
         fabric.mark_self_complete(node_id, result_commitment=f"noop-result-{index}")
         fabric.close(node_id)
-    if fabric.receipt()["open_node_count"] != 1:
-        raise RuntimeError("all workload nodes must be closed after state-transition run")
 
 
 def _measure_ns(fn) -> tuple[int, Any]:
@@ -121,21 +124,41 @@ def _summary(samples_ns: list[int]) -> dict[str, float]:
     }
 
 
+def _count_snapshot_causal_edges(snapshot: dict[str, Any]) -> int:
+    causal = snapshot.get("causal")
+    if not isinstance(causal, dict):
+        raise RuntimeError("snapshot causal graph missing")
+    return sum(len(v) for v in causal.values())
+
+
 def _one_sample(plan: TopologyPlan) -> dict[str, Any]:
     build_ns, fabric = _measure_ns(lambda: _build(plan))
-    build_receipt = fabric.receipt()
-    if build_receipt["node_count"] != len(plan.node_ids) + 1:
+    if len(fabric.nodes()) != len(plan.node_ids) + 1:
         raise RuntimeError("node count mismatch after build")
-    if build_receipt["causal_edge_count"] != len(plan.causal_edges):
+
+    snapshot_ns, snapshot = _measure_ns(
+        lambda: fabric.topology_snapshot(include_obligations=False)
+    )
+    if len(snapshot["nodes"]) != len(plan.node_ids) + 1:
+        raise RuntimeError("snapshot node count mismatch")
+    if _count_snapshot_causal_edges(snapshot) != len(plan.causal_edges):
         raise RuntimeError("causal edge count mismatch after build")
 
-    snapshot_ns, snapshot = _measure_ns(lambda: fabric.topology_snapshot(include_obligations=False))
     commitment_ns, commitment = _measure_ns(fabric.topology_commitment)
     checkpoint_ns, checkpoint = _measure_ns(fabric.checkpoint_state)
-    restore_ns, restored = _measure_ns(lambda: OrchorbitalFabric.from_checkpoint(checkpoint))
+    restore_ns, restored = _measure_ns(
+        lambda: OrchorbitalFabric.from_checkpoint(checkpoint)
+    )
     if restored.topology_commitment() != commitment:
         raise RuntimeError("restore topology commitment mismatch")
+
     run_ns, _ = _measure_ns(lambda: _state_transition_run(fabric, plan))
+    # Validation is deliberately outside the run timer.
+    post_run_receipt = fabric.receipt()
+    if post_run_receipt["open_node_count"] != 1:
+        raise RuntimeError("all workload nodes must be closed after state-transition run")
+    if post_run_receipt["unresolved_terminal_node_count"] != 0:
+        raise RuntimeError("state-transition run left unresolved terminal nodes")
 
     return {
         "build_ns": build_ns,
@@ -149,7 +172,13 @@ def _one_sample(plan: TopologyPlan) -> dict[str, Any]:
     }
 
 
-def benchmark_cell(topology: str, n: int, *, warmups: int, samples: int) -> dict[str, Any]:
+def benchmark_cell(
+    topology: str,
+    n: int,
+    *,
+    warmups: int,
+    samples: int,
+) -> dict[str, Any]:
     if warmups < 0 or samples < 1:
         raise ValueError("warmups must be >=0 and samples >=1")
     plan = topology_plan(topology, n)
@@ -187,18 +216,75 @@ def benchmark_cell(topology: str, n: int, *, warmups: int, samples: int) -> dict
         "network_calls": 0,
         "tool_io_calls": 0,
         "invariant_checks_enabled": True,
+        "post_run_audit_inside_timed_run": False,
         "status": "PASS",
     }
 
 
+def _git(repo_root: Path, *args: str) -> str:
+    proc = subprocess.run(
+        ["git", *args],
+        cwd=repo_root,
+        text=True,
+        capture_output=True,
+        timeout=10,
+        check=False,
+    )
+    if proc.returncode != 0:
+        detail = (proc.stderr or proc.stdout).strip()
+        raise RuntimeError(f"git {' '.join(args)} failed: {detail}")
+    return proc.stdout.strip()
+
+
+def validate_checkout(repo_root: Path, expected_commit_sha: str) -> dict[str, Any]:
+    if not _SHA40.fullmatch(expected_commit_sha):
+        raise ValueError("expected_commit_sha must be lowercase 40-char SHA")
+    root = repo_root.resolve()
+    top = Path(_git(root, "rev-parse", "--show-toplevel")).resolve()
+    if top != root:
+        raise RuntimeError(
+            f"repo_root must be exact git top-level: supplied={root} actual={top}"
+        )
+    head = _git(root, "rev-parse", "HEAD")
+    if head != expected_commit_sha:
+        raise RuntimeError(
+            f"git HEAD mismatch: expected={expected_commit_sha} actual={head}"
+        )
+    dirty = _git(root, "status", "--porcelain", "--untracked-files=all")
+    if dirty:
+        raise RuntimeError("working tree must be clean before benchmark execution")
+    return {
+        "git_head": head,
+        "git_head_verified": True,
+        "working_tree_clean": True,
+        "repo_root_name": root.name,
+    }
+
+
+def _file_sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
 def run_benchmark(
     *,
-    commit_sha: str,
+    repo_root: Path,
+    expected_commit_sha: str,
     warmups: int = DEFAULT_WARMUPS,
     samples: int = DEFAULT_SAMPLES,
 ) -> dict[str, Any]:
-    if not _SHA40.fullmatch(commit_sha):
-        raise ValueError("commit_sha must be lowercase 40-char SHA")
+    source_binding = validate_checkout(repo_root, expected_commit_sha)
+    root = repo_root.resolve()
+    source_binding["source_sha256"] = {
+        "benchmark_runner": _file_sha256(
+            root / "tools" / "gremlin_orchorbital_systems_overhead_v01.py"
+        ),
+        "orchorbital_fabric": _file_sha256(
+            root / "gremlin_mcp" / "orchorbital_fabric.py"
+        ),
+        "role_registry": _file_sha256(
+            root / "gremlin_mcp" / "role_registry.py"
+        ),
+    }
 
     cells = [
         benchmark_cell(topology, n, warmups=warmups, samples=samples)
@@ -209,7 +295,8 @@ def run_benchmark(
         "schema": SCHEMA,
         "version": VERSION,
         "status": "PASS_EXECUTED",
-        "commit_sha": commit_sha,
+        "commit_sha": expected_commit_sha,
+        "source_binding": source_binding,
         "environment": {
             "python": sys.version,
             "implementation": platform.python_implementation(),
@@ -218,7 +305,11 @@ def run_benchmark(
         },
         "matrix": {"topologies": list(TOPOLOGIES), "sizes": list(SIZES)},
         "cells": cells,
-        "claim_boundary": "Pure OrchorbitalFabric systems overhead with no LLM, network, or external tool I/O. External comparisons require phase/topology/size alignment.",
+        "claim_boundary": (
+            "Pure OrchorbitalFabric systems overhead with no LLM, network, or "
+            "external tool I/O. External comparisons require phase/topology/size "
+            "alignment. State-transition timing excludes the final audit receipt."
+        ),
         "canon_allowed": False,
     }
     encoded = json.dumps(
@@ -234,13 +325,15 @@ def run_benchmark(
 
 def main() -> None:
     p = argparse.ArgumentParser()
-    p.add_argument("--commit-sha", required=True)
+    p.add_argument("--repo-root", type=Path, default=ROOT)
+    p.add_argument("--expected-commit-sha", required=True)
     p.add_argument("--warmups", type=int, default=DEFAULT_WARMUPS)
     p.add_argument("--samples", type=int, default=DEFAULT_SAMPLES)
     p.add_argument("--out", type=Path, required=True)
     a = p.parse_args()
     result = run_benchmark(
-        commit_sha=a.commit_sha,
+        repo_root=a.repo_root,
+        expected_commit_sha=a.expected_commit_sha,
         warmups=a.warmups,
         samples=a.samples,
     )
@@ -254,6 +347,7 @@ def main() -> None:
             {
                 "status": result["status"],
                 "cells": len(result["cells"]),
+                "commit_sha": result["commit_sha"],
                 "receipt_sha256": result["receipt_sha256"],
             },
             sort_keys=True,
