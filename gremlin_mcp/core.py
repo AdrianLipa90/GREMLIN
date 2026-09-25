@@ -8,6 +8,7 @@ from gremlin_mcp.raphael import angelic_manifest
 from gremlin_mcp.memory_capabilities import beast_capabilities, policy_manifest
 from gremlin_mcp.owl_runtime_audit import audit_status
 from gremlin_mcp.role_registry import BESTIARY_ROLES
+from gremlin_mcp.memory_ontology_algebra import MEMORY_ONTOLOGY_ROLE_BINDINGS, memory_ontology_manifest
 
 from tools.gremlin_bestiary_orbital_scheduler_v02 import PROFILES, service_omega, service_period
 from tools.gremlin_bestiary_vector_species_v03 import (
@@ -149,9 +150,11 @@ def status(*, surface: str = "reference") -> dict[str, Any]:
             "request_id_policy": "CALLER_OR_GENERATED_NONEMPTY",
         },
         "owl_runtime_audit": audit_status(),
+        "memory_ontology_algebra": memory_ontology_manifest(),
         "topology": list(TOPOLOGY),
         "governance_topology": [*TOPOLOGY, "RAPHAEL"],
         "angelic_functions": {"RAPHAEL": angelic_manifest()},
+        "memory_ontology_algebra": memory_ontology_manifest(),
         "memory_capability_policy": {
             "schema": policy_manifest()["schema"],
             "version": policy_manifest()["version"],
@@ -172,6 +175,7 @@ def bestiary_manifest() -> dict[str, Any]:
             **meta,
             "scheduler_profile": None,
             "memory_capabilities": beast_capabilities(name),
+            "memory_ontology_role": MEMORY_ONTOLOGY_ROLE_BINDINGS.get(name),
         }
         if name in PROFILES:
             profile = PROFILES[name]
@@ -208,6 +212,7 @@ def species_profile(species: str) -> dict[str, Any]:
         **meta,
         "scheduler_profile": None,
         "memory_capabilities": beast_capabilities(name),
+        "memory_ontology_role": MEMORY_ONTOLOGY_ROLE_BINDINGS.get(name),
         "authority": authority_state(),
     }
     if name in PROFILES:
