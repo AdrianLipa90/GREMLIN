@@ -155,3 +155,52 @@ Not claimed:
 - autonomous Hive mutation;
 - canon promotion;
 - production runtime deployment merely from a repository merge.
+
+
+## Final gateway contract validation addendum
+
+After the runtime merge, the exact current branch bytes for the default gateway
+were exercised in a local contract harness together with the exact
+Memory-Ontology runtime source and the exact gateway test file:
+
+```text
+11 passed, 0 failed
+pytest elapsed: ~0.11 s
+```
+
+Exact source blobs:
+
+- `gremlin_mcp/user_task_gateway.py`:
+  `414954e3a121a9ff9ff654947e10aeb022fc1dba`
+- `gremlin_mcp/memory_ontology_algebra.py`:
+  `222b11306f62e03955f54aef98b7a023c1e98a34`
+- `tests/test_user_task_gateway_v01.py`:
+  `7ea2ab2fb9b7660ff7353895d3f815754c44daa8`
+
+The unchanged router / semantic-graph / phase dependencies were represented by
+contract-compatible stubs in this harness. Therefore this is an executable
+**exact gateway-source contract test**, not a claim of full exact dependency
+integration or full-repository pytest.
+
+GitHub Actions was also requested, but the observed jobs failed before
+executing any workflow step and produced no code-test logs. Those runs are
+classified as infrastructure-unavailable: neither PASS nor code FAIL.
+
+A final resident GREMLIN internal audit consumed the complete validation
+boundary. Event chain:
+
+- USER_TASK:
+  `gremlin:whisper:sha256:a9f981592dbb178ab7a6da0a5f32086d8ceb9ef43c383adf0d4283bcadc5c725`
+- GREMLIN_RT_INGESTED:
+  `gremlin:whisper:sha256:969debb9ff7819a09f370fb04d1ba6a244ba629edc4ac912b6f618607d4e14d7`
+- PHASENAV36D_RT_STATE:
+  `gremlin:whisper:sha256:70ff96959bda7ed7e8c62ceb827dcd85a6e29258a9b68503e68c397e22e506c5`
+- GREMLIN_PHASE36D_FUSED:
+  `gremlin:whisper:sha256:4af7f26db718577caa677ff6173c482bea9466e9ace2c25366b6e3f13ff82d5f`
+- GREMLIN_INTERNAL_AUDIT_CANDIDATE:
+  `gremlin:whisper:sha256:0cf28594a0aaa69f8e0802d227b6e41da44c8bc2a6c8eca606291f98f9d53f18`
+
+The audit stayed `CANDIDATE_ONLY`, had no query execution authority, and
+focused on the remaining `contract_compatible_stubs / repository / promotion /
+writes` boundary. This is recorded as governance/audit-routing evidence, not
+as an independent algebraic proof.
