@@ -30,7 +30,7 @@ def test_source_manifest_is_bound_to_merged_memory_ontology_main():
     assert manifest["source"]["main_commit"] == "c0973d26cc64c0d9018b67707e5708e084017ad8"
     assert manifest["source"]["blobs"]["final_receipt"] == "7402cc9c3ce8c5d2ba61942f709fb2c26f8e4e77"
     assert manifest["claims"]["canon_allowed"] is False
-    assert len(manifest["manifest_sha256"]) == 64
+    assert len(manifest["manifest_sha256"]) == 64\n    assert all(len(v) == 40 for v in manifest["source"]["blobs"].values())
 
 
 def test_prime_word_roundtrip_preserves_order():
@@ -51,7 +51,7 @@ def test_prime_hilbert_association_and_declared_cut_dissociation():
 
 def test_historical_roundtrip_is_not_erased_by_behavioral_quotient_source_layer():
     f = HistoryStep("e", "a", "b", 1, inverse_edge_id="e^-1")
-    r = HistoricalStep("e^-1", "b", "a", 2, inverse_edge_id="e")
+    r = HistoryStep("e^-1", "b", "a", 2, inverse_edge_id="e")
     trace = HistoricalTrace("memory:m", (f, r))
     hist = trace.historical_signature()
     beh = trace.behavioral_quotient().behavioral_signature()
