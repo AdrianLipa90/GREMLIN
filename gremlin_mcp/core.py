@@ -150,7 +150,6 @@ def status(*, surface: str = "reference") -> dict[str, Any]:
             "request_id_policy": "CALLER_OR_GENERATED_NONEMPTY",
         },
         "owl_runtime_audit": audit_status(),
-        "memory_ontology_algebra": memory_ontology_manifest(),
         "topology": list(TOPOLOGY),
         "governance_topology": [*TOPOLOGY, "RAPHAEL"],
         "angelic_functions": {"RAPHAEL": angelic_manifest()},
