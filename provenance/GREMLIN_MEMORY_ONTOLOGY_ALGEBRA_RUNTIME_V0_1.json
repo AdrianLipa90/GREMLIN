@@ -1,0 +1,95 @@
+{
+  "schema": "GREMLIN_MEMORY_ONTOLOGY_ALGEBRA_RUNTIME_V0_1_RECEIPT",
+  "date": "2026-09-25",
+  "status": "LOCAL_EXACT_GATE_AND_LIVE_AUDIT_PASS_PR_CI_PENDING",
+  "authority": "CANDIDATE_ONLY",
+  "canon_allowed": false,
+  "repository": "AdrianLipa90/GREMLIN",
+  "branch": "feat/memory-ontology-algebra-runtime-v01-20260925",
+  "code_head_before_receipt": "24de1d3f45a205427404be17c7576a8d2f731a5f",
+  "source": {
+    "repository": "AdrianLipa90/Memory-Ontology",
+    "main_commit": "c0973d26cc64c0d9018b67707e5708e084017ad8",
+    "blobs": {
+      "memory_representation_category_v04": "099a19fb3418c9b6415ef332e87ec38c5d5bee2e",
+      "behavioral_core_v04": "fca0fc613be268bd085bc37892242f269529fba2",
+      "prime_hilbert_collatz_association": "6c517c04ab1518c2bc746222ed2a00d7113e7c12",
+      "orbital_ternary_memory_algebra": "421db4ca0ab5b7ca6c876c5744552969caef5a81",
+      "final_receipt": "7402cc9c3ce8c5d2ba61942f709fb2c26f8e4e77"
+    },
+    "source_gate": {
+      "passed": 63,
+      "failed": 0,
+      "elapsed_s": 0.71
+    }
+  },
+  "exact_local_gate": {
+    "status": "PASS",
+    "passed": 13,
+    "failed": 0,
+    "elapsed_s": 0.08,
+    "exact_git_blob_match": true,
+    "files": {
+      "gremlin_mcp/memory_ontology_algebra.py": {
+        "git_blob_sha1": "222b11306f62e03955f54aef98b7a023c1e98a34",
+        "local_sha256": "d29dbed1324d6f40c4e81a15ddac218654eb16d21d12b8e7347704a18cb5851d"
+      },
+      "tests/test_memory_ontology_algebra_v01.py": {
+        "git_blob_sha1": "f90eaf17689b442e5d49a96b1906ad8cab605771",
+        "local_sha256": "59a804835b78b8141c09bcaee895616bd574b687b14d7d8a0f556cff0f4697b7"
+      }
+    }
+  },
+  "integration_surfaces": [
+    "gremlin_mcp/core.py",
+    "gremlin_mcp/semantic_graph_bestiary.py",
+    "gremlin_mcp/user_task_gateway.py",
+    "gremlin_mcp/memory_ontology_algebra.py",
+    "tests/test_memory_ontology_algebra_v01.py",
+    "tests/test_user_task_gateway_v01.py",
+    ".github/workflows/gremlin-mcp-v01.yml"
+  ],
+  "live_audit": {
+    "tether_status": "ACTIVE",
+    "tether_failures": [],
+    "resident_gremlin_status": "ACTIVE",
+    "resident_authority": "CANDIDATE_ONLY",
+    "input_event_id": "gremlin:whisper:sha256:78e80d5b6162cf944e1499ecaf09d2cb905681b01d3cc9c80577c8c8ff01a6b2",
+    "ingest_event_id": "gremlin:whisper:sha256:994dc817e59c8ecb273905c3f2875594c0b805c8c562f63e40c71774a881d8f6",
+    "phasenav36d_event_id": "gremlin:whisper:sha256:3584bffcda0d2380b68f9f2c721babd006071e894264ba5578cba17b455363a5",
+    "fused_event_id": "gremlin:whisper:sha256:a324bf759bad124131d07361f5703a52dc8c36346592e4d11038302e0ad66735",
+    "audit_event_id": "gremlin:whisper:sha256:9961e4bc16687069cd7e86a20b648ac6eaa79277e7a1320a44a652631e10156f",
+    "route_kind": "INTERNAL_AUDIT",
+    "route_species": [
+      "OWL",
+      "SPIDER",
+      "HOUND",
+      "RAVEN"
+    ],
+    "phase_attention_terms": [
+      "repository",
+      "execution",
+      "promotion",
+      "writes"
+    ],
+    "query_execution_authority": false
+  },
+  "broad_pr_ci": {
+    "workflow": "GREMLIN MCP v0.5",
+    "status": "PENDING_PR_GATE",
+    "new_tests_included": [
+      "tests/test_memory_ontology_algebra_v01.py",
+      "tests/test_user_task_gateway_v01.py"
+    ]
+  },
+  "claims": {
+    "global_groupoid": false,
+    "maximal_core": false,
+    "collatz_convergence": false,
+    "physical_quantum_claim": false,
+    "physical_ternary_claim": false,
+    "automatic_hive_mutation": false,
+    "production_runtime_deployed": false,
+    "main_mutated": false
+  }
+}

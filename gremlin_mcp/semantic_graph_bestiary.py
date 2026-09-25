@@ -5,6 +5,7 @@ import hashlib, json, math
 from typing import Any, Callable, Mapping
 
 from .semantic_graph_transformer import SemanticGraphTransformer
+from .memory_ontology_algebra import build_memory_ontology_handoff, memory_ontology_manifest
 
 SCHEMA = "GREMLIN_SEMANTIC_GRAPH_BESTIARY_HANDOFF_V0_1"
 VERSION = "0.1.0"
@@ -113,6 +114,8 @@ def build_bestiary_handoff(
             "BEES": "derive coherence/anti-entropy/reconciliation findings",
             "automatic_hive_mutation": False,
             "requires_existing_capability_gateway": True,
+            "memory_ontology_algebra_available": True,
+            "memory_ontology_contract_sha256": memory_ontology_manifest()["manifest_sha256"],
         },
         "authority": "CANDIDATE_ONLY",
         "canon_allowed": False,
@@ -137,7 +140,18 @@ def compile_causal_handoff(
     return {
         "compiled": compiled,
         "causal_cone": cone,
-        "handoff": build_bestiary_handoff(compiled, subject_id=subject_id, generation_id=generation_id, task_id=task_id),
+        "handoff": build_bestiary_handoff(
+            compiled,
+            subject_id=subject_id,
+            generation_id=generation_id,
+            task_id=task_id,
+        ),
+        "memory_ontology_handoff": build_memory_ontology_handoff(
+            subject_id=subject_id,
+            generation_id=generation_id,
+            task_id=task_id,
+            context_commitment=f"sha256:{compiled.get('graph_sha256')}",
+        ),
     }
 
 

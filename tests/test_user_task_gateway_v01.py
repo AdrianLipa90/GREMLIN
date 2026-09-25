@@ -115,3 +115,23 @@ def test_explicit_new_task_is_not_contaminated_by_stale_context() -> None:
     assert out["octopus"]["semantic_route"] == []
     assert out["execution"]["route_species"] == []
     assert out["mode"] == "DIRECT"
+
+
+def test_memory_ontology_algebra_is_bound_to_default_gateway() -> None:
+    out = build_user_task_plan(
+        "Inspect the graph and preserve memory provenance.",
+        request_id="req-memory-ontology",
+        surface_root="/definitely/missing/noema",
+    )
+    mo = out["memory_ontology"]
+    assert mo["authority"] == "CANDIDATE_ONLY"
+    assert mo["canon_allowed"] is False
+    assert mo["historical_signature"]["steps"] == []
+    assert mo["behavioral_signature"]["reduced_path"] == []
+    assert mo["certified_behavioral_core"]["morphism_ids"] == []
+    assert len(mo["source_contract_sha256"]) == 64
+    assert out["claims"]["memory_ontology_algebra_bound"] is True
+    assert (
+        out["worker_payload"]["memory_ontology"]["source_contract_sha256"]
+        == mo["source_contract_sha256"]
+    )

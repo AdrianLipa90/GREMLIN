@@ -8,6 +8,7 @@ from typing import Any, Mapping, Sequence
 
 from gremlin_mcp.router import route
 from gremlin_mcp.semantic_graph_transformer import SemanticGraphTransformer
+from gremlin_mcp.memory_ontology_algebra import build_memory_ontology_handoff
 from tools.gremlin_bestiary_phasenav_phase_gates_v01 import PhaseState36, octopus_route
 from tools.gremlin_geometry_phase_scheduler_v01 import derived_phase36
 
@@ -298,6 +299,14 @@ def build_user_task_plan(
     )
 
     active_graph_sha256 = _sha(active_graph)
+    task_sha256 = hashlib.sha256(text.encode("utf-8")).hexdigest()
+    gateway_task_id = request_id or f"task:{task_sha256[:16]}"
+    memory_ontology = build_memory_ontology_handoff(
+        subject_id=f"user-task:{task_sha256}",
+        generation_id=f"graph:{compiled['graph_sha256']}",
+        task_id=gateway_task_id,
+        context_commitment=f"sha256:{active_graph_sha256}",
+    )
     phase_payload = {
         "task": text,
         "active_graph_sha256": active_graph_sha256,
@@ -341,6 +350,14 @@ def build_user_task_plan(
             "species_inclusion_authority": False,
         },
         "context_sha256": context_commitments,
+        "memory_ontology": {
+            "source_contract_sha256": memory_ontology["source_contract_sha256"],
+            "historical_signature": memory_ontology["historical_signature"],
+            "behavioral_signature": memory_ontology["behavioral_signature"],
+            "certified_behavioral_core": memory_ontology["certified_behavioral_core"],
+            "authority": memory_ontology["authority"],
+            "canon_allowed": memory_ontology["canon_allowed"],
+        },
         "intent_flags": flags,
         "authority": action_authority,
         "canon_allowed": False,
@@ -352,8 +369,9 @@ def build_user_task_plan(
         "status": "READY",
         "mode": mode,
         "request_id": request_id,
-        "task_sha256": hashlib.sha256(text.encode("utf-8")).hexdigest(),
+        "task_sha256": task_sha256,
         "semantic_graph": compact_graph,
+        "memory_ontology": memory_ontology,
         "context_routing": {
             "mode": context_routing_mode,
             "context_count": len(docs),
@@ -391,6 +409,7 @@ def build_user_task_plan(
         "claims": {
             "default_user_task_entrypoint": True,
             "semantic_graph_compiled": True,
+            "memory_ontology_algebra_bound": True,
             "phasenav_bound": True,
             "phasenav_overrides_semantic_membership": False,
             "stale_context_can_override_explicit_task_membership": False,
