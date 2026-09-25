@@ -15,7 +15,7 @@ SOURCE_REPOSITORY = "AdrianLipa90/Memory-Ontology"
 SOURCE_MAIN_COMMIT = "c0973d26cc64c0d9018b67707e5708e084017ad8"
 SOURCE_BLOBS = {
     "memory_representation_category_v04": "099a19fb3418c9b6415ef332e87ec38c5d5bee2e",
-    "behavioral_core_v04": "fca0fc613be268bd085bc37892242f269529fba2e",
+    "behavioral_core_v04": "fca0fc613be268bd085bc37892242f269529fba2",
     "prime_hilbert_collatz_association": "6c517c04ab1518c2bc746222ed2a00d7113e7c12",
     "orbital_ternary_memory_algebra": "421db4ca0ab5b7ca6c876c5744552969caef5a81",
     "final_receipt": "7402cc9c3ce8c5d2ba61942f709fb2c26f8e4e77",
