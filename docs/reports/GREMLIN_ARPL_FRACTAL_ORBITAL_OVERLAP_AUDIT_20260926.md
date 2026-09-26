@@ -1065,3 +1065,132 @@ The layer preserves:
 - physical observability NOT PROMOTED.
 
 No main/master branch was changed.
+
+
+## 24. Unconditional generic frontier reduced to strict subgroup-depth preservation
+
+The generic unconditional gate is now expressed exactly as a finite-group
+condition.
+
+For
+
+\[
+d=\prod_{\ell^a\parallel d}\ell^a,
+\]
+
+the condition
+
+\[
+d\mid\operatorname{ord}_q(4)
+\]
+
+is equivalent to strictness of the first a inclusions
+
+\[
+\langle4\rangle
+\supsetneq
+\langle4^\ell\rangle
+\supsetneq\cdots
+\supsetneq
+\langle4^{\ell^a}\rangle
+\]
+
+for every prime-power factor of d.
+
+Therefore
+
+\[
+q\in\mathcal E_{h,d}
+\]
+
+iff the prime simultaneously satisfies:
+
+1. subgroup inclusion
+   \[
+   \langle h^2\rangle\subseteq\langle4\rangle;
+   \]
+2. every required strict finite \(\ell\)-power tower.
+
+Thus the remaining unconditional theorem is an enhanced
+Schinzel--Wojcik problem with prescribed finite order-filtration depth.
+
+Executable controls verified exact equivalence with d|order for all
+
+\[
+1\le\operatorname{order}<200,
+\qquad
+1\le d<100.
+\]
+
+## 25. Carella prescribed-order preprint excluded at proof level
+
+The previously surfaced preprint
+
+N. A. Carella,
+arXiv:2103.04822 v1,
+
+is not merely unverified in this audit.
+
+Its printed Lemma 2.2 is false.
+
+For
+
+\[
+p=7,\quad d=2,\quad\tau=3,\quad u=2,
+\]
+
+the required exact order holds:
+
+\[
+\operatorname{ord}_7(2)=3=(p-1)/d.
+\]
+
+But the printed shortened additive-character expression evaluates to
+
+\[
+\boxed{
+0.6428571428571428
+-
+0.03439818705768061\,i
+}
+\]
+
+instead of 1.
+
+The failure comes from replacing full additive-character orthogonality modulo p
+by a truncated k-range of length approximately \((p-1)/d\).
+
+Section 10 then invokes Lemma 2.2 to set the one-sided error terms to zero, and
+Theorem 1.1 uses those cancellations.
+
+Therefore:
+
+CARELLA_2103_04822_V1_LEMMA_2_2 = FAIL_COUNTEREXAMPLE.
+
+CARELLA_2103_04822_V1 = EXCLUDED_FROM_PROOF_EVIDENCE.
+
+This says nothing about a hypothetical corrected later proof.
+
+## 26. Current frontier after proof-level audit
+
+PASS UNDER GRH:
+- positive lower density of every fixed-denominator exposure set;
+- infinitely many exposures of every fixed local mode;
+- zero complete-network hidden subspace for every fixed local fibre.
+
+PASS EXACT:
+- unconditional target reduction to subgroup inclusion plus strict power-tower
+  depth.
+
+OPEN:
+- unconditional infinitude of the enhanced subgroup-depth intersection;
+- unconditional quantitative lower bound;
+- effective least-exposure bounds.
+
+No additional PhaseNav or Hilbert formalism is missing.
+
+Current unconditional frontier snapshot:
+
+AdrianLipa90/On-Primes  
+research/arpl-infinite-clock-visibility-frontier-v0.1-20260926  
+head c5c3cc1e579009ac4232a3aede29f403bc4b9004
