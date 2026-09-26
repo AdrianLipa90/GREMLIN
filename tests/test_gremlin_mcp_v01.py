@@ -91,7 +91,7 @@ def test_mcp_in_process_handshake_and_status_tool() -> None:
             }
             assert names == declared
             assert grouped == declared
-            assert declared_status["tool_count"] == len(names) == 33
+            assert declared_status["tool_count"] == len(names) == 35
             assert {
                 "gremlin_status",
                 "gremlin_bestiary",
