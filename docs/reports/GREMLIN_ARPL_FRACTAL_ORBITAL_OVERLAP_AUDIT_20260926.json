@@ -21,6 +21,25 @@
       "repo": "AdrianLipa90/noema-phasenav-core",
       "branch": "formalism/fractal-moire-hilbert-36d-bridge-v0.10-20260926",
       "validation_receipt_sha": "2006fcad8e6c02ab4df5f26d98b15bdc82658ed9"
+    },
+    "on_primes_clock_fibre": {
+      "repo": "AdrianLipa90/On-Primes",
+      "branch": "integrate/arpl-clock-fibre-matrix-gram-v0.1-20260926",
+      "sha": "8781f4a685257eced538daa7462ec4fc48093a6b",
+      "base_compare": {
+        "ahead_by": 11,
+        "behind_by": 0
+      }
+    },
+    "orbital_heterogeneous": {
+      "repo": "AdrianLipa90/Orbital-System-base",
+      "branch": "formalism/fractal-orbital-moire-hilbert-v0.9-20260926",
+      "validation_receipt_sha": "cbf5d83a40ebe4e090ffad0749418dbac732f25b"
+    },
+    "phasenav_heterogeneous": {
+      "repo": "AdrianLipa90/noema-phasenav-core",
+      "branch": "formalism/fractal-moire-hilbert-36d-bridge-v0.11-20260926",
+      "validation_receipt_sha": "f26002ac57c8dd1c42ded490d37f63726f9e7abe"
     }
   },
   "exact_pass": [
@@ -29,7 +48,11 @@
     "ARPL_HIT_CYLINDER_TO_OVERLAP_GRAM",
     "OVERLAP_STABILIZER_INTERTWINER_THEOREM",
     "RANK_DEFICIENT_OVERLAP_HIDDEN_FREEDOM_REFERENCE",
-    "IMMUTABLE_ARPL_SOURCE_PINNING"
+    "IMMUTABLE_ARPL_SOURCE_PINNING",
+    "SOURCE_OWNED_NONTRIVIAL_MATRIX_ARPL_CROSS_GRAM",
+    "ARPL_RECTANGULAR_ODOMETER_INTERTWINER",
+    "ARPL_CLOCK_FIBRE_RANK_EQUALS_GCD",
+    "ARPL_FINITE_SUPPORT_NETWORK_VISIBILITY"
   ],
   "fail_preserved": [
     {
@@ -43,7 +66,9 @@
     "LOCAL_UNITARITY_SUFFICIENT_UNDER_OVERLAP",
     "TRIVIAL_INTERNAL_EXTENSION_RESCUES_CHANNEL_PHASES",
     "FULL_RANK_FRAME_CONJUGACY_IMPLIES_INDEPENDENT_EXTERNAL_DYNAMICS",
-    "36D_EQUALS_FULL_INFINITE_HILBERT_STATE"
+    "36D_EQUALS_FULL_INFINITE_HILBERT_STATE",
+    "FULL_FOURIER_REEXPRESSION_OF_SCALAR_HIT_VECTOR_CREATES_NEW_MATRIX_GRAM",
+    "FINITE_SUPPORT_HIDDEN_IMPLIES_INFINITE_SUPPORT_HIDDEN"
   ],
   "repaired": [
     "ON_PRIMES_PARENT_DIVERGENCE",
@@ -51,11 +76,12 @@
     "STALE_ARPL_SOURCE_PIN"
   ],
   "open": [
-    "SOURCE_OWNED_NONTRIVIAL_MATRIX_ARPL_CROSS_GRAM",
+    "INFINITE_SUPPORT_VISIBILITY_PERSISTENCE",
     "PHYSICAL_PRIME_PHASE_BINDING",
     "PHYSICAL_ORBITAL_REALIZATION",
     "PHYSICAL_36D_CALIBRATION",
     "HOSTED_CI"
   ],
-  "canon_allowed": false
+  "canon_allowed": false,
+  "next_witness": "INFINITE_SUPPORT_VISIBILITY_PERSISTENCE_OR_REDUCTION_TO_OPEN_ARITHMETIC_DISTRIBUTION"
 }
