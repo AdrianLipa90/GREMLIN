@@ -831,3 +831,94 @@ d\mid\operatorname{ord}_q(4)
 For d>1, this audit retains:
 
 FIXED_DENOMINATOR_INFINITE_EXPOSURE = OPEN_ARTIN_TYPE.
+
+
+## 21. Visibility-frontier sharpening: both marginals closed
+
+The infinite-support frontier has been reduced one step further.
+
+### Active-channel marginal
+
+For multiplicatively independent \(2,h\), the two-variable Artin set
+
+\[
+\{
+q:
+h\bmod q\in\langle2\bmod q\rangle
+\}
+\]
+
+is unconditionally infinite; the positive-density theorem is the
+GRH-conditional strengthening.
+
+The signed ARPL active set is therefore also infinite.
+
+For \(h=\pm2^k\), activity is elementary for all relevant odd primes.
+
+Hence:
+
+INFINITE_ARPL_ACTIVE_CHANNELS = CLOSED.
+
+### Prescribed order-divisibility marginal
+
+For every fixed \(d\ge1\),
+
+\[
+N_4(d)
+=
+\{
+q:
+d\mid\operatorname{ord}_q(4)
+\}
+\]
+
+has a positive natural density by the Wiertelak/Moree theorem.
+
+Hence:
+
+PRESCRIBED_ORD4_DIVISIBILITY = CLOSED_POSITIVE_DENSITY.
+
+### Signed-dyadic consequence
+
+If \(h=\pm2^k\), activity imposes no further restriction, so
+
+\[
+\mathcal E_{h,d}
+\]
+
+has positive natural density for every fixed d.
+
+Thus:
+
+SIGNED_DYADIC_FIXED_DENOMINATOR_EXPOSURE = CLOSED.
+
+### Remaining generic gate
+
+For multiplicatively independent h such as h=6, the only unresolved set is
+
+\[
+\boxed{
+\mathcal E_{h,d}
+=
+\{
+q:
+h\in\pm\langle2\rangle\pmod q,
+\quad
+d\mid\operatorname{ord}_q(4)
+\}.
+}
+\]
+
+Both defining marginals are individually infinite/positive-density, but this
+does not by itself prove their intersection is nonempty or infinite.
+
+Therefore the current exact NEXT WITNESS is:
+
+\[
+\boxed{
+\text{GENERIC JOINT SUBGROUP-MEMBERSHIP + ORD4-DIVISIBILITY THEOREM}.
+}
+\]
+
+For h=6 this is the sole remaining arithmetic persistence gate before any
+physical interpretation is considered.
