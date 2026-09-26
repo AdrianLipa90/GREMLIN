@@ -288,7 +288,7 @@ def test_reference_dashboard_uses_reference_registry_without_product_identity() 
     payload = workspace.system_payload(surface="reference")
     assert payload["surface"] == "reference"
     assert payload["product"]["status"] == "UNLICENSED_RESEARCH"
-    assert payload["mcp"]["tool_count"] == 33
+    assert payload["mcp"]["tool_count"] == 35
     assert payload["mcp"]["capability_contract"] == "EXACT_REFERENCE_REGISTRY_V0_1"
     assert payload["bestiary"]["species_count"] == 20
     assert payload["product"]["license"]["edition"] is None
