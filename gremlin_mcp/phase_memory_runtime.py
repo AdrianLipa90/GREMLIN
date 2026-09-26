@@ -6,6 +6,7 @@ import json
 import math
 from numbers import Real
 import os
+import re
 from pathlib import Path
 from threading import RLock
 from typing import Any, Iterable, Mapping, Sequence
@@ -15,7 +16,7 @@ from gremlin_mcp.role_registry import BESTIARY_ROLE_NAMES
 SCHEMA = "GREMLIN_PHASE_MEMORY_RUNTIME_V0_1"
 VERSION = "0.1.0"
 MAX_BIAS = 0.12
-_HEX64 = __import__("re").compile(r"^[0-9a-f]{64}$")
+_HEX64 = re.compile(r"^[0-9a-f]{64}$")
 _STATE_KEYS = frozenset(
     {
         "schema",
@@ -97,22 +98,26 @@ def validate_memory_state(state: Mapping[str, Any]) -> dict[str, Any]:
     if not isinstance(visits, Mapping) or not isinstance(transitions, Mapping):
         raise PhaseMemoryError("memory counts must be mappings")
     normalized_visits: dict[str, int] = {}
+    seen_visit_roles: set[str] = set()
     for raw_role, raw_count in visits.items():
         name = _role(raw_role)
-        if name in normalized_visits:
+        if name in seen_visit_roles:
             raise PhaseMemoryError(f"duplicate normalized visit role: {name}")
+        seen_visit_roles.add(name)
         if isinstance(raw_count, bool) or not isinstance(raw_count, int) or raw_count < 0:
             raise PhaseMemoryError("visit counts must be non-negative integers")
         if raw_count:
             normalized_visits[name] = raw_count
     normalized_transitions: dict[str, int] = {}
+    seen_transitions: set[str] = set()
     for raw_edge, raw_count in transitions.items():
         if not isinstance(raw_edge, str) or "->" not in raw_edge:
             raise PhaseMemoryError("transition keys must use SOURCE->TARGET")
         source, target = raw_edge.split("->", 1)
         key = f"{_role(source)}->{_role(target)}"
-        if key in normalized_transitions:
+        if key in seen_transitions:
             raise PhaseMemoryError(f"duplicate normalized transition: {key}")
+        seen_transitions.add(key)
         if isinstance(raw_count, bool) or not isinstance(raw_count, int) or raw_count < 0:
             raise PhaseMemoryError("transition counts must be non-negative integers")
         if raw_count:
@@ -168,9 +173,12 @@ def update_memory_state(
     route: Sequence[str],
 ) -> dict[str, Any]:
     current = validate_memory_state(state)
-    if isinstance(route, (str, bytes)):
+    if isinstance(route, (str, bytes, Mapping)):
         raise PhaseMemoryError("route must be a sequence of role strings")
-    names = tuple(_role(name) for name in route)
+    try:
+        names = tuple(_role(name) for name in route)
+    except TypeError as exc:
+        raise PhaseMemoryError("route must be a sequence of role strings") from exc
     if not names:
         return current
     visits = dict(current["visit_counts"])
@@ -250,7 +258,12 @@ def memory_bias_scores(
         if not math.isfinite(score):
             raise PhaseMemoryError("base scores must be finite")
         normalized[name] = score
-    sources = tuple(source_roles)
+    if isinstance(source_roles, (str, bytes, Mapping)):
+        raise PhaseMemoryError("source_roles must be an iterable of role strings")
+    try:
+        sources = tuple(source_roles)
+    except TypeError as exc:
+        raise PhaseMemoryError("source_roles must be an iterable of role strings") from exc
     return {
         name: score + strength * transition_affinity(state, sources, name)
         for name, score in normalized.items()
@@ -265,9 +278,12 @@ def memory_order(
     source_roles: Iterable[str] = (),
     max_bias: float = MAX_BIAS,
 ) -> tuple[list[str], dict[str, float]]:
-    if isinstance(species, (str, bytes)):
+    if isinstance(species, (str, bytes, Mapping)):
         raise PhaseMemoryError("species must be a sequence of role strings")
-    names = tuple(dict.fromkeys(_role(name) for name in species))
+    try:
+        names = tuple(dict.fromkeys(_role(name) for name in species))
+    except TypeError as exc:
+        raise PhaseMemoryError("species must be a sequence of role strings") from exc
     scored = memory_bias_scores(
         {name: base_scores.get(name, 0.0) for name in names},
         state,
