@@ -29,7 +29,7 @@ def _allow(*, beast: str, operation: str, artifact_type: str) -> dict:
     )
 
 
-def test_relational_memory_roles_are_manifested_without_phase_carrier_promotion() -> None:
+def test_relational_memory_roles_are_manifested_with_v02_phase_carrier_promotion() -> None:
     names = {row["name"] for row in bestiary_manifest()["species"]}
     assert {"ELEPHANT", "BEES"} <= names
     assert len(names) == 20
@@ -38,12 +38,13 @@ def test_relational_memory_roles_are_manifested_without_phase_carrier_promotion(
     assert species_profile("ELEPHANT")["scheduler_profile"] is None
     assert species_profile("BEES")["scheduler_profile"] is None
 
-    # Historical/current validated PhaseNav carrier surface remains 18 until
-    # separate carrier validation explicitly promotes the two memory roles.
+    # Historical v0.1 remains frozen at 18 carriers. The active v0.2 runtime
+    # explicitly promotes the two memory roles through the new carrier gate.
     phase = phasenav_status()
-    assert phase["species_count"] == 18
-    assert "ELEPHANT" not in phase["species"]
-    assert "BEES" not in phase["species"]
+    assert phase["species_count"] == 20
+    assert {"ELEPHANT", "BEES"} <= set(phase["species"])
+    assert phase["full_bestiary_phase_carriers"] is True
+    assert phase["arpl_phase_law_bound"] is True
 
 
 def test_elephant_can_consolidate_memory_orbits_but_cannot_overwrite() -> None:
