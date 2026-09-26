@@ -1,0 +1,61 @@
+{
+  "schema": "gremlin.arpl-fractal-orbital-overlap-audit/v0.1",
+  "date": "2026-09-26",
+  "status": "PASS",
+  "pins": {
+    "on_primes": {
+      "repo": "AdrianLipa90/On-Primes",
+      "branch": "integrate/arpl-fractal-orbital-bridge-v0.2-20260926-r4",
+      "sha": "22171349917c97392db7d35605f15be1441fa5bb",
+      "compare_at_receipt": {
+        "ahead_by": 6,
+        "behind_by": 0
+      }
+    },
+    "orbital_system": {
+      "repo": "AdrianLipa90/Orbital-System-base",
+      "branch": "formalism/fractal-orbital-moire-hilbert-v0.8-20260926",
+      "validation_receipt_sha": "074f04328f7a615928d24b33474acb056e151985"
+    },
+    "phasenav": {
+      "repo": "AdrianLipa90/noema-phasenav-core",
+      "branch": "formalism/fractal-moire-hilbert-36d-bridge-v0.10-20260926",
+      "validation_receipt_sha": "2006fcad8e6c02ab4df5f26d98b15bdc82658ed9"
+    }
+  },
+  "exact_pass": [
+    "ARPL_REFINEMENT_TO_CUNTZ_BRANCHING",
+    "ARPL_ODOMETER_TO_CARRY_COCYCLE",
+    "ARPL_HIT_CYLINDER_TO_OVERLAP_GRAM",
+    "OVERLAP_STABILIZER_INTERTWINER_THEOREM",
+    "RANK_DEFICIENT_OVERLAP_HIDDEN_FREEDOM_REFERENCE",
+    "IMMUTABLE_ARPL_SOURCE_PINNING"
+  ],
+  "fail_preserved": [
+    {
+      "claim": "ARPL_PULSE_ANGLE_EQUALS_SCALAR_OVERLAP_ORBITAL_PHASE",
+      "residual": 1.0236181222825256
+    }
+  ],
+  "no_go": [
+    "GENERIC_IFS_EQUALS_GLOBAL_UNITARY_DILATION",
+    "GLOBAL_UNITARY_IMPLIES_FIXED_BRANCH_RECURSION",
+    "LOCAL_UNITARITY_SUFFICIENT_UNDER_OVERLAP",
+    "TRIVIAL_INTERNAL_EXTENSION_RESCUES_CHANNEL_PHASES",
+    "FULL_RANK_FRAME_CONJUGACY_IMPLIES_INDEPENDENT_EXTERNAL_DYNAMICS",
+    "36D_EQUALS_FULL_INFINITE_HILBERT_STATE"
+  ],
+  "repaired": [
+    "ON_PRIMES_PARENT_DIVERGENCE",
+    "MISSING_FRACTION_IMPORT",
+    "STALE_ARPL_SOURCE_PIN"
+  ],
+  "open": [
+    "SOURCE_OWNED_NONTRIVIAL_MATRIX_ARPL_CROSS_GRAM",
+    "PHYSICAL_PRIME_PHASE_BINDING",
+    "PHYSICAL_ORBITAL_REALIZATION",
+    "PHYSICAL_36D_CALIBRATION",
+    "HOSTED_CI"
+  ],
+  "canon_allowed": false
+}
