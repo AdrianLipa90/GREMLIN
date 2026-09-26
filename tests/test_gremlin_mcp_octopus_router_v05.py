@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import math
+
 import asyncio
 
 from gremlin_mcp.router import ROUTER_SCHEMA, auto_fanout, route
@@ -99,3 +101,19 @@ def test_mcp_discovery_exposes_octopus_tools() -> None:
             assert routed.is_error is False
 
     asyncio.run(exercise())
+
+
+def test_router_rejects_numeric_coercion_and_nonfinite_thresholds() -> None:
+    payload = {"query": "audit graph dependencies"}
+    with pytest.raises(ValueError, match="max_species must be an integer"):
+        route(payload, max_species=True)
+    with pytest.raises(ValueError, match="max_species must be an integer"):
+        route(payload, max_species=1.9)  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="min_score must be a real number"):
+        route(payload, min_score="2.0")  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="min_score must be finite"):
+        route(payload, min_score=math.inf)
+    with pytest.raises(ValueError, match="relative_cutoff must be a real number"):
+        route(payload, relative_cutoff=True)
+    with pytest.raises(ValueError, match="relative_cutoff must be finite"):
+        route(payload, relative_cutoff=math.nan)
