@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 
-from gremlin_mcp.core import bestiary_manifest, plan_bestiary, species_profile, status
+from gremlin_mcp.core import REFERENCE_MCP_TOOLS, bestiary_manifest, plan_bestiary, species_profile, status
 
 
 def test_standalone_status_is_fail_closed() -> None:
@@ -91,7 +91,7 @@ def test_mcp_in_process_handshake_and_status_tool() -> None:
             }
             assert names == declared
             assert grouped == declared
-            assert declared_status["tool_count"] == len(names) == 35
+            assert declared_status["tool_count"] == len(names) == len(REFERENCE_MCP_TOOLS)
             assert {
                 "gremlin_status",
                 "gremlin_bestiary",
