@@ -4,6 +4,8 @@ from copy import deepcopy
 import hashlib
 import json
 import math
+import os
+from pathlib import Path
 from threading import RLock
 from typing import Any, Iterable, Mapping, Sequence
 
@@ -221,7 +223,7 @@ def memory_manifest() -> dict[str, Any]:
             "law": "persistent history-dependent modification of transition structure",
         },
         "history_encoding": "VISIT_AND_DIRECTED_TRANSITION_COUNTS",
-        "persistence": "PROCESS_RESIDENT_SERIALIZABLE_CHAINED_STATE",
+        "persistence": "PROCESS_RESIDENT_OR_APPEND_ONLY_JSONL_CHAINED_STATE",
         "causal_effect": "BOUNDED_FUTURE_ROUTE_SCORE_BIAS",
         "max_bias": MAX_BIAS,
         "automatic_external_effects": False,
@@ -231,19 +233,68 @@ def memory_manifest() -> dict[str, Any]:
 
 
 class PhaseMemoryRuntime:
-    """Thread-safe process-resident memory kernel.
+    """Thread-safe Memory-Law kernel with optional append-only persistence."""
 
-    The state is serializable and commitment-chained. Persistence beyond process
-    lifetime is an adapter responsibility; no hidden disk write occurs here.
-    """
-
-    def __init__(self, state: Mapping[str, Any] | None = None) -> None:
+    def __init__(
+        self,
+        state: Mapping[str, Any] | None = None,
+        *,
+        ledger_path: str | Path | None = None,
+    ) -> None:
         self._lock = RLock()
-        self._state = (
-            empty_memory_state()
-            if state is None
-            else validate_memory_state(state)
-        )
+        self._ledger_path = None if ledger_path is None else Path(ledger_path)
+        if state is not None and self._ledger_path is not None:
+            raise PhaseMemoryError("supply state or ledger_path, not both")
+        if self._ledger_path is not None and self._ledger_path.exists():
+            self._state = self._load_ledger(self._ledger_path)
+        else:
+            self._state = (
+                empty_memory_state()
+                if state is None
+                else validate_memory_state(state)
+            )
+
+    @staticmethod
+    def _load_ledger(path: Path) -> dict[str, Any]:
+        previous: dict[str, Any] | None = None
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()
+        except OSError as exc:
+            raise PhaseMemoryError("phase-memory ledger cannot be read") from exc
+        for line_no, raw in enumerate(lines, start=1):
+            if not raw.strip():
+                continue
+            try:
+                parsed = json.loads(raw)
+            except json.JSONDecodeError as exc:
+                raise PhaseMemoryError(
+                    f"invalid phase-memory ledger JSON at line {line_no}"
+                ) from exc
+            current = validate_memory_state(parsed)
+            if previous is not None:
+                if current["parent_commitment"] != previous["commitment"]:
+                    raise PhaseMemoryError(
+                        f"phase-memory ledger chain break at line {line_no}"
+                    )
+                if current["sequence"] != previous["sequence"] + 1:
+                    raise PhaseMemoryError(
+                        f"phase-memory sequence break at line {line_no}"
+                    )
+            previous = current
+        return empty_memory_state() if previous is None else previous
+
+    def _append(self, state: Mapping[str, Any]) -> None:
+        if self._ledger_path is None:
+            return
+        self._ledger_path.parent.mkdir(parents=True, exist_ok=True)
+        raw = _canonical(dict(state)) + b"\n"
+        try:
+            with self._ledger_path.open("ab") as handle:
+                handle.write(raw)
+                handle.flush()
+                os.fsync(handle.fileno())
+        except OSError as exc:
+            raise PhaseMemoryError("phase-memory ledger append failed") from exc
 
     def snapshot(self) -> dict[str, Any]:
         with self._lock:
@@ -251,7 +302,10 @@ class PhaseMemoryRuntime:
 
     def observe(self, route: Sequence[str]) -> dict[str, Any]:
         with self._lock:
-            self._state = update_memory_state(self._state, route)
+            updated = update_memory_state(self._state, route)
+            if updated["commitment"] != self._state["commitment"]:
+                self._append(updated)
+            self._state = updated
             return deepcopy(self._state)
 
     def order(
@@ -270,6 +324,10 @@ class PhaseMemoryRuntime:
                 source_roles=source_roles,
                 max_bias=max_bias,
             )
+
+    @property
+    def persistent(self) -> bool:
+        return self._ledger_path is not None
 
 
 __all__ = [
