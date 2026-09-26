@@ -1194,3 +1194,109 @@ Current unconditional frontier snapshot:
 AdrianLipa90/On-Primes  
 research/arpl-infinite-clock-visibility-frontier-v0.1-20260926  
 head c5c3cc1e579009ac4232a3aede29f403bc4b9004
+
+
+## 23. Unconditional-frontier hardening
+
+The GRH-conditional generic exposure theorem remains PASS.
+
+The unconditional audit now has two additional exact no-go controls.
+
+### Recurrence exponent restriction
+
+For
+
+\[
+h=6,\ d=5,\ n=10,\ q=5,
+\]
+
+\[
+q\mid4^n-h^2
+\quad\text{and}\quad
+d\mid n,
+\]
+
+but
+
+\[
+\operatorname{ord}_5(4)=2.
+\]
+
+Therefore selecting recurrence indices divisible by d does not force
+
+\[
+d\mid\operatorname{ord}_q(4).
+\]
+
+### Active arithmetic progression
+
+For
+
+\[
+h=6,\ d=5,\ q=431,
+\]
+
+q is active and
+
+\[
+q\equiv1\pmod5,
+\]
+
+but
+
+\[
+\operatorname{ord}_{431}(4)=43.
+\]
+
+Thus an arithmetic-progression restriction alone also fails the order gate.
+
+### 2025 unconditional-index scope
+
+The Sgobba 2025 unconditional framework allows substantial one-subgroup index
+conditions and finite Frobenius restrictions, but it does not turn a generic
+exact multivariable index tuple into an unconditional theorem.
+
+Hence it cannot directly replace the GRH exact-index replication step.
+
+### Sharpened next witness
+
+The smallest sufficient missing input is now:
+
+\[
+\boxed{
+\text{UNCONDITIONAL CHEBOTAREV-RESTRICTED TWO-VARIABLE SUPPORT}.
+}
+\]
+
+Concretely, for compatible finite Galois \(F/\mathbb Q\) and Frobenius
+condition C, prove infinitude or an effective lower bound for
+
+\[
+\{
+q:
+b\bmod q\in\langle a\bmod q\rangle,
+\operatorname{Frob}_q(F/\mathbb Q)\in C
+\}.
+\]
+
+For ARPL, take
+
+\[
+a=4,\qquad b=h^2
+\]
+
+and choose C to enforce the finite Kummer/cyclotomic conditions implying
+
+\[
+d\mid\operatorname{ord}_q(4).
+\]
+
+This is narrower and more precise than asking for an unconditional generic
+Artin exact-index theorem.
+
+Current state:
+
+GENERIC_FIXED_DENOMINATOR_EXPOSURE_UNDER_GRH = PASS  
+UNCONDITIONAL_GENERIC_EXPOSURE = OPEN  
+RECURRENCE_MULTIPLE_EXPONENT_SHORTCUT = REFUTED  
+ACTIVE_PLUS_CONGRUENCE_SHORTCUT = REFUTED
