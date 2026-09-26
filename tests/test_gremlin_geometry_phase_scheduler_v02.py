@@ -1,11 +1,16 @@
 from __future__ import annotations
 
+import pytest
+
 from gremlin_mcp.workers import WorkerBroker
 from tools.gremlin_bestiary_phasenav_phase_gates_v02 import role_phase_carrier
 from tools.gremlin_geometry_phase_scheduler_v02 import (
     MODE,
     SCHEDULER_KEY,
+    GeometryPhaseSchedulerError,
+    derived_phase36,
     scheduler_manifest,
+    task_phase_state,
 )
 
 
@@ -54,3 +59,24 @@ def test_elephant_and_bees_use_explicit_non_neutral_role_anchors() -> None:
         assert lease["scheduler"]["mode"] == MODE
         assert queue["explicit_phase_fraction"] == 1.0
         assert queue["effective_queue_score"] > 0.0
+
+
+def test_v02_scheduler_rejects_phase_numeric_coercion() -> None:
+    row = {
+        "task_id": "phase-string",
+        "species": "SPIDER",
+        "payload": {SCHEDULER_KEY: {"phase36": ["0.0"] * 36}},
+        "task_commitment": "a" * 64,
+        "created_ns": 1,
+    }
+    with pytest.raises(GeometryPhaseSchedulerError, match="phase36 values must be real numbers"):
+        task_phase_state(row)
+
+    row["payload"] = {SCHEDULER_KEY: {"phase36": [False] * 36}}
+    with pytest.raises(GeometryPhaseSchedulerError, match="phase36 values must be real numbers"):
+        task_phase_state(row)
+
+
+def test_v02_scheduler_rejects_nonstring_payload_keys() -> None:
+    with pytest.raises(GeometryPhaseSchedulerError, match="payload keys must be strings"):
+        derived_phase36({1: "alpha", "1": "beta"})  # type: ignore[dict-item]
