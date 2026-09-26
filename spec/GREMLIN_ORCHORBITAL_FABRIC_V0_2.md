@@ -328,10 +328,14 @@ chain.
 
 If supplied, it must contain exactly 36 finite phase values in `[0,2pi)`.
 
-This preserves the current distinction between the 20-role Bestiary registry
-and the currently validated 18-role PhaseNav carrier surface. A role is not
-silently promoted to a PhaseNav carrier merely because it can participate in
-the orchorbital fabric.
+At the 2026-09-23 v0.2 baseline, this preserved the then-current distinction
+between the 20-role Bestiary registry and the validated 18-role PhaseNav carrier
+surface. That historical carrier boundary is retained as provenance.
+
+Post-promotion note (2026-09-26): PhaseNav v0.2 now provides software-validated
+carriers for all 20 Bestiary roles, including ELEPHANT and BEES. The orchorbital
+rule itself is unchanged: participation in the fabric never grants carrier,
+execution, physical-analog, or canon authority by implication.
 
 ## Safety and authority
 
