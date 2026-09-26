@@ -61,6 +61,14 @@
       "repo": "AdrianLipa90/noema-phasenav-core",
       "branch": "formalism/fractal-moire-hilbert-36d-bridge-v0.12-20260926",
       "validation_receipt_sha": "c9bc3b07016e2d41258c0f68294400cf54c13755"
+    },
+    "arpl_unconditional_frontier": {
+      "repo": "AdrianLipa90/On-Primes",
+      "branch": "research/arpl-infinite-clock-visibility-frontier-v0.1-20260926",
+      "sha": "c5c3cc1e579009ac4232a3aede29f403bc4b9004",
+      "proof": "proofs/ARPL_UNCONDITIONAL_GENERIC_EXPOSURE_FRONTIER_V0_1.md",
+      "receipt": "receipts/ARPL_UNCONDITIONAL_GENERIC_EXPOSURE_FRONTIER_V0_1_VALIDATION_20260926.md",
+      "external_audit": "docs/audit/EXTERNAL_CARELLA_2103_04822_V1_PROOF_AUDIT_20260926.md"
     }
   },
   "exact_pass": [
@@ -82,7 +90,9 @@
     "SIGNED_DYADIC_FIXED_DENOMINATOR_EXPOSURE",
     "GRH_SOURCE_PRIME_REPLICATION_CERTIFICATE",
     "GENERIC_FIXED_DENOMINATOR_EXPOSURE_UNDER_GRH",
-    "INFINITE_SUPPORT_HIDDEN_SUBSPACE_ZERO_UNDER_GRH"
+    "INFINITE_SUPPORT_HIDDEN_SUBSPACE_ZERO_UNDER_GRH",
+    "STRICT_POWER_TOWER_EXPOSURE_EQUIVALENCE",
+    "ENHANCED_SCHINZEL_WOJCIK_REDUCTION"
   ],
   "fail_preserved": [
     {
@@ -99,7 +109,9 @@
     "36D_EQUALS_FULL_INFINITE_HILBERT_STATE",
     "FULL_FOURIER_REEXPRESSION_OF_SCALAR_HIT_VECTOR_CREATES_NEW_MATRIX_GRAM",
     "FINITE_SUPPORT_HIDDEN_IMPLIES_INFINITE_SUPPORT_HIDDEN",
-    "ORDER_DIVISIBILITY_ALONE_IMPLIES_EXPOSURE"
+    "ORDER_DIVISIBILITY_ALONE_IMPLIES_EXPOSURE",
+    "UNCONDITIONAL_ACTIVE_MARGINAL_PLUS_ORDER_MARGINAL_IMPLIES_JOINT",
+    "CARELLA_2103_04822_V1_LEMMA_2_2"
   ],
   "repaired": [
     "ON_PRIMES_PARENT_DIVERGENCE",
@@ -107,14 +119,14 @@
     "STALE_ARPL_SOURCE_PIN"
   ],
   "open": [
-    "UNCONDITIONAL_GENERIC_FIXED_DENOMINATOR_EXPOSURE",
+    "UNCONDITIONAL_ENHANCED_SCHINZEL_WOJCIK_WITH_PRESCRIBED_ORDER_DEPTH",
     "PHYSICAL_PRIME_PHASE_BINDING",
     "PHYSICAL_ORBITAL_REALIZATION",
     "PHYSICAL_36D_CALIBRATION",
     "HOSTED_CI"
   ],
   "canon_allowed": false,
-  "next_witness": "UNCONDITIONAL_GENERIC_FIXED_DENOMINATOR_EXPOSURE_OR_EFFECTIVE_LOWER_BOUND",
+  "next_witness": "UNCONDITIONAL_ENHANCED_SCHINZEL_WOJCIK_WITH_PRESCRIBED_ORDER_DEPTH_OR_LOWER_BOUND",
   "frontier": {
     "exact_reduction": "active q iff h in +/-<2>; mode exposed iff reduced denominator divides ord_q(4)",
     "status": "OPEN_ARTIN_TYPE",
@@ -146,5 +158,8 @@
     "generic_joint_unconditional": "OPEN",
     "infinite_support_hidden_under_grh": "ZERO_FOR_EVERY_FIXED_LOCAL_FIBRE",
     "theorem_mechanism": "NONEMPTY_EXACT_INDEX_TUPLE_PLUS_CYCLOTOMIC_FROBENIUS_REPLICATION"
-  }
+  },
+  "excluded_evidence": [
+    "CARELLA_ARXIV_2103_04822_V1_PROOF_INVALID_AS_PRINTED"
+  ]
 }
