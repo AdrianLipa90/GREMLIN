@@ -1,12 +1,20 @@
 from __future__ import annotations
 
+import json
 import math
 
+import pytest
+
+import gremlin_mcp.phase_memory_runtime as phase_memory
+
 from gremlin_mcp.phase_memory_runtime import (
+    PhaseMemoryError,
     PhaseMemoryRuntime,
     empty_memory_state,
+    memory_bias_scores,
     memory_order,
     update_memory_state,
+    validate_memory_state,
 )
 from gremlin_mcp.role_registry import BESTIARY_ROLE_NAMES
 from tools.gremlin_bestiary_phasenav_live_binding_v02 import SPECIES_OPERATOR_BINDINGS
@@ -146,3 +154,95 @@ def test_binding_manifest_preserves_candidate_firewall() -> None:
     assert manifest["semantic_axis_assignment"] is False
     assert manifest["physical_analog_claim"] is False
     assert manifest["canon_allowed"] is False
+
+
+def test_phase_memory_rejects_unknown_state_fields() -> None:
+    state = empty_memory_state()
+    state["unexpected"] = True
+    with pytest.raises(PhaseMemoryError, match="keys mismatch"):
+        validate_memory_state(state)
+
+
+def test_phase_memory_rejects_normalized_role_collisions() -> None:
+    state = empty_memory_state()
+    state.update(
+        {
+            "sequence": 1,
+            "last_role": "SPIDER",
+            "visit_counts": {"SPIDER": 1, "spider": 1},
+            "parent_commitment": empty_memory_state()["commitment"],
+        }
+    )
+    with pytest.raises(PhaseMemoryError, match="duplicate normalized visit role"):
+        validate_memory_state(state)
+
+
+def test_phase_memory_rejects_string_route_and_numeric_coercions() -> None:
+    state = empty_memory_state()
+    with pytest.raises(PhaseMemoryError, match="route must be a sequence"):
+        update_memory_state(state, "SPIDER")  # type: ignore[arg-type]
+    with pytest.raises(PhaseMemoryError, match="max_bias must be a real number"):
+        memory_bias_scores({"SPIDER": 0.5}, state, max_bias=True)
+    with pytest.raises(PhaseMemoryError, match="base scores must be real numbers"):
+        memory_bias_scores({"SPIDER": "0.5"}, state)  # type: ignore[dict-item]
+
+
+def test_phase_memory_rejects_validly_hashed_but_inconsistent_counts() -> None:
+    genesis = empty_memory_state()
+    core = {
+        "schema": phase_memory.SCHEMA,
+        "version": phase_memory.VERSION,
+        "sequence": 1,
+        "last_role": "SPIDER",
+        "visit_counts": {"SPIDER": 2},
+        "transition_counts": {},
+        "parent_commitment": genesis["commitment"],
+    }
+    forged = {**core, "commitment": phase_memory._sha(core)}
+    with pytest.raises(PhaseMemoryError, match="transition count"):
+        validate_memory_state(forged)
+
+
+def test_phase_memory_ledger_rejects_forged_genesis(tmp_path) -> None:
+    core = {
+        "schema": phase_memory.SCHEMA,
+        "version": phase_memory.VERSION,
+        "sequence": 1,
+        "last_role": "SPIDER",
+        "visit_counts": {"SPIDER": 1},
+        "transition_counts": {},
+        "parent_commitment": "0" * 64,
+    }
+    forged = {**core, "commitment": phase_memory._sha(core)}
+    path = tmp_path / "forged-genesis.jsonl"
+    path.write_text(json.dumps(forged, sort_keys=True) + "\n", encoding="utf-8")
+    with pytest.raises(PhaseMemoryError, match="genesis break"):
+        PhaseMemoryRuntime(ledger_path=path)
+
+
+def test_phase_memory_ledger_rejects_sequence_gap(tmp_path) -> None:
+    genesis = empty_memory_state()
+    first = update_memory_state(genesis, ("SPIDER",))
+    core = {
+        "schema": phase_memory.SCHEMA,
+        "version": phase_memory.VERSION,
+        "sequence": 3,
+        "last_role": "SPIDER",
+        "visit_counts": {"SPIDER": 3},
+        "transition_counts": {"SPIDER->SPIDER": 2},
+        "parent_commitment": first["commitment"],
+    }
+    gap = {**core, "commitment": phase_memory._sha(core)}
+    path = tmp_path / "sequence-gap.jsonl"
+    path.write_text(
+        "\n".join(
+            (
+                json.dumps(first, sort_keys=True),
+                json.dumps(gap, sort_keys=True),
+            )
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(PhaseMemoryError, match="sequence break"):
+        PhaseMemoryRuntime(ledger_path=path)
