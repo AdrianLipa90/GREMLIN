@@ -5,7 +5,7 @@
   "branch": "fix/gremlin-28-error-audit-20260926",
   "pull_request": 151,
   "base_main_sha": "ca82949818b49465d0c2d0535aa9c219c32bdf32",
-  "repair_head_before_receipt": "336ad38f1bd934980bc17de262ea408246c4bbb5",
+  "repair_head_before_receipt": "414ab283fc412252b15e50051f75e5e5c24435ea",
   "reported_diagnostics": {
     "user_reported_count": 28,
     "authoritative_itemized_source_available": false,
@@ -85,6 +85,31 @@
         "subsequent records must advance sequence by exactly one and bind the previous commitment",
         "state is revalidated before append"
       ]
+    },
+    {
+      "id": "PHASE_MEMORY_ERROR_BOUNDARIES_AND_SCORE_NORMALIZATION",
+      "fixes": [
+        "mixed-type unexpected state keys fail with PhaseMemoryError instead of leaking a raw sorting TypeError",
+        "memory_order requires base_scores to be a Mapping",
+        "direct transition_affinity calls reject non-iterable source_roles through the domain error contract",
+        "memory_order normalizes role-key casing before selecting scores so lowercase aliases are not silently ignored",
+        "invalid UTF-8 ledgers fail with PhaseMemoryError instead of leaking UnicodeDecodeError",
+        "ledger parent-directory creation is inside the append OSError boundary"
+      ]
+    },
+    {
+      "id": "PHASE_MEMORY_DETERMINISM_AND_JSON_INTEGRITY",
+      "fixes": [
+        "ordered memory routes must be Sequence values; unordered sets are rejected",
+        "ledger JSON objects reject duplicate keys at every object level instead of last-key-wins parsing"
+      ]
+    },
+    {
+      "id": "GATEWAY_PHASE_MEMORY_MEMBERSHIP_FIREWALL",
+      "fixes": [
+        "regression coverage binds memory bias to scheduling order only",
+        "phase-memory bias is verified not to change OCTOPUS species membership"
+      ]
     }
   ],
   "regression_tests_added": [
@@ -95,7 +120,15 @@
     "reject forged ledger genesis",
     "reject ledger sequence gaps",
     "reject zero-count normalized alias collision",
-    "reject mapping as route/source_roles"
+    "reject mapping as route/source_roles",
+    "reject non-string unexpected state key without raw TypeError",
+    "reject non-mapping memory_order base_scores",
+    "reject non-iterable transition_affinity source_roles",
+    "normalize lowercase base-score role keys in memory_order",
+    "reject invalid UTF-8 ledger with PhaseMemoryError",
+    "reject unordered route set",
+    "reject duplicate JSON keys in ledger",
+    "gateway phase-memory reorder preserves OCTOPUS membership"
   ],
   "repair_commits": {
     "phase_memory_hardening": "279d19cb26d4dccdfa5eb588a8e37e51fe559938",
@@ -103,14 +136,22 @@
     "normalization_iterable_hardening": "83800507e5f9b297765c44c532e6cd97b0f973f4",
     "normalization_iterable_tests": "55d97084d50089be0729bf041caf3199c52ed01a",
     "external_worker_list_alignment": "ccae06797deb61949b8e4430b3b5f5b05d744e76",
-    "relational_memory_invariant_alignment": "3eea6409f9f1209cf79cee6e095a36a9b96ab868"
+    "relational_memory_invariant_alignment": "3eea6409f9f1209cf79cee6e095a36a9b96ab868",
+    "malformed_input_error_contract": "9251c69ce7ae88e32108a42a3358f2a9f991258d",
+    "malformed_input_regressions": "336ad38f1bd934980bc17de262ea408246c4bbb5",
+    "normalization_and_ledger_error_gaps": "e2764671868a2a9ebb2ef492b9dfd6d79bcf1d85",
+    "normalization_and_utf8_regressions": "0c6f739b942506822234fc203fe0a364336f2016",
+    "ordered_routes_and_duplicate_key_ledger": "0984dd856bdf81339c4f762efa2d2c7b06134ae7",
+    "ordered_routes_and_duplicate_key_tests": "d21a368d40283c710e93b3659b711fe1ee7d0c65",
+    "gateway_membership_firewall_test": "5deb5ac087ff113bacb4556ef222595a97a2ae7b"
   },
   "validation": {
     "noema_aux_tether": {
       "status": "ACTIVE",
       "guard_schema": "noema.aux-tether-guard/v2",
       "failures": [],
-      "static_fallback": false
+      "static_fallback": false,
+      "latest_fresh_guard_observed": true
     },
     "github_actions": {
       "exact_head_run_count_observed": 17,
