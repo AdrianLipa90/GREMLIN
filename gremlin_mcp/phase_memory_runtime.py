@@ -173,7 +173,10 @@ def update_memory_state(
     route: Sequence[str],
 ) -> dict[str, Any]:
     current = validate_memory_state(state)
-    if isinstance(route, (str, bytes, Mapping)):
+    if (
+        isinstance(route, (str, bytes, Mapping))
+        or not isinstance(route, Sequence)
+    ):
         raise PhaseMemoryError("route must be a sequence of role strings")
     try:
         names = tuple(_role(name) for name in route)
@@ -283,7 +286,10 @@ def memory_order(
 ) -> tuple[list[str], dict[str, float]]:
     if not isinstance(base_scores, Mapping):
         raise PhaseMemoryError("base_scores must be a mapping")
-    if isinstance(species, (str, bytes, Mapping)):
+    if (
+        isinstance(species, (str, bytes, Mapping))
+        or not isinstance(species, Sequence)
+    ):
         raise PhaseMemoryError("species must be a sequence of role strings")
     try:
         names = tuple(dict.fromkeys(_role(name) for name in species))
@@ -359,8 +365,20 @@ class PhaseMemoryRuntime:
         for line_no, raw in enumerate(lines, start=1):
             if not raw.strip():
                 continue
+            def reject_duplicates(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+                parsed_object: dict[str, Any] = {}
+                for key, value in pairs:
+                    if key in parsed_object:
+                        raise PhaseMemoryError(
+                            f"duplicate JSON key in phase-memory ledger at line {line_no}: {key!r}"
+                        )
+                    parsed_object[key] = value
+                return parsed_object
+
             try:
-                parsed = json.loads(raw)
+                parsed = json.loads(raw, object_pairs_hook=reject_duplicates)
+            except PhaseMemoryError:
+                raise
             except json.JSONDecodeError as exc:
                 raise PhaseMemoryError(
                     f"invalid phase-memory ledger JSON at line {line_no}"
