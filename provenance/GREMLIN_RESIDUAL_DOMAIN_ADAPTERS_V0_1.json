@@ -1,0 +1,17 @@
+{
+  "schema":"GREMLIN_RESIDUAL_DOMAIN_ADAPTERS_RECEIPT_V0_1",
+  "date":"2026-09-27",
+  "status":"IMPLEMENTED_CANDIDATE_LOCAL_4_OF_4_PASS",
+  "branch":"feat/residual-preserving-spectroscopy-v01-20260926",
+  "domains":["telescope","microscope"],
+  "gremlin_live_audit_event":"gremlin:whisper:sha256:e784092d2125bb8f5b16e91071cc5a15710dbe86315f9b9b16a2cfe381fe3e20",
+  "authority":"CANDIDATE_ONLY",
+  "local_tests":{"passed":4,"failed":0},
+  "firewalls":[
+    "CONTROL_COMPLETE_IS_NOT_PHYSICAL_PROMOTION",
+    "NO_ASTROPHYSICAL_PROMOTION",
+    "NO_MICROSCOPIC_MECHANISM_PROMOTION",
+    "NO_TIME_FLUCTUATION_PROMOTION"
+  ],
+  "main_modified":false
+}
