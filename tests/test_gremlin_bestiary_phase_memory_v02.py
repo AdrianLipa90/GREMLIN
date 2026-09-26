@@ -334,3 +334,13 @@ def test_phase_memory_ledger_rejects_duplicate_json_keys(tmp_path) -> None:
     path.write_text(raw + "\n", encoding="utf-8")
     with pytest.raises(PhaseMemoryError, match="duplicate JSON key"):
         PhaseMemoryRuntime(ledger_path=path)
+
+
+def test_memory_order_rejects_invalid_score_outside_selected_species() -> None:
+    state = empty_memory_state()
+    with pytest.raises(PhaseMemoryError, match="base scores must be real numbers"):
+        memory_order(
+            ("SPIDER",),
+            {"SPIDER": 0.5, "MOLE": "invalid"},  # type: ignore[dict-item]
+            state,
+        )
