@@ -8,8 +8,12 @@ from tools.gremlin_geometry_phase_scheduler_v02 import (
     MODE,
     SCHEDULER_KEY,
     GeometryPhaseSchedulerError,
+    choose_species,
     derived_phase36,
+    geometry_lane_width,
+    queue_metrics,
     scheduler_manifest,
+    select_batch,
     task_phase_state,
 )
 
@@ -102,3 +106,98 @@ def test_v02_scheduler_rejects_noncanonical_task_commitment() -> None:
         match="lowercase 64-hex task_commitment",
     ):
         task_phase_state(row)
+
+
+def _row(
+    task_id: str = "task-v02",
+    *,
+    ready: bool = True,
+    commitment: str = "a" * 64,
+) -> dict:
+    return {
+        "task_id": task_id,
+        "species": "SPIDER",
+        "payload": {SCHEDULER_KEY: {"ready": ready}},
+        "task_commitment": commitment,
+        "created_ns": 1,
+    }
+
+
+def test_v02_scheduler_rejects_noncanonical_task_id() -> None:
+    with pytest.raises(GeometryPhaseSchedulerError, match="canonical non-empty task_id"):
+        task_phase_state(_row("   "))
+    with pytest.raises(GeometryPhaseSchedulerError, match="canonical non-empty task_id"):
+        task_phase_state(_row(" task-v02 "))
+
+
+def test_v02_scheduler_rejects_invalid_clock_even_on_early_return() -> None:
+    not_ready = _row(ready=False)
+    with pytest.raises(GeometryPhaseSchedulerError, match="now_ns must be a non-negative integer"):
+        queue_metrics([not_ready], now_ns=-1)
+    with pytest.raises(GeometryPhaseSchedulerError, match="now_ns must be a non-negative integer"):
+        choose_species({}, now_ns=True)
+    with pytest.raises(GeometryPhaseSchedulerError, match="now_ns must be a non-negative integer"):
+        select_batch([not_ready], limit=1, now_ns=-1)
+
+
+def test_v02_scheduler_rejects_coerced_hints() -> None:
+    row = _row()
+    with pytest.raises(GeometryPhaseSchedulerError, match="cadence hints must contain real numbers"):
+        choose_species(
+            {"SPIDER": [row]},
+            now_ns=2,
+            cadence_hint={"SPIDER": "0.5"},  # type: ignore[dict-item]
+        )
+    with pytest.raises(GeometryPhaseSchedulerError, match="locality hints must contain real numbers"):
+        choose_species(
+            {"SPIDER": [row]},
+            now_ns=2,
+            locality_hint={"SPIDER": True},
+        )
+
+
+def test_v02_scheduler_rejects_lane_numeric_coercion() -> None:
+    with pytest.raises(GeometryPhaseSchedulerError, match="vector_width must be a positive integer"):
+        geometry_lane_width(
+            vector_width=True,
+            max_batch=4,
+            cluster_coherence=0.5,
+        )
+    with pytest.raises(GeometryPhaseSchedulerError, match="max_batch must be a positive integer"):
+        geometry_lane_width(
+            vector_width=4,
+            max_batch=4.5,  # type: ignore[arg-type]
+            cluster_coherence=0.5,
+        )
+    with pytest.raises(GeometryPhaseSchedulerError, match="cluster_coherence must be a real number"):
+        geometry_lane_width(
+            vector_width=4,
+            max_batch=4,
+            cluster_coherence="0.5",  # type: ignore[arg-type]
+        )
+    with pytest.raises(GeometryPhaseSchedulerError, match="legacy_cap must be a positive integer"):
+        geometry_lane_width(
+            vector_width=4,
+            max_batch=4,
+            cluster_coherence=0.5,
+            legacy_cap=True,
+        )
+
+
+def test_v02_scheduler_rejects_noncanonical_affinity_commitments() -> None:
+    row = _row()
+    with pytest.raises(GeometryPhaseSchedulerError, match="lowercase 64-hex commitments"):
+        select_batch(
+            [row],
+            limit=1,
+            now_ns=2,
+            affinity_by_task={"task-v02": ["not-a-commitment"]},
+        )
+    with pytest.raises(GeometryPhaseSchedulerError, match="lowercase 64-hex commitments"):
+        select_batch(
+            [row],
+            limit=1,
+            now_ns=2,
+            affinity_by_task={"task-v02": ["b" * 64]},
+            receiver_known_affinity=[7],  # type: ignore[list-item]
+        )
