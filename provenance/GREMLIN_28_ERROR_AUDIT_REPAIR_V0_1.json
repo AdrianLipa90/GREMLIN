@@ -5,7 +5,7 @@
   "branch": "fix/gremlin-28-error-audit-20260926",
   "pull_request": 151,
   "base_main_sha": "ca82949818b49465d0c2d0535aa9c219c32bdf32",
-  "repair_head_before_receipt": "414ab283fc412252b15e50051f75e5e5c24435ea",
+  "repair_head_before_receipt": "630f3abca131a36f86c32bf6151a2d613266f998",
   "reported_diagnostics": {
     "user_reported_count": 28,
     "authoritative_itemized_source_available": false,
@@ -94,7 +94,8 @@
         "direct transition_affinity calls reject non-iterable source_roles through the domain error contract",
         "memory_order normalizes role-key casing before selecting scores so lowercase aliases are not silently ignored",
         "invalid UTF-8 ledgers fail with PhaseMemoryError instead of leaking UnicodeDecodeError",
-        "ledger parent-directory creation is inside the append OSError boundary"
+        "ledger parent-directory creation is inside the append OSError boundary",
+        "memory_order validates all supplied base-score values, including roles outside the selected species subset"
       ]
     },
     {
@@ -128,7 +129,8 @@
     "reject invalid UTF-8 ledger with PhaseMemoryError",
     "reject unordered route set",
     "reject duplicate JSON keys in ledger",
-    "gateway phase-memory reorder preserves OCTOPUS membership"
+    "gateway phase-memory reorder preserves OCTOPUS membership",
+    "reject invalid base score outside selected species"
   ],
   "repair_commits": {
     "phase_memory_hardening": "279d19cb26d4dccdfa5eb588a8e37e51fe559938",
@@ -143,7 +145,9 @@
     "normalization_and_utf8_regressions": "0c6f739b942506822234fc203fe0a364336f2016",
     "ordered_routes_and_duplicate_key_ledger": "0984dd856bdf81339c4f762efa2d2c7b06134ae7",
     "ordered_routes_and_duplicate_key_tests": "d21a368d40283c710e93b3659b711fe1ee7d0c65",
-    "gateway_membership_firewall_test": "5deb5ac087ff113bacb4556ef222595a97a2ae7b"
+    "gateway_membership_firewall_test": "5deb5ac087ff113bacb4556ef222595a97a2ae7b",
+    "all_memory_order_scores_fail_closed": "414ab283fc412252b15e50051f75e5e5c24435ea",
+    "unselected_invalid_score_regression": "f51b9debccb3044de584d4d62ec1abfd09ea116d"
   },
   "validation": {
     "noema_aux_tether": {
