@@ -44,7 +44,11 @@
     "arpl_visibility_frontier": {
       "repo": "AdrianLipa90/On-Primes",
       "branch": "research/arpl-infinite-clock-visibility-frontier-v0.1-20260926",
-      "validation_receipt_sha": "1689f5aeae8f28e9a2f31b93fe0ec8db764fab63"
+      "sha": "dc1cdbb401dd618738c8a23249fa4c23c8fe5515",
+      "base_compare": {
+        "ahead_by": 20,
+        "behind_by": 0
+      }
     }
   },
   "exact_pass": [
@@ -63,7 +67,10 @@
     "ARPL_H6_FINITE_EXPOSURE_CONTROLS",
     "INFINITE_ARPL_ACTIVE_CHANNELS",
     "PRESCRIBED_ORD4_DIVISIBILITY_POSITIVE_DENSITY",
-    "SIGNED_DYADIC_FIXED_DENOMINATOR_EXPOSURE"
+    "SIGNED_DYADIC_FIXED_DENOMINATOR_EXPOSURE",
+    "GRH_SOURCE_PRIME_REPLICATION_CERTIFICATE",
+    "GENERIC_FIXED_DENOMINATOR_EXPOSURE_UNDER_GRH",
+    "INFINITE_SUPPORT_HIDDEN_SUBSPACE_ZERO_UNDER_GRH"
   ],
   "fail_preserved": [
     {
@@ -88,14 +95,14 @@
     "STALE_ARPL_SOURCE_PIN"
   ],
   "open": [
-    "GENERIC_JOINT_SUBGROUP_MEMBERSHIP_AND_ORD4_DIVISIBILITY",
+    "UNCONDITIONAL_GENERIC_FIXED_DENOMINATOR_EXPOSURE",
     "PHYSICAL_PRIME_PHASE_BINDING",
     "PHYSICAL_ORBITAL_REALIZATION",
     "PHYSICAL_36D_CALIBRATION",
     "HOSTED_CI"
   ],
   "canon_allowed": false,
-  "next_witness": "GENERIC_JOINT_SUBGROUP_MEMBERSHIP_AND_ORD4_DIVISIBILITY_THEOREM",
+  "next_witness": "UNCONDITIONAL_GENERIC_FIXED_DENOMINATOR_EXPOSURE_OR_EFFECTIVE_LOWER_BOUND",
   "frontier": {
     "exact_reduction": "active q iff h in +/-<2>; mode exposed iff reduced denominator divides ord_q(4)",
     "status": "OPEN_ARTIN_TYPE",
@@ -122,6 +129,10 @@
     "order_divisibility_marginal": "CLOSED_POSITIVE_NATURAL_DENSITY",
     "signed_dyadic_joint": "CLOSED_POSITIVE_NATURAL_DENSITY",
     "generic_joint": "OPEN",
-    "exact_set": "E_{h,d}={q: h in +/-<2> mod q and d | ord_q(4)}"
+    "exact_set": "E_{h,d}={q: h in +/-<2> mod q and d | ord_q(4)}",
+    "generic_joint_under_grh": "CLOSED_POSITIVE_LOWER_DENSITY",
+    "generic_joint_unconditional": "OPEN",
+    "infinite_support_hidden_under_grh": "ZERO_FOR_EVERY_FIXED_LOCAL_FIBRE",
+    "theorem_mechanism": "NONEMPTY_EXACT_INDEX_TUPLE_PLUS_CYCLOTOMIC_FROBENIUS_REPLICATION"
   }
 }
