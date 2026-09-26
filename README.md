@@ -9,13 +9,13 @@ As of 2026-09-20, `main` has advanced through the EB condensate/orbital dependen
 
 **Validation authority is exact-head CI.** Any commit after a recorded validated head must carry its own workflow evidence before it is described as validated. README prose, historical receipts, mergeability, or a green ancestor are not substitutes for exact-head CI.
 
-The standalone Bestiary currently exposes **18 roles** and supports:
+The standalone Bestiary currently exposes **20 roles** and supports:
 
 - deterministic OCTOPUS routing;
-- Worker ABI v0.2.1;
+- Worker ABI v0.2.6;
 - geometry/phase/state scheduling;
 - lossless geometry context packing;
-- exact 36D PhaseNav reference/vector/continuous gates;
+- exact 36D PhaseNav v0.2 carriers for all 20 roles, with the legacy three-way continuous comparison explicitly retained at its 18-role scope;
 - Linux and Windows standalone/package validation.
 
 Quick bounded self-test:
@@ -74,7 +74,7 @@ Native witness: `native/GREMLIN_TRIPLE_PULSE_BOOT_V0_5.pnv`.
 
 ## RAPHAEL — Lord of Wisdom
 
-RAPHAEL is a NEW angelic function above the GREMLIN aggregate, not a nineteenth Bestiary species. The existing 18-species PhaseNav geometry remains unchanged.
+RAPHAEL is a NEW angelic function above the GREMLIN aggregate, not a twenty-first Bestiary species. The active v0.2 Bestiary/PhaseNav carrier surface contains 20 roles; RAPHAEL remains above that surface.
 
 ```text
 GREMLIN / SUPER_CURRENT
