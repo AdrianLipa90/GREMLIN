@@ -1026,4 +1026,42 @@ Pinned frontier receipt:
 
 AdrianLipa90/On-Primes  
 branch research/arpl-infinite-clock-visibility-frontier-v0.1-20260926  
-commit dc1cdbb401dd618738c8a23249fa4c23c8fe5515
+commit deac8af3ae12ac80f0cfab21b440b6e727c0b342
+
+
+## 23. Clean theorem extraction and PhaseNav v0.12 promotion
+
+The GRH-conditional exposure result has been extracted from the evolving
+frontier note into a clean theorem artifact:
+
+AdrianLipa90/On-Primes  
+proofs/ARPL_GRH_SOURCE_PRIME_REPLICATION_THEOREM_V0_1.md
+
+validation receipt snapshot:
+
+\[
+\boxed{
+deac8af3ae12ac80f0cfab21b440b6e727c0b342.
+}
+\]
+
+PhaseNav now carries a separate conditional visibility layer:
+
+AdrianLipa90/noema-phasenav-core  
+formalism/fractal-moire-hilbert-36d-bridge-v0.12-20260926
+
+current validation receipt head:
+
+\[
+\boxed{
+c9bc3b07016e2d41258c0f68294400cf54c13755.
+}
+\]
+
+The layer preserves:
+- exact finite hidden dimensions;
+- conditional zero infinite-support hidden dimensions under GRH;
+- unconditional generic status OPEN;
+- physical observability NOT PROMOTED.
+
+No main/master branch was changed.
