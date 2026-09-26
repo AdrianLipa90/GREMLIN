@@ -782,3 +782,52 @@ Updated frontier:
 ARPL_INFINITE_SUPPORT_EXPOSURE_THEOREM = OPEN_ARTIN_TYPE.
 
 The exact reduction is closed; the distribution theorem is not.
+
+
+## 21. Active-channel infinitude correction
+
+Full-text literature audit strengthens the frontier.
+
+Moree--Stevenhagen Theorem 1 records unconditionally, via Polya, that for
+multiplicatively independent rational a,b there are infinitely many primes q
+such that
+
+\[
+b\bmod q\in\langle a\bmod q\rangle.
+\]
+
+Applying a=2, b=h gives infinitely many unsigned ARPL-active channels whenever
+2 and h are multiplicatively independent.
+
+For signed dyadic integer h, the signed-subgroup active condition is elementary
+for all relevant odd primes.
+
+Therefore for nonzero integer h:
+
+\[
+\boxed{
+\text{INFINITE_ARPL_ACTIVE_CHANNELS}
+=
+\text{CLOSED / LITERATURE-GROUNDED}.
+}
+\]
+
+The positive-density statement remains a stronger GRH-conditional result in
+the multiplicatively independent case.
+
+The remaining arithmetic blocker is not active-channel infinitude but the
+fixed-denominator set
+
+\[
+\mathcal E_{h,d}
+=
+\{
+q:
+h\in\pm\langle2\rangle,\ 
+d\mid\operatorname{ord}_q(4)
+\}.
+\]
+
+For d>1, this audit retains:
+
+FIXED_DENOMINATOR_INFINITE_EXPOSURE = OPEN_ARTIN_TYPE.
