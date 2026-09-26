@@ -81,7 +81,7 @@ def validate_memory_state(state: Mapping[str, Any]) -> dict[str, Any]:
     keys = frozenset(row)
     if keys != _STATE_KEYS:
         missing = sorted(_STATE_KEYS - keys)
-        extra = sorted(keys - _STATE_KEYS)
+        extra = sorted((repr(key) for key in keys - _STATE_KEYS))
         raise PhaseMemoryError(
             f"memory state keys mismatch: missing={missing!r} extra={extra!r}"
         )
@@ -278,6 +278,8 @@ def memory_order(
     source_roles: Iterable[str] = (),
     max_bias: float = MAX_BIAS,
 ) -> tuple[list[str], dict[str, float]]:
+    if not isinstance(base_scores, Mapping):
+        raise PhaseMemoryError("base_scores must be a mapping")
     if isinstance(species, (str, bytes, Mapping)):
         raise PhaseMemoryError("species must be a sequence of role strings")
     try:
