@@ -2,8 +2,35 @@ from __future__ import annotations
 
 import asyncio
 
-from gremlin_mcp.core import REFERENCE_MCP_TOOLS, bestiary_manifest, plan_bestiary, species_profile, status
+from gremlin_mcp.core import (
+    PRODUCT_MCP_TOOL_GROUPS,
+    PRODUCT_MCP_TOOLS,
+    REFERENCE_MCP_TOOL_GROUPS,
+    REFERENCE_MCP_TOOLS,
+    bestiary_manifest,
+    plan_bestiary,
+    species_profile,
+    status,
+)
+from gremlin_mcp.tool_catalog import TOOL_DESCRIPTIONS
+from gremlin_mcp.tool_metadata import CLASSIFIED_TOOLS
 
+
+
+def test_mcp_registry_surfaces_are_exact_and_metadata_complete() -> None:
+    surfaces = (
+        (REFERENCE_MCP_TOOLS, REFERENCE_MCP_TOOL_GROUPS),
+        (PRODUCT_MCP_TOOLS, PRODUCT_MCP_TOOL_GROUPS),
+    )
+    for tools, groups in surfaces:
+        grouped = [tool for items in groups.values() for tool in items]
+        assert len(tools) == len(set(tools))
+        assert len(grouped) == len(set(grouped))
+        assert set(grouped) == set(tools)
+
+    declared = set(REFERENCE_MCP_TOOLS) | set(PRODUCT_MCP_TOOLS)
+    assert set(TOOL_DESCRIPTIONS) == declared
+    assert set(CLASSIFIED_TOOLS) == declared
 
 def test_standalone_status_is_fail_closed() -> None:
     s = status()
