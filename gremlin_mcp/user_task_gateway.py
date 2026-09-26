@@ -9,8 +9,13 @@ from typing import Any, Mapping, Sequence
 from gremlin_mcp.router import route
 from gremlin_mcp.semantic_graph_transformer import SemanticGraphTransformer
 from gremlin_mcp.memory_ontology_algebra import build_memory_ontology_handoff
-from tools.gremlin_bestiary_phasenav_phase_gates_v01 import PhaseState36, octopus_route
-from tools.gremlin_geometry_phase_scheduler_v01 import derived_phase36
+from gremlin_mcp.phase_memory_runtime import (
+    MAX_BIAS as PHASE_MEMORY_MAX_BIAS,
+    memory_order,
+    validate_memory_state,
+)
+from tools.gremlin_bestiary_phasenav_phase_gates_v02 import PhaseState36, octopus_route
+from tools.gremlin_geometry_phase_scheduler_v02 import derived_phase36
 
 SCHEMA = "GREMLIN_USER_TASK_GATEWAY_V0_1"
 VERSION = "0.1.0"
@@ -232,6 +237,7 @@ def build_user_task_plan(
     max_neighbors: int = 6,
     causal_depth: int = 2,
     surface_root: str = "/dev/shm/ciel_noema",
+    phase_memory_state: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Compile one user task into GREMLIN + PhaseNav execution state.
 
@@ -314,7 +320,34 @@ def build_user_task_plan(
         "included_species": included_species,
     }
     phase36 = derived_phase36(phase_payload)
-    phase_order, phase_scores = _phase_schedule_order(phase36, included_species)
+    base_phase_order, base_phase_scores = _phase_schedule_order(phase36, included_species)
+    if phase_memory_state is None:
+        phase_order = list(base_phase_order)
+        phase_scores = dict(base_phase_scores)
+        phase_memory = {
+            "applied": False,
+            "state_commitment": None,
+            "sequence": 0,
+            "max_bias": 0.0,
+        }
+    else:
+        memory_state = validate_memory_state(phase_memory_state)
+        phase_order, phase_scores = memory_order(
+            base_phase_order,
+            base_phase_scores,
+            memory_state,
+            max_bias=PHASE_MEMORY_MAX_BIAS,
+        )
+        phase_memory = {
+            "applied": True,
+            "state_commitment": memory_state["commitment"],
+            "sequence": memory_state["sequence"],
+            "last_role": memory_state["last_role"],
+            "max_bias": PHASE_MEMORY_MAX_BIAS,
+            "base_phase_scores": dict(base_phase_scores),
+            "memory_adjusted_scores": dict(phase_scores),
+            "membership_changed": set(phase_order) != set(base_phase_order),
+        }
 
     mode = "DIRECT" if not included_species else "GREMLIN_ROUTED"
     action_authority = (
@@ -347,6 +380,8 @@ def build_user_task_plan(
             "phase36": list(phase36),
             "schedule_order": phase_order,
             "phase_scores": phase_scores,
+            "base_phase_scores": base_phase_scores,
+            "phase_memory": phase_memory,
             "species_inclusion_authority": False,
         },
         "context_sha256": context_commitments,
@@ -393,7 +428,9 @@ def build_user_task_plan(
             "state_id": PhaseState36(phase36).state_id,
             "schedule_order": phase_order,
             "phase_scores": phase_scores,
-            "role": "SCHEDULING_LOCALITY_AND_ORDER_HINT",
+            "base_phase_scores": base_phase_scores,
+            "phase_memory": phase_memory,
+            "role": "SCHEDULING_LOCALITY_ORDER_AND_BOUNDED_MEMORY_HINT",
             "may_change_species_membership": False,
             "live_surface_witness": live,
         },
@@ -411,6 +448,8 @@ def build_user_task_plan(
             "semantic_graph_compiled": True,
             "memory_ontology_algebra_bound": True,
             "phasenav_bound": True,
+            "phase_memory_law_bound": phase_memory_state is not None,
+            "phase_memory_changes_membership": False,
             "phasenav_overrides_semantic_membership": False,
             "stale_context_can_override_explicit_task_membership": False,
             "trained_neural_transformer_claim": False,
