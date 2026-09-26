@@ -5,7 +5,7 @@
   "branch": "fix/gremlin-28-error-audit-20260926",
   "pull_request": 151,
   "base_main_sha": "ca82949818b49465d0c2d0535aa9c219c32bdf32",
-  "repair_head_before_receipt": "6147f3843e36c630d6ba8d4891d9b92918caa53a",
+  "repair_head_before_receipt": "5cfd6dc9c2de97f17cb8e9abad2eded55f208372",
   "reported_diagnostics": {
     "user_reported_count": 28,
     "authoritative_itemized_source_available": false,
@@ -137,6 +137,17 @@
         "scheduler payload keys must be strings, preventing silent 1 versus \"1\" canonical-key collisions",
         "task_phase_state requires the same lowercase 64-hex task commitment contract as WorkerBroker transport lineage"
       ]
+    },
+    {
+      "id": "SCHEDULER_V02_CONTROL_PLANE_STRICTNESS",
+      "fixes": [
+        "task_id must be canonical non-empty text with no hidden surrounding whitespace",
+        "now_ns is validated before early-return paths and rejects bool/negative/non-integer values",
+        "cadence and locality hint maps are validated in full, including unused entries and unsupported species keys",
+        "geometry lane width rejects bool/fractional/string coercion for vector_width max_batch coherence and legacy_cap",
+        "task and receiver affinity values must be lowercase 64-hex commitments",
+        "affinity entries outside the currently eligible task set are still validated rather than silently hiding malformed control input"
+      ]
     }
   ],
   "regression_tests_added": [
@@ -163,7 +174,14 @@
     "reject PhaseNav v0.2 route max_species/min_score coercion",
     "reject scheduler explicit phase numeric coercion",
     "reject scheduler non-string payload keys",
-    "reject scheduler noncanonical task commitment"
+    "reject scheduler noncanonical task commitment",
+    "reject noncanonical scheduler task_id whitespace",
+    "reject invalid scheduler clock on early-return paths",
+    "reject scheduler cadence/locality numeric coercion",
+    "reject scheduler lane-width numeric coercion",
+    "reject noncanonical scheduler affinity commitments",
+    "validate unused scheduler hint entries fail closed",
+    "validate unselected scheduler affinity entries fail closed"
   ],
   "repair_commits": {
     "phase_memory_hardening": "279d19cb26d4dccdfa5eb588a8e37e51fe559938",
@@ -189,7 +207,12 @@
     "scheduler_phase_payload_key_hardening": "df4cd3e8b7e43a1f743f1e9985b54084fda0145c",
     "scheduler_phase_payload_key_tests": "59ddf10b29c73ca2ca3ff1fdb836a1858463b65f",
     "scheduler_commitment_format_hardening": "c37d09f957e07c19366d2f68a4444edce4a2548b",
-    "scheduler_commitment_format_tests": "6147f3843e36c630d6ba8d4891d9b92918caa53a"
+    "scheduler_commitment_format_tests": "6147f3843e36c630d6ba8d4891d9b92918caa53a",
+    "scheduler_ids_hints_lanes_affinity": "0d42d480c462e7e06b82aedc8fe7a5f09685fb67",
+    "scheduler_clock_early_return_validation": "0f481d4bc1ceae77097ebd20893c6af9e896b9be",
+    "scheduler_ids_hints_lanes_affinity_tests": "36b5cc2e18a1ecf195fcb712f4582b6409389bb8",
+    "scheduler_complete_control_input_validation": "995f3bb9970a7ff60be9191692555926b392afc0",
+    "scheduler_complete_control_input_tests": "5cfd6dc9c2de97f17cb8e9abad2eded55f208372"
   },
   "validation": {
     "noema_aux_tether": {
@@ -220,7 +243,10 @@
       "pr_mergeable": true,
       "active_phasenav_v02_strict_input_contract": true,
       "active_scheduler_v02_commitment_contract": "LOWERCASE_64_HEX",
-      "octopus_numeric_coercion_disabled": true
+      "octopus_numeric_coercion_disabled": true,
+      "confirmed_fix_group_count": 16,
+      "confirmed_fix_behavior_count": 56,
+      "regression_test_contract_count": 31
     },
     "full_exact_head_regression": "PENDING_RUNNER_AVAILABILITY"
   },
