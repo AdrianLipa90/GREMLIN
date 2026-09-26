@@ -14,11 +14,10 @@ Repositories and branches were checked for four required components:
 
 ### On-Primes
 
-Branch:
+Source branch:
 - feat/arithmetic-relational-phase-law-v0.1
 
 Audit state:
-- ahead of main by 9 commits;
 - contains proofs/ARITHMETIC_RELATIONAL_PHASE_LAW_V0_1.md;
 - contains executable src/on_primes/phase_law.py and tests;
 - ARPL is PRESENT.
@@ -27,7 +26,6 @@ Companion branch:
 - feat/skewes-euler-hilbert-collatz-v0.1
 
 Audit state:
-- ahead of main by 11 commits;
 - contains SPECTRAL_VON_MANGOLDT_PHASE_BANK_V0_1.md;
 - arithmetic/zeta phase-bank layer is PRESENT.
 
@@ -35,8 +33,10 @@ Gap found:
 - no explicit ARPL -> Fractal-Orbital Hilbert representation bridge.
 
 Action:
-- created branch integrate/arpl-fractal-orbital-bridge-v0.1-20260926 from the ARPL branch;
-- added proofs/ARPL_FRACTAL_ORBITAL_HILBERT_BRIDGE_V0_1.md.
+- initial integration branch integrate/arpl-fractal-orbital-bridge-v0.1-20260926 was created, but verification detected that the ARPL source branch advanced concurrently by 5 commits;
+- that initial branch is therefore retained only as stale provenance and is NOT the current integration target;
+- created replacement branch integrate/arpl-fractal-orbital-bridge-v0.1-20260926-r2 from the newer ARPL head;
+- added proofs/ARPL_FRACTAL_ORBITAL_HILBERT_BRIDGE_V0_1.md on r2.
 
 ### Orbital-System-base
 
@@ -53,8 +53,9 @@ Gap found:
 
 Action:
 - created branch formalism/fractal-orbital-moire-hilbert-v0.1-20260926;
-- added the formal specification;
-- added a small executable scalar reference and invariant tests.
+- added docs/specs/FRACTAL_ORBITAL_MOIRE_HILBERT_ALGEBRA_V0_1.md;
+- added orbital/fractal_moire.py as an executable scalar reference;
+- added tests/test_fractal_moire.py with invariance/control tests.
 
 ### noema-phasenav-core
 
@@ -76,8 +77,8 @@ Action:
 
 ### Memory-Ontology
 
-Branch feat/prime-hilbert-collatz-association-v0.4-20260925 is currently behind main with no branch-only delta.
-No new write was required for this audit.
+Branch feat/prime-hilbert-collatz-association-v0.4-20260925 was behind main with no branch-only delta at audit time.
+No new write was required.
 
 ### Spectroscopy / chemistry consumers
 
@@ -86,12 +87,15 @@ The following branches already contain Montgomery-Dyson / prime-power phase adap
 - Resonant-Chemistry: candidate/montgomery-dyson-phase-spectroscopy-v0.1-20260926;
 - Orbital-Eclipse-Spectroscopy: candidate/montgomery-dyson-phase-spectroscopy-v0.1-20260926.
 
-All three preserve the correct evidence firewall: prime-power channels are arithmetic reference/control layers rather than asserted physical source mechanisms.
+All three preserve the evidence firewall: prime-power channels are arithmetic reference/control layers rather than asserted physical source mechanisms.
 
 No duplicate write was required.
 
 ## Result
 
 The missing cross-layer formalization has now been recorded without mutating main/master and without overwriting divergent historical work.
+
+Current On-Primes integration target:
+- integrate/arpl-fractal-orbital-bridge-v0.1-20260926-r2
 
 Promotion/merge remains a separate decision.
