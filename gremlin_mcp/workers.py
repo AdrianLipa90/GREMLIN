@@ -28,7 +28,7 @@ from gremlin_mcp.memory_capabilities import (
 from tools.gremlin_bestiary_orbital_scheduler_v02 import PROFILES, service_omega
 from tools.gremlin_bestiary_vector_species_v03 import lane_width
 from tools.gremlin_geometry_context_pack_v01 import pack_context
-from tools.gremlin_geometry_phase_scheduler_v01 import (
+from tools.gremlin_geometry_phase_scheduler_v02 import (
     MODE as GEOMETRY_SCHEDULER_MODE,
     NUMPY_DISTANCE_KERNEL_CANDIDATE,
     SCALAR_DISTANCE_KERNEL,
