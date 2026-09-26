@@ -318,3 +318,19 @@ def test_phase_memory_ledger_invalid_utf8_fails_with_domain_error(tmp_path) -> N
     path.write_bytes(b"\xff\xfe\xfa")
     with pytest.raises(PhaseMemoryError, match="ledger cannot be read"):
         PhaseMemoryRuntime(ledger_path=path)
+
+
+def test_phase_memory_rejects_unordered_route_set() -> None:
+    state = empty_memory_state()
+    with pytest.raises(PhaseMemoryError, match="route must be a sequence"):
+        update_memory_state(state, {"SPIDER", "HOUND"})  # type: ignore[arg-type]
+
+
+def test_phase_memory_ledger_rejects_duplicate_json_keys(tmp_path) -> None:
+    path = tmp_path / "duplicate-keys.jsonl"
+    state = update_memory_state(empty_memory_state(), ("SPIDER",))
+    raw = json.dumps(state, sort_keys=True)
+    raw = raw[:-1] + ',"sequence":1}'
+    path.write_text(raw + "\n", encoding="utf-8")
+    with pytest.raises(PhaseMemoryError, match="duplicate JSON key"):
+        PhaseMemoryRuntime(ledger_path=path)
