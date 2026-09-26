@@ -119,3 +119,20 @@ def test_router_rejects_numeric_coercion_and_nonfinite_thresholds() -> None:
         route(payload, relative_cutoff=True)
     with pytest.raises(ValueError, match="relative_cutoff must be finite"):
         route(payload, relative_cutoff=math.nan)
+
+
+def test_octopus_routes_provenance_temporal_inversion_to_history_and_audit() -> None:
+    decision = route(
+        {
+            "query": (
+                "Audit provenance inconsistency: V0_2 supersedes V0_1; "
+                "V0_1 was retroactively rewritten after supersession, "
+                "creating temporal inversion in lineage"
+            ),
+            "provenance": {"supersession": ["V0_2", "V0_1"]},
+        },
+        max_species=4,
+        relative_cutoff=0.25,
+    )
+    mask = set(decision["route_mask"])
+    assert {"OWL", "HOUND", "RAVEN"} <= mask
