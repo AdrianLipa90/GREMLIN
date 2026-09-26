@@ -153,7 +153,7 @@ def gremlin_status() -> dict[str, Any]:
         "queue_tool": "gremlin_queue_user_task",
         "semantic_compiler": "GREMLIN_SEMANTIC_GRAPH_TRANSFORMER_V0_1",
         "phasenav_space": "T^36",
-        "phasenav_role": "SCHEDULING_LOCALITY_AND_ORDER_HINT",
+        "phasenav_role": "ARPL_CARRIER_PLUS_MEMORY_BIASED_SCHEDULING_ORDER",
         "external_effects_authorized": False,
         "canon_allowed": False,
     }
@@ -818,9 +818,9 @@ def standalone_phasenav_self_test() -> dict[str, Any]:
     passed = (
         runtime["standalone"] is True
         and runtime["live_noema_required_for_core"] is False
-        and runtime["species_count"] == 18
+        and runtime["species_count"] == 20
         and runtime["vector_backend_available"] is True
-        and reference["species_count"] == 18
+        and reference["species_count"] == 20
         and reference["external_effects"] is False
         and threeway["summary"]["all_species_pass"] is True
         and invariants["summary"]["all_analog_core_specialist_invariants_pass"] is True
@@ -833,7 +833,7 @@ def standalone_phasenav_self_test() -> dict[str, Any]:
     return {
         "schema": "GREMLIN_STANDALONE_PHASENAV_SELF_TEST_V0_2",
         "status": "PASS",
-        "species_count": 18,
+        "species_count": 20,
         "vector_backend_available": True,
         "threeway_all_species_pass": True,
         "analog_core_invariants_pass": True,
