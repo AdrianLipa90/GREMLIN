@@ -1,5 +1,7 @@
 import unittest
 
+from gremlin_mcp.core import REFERENCE_MCP_TOOLS
+
 from gremlin_mcp.workspace import system_payload
 from client.gremlin_web_server_v01 import (
     STATIC_FILES,
@@ -38,7 +40,7 @@ class GremlinVisualClientV01Tests(unittest.TestCase):
     def test_reference_dashboard_contract_matches_shared_workspace_surface(self):
         dashboard = system_payload(surface="reference")
         self.assertEqual(dashboard["surface"], "reference")
-        self.assertEqual(dashboard["mcp"]["tool_count"], 35)
+        self.assertEqual(dashboard["mcp"]["tool_count"], len(REFERENCE_MCP_TOOLS))
         self.assertEqual(dashboard["bestiary"]["species_count"], 20)
         self.assertFalse(dashboard["authority"]["execution_admitted"])
 
@@ -79,6 +81,8 @@ class GremlinVisualClientV01Tests(unittest.TestCase):
         self.assertIn("user_action", script)
         self.assertIn("sessionStorage", script)
         self.assertIn("TECHNICAL_MODE_STORAGE_KEY", script)
+        self.assertIn("mcpRegistryExact", script)
+        self.assertNotIn("toolCount === 29", script)
         self.assertNotIn("localStorage", script)
         self.assertIn('document.addEventListener("keydown"', script)
         self.assertIn('event.key === "Enter"', script)
@@ -105,7 +109,7 @@ class GremlinVisualClientV01Tests(unittest.TestCase):
         self.assertEqual(status["status"], "READY")
         self.assertEqual(status["product"]["status"], "REFERENCE_VALIDATION")
         self.assertEqual(status["capabilities"]["surface"], "reference")
-        self.assertEqual(status["capabilities"]["tool_count"], 35)
+        self.assertEqual(status["capabilities"]["tool_count"], len(REFERENCE_MCP_TOOLS))
         self.assertFalse(status["authority"]["execution_admitted"])
 
         bestiary = bestiary_payload()
@@ -116,7 +120,7 @@ class GremlinVisualClientV01Tests(unittest.TestCase):
 
         dashboard = system_payload(surface="reference")
         self.assertEqual(dashboard["surface"], "reference")
-        self.assertEqual(dashboard["mcp"]["tool_count"], 35)
+        self.assertEqual(dashboard["mcp"]["tool_count"], len(REFERENCE_MCP_TOOLS))
 
     def test_visual_client_does_not_add_external_frontend_dependencies(self):
         html = (WEB_ROOT / "index.html").read_text(encoding="utf-8")
