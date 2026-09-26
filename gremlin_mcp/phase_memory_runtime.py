@@ -211,7 +211,10 @@ def transition_affinity(
     target = _role(target_role)
     if isinstance(source_roles, (str, bytes, Mapping)):
         raise PhaseMemoryError("source_roles must be an iterable of role strings")
-    sources = tuple(dict.fromkeys(_role(source) for source in source_roles))
+    try:
+        sources = tuple(dict.fromkeys(_role(source) for source in source_roles))
+    except TypeError as exc:
+        raise PhaseMemoryError("source_roles must be an iterable of role strings") from exc
     if not sources:
         if current["last_role"] is None:
             return 0.0
@@ -286,8 +289,14 @@ def memory_order(
         names = tuple(dict.fromkeys(_role(name) for name in species))
     except TypeError as exc:
         raise PhaseMemoryError("species must be a sequence of role strings") from exc
+    normalized_base_scores: dict[str, float] = {}
+    for raw_role, raw_score in base_scores.items():
+        name = _role(raw_role)
+        if name in normalized_base_scores:
+            raise PhaseMemoryError(f"duplicate normalized base-score role: {name}")
+        normalized_base_scores[name] = raw_score
     scored = memory_bias_scores(
-        {name: base_scores.get(name, 0.0) for name in names},
+        {name: normalized_base_scores.get(name, 0.0) for name in names},
         state,
         source_roles=source_roles,
         max_bias=max_bias,
@@ -345,7 +354,7 @@ class PhaseMemoryRuntime:
         genesis = empty_memory_state()
         try:
             lines = path.read_text(encoding="utf-8").splitlines()
-        except OSError as exc:
+        except (OSError, UnicodeError) as exc:
             raise PhaseMemoryError("phase-memory ledger cannot be read") from exc
         for line_no, raw in enumerate(lines, start=1):
             if not raw.strip():
@@ -381,10 +390,10 @@ class PhaseMemoryRuntime:
     def _append(self, state: Mapping[str, Any]) -> None:
         if self._ledger_path is None:
             return
-        self._ledger_path.parent.mkdir(parents=True, exist_ok=True)
         validated = validate_memory_state(state)
         raw = _canonical(validated) + b"\n"
         try:
+            self._ledger_path.parent.mkdir(parents=True, exist_ok=True)
             with self._ledger_path.open("ab") as handle:
                 handle.write(raw)
                 handle.flush()
