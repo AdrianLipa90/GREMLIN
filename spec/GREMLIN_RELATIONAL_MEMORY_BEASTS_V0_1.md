@@ -144,7 +144,7 @@ Human self-report can serve as one empirical reference series, but the software 
 2. Phase coherence does not establish truth.
 3. No Bestiary role receives DELETE, OVERWRITE or IN_PLACE_EDIT.
 4. New memory states are append-only derivations or typed proposals.
-5. ELEPHANT and BEES are memory-only candidate roles until separate PhaseNav carrier validation passes.
+5. ELEPHANT and BEES remain memory/coherence candidate roles; PhaseNav v0.2 carrier validation has passed for both, but carrier status grants no execution, physical-analog or canon authority.
 6. Current 18-carrier PhaseNav validation remains historically intact and is not retroactively relabeled as 20/20.
 
 
