@@ -7,7 +7,6 @@ from typing import Any
 
 from .hive_authority import HiveAuthorityRuntime
 from .constitutional_runtime import require_constitutional_admission
-from .constitutional_runtime import require_constitutional_admission
 from .hive_ingest import ingest_research_execution
 from .holographic_orbital_memory import (
     AUTHORITY as HOLOGRAPHIC_MEMORY_AUTHORITY,
