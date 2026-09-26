@@ -4,6 +4,8 @@ import math
 
 import asyncio
 
+import pytest
+
 from gremlin_mcp.router import ROUTER_SCHEMA, auto_fanout, route
 from gremlin_mcp.workers import WorkerBroker
 
