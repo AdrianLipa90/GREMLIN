@@ -425,6 +425,7 @@ def queue_metrics(
     now_ns: int,
     precomputed_states: Mapping[str, TaskPhaseState] | None = None,
 ) -> dict[str, Any]:
+    now_ns = _nonnegative_ns(now_ns, "now_ns")
     if not rows:
         raise GeometryPhaseSchedulerError("queue metrics require at least one task")
     states = _states_for_rows(rows, precomputed_states)
@@ -482,6 +483,9 @@ def choose_species(
     locality_hint: Mapping[str, float] | None = None,
     precomputed_states: Mapping[str, TaskPhaseState] | None = None,
 ) -> tuple[str | None, dict[str, Any]]:
+    now_ns = _nonnegative_ns(now_ns, "now_ns")
+    if not isinstance(queues, Mapping):
+        raise GeometryPhaseSchedulerError("queues must be a mapping")
     metrics: dict[str, dict[str, Any]] = {}
     candidates: list[tuple[float, float, str]] = []
     for species, rows in queues.items():
@@ -637,6 +641,7 @@ def select_batch(
     precomputed_centroid: Sequence[float] | None = None,
     distance_kernel: str = SCALAR_DISTANCE_KERNEL,
 ) -> tuple[list[str], dict[str, Any]]:
+    now_ns = _nonnegative_ns(now_ns, "now_ns")
     if isinstance(limit, bool) or not isinstance(limit, int) or limit <= 0:
         raise GeometryPhaseSchedulerError("limit must be a positive integer")
     if distance_kernel not in {
