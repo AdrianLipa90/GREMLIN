@@ -289,3 +289,32 @@ def test_memory_order_rejects_nonmapping_base_scores() -> None:
             [("SPIDER", 0.5)],  # type: ignore[arg-type]
             state,
         )
+
+
+def test_transition_affinity_rejects_noniterable_source_roles() -> None:
+    state = empty_memory_state()
+    with pytest.raises(PhaseMemoryError, match="source_roles must be an iterable"):
+        phase_memory.transition_affinity(
+            state,
+            123,  # type: ignore[arg-type]
+            "SPIDER",
+        )
+
+
+def test_memory_order_normalizes_base_score_role_keys() -> None:
+    state = empty_memory_state()
+    order, scores = memory_order(
+        ("SPIDER", "MOLE"),
+        {"spider": 0.75, "mole": 0.25},
+        state,
+    )
+    assert order == ["SPIDER", "MOLE"]
+    assert scores["SPIDER"] == pytest.approx(0.75)
+    assert scores["MOLE"] == pytest.approx(0.25)
+
+
+def test_phase_memory_ledger_invalid_utf8_fails_with_domain_error(tmp_path) -> None:
+    path = tmp_path / "invalid-utf8.jsonl"
+    path.write_bytes(b"\xff\xfe\xfa")
+    with pytest.raises(PhaseMemoryError, match="ledger cannot be read"):
+        PhaseMemoryRuntime(ledger_path=path)
