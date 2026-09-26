@@ -19,11 +19,15 @@ def test_nuitka_command_contains_full_gremlin_phasenav_runtime_graph(tmp_path):
     required = {
         "--include-module=gremlin_mcp.server_with_hive",
         "--include-module=gremlin_mcp.phasenav_runtime",
+        "--include-module=gremlin_mcp.phase_memory_runtime",
         "--include-module=tools.gremlin_bestiary_phasenav_phase_gates_v01",
+        "--include-module=tools.gremlin_bestiary_phasenav_phase_gates_v02",
         "--include-module=tools.gremlin_bestiary_phasenav_numpy_v01",
         "--include-module=tools.gremlin_bestiary_phasenav_threeway_v01",
         "--include-module=tools.gremlin_bestiary_phasenav_analog_invariants_v01",
         "--include-module=tools.gremlin_bestiary_phasenav_live_binding_v01",
+        "--include-module=tools.gremlin_bestiary_phasenav_live_binding_v02",
+        "--include-module=tools.gremlin_geometry_phase_scheduler_v02",
     }
     assert required <= set(cmd)
 
@@ -31,7 +35,7 @@ def test_nuitka_command_contains_full_gremlin_phasenav_runtime_graph(tmp_path):
 def test_standalone_phasenav_self_test_is_no_noema_and_fail_closed():
     out = standalone_phasenav_self_test()
     assert out["status"] == "PASS"
-    assert out["species_count"] == 18
+    assert out["species_count"] == 20
     assert out["vector_backend_available"] is True
     assert out["threeway_all_species_pass"] is True
     assert out["analog_core_invariants_pass"] is True
