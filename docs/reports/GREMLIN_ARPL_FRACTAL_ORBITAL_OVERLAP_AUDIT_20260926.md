@@ -594,3 +594,127 @@ source-owned nontrivial matrix-valued ARPL cross-Gram or a proof-level no-go
 showing that the natural source remains scalar on every canonical fibre.
 
 No main branch was modified by this audit.
+
+
+## 17. Matrix witness closure update
+
+The previous NEXT WITNESS has now been closed.
+
+On-Primes branch:
+
+integrate/arpl-clock-fibre-matrix-gram-v0.1-20260926
+
+immutable source pin:
+
+\[
+\boxed{
+8781f4a685257eced538daa7462ec4fc48093a6b
+}
+\]
+
+supplies canonical local clock fibres
+
+\[
+\mathcal H_e
+=
+\ell^2(\mathbb Z/e\mathbb Z)
+\]
+
+and source-owned rectangular cross-Gram operators
+
+\[
+\boxed{
+A_{ef}=J_e^*J_f.
+}
+\]
+
+Their exact rank is
+
+\[
+\boxed{
+\operatorname{rank}A_{ef}
+=
+\gcd(e,f).
+}
+\]
+
+The local odometers satisfy
+
+\[
+\boxed{
+A_{ef}U_f=U_eA_{ef}.
+}
+\]
+
+The local Moire mismatch operators satisfy
+
+\[
+\boxed{
+A_{ef}\Delta_f=\Delta_eA_{ef}.
+}
+\]
+
+Thus:
+
+SOURCE_OWNED_NONTRIVIAL_MATRIX_ARPL_CROSS_GRAM = FOUND_PASS_REFERENCE.
+
+The previous scalar hit-cylinder Gram is a selected matrix element of this
+larger clock-fibre Gram.
+
+A full Fourier transform of the same scalar hit indicator remains only a
+unitary basis change and does not create this extra matrix structure.
+
+## 18. Finite-support network visibility update
+
+For h=6 and the first five active channels with periods
+
+\[
+(2,3,5,6,9),
+\]
+
+the finite-support network-hidden dimensions are
+
+\[
+(0,0,4,2,6).
+\]
+
+The source refinement reverse control shows that after extending to the first
+15 active channels through p=79, the hidden dimensions of those original five
+channels become
+
+\[
+\boxed{
+(0,0,0,0,0).
+}
+\]
+
+Therefore finite-support hidden modes are exact but support-relative.
+
+They are not promoted to a persistent hidden physical sector.
+
+## 19. Updated nearest open gate
+
+The nearest hard arithmetic gate is now
+
+\[
+\boxed{
+\text{INFINITE_SUPPORT_VISIBILITY / PERSISTENCE}.
+}
+\]
+
+For a local reduced frequency denominator d, determine whether another active
+ARPL channel eventually has
+
+\[
+d\mid e_q=\operatorname{ord}_q(4).
+\]
+
+Finite searches or finite-support disappearance controls do not prove the
+infinite statement.
+
+The physical gates remain downstream and unchanged.
+
+Updated NEXT WITNESS:
+
+an infinite-support persistence/exposure theorem, or a rigorous reduction of
+that question to an identified open arithmetic distribution problem.
