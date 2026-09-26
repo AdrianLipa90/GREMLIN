@@ -80,3 +80,25 @@ def test_v02_scheduler_rejects_phase_numeric_coercion() -> None:
 def test_v02_scheduler_rejects_nonstring_payload_keys() -> None:
     with pytest.raises(GeometryPhaseSchedulerError, match="payload keys must be strings"):
         derived_phase36({1: "alpha", "1": "beta"})  # type: ignore[dict-item]
+
+
+def test_v02_scheduler_rejects_noncanonical_task_commitment() -> None:
+    row = {
+        "task_id": "bad-commitment",
+        "species": "SPIDER",
+        "payload": {},
+        "task_commitment": "not-a-commitment",
+        "created_ns": 1,
+    }
+    with pytest.raises(
+        GeometryPhaseSchedulerError,
+        match="lowercase 64-hex task_commitment",
+    ):
+        task_phase_state(row)
+
+    row["task_commitment"] = "A" * 64
+    with pytest.raises(
+        GeometryPhaseSchedulerError,
+        match="lowercase 64-hex task_commitment",
+    ):
+        task_phase_state(row)
