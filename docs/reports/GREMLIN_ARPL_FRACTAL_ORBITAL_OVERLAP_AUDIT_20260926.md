@@ -922,3 +922,108 @@ Therefore the current exact NEXT WITNESS is:
 
 For h=6 this is the sole remaining arithmetic persistence gate before any
 physical interpretation is considered.
+
+
+## 22. GRH-conditional closure of generic infinite exposure
+
+The generic joint exposure gate has now been closed conditionally on GRH by an
+explicit source-prime replication construction.
+
+Fix an active source prime p and any reduced local denominator
+
+\[
+d\mid e_p=\operatorname{ord}_p(4).
+\]
+
+Let
+
+\[
+I_4(p)
+=
+\frac{p-1}{\operatorname{ord}_p(4)},
+\qquad
+I_h(p)
+=
+\frac{p-1}{\operatorname{ord}_p(h^2)}.
+\]
+
+Activity gives
+
+\[
+I_4(p)\mid I_h(p).
+\]
+
+For every prime \(\ell\mid d\), freeze the exact value
+
+\[
+v_\ell(q-1)=v_\ell(p-1)
+\]
+
+by prescribing the Frobenius class of p in the finite cyclotomic extension
+
+\[
+\mathbb Q(\zeta_{M_{p,d}}),
+\qquad
+M_{p,d}
+=
+\prod_{\ell\mid d}
+\ell^{v_\ell(p-1)+1}.
+\]
+
+Simultaneously freeze the exact multivariable index tuple
+
+\[
+(I_4(q),I_h(q))
+=
+(I_4(p),I_h(p)).
+\]
+
+The source p itself realizes this combined index/Frobenius condition, so the
+class is nonempty.
+
+Under the GRH assumptions of the Järviniemi--Perucca multivariable index-map
+density theorem, a nonempty exact index/Frobenius class has positive natural
+density.
+
+Every prime q in that class remains ARPL-active and satisfies
+
+\[
+d\mid\operatorname{ord}_q(4).
+\]
+
+Hence the full exposure set has positive lower natural density:
+
+\[
+\boxed{
+\underline{\delta}(\mathcal E_{h,d})>0
+}
+\]
+
+under GRH.
+
+Therefore every fixed local ARPL mode is exposed by infinitely many other
+active channels under GRH.
+
+Consequently:
+
+\[
+\boxed{
+\mathcal N_p^\infty=\{0\}
+}
+\]
+
+for every fixed finite local clock fibre under GRH.
+
+This does not establish a physical observability statement.
+
+Current status:
+
+GENERIC_FIXED_DENOMINATOR_EXPOSURE = PASS_UNDER_GRH  
+INFINITE_SUPPORT_HIDDEN_SUBSPACE = ZERO_UNDER_GRH  
+UNCONDITIONAL_GENERIC_EXPOSURE = OPEN
+
+Pinned frontier receipt:
+
+AdrianLipa90/On-Primes  
+branch research/arpl-infinite-clock-visibility-frontier-v0.1-20260926  
+commit dc1cdbb401dd618738c8a23249fa4c23c8fe5515
