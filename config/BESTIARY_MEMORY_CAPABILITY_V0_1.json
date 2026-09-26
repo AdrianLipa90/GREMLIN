@@ -41,7 +41,12 @@
     "RETENTION_PROPOSAL",
     "PROMOTION_PROPOSAL",
     "QUARANTINE_PROPOSAL",
-    "GOVERNANCE_DECISION"
+    "GOVERNANCE_DECISION",
+    "ASTRO_SOURCE_RECEIPT",
+    "FITS_PROVENANCE_RECEIPT",
+    "FITS_CUTOUT_MANIFEST",
+    "BESTIARY_HANDOFF_RECEIPT",
+    "PHASE_MARKER_PACKET"
   ],
   "authentication": "UNSIGNED_CONTENT_COMMITMENT",
   "authority": "SHARED_COGNITION_ONLY",
@@ -344,6 +349,10 @@
       },
       {
         "artifacts": [
+          "ASTRO_SOURCE_RECEIPT",
+          "BESTIARY_HANDOFF_RECEIPT",
+          "FITS_CUTOUT_MANIFEST",
+          "FITS_PROVENANCE_RECEIPT",
           "SEARCH_RECEIPT"
         ],
         "layers": [
@@ -1076,7 +1085,7 @@
       }
     ]
   },
-  "policy_sha256": "7ec378caeb8c217be0afdb4cd4dd67056cb9c4b466e7ff30ef3267fa6faaa86b",
+  "policy_sha256": "299833f186b2b3ea83923d17e2999992130b7afb15c8fdcef1ba0101d01eb85c",
   "private_layer": "PRIVATE_SCRATCH",
   "private_scratch_policy": {
     "grant": {
