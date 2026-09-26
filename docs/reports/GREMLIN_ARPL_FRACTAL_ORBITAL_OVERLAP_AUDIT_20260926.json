@@ -68,6 +68,15 @@
       "sha": "7e0fd3e236fb96149e09a4c775ab4bd2fd9e8754",
       "proof": "proofs/ARPL_UNCONDITIONAL_GENERIC_EXPOSURE_FRONTIER_V0_1.md",
       "receipt": "receipts/ARPL_UNCONDITIONAL_GENERIC_EXPOSURE_FRONTIER_V0_1_VALIDATION_20260926.md"
+    },
+    "arpl_cyclotomic_two_target": {
+      "repo": "AdrianLipa90/On-Primes",
+      "branch": "research/arpl-cyclotomic-two-target-frontier-v0.1-20260927",
+      "validation_receipt_sha": "2cf143124a9b5e34e27160b525a5ca405ab79e6d",
+      "base_compare": {
+        "ahead_by": 4,
+        "behind_by": 0
+      }
     }
   },
   "exact_pass": [
@@ -91,7 +100,11 @@
     "GENERIC_FIXED_DENOMINATOR_EXPOSURE_UNDER_GRH",
     "INFINITE_SUPPORT_HIDDEN_SUBSPACE_ZERO_UNDER_GRH",
     "STRICT_POWER_TOWER_EXPOSURE_EQUIVALENCE",
-    "ENHANCED_SCHINZEL_WOJCIK_REDUCTION"
+    "ENHANCED_SCHINZEL_WOJCIK_REDUCTION",
+    "ARPL_CYCLOTOMIC_TWO_TARGET_SOURCE_CALIBRATION",
+    "TWO_TARGET_SUPPORT_IMPLIES_ARPL_EXPOSURE",
+    "BETA_H_PAIR_SUPPORT_UNCONDITIONAL",
+    "BETA_ZETA_PAIR_SUPPORT_UNCONDITIONAL"
   ],
   "fail_preserved": [
     {
@@ -112,7 +125,9 @@
     "UNCONDITIONAL_ACTIVE_MARGINAL_PLUS_ORDER_MARGINAL_IMPLIES_JOINT",
     "CARELLA_2103_04822_V1_LEMMA_2_2",
     "RECURRENCE_MULTIPLE_EXPONENT_SHORTCUT",
-    "ACTIVE_PLUS_CYCLOTOMIC_CONGRUENCE_SHORTCUT"
+    "ACTIVE_PLUS_CYCLOTOMIC_CONGRUENCE_SHORTCUT",
+    "ONE_PRODUCT_ENCODER_FOR_TWO_TARGETS",
+    "EXPONENT_PRIME_PROGRESSIONS_CONTROL_OUTPUT_FROBENIUS"
   ],
   "repaired": [
     "ON_PRIMES_PARENT_DIVERGENCE",
@@ -120,14 +135,14 @@
     "STALE_ARPL_SOURCE_PIN"
   ],
   "open": [
-    "UNCONDITIONAL_CHEBOTAREV_RESTRICTED_TWO_VARIABLE_SUPPORT",
+    "SIMULTANEOUS_CYCLOTOMIC_TWO_TARGET_SUPPORT",
     "PHYSICAL_PRIME_PHASE_BINDING",
     "PHYSICAL_ORBITAL_REALIZATION",
     "PHYSICAL_36D_CALIBRATION",
     "HOSTED_CI"
   ],
   "canon_allowed": false,
-  "next_witness": "UNCONDITIONAL_CHEBOTAREV_RESTRICTED_TWO_VARIABLE_SUPPORT_OR_EFFECTIVE_LOWER_BOUND",
+  "next_witness": "UNCONDITIONAL_SIMULTANEOUS_TWO_TARGET_SUPPORT_OR_FINITE_SET_SCHINZEL_WOJCIK",
   "frontier": {
     "exact_reduction": "active q iff h in +/-<2>; mode exposed iff reduced denominator divides ord_q(4)",
     "status": "OPEN_ARTIN_TYPE",
@@ -162,7 +177,12 @@
     "unconditional_missing_input": "CHEBOTAREV_RESTRICTED_TWO_VARIABLE_SUPPORT",
     "recurrence_subsequence_shortcut": "REFUTED",
     "active_plus_congruence_shortcut": "REFUTED",
-    "sgr2025_scope": "ONE_SUBGROUP_VALUATION_OR_CONVERGENCE_STRUCTURED_NOT_GENERIC_EXACT_MULTIVARIABLE_SINGLETON"
+    "sgr2025_scope": "ONE_SUBGROUP_VALUATION_OR_CONVERGENCE_STRUCTURED_NOT_GENERIC_EXACT_MULTIVARIABLE_SINGLETON",
+    "cyclotomic_two_target": "EXACT_REDUCTION_PASS",
+    "pairwise_calibrated_support": "CLOSED_UNCONDITIONALLY_SEPARATELY",
+    "simultaneous_calibrated_support": "OPEN_UNCONDITIONALLY",
+    "stronger_sufficient_target": "FINITE_SET_SCHINZEL_WOJCIK_FOR_CALIBRATED_TRIPLE",
+    "single_product_encoder": "REFUTED"
   },
   "excluded_evidence": [
     "CARELLA_ARXIV_2103_04822_V1_PROOF_INVALID_AS_PRINTED"
