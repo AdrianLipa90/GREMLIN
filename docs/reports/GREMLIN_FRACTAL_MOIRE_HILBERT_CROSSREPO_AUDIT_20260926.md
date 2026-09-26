@@ -33,10 +33,10 @@ Gap found:
 - no explicit ARPL -> Fractal-Orbital Hilbert representation bridge.
 
 Action:
-- initial integration branch integrate/arpl-fractal-orbital-bridge-v0.1-20260926 was created, but verification detected that the ARPL source branch advanced concurrently by 5 commits;
-- that initial branch is therefore retained only as stale provenance and is NOT the current integration target;
-- created replacement branch integrate/arpl-fractal-orbital-bridge-v0.1-20260926-r2 from the newer ARPL head;
-- added proofs/ARPL_FRACTAL_ORBITAL_HILBERT_BRIDGE_V0_1.md on r2.
+- the first two integration branches were created while the ARPL source branch was advancing concurrently and became stale during verification;
+- to eliminate the race, proofs/ARPL_FRACTAL_ORBITAL_HILBERT_BRIDGE_V0_1.md was written directly onto the active feat/arithmetic-relational-phase-law-v0.1 branch;
+- commit: 49dd94902ca1837b475eb96d626c8e29e0d44f62;
+- the earlier integration branches remain provenance only and are not the authoritative target.
 
 ### Orbital-System-base
 
@@ -68,7 +68,7 @@ Audit state at inspection:
 - contains a 36D Moire/coframe/bivector candidate.
 
 Gap found:
-- current master has no clean current-head bridge from the newer Fractal-Orbital Moire-Hilbert formalism to a typed PhaseNav 36D carrier.
+- current master had no clean current-head bridge from the newer Fractal-Orbital Moire-Hilbert formalism to a typed PhaseNav 36D carrier.
 
 Action:
 - created branch formalism/fractal-moire-hilbert-36d-bridge-v0.1-20260926 from current master;
@@ -93,9 +93,10 @@ No duplicate write was required.
 
 ## Result
 
-The missing cross-layer formalization has now been recorded without mutating main/master and without overwriting divergent historical work.
+The missing cross-layer formalization is now recorded.
 
-Current On-Primes integration target:
-- integrate/arpl-fractal-orbital-bridge-v0.1-20260926-r2
+No main/master branch was mutated.
+The active ARPL feature branch was intentionally updated to avoid concurrent-head drift.
+Divergent historical Moire work was preserved intact.
 
 Promotion/merge remains a separate decision.
