@@ -40,6 +40,11 @@
       "repo": "AdrianLipa90/noema-phasenav-core",
       "branch": "formalism/fractal-moire-hilbert-36d-bridge-v0.11-20260926",
       "validation_receipt_sha": "f26002ac57c8dd1c42ded490d37f63726f9e7abe"
+    },
+    "arpl_visibility_frontier": {
+      "repo": "AdrianLipa90/On-Primes",
+      "branch": "research/arpl-infinite-clock-visibility-frontier-v0.1-20260926",
+      "validation_receipt_sha": "1689f5aeae8f28e9a2f31b93fe0ec8db764fab63"
     }
   },
   "exact_pass": [
@@ -52,7 +57,10 @@
     "SOURCE_OWNED_NONTRIVIAL_MATRIX_ARPL_CROSS_GRAM",
     "ARPL_RECTANGULAR_ODOMETER_INTERTWINER",
     "ARPL_CLOCK_FIBRE_RANK_EQUALS_GCD",
-    "ARPL_FINITE_SUPPORT_NETWORK_VISIBILITY"
+    "ARPL_FINITE_SUPPORT_NETWORK_VISIBILITY",
+    "ARPL_ACTIVE_IFF_SIGNED_DYADIC_SUBGROUP",
+    "ARPL_INFINITE_PERSISTENCE_REDUCTION",
+    "ARPL_H6_FINITE_EXPOSURE_CONTROLS"
   ],
   "fail_preserved": [
     {
@@ -68,7 +76,8 @@
     "FULL_RANK_FRAME_CONJUGACY_IMPLIES_INDEPENDENT_EXTERNAL_DYNAMICS",
     "36D_EQUALS_FULL_INFINITE_HILBERT_STATE",
     "FULL_FOURIER_REEXPRESSION_OF_SCALAR_HIT_VECTOR_CREATES_NEW_MATRIX_GRAM",
-    "FINITE_SUPPORT_HIDDEN_IMPLIES_INFINITE_SUPPORT_HIDDEN"
+    "FINITE_SUPPORT_HIDDEN_IMPLIES_INFINITE_SUPPORT_HIDDEN",
+    "ORDER_DIVISIBILITY_ALONE_IMPLIES_EXPOSURE"
   ],
   "repaired": [
     "ON_PRIMES_PARENT_DIVERGENCE",
@@ -76,12 +85,35 @@
     "STALE_ARPL_SOURCE_PIN"
   ],
   "open": [
-    "INFINITE_SUPPORT_VISIBILITY_PERSISTENCE",
+    "ARPL_INFINITE_SUPPORT_EXPOSURE_THEOREM_OPEN_ARTIN_TYPE",
     "PHYSICAL_PRIME_PHASE_BINDING",
     "PHYSICAL_ORBITAL_REALIZATION",
     "PHYSICAL_36D_CALIBRATION",
     "HOSTED_CI"
   ],
   "canon_allowed": false,
-  "next_witness": "INFINITE_SUPPORT_VISIBILITY_PERSISTENCE_OR_REDUCTION_TO_OPEN_ARITHMETIC_DISTRIBUTION"
+  "next_witness": "JOINT_SUBGROUP_MEMBERSHIP_AND_ORD4_DIVISIBILITY_THEOREM_OR_CONDITIONAL_DENSITY",
+  "frontier": {
+    "exact_reduction": "active q iff h in +/-<2>; mode exposed iff reduced denominator divides ord_q(4)",
+    "status": "OPEN_ARTIN_TYPE",
+    "h6_finite_controls": {
+      "e6_exposure": {
+        "q": 37,
+        "ord4": 18
+      },
+      "e9_exposure": {
+        "q": 37,
+        "ord4": 18
+      },
+      "e5_exposure": {
+        "q": 61,
+        "ord4": 30
+      },
+      "countercontrol": {
+        "q": 31,
+        "ord4": 5,
+        "active": false
+      }
+    }
+  }
 }
