@@ -60,7 +60,10 @@
     "ARPL_FINITE_SUPPORT_NETWORK_VISIBILITY",
     "ARPL_ACTIVE_IFF_SIGNED_DYADIC_SUBGROUP",
     "ARPL_INFINITE_PERSISTENCE_REDUCTION",
-    "ARPL_H6_FINITE_EXPOSURE_CONTROLS"
+    "ARPL_H6_FINITE_EXPOSURE_CONTROLS",
+    "INFINITE_ARPL_ACTIVE_CHANNELS",
+    "PRESCRIBED_ORD4_DIVISIBILITY_POSITIVE_DENSITY",
+    "SIGNED_DYADIC_FIXED_DENOMINATOR_EXPOSURE"
   ],
   "fail_preserved": [
     {
@@ -85,14 +88,14 @@
     "STALE_ARPL_SOURCE_PIN"
   ],
   "open": [
-    "ARPL_INFINITE_SUPPORT_EXPOSURE_THEOREM_OPEN_ARTIN_TYPE",
+    "GENERIC_JOINT_SUBGROUP_MEMBERSHIP_AND_ORD4_DIVISIBILITY",
     "PHYSICAL_PRIME_PHASE_BINDING",
     "PHYSICAL_ORBITAL_REALIZATION",
     "PHYSICAL_36D_CALIBRATION",
     "HOSTED_CI"
   ],
   "canon_allowed": false,
-  "next_witness": "JOINT_SUBGROUP_MEMBERSHIP_AND_ORD4_DIVISIBILITY_THEOREM_OR_CONDITIONAL_DENSITY",
+  "next_witness": "GENERIC_JOINT_SUBGROUP_MEMBERSHIP_AND_ORD4_DIVISIBILITY_THEOREM",
   "frontier": {
     "exact_reduction": "active q iff h in +/-<2>; mode exposed iff reduced denominator divides ord_q(4)",
     "status": "OPEN_ARTIN_TYPE",
@@ -114,6 +117,11 @@
         "ord4": 5,
         "active": false
       }
-    }
+    },
+    "active_marginal": "CLOSED_UNCONDITIONAL_INFINITUDE",
+    "order_divisibility_marginal": "CLOSED_POSITIVE_NATURAL_DENSITY",
+    "signed_dyadic_joint": "CLOSED_POSITIVE_NATURAL_DENSITY",
+    "generic_joint": "OPEN",
+    "exact_set": "E_{h,d}={q: h in +/-<2> mod q and d | ord_q(4)}"
   }
 }
