@@ -5,7 +5,7 @@
   "branch": "fix/gremlin-28-error-audit-20260926",
   "pull_request": 151,
   "base_main_sha": "ca82949818b49465d0c2d0535aa9c219c32bdf32",
-  "repair_head_before_receipt": "630f3abca131a36f86c32bf6151a2d613266f998",
+  "repair_head_before_receipt": "6147f3843e36c630d6ba8d4891d9b92918caa53a",
   "reported_diagnostics": {
     "user_reported_count": 28,
     "authoritative_itemized_source_available": false,
@@ -111,6 +111,32 @@
         "regression coverage binds memory bias to scheduling order only",
         "phase-memory bias is verified not to change OCTOPUS species membership"
       ]
+    },
+    {
+      "id": "OCTOPUS_STRICT_NUMERIC_ABI",
+      "fixes": [
+        "max_species rejects bool and fractional coercion instead of int()-truncating input",
+        "min_score rejects non-real and non-finite values before routing",
+        "relative_cutoff rejects non-real and non-finite values before routing"
+      ]
+    },
+    {
+      "id": "PHASENAV_V02_STRICT_INPUT_CONTRACT",
+      "fixes": [
+        "36D phase coordinates reject bool/string numeric coercion",
+        "Bestiary role/species identifiers must be strings",
+        "PhaseGate36 coefficients reject bool/string coercion and are normalized only after type validation",
+        "route candidates must be ordered sequences of strings",
+        "octopus_route max_species and min_score reject coercion and non-finite inputs"
+      ]
+    },
+    {
+      "id": "SCHEDULER_V02_PROVENANCE_INPUT_INTEGRITY",
+      "fixes": [
+        "explicit scheduler phase36 coordinates reject bool/string numeric coercion",
+        "scheduler payload keys must be strings, preventing silent 1 versus \"1\" canonical-key collisions",
+        "task_phase_state requires the same lowercase 64-hex task commitment contract as WorkerBroker transport lineage"
+      ]
     }
   ],
   "regression_tests_added": [
@@ -130,7 +156,14 @@
     "reject unordered route set",
     "reject duplicate JSON keys in ledger",
     "gateway phase-memory reorder preserves OCTOPUS membership",
-    "reject invalid base score outside selected species"
+    "reject invalid base score outside selected species",
+    "reject OCTOPUS bool/fractional/string/non-finite numeric coercion",
+    "reject PhaseNav v0.2 coordinate and coefficient coercion",
+    "reject unordered/non-string PhaseNav v0.2 route candidates",
+    "reject PhaseNav v0.2 route max_species/min_score coercion",
+    "reject scheduler explicit phase numeric coercion",
+    "reject scheduler non-string payload keys",
+    "reject scheduler noncanonical task commitment"
   ],
   "repair_commits": {
     "phase_memory_hardening": "279d19cb26d4dccdfa5eb588a8e37e51fe559938",
@@ -147,7 +180,16 @@
     "ordered_routes_and_duplicate_key_tests": "d21a368d40283c710e93b3659b711fe1ee7d0c65",
     "gateway_membership_firewall_test": "5deb5ac087ff113bacb4556ef222595a97a2ae7b",
     "all_memory_order_scores_fail_closed": "414ab283fc412252b15e50051f75e5e5c24435ea",
-    "unselected_invalid_score_regression": "f51b9debccb3044de584d4d62ec1abfd09ea116d"
+    "unselected_invalid_score_regression": "f51b9debccb3044de584d4d62ec1abfd09ea116d",
+    "octopus_strict_numeric_abi": "abb1fac9aa763b324fd2f3588c679f03af659dea",
+    "octopus_strict_numeric_tests": "bc11934d0eca283094c6dcd925954b638dddef5b",
+    "octopus_pytest_import_fix": "0273c7faaf7f70c42d89ba13efdc80a98d706e0c",
+    "phasenav_v02_strict_inputs": "aa629b2913f5c3bafbcd5341a7249b83cf3292e1",
+    "phasenav_v02_strict_input_tests": "0010ffc8461b93dd5db33b7b72fb38c3492e05fe",
+    "scheduler_phase_payload_key_hardening": "df4cd3e8b7e43a1f743f1e9985b54084fda0145c",
+    "scheduler_phase_payload_key_tests": "59ddf10b29c73ca2ca3ff1fdb836a1858463b65f",
+    "scheduler_commitment_format_hardening": "c37d09f957e07c19366d2f68a4444edce4a2548b",
+    "scheduler_commitment_format_tests": "6147f3843e36c630d6ba8d4891d9b92918caa53a"
   },
   "validation": {
     "noema_aux_tether": {
@@ -175,7 +217,10 @@
       "reference_mcp_tool_count": 35,
       "product_mcp_tool_count": 29,
       "product_29_is_intentional_surface_specific_contract": true,
-      "pr_mergeable": true
+      "pr_mergeable": true,
+      "active_phasenav_v02_strict_input_contract": true,
+      "active_scheduler_v02_commitment_contract": "LOWERCASE_64_HEX",
+      "octopus_numeric_coercion_disabled": true
     },
     "full_exact_head_regression": "PENDING_RUNNER_AVAILABILITY"
   },
