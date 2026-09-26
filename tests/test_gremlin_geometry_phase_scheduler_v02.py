@@ -201,3 +201,41 @@ def test_v02_scheduler_rejects_noncanonical_affinity_commitments() -> None:
             affinity_by_task={"task-v02": ["b" * 64]},
             receiver_known_affinity=[7],  # type: ignore[list-item]
         )
+
+
+def test_v02_scheduler_validates_unused_hint_entries_fail_closed() -> None:
+    with pytest.raises(
+        GeometryPhaseSchedulerError,
+        match="cadence hints must contain real numbers",
+    ):
+        choose_species(
+            {},
+            now_ns=1,
+            cadence_hint={"SPIDER": "unused-invalid"},  # type: ignore[dict-item]
+        )
+    with pytest.raises(
+        GeometryPhaseSchedulerError,
+        match="locality hint keys must be supported scheduler species",
+    ):
+        choose_species(
+            {},
+            now_ns=1,
+            locality_hint={"NOT_A_ROLE": 0.5},
+        )
+
+
+def test_v02_scheduler_validates_unselected_affinity_entries_fail_closed() -> None:
+    row = _row()
+    with pytest.raises(
+        GeometryPhaseSchedulerError,
+        match="lowercase 64-hex commitments",
+    ):
+        select_batch(
+            [row],
+            limit=1,
+            now_ns=2,
+            affinity_by_task={
+                "task-v02": ["b" * 64],
+                "not-selected": ["invalid"],
+            },
+        )
