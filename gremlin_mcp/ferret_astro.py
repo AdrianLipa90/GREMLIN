@@ -17,6 +17,8 @@ OFFICIAL_ASTRO_HOSTS = frozenset({
     "irsa.ipac.caltech.edu",
     "lambda.gsfc.nasa.gov",
     "skyview.gsfc.nasa.gov",
+    "alasky.cds.unistra.fr",
+    "alaskybis.cds.unistra.fr",
 })
 
 ALLOWED_KINDS = frozenset({
