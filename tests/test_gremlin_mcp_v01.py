@@ -121,14 +121,14 @@ def test_standalone_phasenav_runtime_import_surface_is_complete() -> None:
     s = status()
     assert s["standalone"] is True
     assert s["live_noema_required_for_core"] is False
-    assert s["species_count"] == 18
+    assert s["species_count"] == 20
     assert set(s["species"]) >= {"FOX", "BEAVER", "BAT", "CANARY", "SERPENT", "CHAMELEON"}
     assert s["vector_backend_available"] is True
     assert s["spectroscopic_holonomy_packet_schema"] == "PHASENAV_SPECTROSCOPIC_HOLONOMY_STATE_V0_1"
     assert s["spectroscopic_inverse_problem_available"] is True
 
     sweep = reference_sweep()
-    assert sweep["species_count"] == 18
+    assert sweep["species_count"] == 20
     assert sweep["external_effects"] is False
     assert sweep["canon_allowed"] is False
 
