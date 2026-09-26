@@ -3,8 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-SCHEMA = "GREMLIN_MCP_PHASENAV_RUNTIME_V0_1"
-VERSION = "0.1.0"
+SCHEMA = "GREMLIN_MCP_PHASENAV_RUNTIME_V0_2"
+VERSION = "0.2.0"
 
 
 def status() -> dict[str, Any]:
@@ -14,7 +14,7 @@ def status() -> dict[str, Any]:
     Live replay is optional and fails closed when /dev/shm/ciel_noema is absent
     or inactive.
     """
-    from tools.gremlin_bestiary_phasenav_phase_gates_v01 import (
+    from tools.gremlin_bestiary_phasenav_phase_gates_v02 import (
         DIM,
         SPECIES,
         phase_gate_vectorization_manifest,
@@ -33,6 +33,12 @@ def status() -> dict[str, Any]:
         "vector_backend_available": bool(manifest["vectorized_batch_realization"]),
         "threeway_continuous_reference_available": True,
         "analog_invariant_suite_available": True,
+        "full_bestiary_phase_carriers": True,
+        "full_bestiary_phase_carrier_count": len(SPECIES),
+        "arpl_phase_law_bound": True,
+        "role_geometry": "CANDIDATE_10_ORTHOPLEX",
+        "legacy_threeway_scope_species": 18,
+        "legacy_analog_invariant_scope_species": 9,
         "spectroscopic_holonomy_packet_schema": "PHASENAV_SPECTROSCOPIC_HOLONOMY_STATE_V0_1",
         "spectroscopic_inverse_problem_available": True,
         "live_noema_required_for_core": False,
@@ -46,8 +52,8 @@ def status() -> dict[str, Any]:
 
 
 def reference_sweep() -> dict[str, Any]:
-    """Run all 18 species through the dependency-free reference phase layer."""
-    from tools.gremlin_bestiary_phasenav_phase_gates_v01 import (
+    """Run all 20 roles through the ARPL-bound reference phase layer."""
+    from tools.gremlin_bestiary_phasenav_phase_gates_v02 import (
         run_full_bestiary_reference_sweep,
     )
 
@@ -88,12 +94,12 @@ def live_replay(
     surface_root: str = "/dev/shm/ciel_noema",
     steps: int = 1,
 ) -> dict[str, Any]:
-    """Replay all species against an explicitly supplied live PhaseNav surface.
+    """Replay all 20 phase-armed roles against an explicit live PhaseNav surface.
 
-    This path has no fallback.  If the surface is absent, inactive or missing
-    required vectors, the imported live-binding module raises fail loud.
+    This path has no fallback. If the surface is absent, inactive or missing
+    required existing operator vectors, the v0.2 live-binding adapter fails loud.
     """
-    from tools.gremlin_bestiary_phasenav_live_binding_v01 import (
+    from tools.gremlin_bestiary_phasenav_live_binding_v02 import (
         replay_all_live_species,
     )
 

@@ -32,7 +32,7 @@ def test_worker_register_claim_submit_roundtrip_is_candidate_only() -> None:
     assert lease["batch_size"] <= lane_width("SPIDER", vector_width=8)
     claimed_ids = [task["task_id"] for task in lease["tasks"]]
     assert set(claimed_ids) == {"task-a", "task-b"}
-    assert lease["scheduler"]["mode"] == "GEOMETRY_PHASE_STATE_CLUSTERED_V0_1"
+    assert lease["scheduler"]["mode"] == "GEOMETRY_PHASE_STATE_CLUSTERED_V0_2"
     assert lease["scheduler"]["fifo_primary"] is False
 
     receipt = broker.submit(
@@ -64,7 +64,7 @@ def test_worker_claim_is_lane_bounded() -> None:
     lease = broker.claim("mole-test", limit=128)
     assert 1 <= lease["batch_size"] <= lane_width("MOLE", vector_width=8)
     assert len(lease["tasks"]) == lease["batch_size"]
-    assert lease["scheduler"]["mode"] == "GEOMETRY_PHASE_STATE_CLUSTERED_V0_1"
+    assert lease["scheduler"]["mode"] == "GEOMETRY_PHASE_STATE_CLUSTERED_V0_2"
 
 
 def test_worker_submission_fails_closed_on_wrong_worker_or_partial_batch() -> None:
@@ -371,7 +371,7 @@ def test_lease_expiry_heap_compacts_stale_entries_under_repeated_short_leases() 
 def test_worker_claim_reuses_precomputed_phase_state_after_enqueue_and_reap(
     monkeypatch,
 ) -> None:
-    import tools.gremlin_geometry_phase_scheduler_v01 as scheduler
+    import tools.gremlin_geometry_phase_scheduler_v02 as scheduler
 
     broker = WorkerBroker()
     broker.register_worker(

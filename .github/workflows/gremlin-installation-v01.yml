@@ -84,11 +84,11 @@ jobs:
           assert {"FOX","BEAVER","BAT","CANARY","SERPENT","CHAMELEON","ELEPHANT","BEES"} <= names
           s = status()
           assert s["standalone"] is True
-          assert s["species_count"] == 18
+          assert s["species_count"] == 20
           assert s["live_noema_required_for_core"] is False
           assert s["vector_backend_available"] is True
           sweep = reference_sweep()
-          assert sweep["species_count"] == 18
+          assert sweep["species_count"] == 20
           assert sweep["external_effects"] is False
           assert mcp is not None
           print("ISOLATED_LINUX_WHEEL_RUNTIME_PASS")
@@ -166,15 +166,15 @@ jobs:
           from gremlin_mcp.server_with_hive import mcp
 
           names = {item["name"] for item in bestiary_manifest()["species"]}
-          assert len(names) == 18
-          assert {"FOX","BEAVER","BAT","CANARY","SERPENT","CHAMELEON"} <= names
+          assert len(names) == 20
+          assert {"FOX","BEAVER","BAT","CANARY","SERPENT","CHAMELEON","ELEPHANT","BEES"} <= names
           s = status()
           assert s["standalone"] is True
-          assert s["species_count"] == 18
+          assert s["species_count"] == 20
           assert s["live_noema_required_for_core"] is False
           assert s["vector_backend_available"] is True
           sweep = reference_sweep()
-          assert sweep["species_count"] == 18
+          assert sweep["species_count"] == 20
           assert sweep["external_effects"] is False
           assert mcp is not None
           print("ISOLATED_WINDOWS_WHEEL_RUNTIME_PASS")

@@ -16,7 +16,7 @@ from tools.gremlin_bestiary_vector_species_v03 import (
     dispatch_compression,
     validate_plan,
 )
-from tools.gremlin_geometry_phase_scheduler_v01 import scheduler_manifest
+from tools.gremlin_geometry_phase_scheduler_v02 import scheduler_manifest
 
 SCHEMA = "GREMLIN_MCP_V0_5"
 VERSION = "0.5.0"
