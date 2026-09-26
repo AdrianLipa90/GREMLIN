@@ -231,6 +231,13 @@ function renderSystem(payload) {
   systemEdition.textContent = license.edition ? `edition ${license.edition}` : "edition —";
 
   const toolCount = Number.isInteger(mcp.tool_count) ? mcp.tool_count : "—";
+  const groupedTools = Object.values(mcp.tool_groups || {}).flatMap((items) =>
+    Array.isArray(items) ? items : []
+  );
+  const uniqueGroupedTools = new Set(groupedTools);
+  const mcpRegistryExact = Number.isInteger(toolCount)
+    && groupedTools.length === toolCount
+    && uniqueGroupedTools.size === toolCount;
   systemToolCount.textContent = toolCount === "—" ? "—" : `${toolCount} tools`;
   systemContract.textContent = mcp.capability_contract || "contract —";
 
@@ -250,7 +257,7 @@ function renderSystem(payload) {
   setBadge(
     mcpBadge,
     `MCP: ${toolCount === "—" ? "unknown" : toolCount + " tools"}`,
-    toolCount === 29 ? "badge-safe" : "badge-muted",
+    mcpRegistryExact ? "badge-safe" : "badge-muted",
   );
 
   renderBestiary(bestiary);
