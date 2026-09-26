@@ -66,6 +66,34 @@ def _canonical(value: Any) -> bytes:
         raise GeometryPhaseSchedulerError("scheduler payload must be finite JSON data") from exc
 
 
+def _nonnegative_ns(value: Any, field: str) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        raise GeometryPhaseSchedulerError(f"{field} must be a non-negative integer")
+    return value
+
+
+def _hint_real(
+    mapping: Mapping[str, float] | None,
+    species: str,
+    field: str,
+    *,
+    default: float,
+    upper: float | None = None,
+) -> float:
+    if mapping is None:
+        return default
+    if not isinstance(mapping, Mapping):
+        raise GeometryPhaseSchedulerError(f"{field} hints must be a mapping")
+    raw = mapping.get(species, default)
+    if isinstance(raw, bool) or not isinstance(raw, Real):
+        raise GeometryPhaseSchedulerError(f"{field} hints must contain real numbers")
+    value = float(raw)
+    if not math.isfinite(value) or value < 0.0 or (upper is not None and value > upper):
+        suffix = " in [0,1]" if upper == 1.0 else " and non-negative"
+        raise GeometryPhaseSchedulerError(f"{field} hints must be finite{suffix}")
+    return value
+
+
 def _unit(value: Any, field: str, *, default: float) -> float:
     if value is None:
         return default
@@ -256,8 +284,12 @@ def _task_state(row: Mapping[str, Any]) -> TaskPhaseState:
     payload = row.get("payload")
     commitment = row.get("task_commitment")
     created_ns = row.get("created_ns")
-    if not isinstance(task_id, str) or not task_id:
-        raise GeometryPhaseSchedulerError("scheduler task requires task_id")
+    if (
+        not isinstance(task_id, str)
+        or not task_id.strip()
+        or task_id != task_id.strip()
+    ):
+        raise GeometryPhaseSchedulerError("scheduler task requires a canonical non-empty task_id")
     if not isinstance(species, str) or species not in SCHEDULER_SPECIES:
         raise GeometryPhaseSchedulerError("scheduler task has unsupported species")
     if not isinstance(payload, Mapping):
@@ -266,8 +298,7 @@ def _task_state(row: Mapping[str, Any]) -> TaskPhaseState:
         raise GeometryPhaseSchedulerError(
             "scheduler task requires a lowercase 64-hex task_commitment"
         )
-    if isinstance(created_ns, bool) or not isinstance(created_ns, int) or created_ns < 0:
-        raise GeometryPhaseSchedulerError("scheduler task requires non-negative created_ns")
+    created_ns = _nonnegative_ns(created_ns, "created_ns")
 
     raw_meta = payload.get(SCHEDULER_KEY)
     if raw_meta is None:
@@ -328,8 +359,12 @@ def _states_for_rows(
     states: list[TaskPhaseState] = []
     for row in rows:
         task_id = row.get("task_id")
-        if not isinstance(task_id, str) or not task_id:
-            raise GeometryPhaseSchedulerError("scheduler task requires task_id")
+        if (
+            not isinstance(task_id, str)
+            or not task_id.strip()
+            or task_id != task_id.strip()
+        ):
+            raise GeometryPhaseSchedulerError("scheduler task requires a canonical non-empty task_id")
         state = precomputed_states.get(task_id)
         if not isinstance(state, TaskPhaseState):
             raise GeometryPhaseSchedulerError(
@@ -348,6 +383,7 @@ def _states_for_rows(
 
 
 def _age_boost(state: TaskPhaseState, now_ns: int) -> float:
+    now_ns = _nonnegative_ns(now_ns, "now_ns")
     if now_ns < state.created_ns:
         return 0.0
     age_s = (now_ns - state.created_ns) / 1_000_000_000.0
@@ -459,12 +495,19 @@ def choose_species(
         metrics[species] = m
         if not m["eligible"]:
             continue
-        cadence = 0.0 if cadence_hint is None else float(cadence_hint.get(species, 0.0))
-        if not math.isfinite(cadence) or cadence < 0.0:
-            raise GeometryPhaseSchedulerError("cadence hints must be finite and non-negative")
-        locality = 0.0 if locality_hint is None else float(locality_hint.get(species, 0.0))
-        if not math.isfinite(locality) or not (0.0 <= locality <= 1.0):
-            raise GeometryPhaseSchedulerError("locality hints must be finite and in [0,1]")
+        cadence = _hint_real(
+            cadence_hint,
+            species,
+            "cadence",
+            default=0.0,
+        )
+        locality = _hint_real(
+            locality_hint,
+            species,
+            "locality",
+            default=0.0,
+            upper=1.0,
+        )
         # Receiver locality is a bounded additive bias. Cadence remains a
         # deterministic secondary hint after geometry/state + locality.
         effective = float(m["queue_score"]) + RECEIVER_SPECIES_AFFINITY_WEIGHT * locality
@@ -497,14 +540,25 @@ def geometry_lane_width(
     cluster_coherence: float,
     legacy_cap: int | None = None,
 ) -> int:
-    vw = int(vector_width)
-    mb = int(max_batch)
+    if isinstance(vector_width, bool) or not isinstance(vector_width, int):
+        raise GeometryPhaseSchedulerError("vector_width must be a positive integer")
+    if isinstance(max_batch, bool) or not isinstance(max_batch, int):
+        raise GeometryPhaseSchedulerError("max_batch must be a positive integer")
+    vw = vector_width
+    mb = max_batch
     if vw <= 0 or mb <= 0:
         raise GeometryPhaseSchedulerError("vector_width and max_batch must be positive")
+    if isinstance(cluster_coherence, bool) or not isinstance(cluster_coherence, Real):
+        raise GeometryPhaseSchedulerError("cluster_coherence must be a real number")
     coherence = float(cluster_coherence)
     if not math.isfinite(coherence) or not (0.0 <= coherence <= 1.0):
         raise GeometryPhaseSchedulerError("cluster_coherence must be in [0,1]")
-    cap = mb if legacy_cap is None else min(mb, int(legacy_cap))
+    if legacy_cap is None:
+        cap = mb
+    else:
+        if isinstance(legacy_cap, bool) or not isinstance(legacy_cap, int):
+            raise GeometryPhaseSchedulerError("legacy_cap must be a positive integer")
+        cap = min(mb, legacy_cap)
     if cap <= 0:
         raise GeometryPhaseSchedulerError("lane cap must be positive")
     # Coherent queues may use wider vector batches; noisy queues contract.
@@ -539,10 +593,18 @@ def _normalize_affinity(
     for task_id, values in affinity_by_task.items():
         if task_id not in eligible_ids:
             continue
+        if not isinstance(task_id, str) or not task_id.strip() or task_id != task_id.strip():
+            raise GeometryPhaseSchedulerError("affinity task ids must be canonical non-empty strings")
         if isinstance(values, (str, bytes, Mapping)) or not isinstance(values, Iterable):
             raise GeometryPhaseSchedulerError("task affinity must be an iterable")
-        normalized = frozenset(str(value) for value in values if str(value))
-        out[task_id] = normalized
+        normalized_values: set[str] = set()
+        for value in values:
+            if not isinstance(value, str) or _HEX64_RE.fullmatch(value) is None:
+                raise GeometryPhaseSchedulerError(
+                    "task affinity values must be lowercase 64-hex commitments"
+                )
+            normalized_values.add(value)
+        out[task_id] = frozenset(normalized_values)
     return out
 
 
@@ -635,9 +697,14 @@ def select_batch(
             raise GeometryPhaseSchedulerError(
                 "receiver_known_affinity must be an iterable"
             )
-        receiver_known = frozenset(
-            str(value) for value in receiver_known_affinity if str(value)
-        )
+        normalized_receiver: set[str] = set()
+        for value in receiver_known_affinity:
+            if not isinstance(value, str) or _HEX64_RE.fullmatch(value) is None:
+                raise GeometryPhaseSchedulerError(
+                    "receiver_known_affinity values must be lowercase 64-hex commitments"
+                )
+            normalized_receiver.add(value)
+        receiver_known = frozenset(normalized_receiver)
 
     receiver_affinity_active = bool(receiver_known) and affinity_active
     receiver_scores: dict[str, float] = {}
