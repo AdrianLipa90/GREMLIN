@@ -1,0 +1,98 @@
+{
+  "schema": "GREMLIN_28_ERROR_AUDIT_REPAIR_V0_2",
+  "date": "2026-09-26",
+  "supersedes": "provenance/GREMLIN_28_ERROR_AUDIT_REPAIR_V0_1.json",
+  "repository": "AdrianLipa90/GREMLIN",
+  "branch": "fix/gremlin-28-error-audit-20260926",
+  "pull_request": 151,
+  "base_main_sha": "ca82949818b49465d0c2d0535aa9c219c32bdf32",
+  "repair_head_before_receipt": "4142424c3144b197c89112a57e436b28009e5443",
+  "branch_delta": {
+    "ahead_by": 35,
+    "behind_by": 0,
+    "changed_files": 16,
+    "additions": 701,
+    "deletions": 48
+  },
+  "reported_diagnostics": {
+    "user_reported_count": 28,
+    "authoritative_itemized_source_available": false,
+    "closed_as_exact_28_of_28": false,
+    "reason": "No preserved authoritative 28-item source list was found in conversation history or repository evidence.",
+    "policy": "Do not invent a one-to-one list. Record and repair independently confirmed root causes."
+  },
+  "confirmed_repair_domains": [
+    "reference/product MCP registry count and metadata parity",
+    "Workspace/visual-client registry-derived health contract",
+    "20-role Bestiary and Worker ABI v0.2.6 current-state drift",
+    "20-carrier PhaseNav v0.2 versus frozen legacy 18-role validation provenance",
+    "ELEPHANT/BEES worker/carrier descriptions and authority boundary",
+    "duplicate constitutional runtime import",
+    "phase-memory strict schema/type validation",
+    "phase-memory normalized-key collision rejection",
+    "phase-memory count/topology invariants",
+    "phase-memory canonical genesis and ledger sequence/parent chain",
+    "duplicate JSON-key rejection in persisted ledger",
+    "invalid UTF-8 ledger domain-error handling",
+    "phase-memory base-score normalization and complete score validation",
+    "route/species/source_roles iterable fail-closed validation",
+    "phase-memory reorder-only OCTOPUS membership firewall"
+  ],
+  "targeted_regressions": {
+    "phase_memory_module_total_tests": 25,
+    "new_phase_memory_integrity_tests": 16,
+    "new_gateway_phase_memory_tests": 2,
+    "new_phase_memory_related_tests_total": 18,
+    "examples": [
+      "forged genesis rejected",
+      "sequence gap rejected",
+      "duplicate JSON key rejected",
+      "invalid UTF-8 ledger rejected with PhaseMemoryError",
+      "normalized alias collisions rejected",
+      "unordered/mapping route rejected",
+      "nonmapping and invalid base scores rejected",
+      "phase-memory bias may reorder but cannot change OCTOPUS membership",
+      "malicious membership expansion fails closed"
+    ]
+  },
+  "validation": {
+    "noema_aux_tether": {
+      "status": "ACTIVE",
+      "guard_schema": "noema.aux-tether-guard/v2",
+      "failures": []
+    },
+    "exact_head_github_actions": {
+      "workflow_count": 17,
+      "job_count": 22,
+      "all_observed_jobs_step_count": 0,
+      "all_jobs_completed_failure": true,
+      "classification": "INFRASTRUCTURE_FAILURE_BEFORE_EXECUTION",
+      "code_pass_claim": false,
+      "code_fail_claim": false
+    },
+    "external_runner": {
+      "yepcode": "UNAVAILABLE_NOT_AUTHORIZED_EMPTY_TEAM_ID"
+    },
+    "local_private_checkout": {
+      "github_cli_present": false,
+      "github_token_present": false,
+      "status": "UNAVAILABLE"
+    },
+    "static_and_contract_review": {
+      "reference_mcp_tool_count": 35,
+      "product_mcp_tool_count": 29,
+      "product_count_is_surface_specific_and_intentional": true,
+      "pull_request_mergeable": true,
+      "branch_divergence_from_main": 0,
+      "full_diff_reviewed": true
+    },
+    "full_exact_head_executable_regression": "PENDING_RUNNER_AVAILABILITY"
+  },
+  "authority": {
+    "main_mutated": false,
+    "merge_performed": false,
+    "pull_request_draft": true,
+    "production_runtime_write": false,
+    "canon_allowed": false
+  }
+}
