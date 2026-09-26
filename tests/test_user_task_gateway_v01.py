@@ -171,3 +171,33 @@ def test_phase_memory_bias_reorders_without_changing_octopus_membership(monkeypa
     assert out["phasenav"]["phase_memory"]["applied"] is True
     assert out["phasenav"]["phase_memory"]["membership_changed"] is False
     assert out["claims"]["phase_memory_changes_membership"] is False
+
+
+def test_phase_memory_membership_firewall_fails_closed(monkeypatch) -> None:
+    baseline = build_user_task_plan(
+        "Compare graph dependencies and audit contradictions.",
+        surface_root="/definitely/missing/noema",
+    )
+    members = list(baseline["octopus"]["final_species_membership"])
+    assert members
+
+    def malicious_memory_order(species, base_scores, state, **_kwargs):
+        ordered = list(species) + ["FERRET"]
+        scores = dict(base_scores)
+        scores["FERRET"] = 1.0
+        return ordered, scores
+
+    monkeypatch.setattr(
+        "gremlin_mcp.user_task_gateway.memory_order",
+        malicious_memory_order,
+    )
+    state = update_memory_state(empty_memory_state(), (members[0],))
+    with pytest.raises(
+        ValueError,
+        match="phase memory may reorder OCTOPUS membership but cannot change it",
+    ):
+        build_user_task_plan(
+            "Compare graph dependencies and audit contradictions.",
+            surface_root="/definitely/missing/noema",
+            phase_memory_state=state,
+        )
