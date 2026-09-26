@@ -3,12 +3,15 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+import re
 from typing import Any, Mapping, Sequence
 from urllib.parse import urlsplit
 
 ASTRO_SCHEMA = "GREMLIN_FERRET_ASTRO_SOURCE_V0_1"
 HANDOFF_SCHEMA = "GREMLIN_FERRET_BESTIARY_HANDOFF_V0_1"
-VERSION = "0.1.0"
+VERSION = "0.2.0"
+LIBRARY_PROXY_SCHEMA = "GREMLIN_FERRET_ASTRO_LIBRARY_PROXY_V0_1"
+NOEMA_ZIP_SELECTOR_RE = re.compile(r"^noema://zip/sha256/(?P<archive>[0-9a-f]{64})/entry/(?P<entry>[0-9a-f]{64})$")
 
 OFFICIAL_ASTRO_HOSTS = frozenset({
     "irsa.ipac.caltech.edu",
@@ -103,6 +106,56 @@ def prepare_astro_source(request: Mapping[str, Any]) -> dict[str, Any]:
     return {**core, "source_commitment": _sha256(core)}
 
 
+def prepare_library_proxy_source(request: Mapping[str, Any]) -> dict[str, Any]:
+    """Prepare an immutable NOEMA Library ZIP member as a FERRET FITS source."""
+    if not isinstance(request, Mapping):
+        raise ValueError("request must be a mapping")
+    selector_uri = _text(request.get("selector_uri"), "selector_uri")
+    match = NOEMA_ZIP_SELECTOR_RE.fullmatch(selector_uri)
+    if not match:
+        raise ValueError("selector_uri must be a canonical noema://zip/sha256/.../entry/... URI")
+    archive_sha256 = _text(request.get("archive_sha256"), "archive_sha256").lower()
+    entry_sha256 = _text(request.get("entry_sha256"), "entry_sha256").lower()
+    if archive_sha256 != match.group("archive"):
+        raise ValueError("archive_sha256 does not match selector URI")
+    if len(entry_sha256) != 64 or any(ch not in "0123456789abcdef" for ch in entry_sha256):
+        raise ValueError("entry_sha256 must be lowercase hexadecimal SHA-256")
+    byte_count = request.get("byte_count")
+    if isinstance(byte_count, bool) or not isinstance(byte_count, int) or byte_count <= 0:
+        raise ValueError("byte_count must be a positive integer")
+    kind = _text(request.get("kind"), "kind").upper()
+    if kind not in ALLOWED_KINDS:
+        raise ValueError(f"unsupported astro source kind: {kind}")
+    ra_deg = _finite(request.get("ra_deg"), "ra_deg")
+    dec_deg = _finite(request.get("dec_deg"), "dec_deg")
+    if not 0.0 <= ra_deg < 360.0:
+        raise ValueError("ra_deg must be in [0, 360)")
+    if not -90.0 <= dec_deg <= 90.0:
+        raise ValueError("dec_deg must be in [-90, 90]")
+    core = {
+        "schema": LIBRARY_PROXY_SCHEMA,
+        "version": VERSION,
+        "status": "PREPARED_LIBRARY_PROXY",
+        "selector_uri": selector_uri,
+        "archive_sha256": archive_sha256,
+        "entry_selector_sha256": match.group("entry"),
+        "entry_sha256": entry_sha256,
+        "byte_count": byte_count,
+        "file_name": _text(request.get("file_name"), "file_name"),
+        "product": _text(request.get("product"), "product"),
+        "kind": kind,
+        "ra_deg": ra_deg,
+        "dec_deg": dec_deg,
+        "source_transport": "NOEMA_LIBRARY_ZIP_MEMBER",
+        "authority": "READ_ONLY_RECOVERY",
+        "external_mutation_allowed": False,
+        "live_observation_claim": False,
+        "canon_allowed": False,
+        "fail_closed": True,
+    }
+    return {**core, "source_commitment": _sha256(core)}
+
+
 def build_fits_provenance_receipt(
     source: Mapping[str, Any],
     *,
@@ -111,21 +164,25 @@ def build_fits_provenance_receipt(
     byte_count: int | None = None,
     header: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
-    if source.get("schema") != ASTRO_SCHEMA or source.get("status") != "PREPARED_READ_ONLY":
-        raise ValueError("source must be a prepared FERRET astro source")
+    accepted = {
+        (ASTRO_SCHEMA, "PREPARED_READ_ONLY"),
+        (LIBRARY_PROXY_SCHEMA, "PREPARED_LIBRARY_PROXY"),
+    }
+    if (source.get("schema"), source.get("status")) not in accepted:
+        raise ValueError("source must be a prepared FERRET astro source or immutable Library proxy")
     core = {
         "schema": "GREMLIN_FERRET_FITS_PROVENANCE_V0_1",
         "version": VERSION,
         "status": "OBSERVED" if sha256 else "SOURCE_DECLARED",
         "source_commitment": source.get("source_commitment"),
-        "source_url": source.get("source_url"),
-        "source_host": source.get("source_host"),
+        "source_url": source.get("source_url") or source.get("selector_uri"),
+        "source_host": source.get("source_host") or source.get("source_transport"),
         "product": source.get("product"),
         "kind": source.get("kind"),
         "target": {"ra_deg": source.get("ra_deg"), "dec_deg": source.get("dec_deg")},
         "file_name": _text(file_name, "file_name"),
-        "sha256": sha256,
-        "byte_count": byte_count,
+        "sha256": sha256 or source.get("entry_sha256"),
+        "byte_count": byte_count or source.get("byte_count"),
         "header": dict(header or {}),
         "authority": "PROVENANCE_ONLY",
         "canon_allowed": False,
