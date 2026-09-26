@@ -246,3 +246,29 @@ def test_phase_memory_ledger_rejects_sequence_gap(tmp_path) -> None:
     )
     with pytest.raises(PhaseMemoryError, match="sequence break"):
         PhaseMemoryRuntime(ledger_path=path)
+
+
+def test_phase_memory_zero_count_alias_still_collides() -> None:
+    state = empty_memory_state()
+    state.update(
+        {
+            "sequence": 1,
+            "last_role": "SPIDER",
+            "visit_counts": {"SPIDER": 0, "spider": 1},
+            "parent_commitment": empty_memory_state()["commitment"],
+        }
+    )
+    with pytest.raises(PhaseMemoryError, match="duplicate normalized visit role"):
+        validate_memory_state(state)
+
+
+def test_phase_memory_rejects_mapping_as_route_or_source_roles() -> None:
+    state = empty_memory_state()
+    with pytest.raises(PhaseMemoryError, match="route must be a sequence"):
+        update_memory_state(state, {"SPIDER": 1})  # type: ignore[arg-type]
+    with pytest.raises(PhaseMemoryError, match="source_roles must be an iterable"):
+        memory_bias_scores(
+            {"SPIDER": 0.5},
+            state,
+            source_roles={"SPIDER": 1},  # type: ignore[arg-type]
+        )
