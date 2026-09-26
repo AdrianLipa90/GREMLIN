@@ -1,0 +1,61 @@
+name: GREMLIN Bestiary Phase Memory v0.2
+
+on:
+  push:
+    branches:
+      - feat/bestiary-phase-memory-cage-v02-20260926
+    paths:
+      - 'gremlin_mcp/phase_memory_runtime.py'
+      - 'gremlin_mcp/user_task_gateway.py'
+      - 'gremlin_mcp/workers.py'
+      - 'gremlin_mcp/core.py'
+      - 'gremlin_mcp/server.py'
+      - 'gremlin_mcp/phasenav_runtime.py'
+      - 'tools/gremlin_bestiary_phasenav_phase_gates_v02.py'
+      - 'tools/gremlin_bestiary_phasenav_live_binding_v02.py'
+      - 'tools/gremlin_geometry_phase_scheduler_v02.py'
+      - 'tools/build_gremlin_standalone_v01.py'
+      - 'tests/test_gremlin_bestiary_phase_memory_v02.py'
+      - 'tests/test_gremlin_geometry_phase_scheduler_v02.py'
+      - 'tests/test_gremlin_mcp_worker_abi_v02.py'
+      - 'tests/test_gremlin_mcp_v01.py'
+      - 'tests/test_relational_memory_beasts_v01.py'
+      - 'tests/test_gremlin_standalone_runtime_v01.py'
+      - 'spec/GREMLIN_BESTIARY_PHASE_MEMORY_CAGE_V0_2.md'
+      - '.github/workflows/gremlin-bestiary-phase-memory-v02.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  phase-memory-cage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: Install targeted dependencies
+        run: python -m pip install --disable-pip-version-check -e . pytest numpy
+      - name: Compile modified surfaces
+        run: >-
+          python -m py_compile
+          gremlin_mcp/phase_memory_runtime.py
+          gremlin_mcp/user_task_gateway.py
+          gremlin_mcp/workers.py
+          gremlin_mcp/server.py
+          gremlin_mcp/phasenav_runtime.py
+          tools/gremlin_bestiary_phasenav_phase_gates_v02.py
+          tools/gremlin_bestiary_phasenav_live_binding_v02.py
+          tools/gremlin_geometry_phase_scheduler_v02.py
+      - name: Run phase-memory cage gates
+        run: >-
+          python -m pytest -q
+          tests/test_gremlin_bestiary_phase_memory_v02.py
+          tests/test_gremlin_geometry_phase_scheduler_v02.py
+          tests/test_gremlin_mcp_worker_abi_v02.py
+          tests/test_gremlin_mcp_v01.py
+          tests/test_relational_memory_beasts_v01.py
+          tests/test_gremlin_standalone_runtime_v01.py
