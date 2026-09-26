@@ -72,6 +72,30 @@ def _nonnegative_ns(value: Any, field: str) -> int:
     return value
 
 
+def _validate_hint_map(
+    mapping: Mapping[str, float] | None,
+    field: str,
+    *,
+    upper: float | None = None,
+) -> Mapping[str, float] | None:
+    if mapping is None:
+        return None
+    if not isinstance(mapping, Mapping):
+        raise GeometryPhaseSchedulerError(f"{field} hints must be a mapping")
+    for species, raw in mapping.items():
+        if not isinstance(species, str) or species not in SCHEDULER_SPECIES:
+            raise GeometryPhaseSchedulerError(
+                f"{field} hint keys must be supported scheduler species"
+            )
+        if isinstance(raw, bool) or not isinstance(raw, Real):
+            raise GeometryPhaseSchedulerError(f"{field} hints must contain real numbers")
+        value = float(raw)
+        if not math.isfinite(value) or value < 0.0 or (upper is not None and value > upper):
+            suffix = " in [0,1]" if upper == 1.0 else " and non-negative"
+            raise GeometryPhaseSchedulerError(f"{field} hints must be finite{suffix}")
+    return mapping
+
+
 def _hint_real(
     mapping: Mapping[str, float] | None,
     species: str,
@@ -486,6 +510,8 @@ def choose_species(
     now_ns = _nonnegative_ns(now_ns, "now_ns")
     if not isinstance(queues, Mapping):
         raise GeometryPhaseSchedulerError("queues must be a mapping")
+    cadence_hint = _validate_hint_map(cadence_hint, "cadence")
+    locality_hint = _validate_hint_map(locality_hint, "locality", upper=1.0)
     metrics: dict[str, dict[str, Any]] = {}
     candidates: list[tuple[float, float, str]] = []
     for species, rows in queues.items():
@@ -595,8 +621,6 @@ def _normalize_affinity(
         raise GeometryPhaseSchedulerError("affinity_by_task must be a mapping")
     out: dict[str, frozenset[str]] = {}
     for task_id, values in affinity_by_task.items():
-        if task_id not in eligible_ids:
-            continue
         if not isinstance(task_id, str) or not task_id.strip() or task_id != task_id.strip():
             raise GeometryPhaseSchedulerError("affinity task ids must be canonical non-empty strings")
         if isinstance(values, (str, bytes, Mapping)) or not isinstance(values, Iterable):
@@ -608,7 +632,8 @@ def _normalize_affinity(
                     "task affinity values must be lowercase 64-hex commitments"
                 )
             normalized_values.add(value)
-        out[task_id] = frozenset(normalized_values)
+        if task_id in eligible_ids:
+            out[task_id] = frozenset(normalized_values)
     return out
 
 
