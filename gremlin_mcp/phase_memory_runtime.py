@@ -300,7 +300,12 @@ def memory_order(
         name = _role(raw_role)
         if name in normalized_base_scores:
             raise PhaseMemoryError(f"duplicate normalized base-score role: {name}")
-        normalized_base_scores[name] = raw_score
+        if isinstance(raw_score, bool) or not isinstance(raw_score, Real):
+            raise PhaseMemoryError("base scores must be real numbers")
+        score = float(raw_score)
+        if not math.isfinite(score):
+            raise PhaseMemoryError("base scores must be finite")
+        normalized_base_scores[name] = score
     scored = memory_bias_scores(
         {name: normalized_base_scores.get(name, 0.0) for name in names},
         state,
