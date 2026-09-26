@@ -4,6 +4,7 @@ from dataclasses import dataclass
 import hashlib
 import json
 import math
+from numbers import Real
 import re
 from typing import Any, Iterable, Mapping, Sequence
 
@@ -78,16 +79,32 @@ def _unit(value: Any, field: str, *, default: float) -> float:
 def _phase36(value: Any) -> tuple[float, ...]:
     if not isinstance(value, list) or len(value) != DIM:
         raise GeometryPhaseSchedulerError(f"phase36 must contain exactly {DIM} values")
-    out = tuple(float(x) for x in value)
-    if not all(math.isfinite(x) and 0.0 <= x < TAU for x in out):
-        raise GeometryPhaseSchedulerError("phase36 must contain finite values in [0,2pi)")
-    return out
+    out: list[float] = []
+    for coordinate in value:
+        if isinstance(coordinate, bool) or not isinstance(coordinate, Real):
+            raise GeometryPhaseSchedulerError("phase36 values must be real numbers")
+        numeric = float(coordinate)
+        if not math.isfinite(numeric) or not 0.0 <= numeric < TAU:
+            raise GeometryPhaseSchedulerError("phase36 must contain finite values in [0,2pi)")
+        out.append(numeric)
+    return tuple(out)
 
 
 def _payload_core(payload: Mapping[str, Any]) -> dict[str, Any]:
     # Scheduler hints are committed by the worker task envelope, but are excluded
     # from the fallback content geometry so tuning metadata cannot rewrite meaning.
-    return {str(k): v for k, v in payload.items() if str(k) != SCHEDULER_KEY}
+    if not isinstance(payload, Mapping):
+        raise GeometryPhaseSchedulerError("scheduler payload must be a mapping")
+    core: dict[str, Any] = {}
+    for key, value in payload.items():
+        if not isinstance(key, str):
+            raise GeometryPhaseSchedulerError("scheduler payload keys must be strings")
+        if key == SCHEDULER_KEY:
+            continue
+        if key in core:
+            raise GeometryPhaseSchedulerError(f"duplicate scheduler payload key: {key}")
+        core[key] = value
+    return core
 
 
 def _byte_entropy(raw: bytes) -> float:
