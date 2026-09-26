@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 import hashlib
 import json
+import math
+from numbers import Real
 import re
 import unicodedata
 from typing import Any, Iterable, Mapping
@@ -228,15 +230,23 @@ def route(
         if key not in {SCHEDULER_KEY, MEMORY_REQUESTS_KEY, MEMORY_AUTHORIZATION_KEY}
     }
 
-    limit = int(max_species)
+    if isinstance(max_species, bool) or not isinstance(max_species, int):
+        raise ValueError("max_species must be an integer")
+    limit = max_species
     if limit <= 0 or limit > MAX_ROUTE_SPECIES:
         raise ValueError(f"max_species must be in 1..{MAX_ROUTE_SPECIES}")
+
+    if isinstance(min_score, bool) or not isinstance(min_score, Real):
+        raise ValueError("min_score must be a real number")
     floor = float(min_score)
+    if not math.isfinite(floor) or floor <= 0:
+        raise ValueError("min_score must be finite and positive")
+
+    if isinstance(relative_cutoff, bool) or not isinstance(relative_cutoff, Real):
+        raise ValueError("relative_cutoff must be a real number")
     cutoff = float(relative_cutoff)
-    if floor <= 0:
-        raise ValueError("min_score must be positive")
-    if not (0.0 < cutoff <= 1.0):
-        raise ValueError("relative_cutoff must be in (0, 1]")
+    if not math.isfinite(cutoff) or not (0.0 < cutoff <= 1.0):
+        raise ValueError("relative_cutoff must be finite and in (0, 1]")
 
     strings: list[str] = []
     keys: list[str] = []
