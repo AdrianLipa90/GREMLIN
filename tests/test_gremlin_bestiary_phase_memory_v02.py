@@ -6,6 +6,7 @@ import math
 import pytest
 
 import gremlin_mcp.phase_memory_runtime as phase_memory
+import tools.gremlin_bestiary_phasenav_phase_gates_v02 as phase_gates
 
 from gremlin_mcp.phase_memory_runtime import (
     PhaseMemoryError,
@@ -344,3 +345,33 @@ def test_memory_order_rejects_invalid_score_outside_selected_species() -> None:
             {"SPIDER": 0.5, "MOLE": "invalid"},  # type: ignore[dict-item]
             state,
         )
+
+
+def test_phase_carrier_rejects_coordinate_and_species_coercion() -> None:
+    with pytest.raises(phase_gates.PhaseCarrierError, match="real numbers"):
+        phase_gates.PhaseState36(["0.0"] * phase_gates.DIM)  # type: ignore[list-item]
+    with pytest.raises(phase_gates.PhaseCarrierError, match="real numbers"):
+        phase_gates.PhaseState36([False] * phase_gates.DIM)
+    with pytest.raises(phase_gates.PhaseCarrierError, match="role must be a string"):
+        phase_gates.role_binding(7)  # type: ignore[arg-type]
+
+
+def test_phase_gate_rejects_coerced_coefficients() -> None:
+    with pytest.raises(phase_gates.PhaseCarrierError, match="coefficients must be real numbers"):
+        phase_gates.PhaseGate36("MOLE", drive_gain="0.3")  # type: ignore[arg-type]
+    with pytest.raises(phase_gates.PhaseCarrierError, match="coefficients must be real numbers"):
+        phase_gates.PhaseGate36("MOLE", dt=True)
+
+
+def test_phase_route_rejects_unordered_or_coerced_inputs() -> None:
+    state = phase_gates.PhaseState36([0.0] * phase_gates.DIM)
+    with pytest.raises(phase_gates.PhaseCarrierError, match="candidates must be a sequence"):
+        phase_gates.route_phase_order(state.theta, {"MOLE", "OWL"})  # type: ignore[arg-type]
+    with pytest.raises(phase_gates.PhaseCarrierError, match="route species must be strings"):
+        phase_gates.route_phase_order(state.theta, ["MOLE", 7])  # type: ignore[list-item]
+    with pytest.raises(phase_gates.PhaseCarrierError, match="max_species must be a positive integer"):
+        phase_gates.octopus_route(state, ["MOLE"], max_species=1.9)  # type: ignore[arg-type]
+    with pytest.raises(phase_gates.PhaseCarrierError, match="min_score must be a real number"):
+        phase_gates.octopus_route(state, ["MOLE"], min_score="0.1")  # type: ignore[arg-type]
+    with pytest.raises(phase_gates.PhaseCarrierError, match="min_score must be finite"):
+        phase_gates.octopus_route(state, ["MOLE"], min_score=math.nan)
