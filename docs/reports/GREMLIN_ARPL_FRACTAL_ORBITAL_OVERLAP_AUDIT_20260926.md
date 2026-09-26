@@ -718,3 +718,67 @@ Updated NEXT WITNESS:
 
 an infinite-support persistence/exposure theorem, or a rigorous reduction of
 that question to an identified open arithmetic distribution problem.
+
+
+## 20. Infinite-support visibility reduction
+
+The finite-support hidden-mode question has now been reduced exactly.
+
+For an odd prime q away from h,
+
+\[
+q\text{ is ARPL-active}
+\iff
+h\in\pm\langle2\rangle\pmod q.
+\]
+
+For a local mode with reduced denominator d, exposure by q is equivalent to
+
+\[
+d\mid\operatorname{ord}_q(4).
+\]
+
+Therefore complete-network persistence is equivalent to the absence of another
+prime satisfying both conditions simultaneously.
+
+This closes the representation reduction but not the infinite prime-existence
+problem.
+
+For h=6, finite controls show:
+
+- q=31 has ord_31(4)=5 but is inactive, so order-divisibility alone is
+  insufficient;
+- p=13 e=6 hidden modes are exposed by q=37, e_37=18;
+- p=19 e=9 hidden modes are exposed by q=37;
+- p=11 e=5 hidden modes are exposed by q=61, e_61=30.
+
+The first P5 hidden vector
+
+\[
+(0,0,4,2,6)
+\]
+
+therefore disappears on the original five channels by the P15 extension.
+
+Literature boundary:
+
+the bare condition
+
+\[
+h\in\langle2\rangle\pmod q
+\]
+
+belongs to the two-variable Artin/subgroup-membership problem. Conditional
+positive-density results under GRH are known. The additional fixed divisibility
+
+\[
+d\mid\operatorname{ord}_q(4)
+\]
+
+is not promoted here as a consequence of those results.
+
+Updated frontier:
+
+ARPL_INFINITE_SUPPORT_EXPOSURE_THEOREM = OPEN_ARTIN_TYPE.
+
+The exact reduction is closed; the distribution theorem is not.
