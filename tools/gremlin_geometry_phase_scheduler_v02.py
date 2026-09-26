@@ -21,6 +21,7 @@ MODE = "GEOMETRY_PHASE_STATE_CLUSTERED_V0_2"
 SCHEDULER_KEY = "_gremlin_scheduler"
 DERIVED_PHASE_DOMAIN = b"GREMLIN-GEOMETRY-PHASE-SCHEDULER/v0.2\x00"
 TOKEN_RE = re.compile(r"[A-Za-z0-9_./:+-]+", re.UNICODE)
+_HEX64_RE = re.compile(r"^[0-9a-f]{64}$")
 CONTEXT_AFFINITY_WEIGHT = 0.08
 RECEIVER_CACHE_AFFINITY_WEIGHT = 0.06
 RECEIVER_SPECIES_AFFINITY_WEIGHT = 0.04
@@ -261,8 +262,10 @@ def _task_state(row: Mapping[str, Any]) -> TaskPhaseState:
         raise GeometryPhaseSchedulerError("scheduler task has unsupported species")
     if not isinstance(payload, Mapping):
         raise GeometryPhaseSchedulerError("scheduler task payload must be an object")
-    if not isinstance(commitment, str) or not commitment:
-        raise GeometryPhaseSchedulerError("scheduler task requires task_commitment")
+    if not isinstance(commitment, str) or _HEX64_RE.fullmatch(commitment) is None:
+        raise GeometryPhaseSchedulerError(
+            "scheduler task requires a lowercase 64-hex task_commitment"
+        )
     if isinstance(created_ns, bool) or not isinstance(created_ns, int) or created_ns < 0:
         raise GeometryPhaseSchedulerError("scheduler task requires non-negative created_ns")
 
