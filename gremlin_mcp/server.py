@@ -40,6 +40,10 @@ from gremlin_mcp.tool_types import (
 from gremlin_mcp.guarded_research import execute_guarded_research
 from gremlin_mcp.hound_research import execute_research_with_hound_provenance
 from gremlin_mcp.pipeline import collect, enqueue_synthesis, fanout
+from gremlin_mcp.phase_memory_runtime import (
+    PhaseMemoryRuntime,
+    memory_manifest as phase_memory_manifest,
+)
 from gremlin_mcp.phasenav_runtime import (
     analog_invariants as phasenav_analog_invariants,
     live_replay as phasenav_live_replay,
@@ -55,9 +59,10 @@ from gremlin_mcp.router import auto_fanout, route
 from gremlin_mcp.user_task_gateway import build_user_task_plan
 from gremlin_mcp.web import fetch_url, research, search_web
 from gremlin_mcp.workers import WorkerBroker, broker as memory_broker
-from tools.gremlin_geometry_phase_scheduler_v01 import scheduler_manifest
+from tools.gremlin_geometry_phase_scheduler_v02 import scheduler_manifest
 
 broker: WorkerBroker = memory_broker
+phase_memory_runtime = PhaseMemoryRuntime()
 
 mcp = MCPServer(
     "GREMLIN",
@@ -96,14 +101,19 @@ mcp = MCPServer(
 
 
 def configure_state(state_path: str | None) -> WorkerBroker:
-    """Select process-memory or durable SQLite-WAL worker coordination."""
-    global broker
+    """Select process-memory or durable SQLite-WAL + append-only memory state."""
+    global broker, phase_memory_runtime
     if state_path is None or not str(state_path).strip():
         broker = memory_broker
+        phase_memory_runtime = PhaseMemoryRuntime()
         return broker
     from gremlin_mcp.persistent_workers import PersistentWorkerBroker
 
-    broker = PersistentWorkerBroker(str(state_path))
+    path = str(state_path)
+    broker = PersistentWorkerBroker(path)
+    phase_memory_runtime = PhaseMemoryRuntime(
+        ledger_path=path + ".phase-memory.jsonl"
+    )
     return broker
 
 
@@ -117,6 +127,14 @@ def gremlin_status() -> dict[str, Any]:
     """Return MCP mode, capabilities, topology and fail-closed authority state."""
     result = status()
     result["worker_queue"] = broker.queue_status()
+    memory_state = phase_memory_runtime.snapshot()
+    result["phase_memory"] = {
+        "manifest": phase_memory_manifest(),
+        "sequence": memory_state["sequence"],
+        "last_role": memory_state["last_role"],
+        "commitment": memory_state["commitment"],
+        "persistent": phase_memory_runtime.persistent,
+    }
     result["internet_research"] = {
         "status": "AVAILABLE",
         "mode": "HTTPS_ONLY_FAIL_CLOSED",
@@ -196,6 +214,7 @@ def gremlin_handle_user_task(
         max_species=max_species,
         min_score=min_score,
         relative_cutoff=relative_cutoff,
+        phase_memory_state=phase_memory_runtime.snapshot(),
     )
 
 
@@ -221,6 +240,7 @@ def gremlin_queue_user_task(
         max_species=max_species,
         min_score=min_score,
         relative_cutoff=relative_cutoff,
+        phase_memory_state=phase_memory_runtime.snapshot(),
     )
     if not plan["execution"]["route_species"]:
         return {
@@ -239,11 +259,21 @@ def gremlin_queue_user_task(
             "semantic_route_commitment": plan["octopus"]["route_commitment"],
             "phasenav_state_id": plan["phasenav"]["state_id"],
             "phasenav_schedule_order": plan["phasenav"]["schedule_order"],
+            "phase_memory_state_commitment": plan["phasenav"]["phase_memory"]["state_commitment"],
         },
+    )
+    phase_memory_after = phase_memory_runtime.observe(
+        plan["execution"]["route_species"]
     )
     return {
         **plan,
         "dispatch": queued,
+        "phase_memory_after": {
+            "sequence": phase_memory_after["sequence"],
+            "last_role": phase_memory_after["last_role"],
+            "commitment": phase_memory_after["commitment"],
+            "persistent": phase_memory_runtime.persistent,
+        },
         "queue_status": "SPECIALISTS_QUEUED",
     }
 
@@ -778,7 +808,7 @@ def standalone_phasenav_self_test() -> dict[str, Any]:
     scheduler_probe_pass = (
         lease["lease_id"] is not None
         and lease["batch_size"] == 2
-        and lease["scheduler"]["mode"] == "GEOMETRY_PHASE_STATE_CLUSTERED_V0_1"
+        and lease["scheduler"]["mode"] == "GEOMETRY_PHASE_STATE_CLUSTERED_V0_2"
         and lease["scheduler"]["fifo_primary"] is False
         and lease["context_pack"]["lossless_semantic_payload_core"] is True
         and lease["context_pack"]["scheduler_metadata_included"] is False
