@@ -1300,3 +1300,158 @@ GENERIC_FIXED_DENOMINATOR_EXPOSURE_UNDER_GRH = PASS
 UNCONDITIONAL_GENERIC_EXPOSURE = OPEN  
 RECURRENCE_MULTIPLE_EXPONENT_SHORTCUT = REFUTED  
 ACTIVE_PLUS_CONGRUENCE_SHORTCUT = REFUTED
+
+
+## 27. Cyclotomic two-target reduction of the unconditional frontier
+
+The unconditional generic exposure problem now has a source-calibrated
+two-target form.
+
+For every active source certificate
+
+\[
+(p,h,d),
+\qquad
+d\mid\operatorname{ord}_p(4),
+\]
+
+work in
+
+\[
+K_d=\mathbb Q(\zeta_d).
+\]
+
+One can choose a source prime ideal \(P\mid p\) and positive shifts
+\(s_h,s_\zeta\) such that
+
+\[
+\beta_h=4^{s_h}h^2,
+\qquad
+\beta_\zeta=4^{s_\zeta}\zeta_d
+\]
+
+satisfy
+
+\[
+\boxed{
+\beta_h\equiv\beta_\zeta\equiv4\pmod P.
+}
+\]
+
+For any later prime ideal Q, simultaneous membership
+
+\[
+\beta_h\bmod Q\in\langle4\bmod Q\rangle,
+\]
+
+\[
+\beta_\zeta\bmod Q\in\langle4\bmod Q\rangle
+\]
+
+implies for the rational prime q below Q:
+
+\[
+\operatorname{ord}_q(h^2)\mid\operatorname{ord}_q(4),
+\]
+
+\[
+d\mid\operatorname{ord}_q(4).
+\]
+
+Therefore q lies in the exact ARPL exposure set.
+
+### Pairwise marginals
+
+Pollack's 2025 number-field theorem applies separately to the calibrated pairs
+
+\[
+(4,\beta_h)
+\]
+
+and
+
+\[
+(4,\beta_\zeta),
+\]
+
+because positive calibration shifts make both targets non-torsion and their
+absolute field norms differ from 1.
+
+Hence each individual support set is unconditionally infinite.
+
+What remains open is only their common intersection.
+
+### One-product no-go
+
+The two targets cannot generically be compressed to one multiplied target.
+
+In
+
+\[
+C_{20},
+\qquad
+H=\langle5\rangle,
+\]
+
+take
+
+\[
+x=16,
+\qquad
+z=4.
+\]
+
+Then
+
+\[
+x,z\notin H,
+\]
+
+but
+
+\[
+x+z=0\in H
+\]
+
+and even
+
+\[
+\langle5+x+z\rangle=H.
+\]
+
+Thus one combined subgroup relation cannot recover the two required
+memberships.
+
+### Sharpened missing theorem
+
+The current unconditional blocker is now equivalently:
+
+\[
+\boxed{
+\text{SIMULTANEOUS CYCLOTOMIC TWO-TARGET SUPPORT}.
+}
+\]
+
+A stronger sufficient theorem is a finite-set Schinzel--Wojcik theorem for the
+source-calibrated triple
+
+\[
+(4,\beta_h,\beta_\zeta).
+\]
+
+This is a more constructive formulation of the previous
+Chebotarev-restricted two-variable support frontier.
+
+Current source:
+
+AdrianLipa90/On-Primes  
+branch research/arpl-cyclotomic-two-target-frontier-v0.1-20260927  
+receipt commit
+
+\[
+\boxed{
+2cf143124a9b5e34e27160b525a5ca405ab79e6d.
+}
+\]
+
+No main/master branch was modified.
