@@ -272,3 +272,20 @@ def test_phase_memory_rejects_mapping_as_route_or_source_roles() -> None:
             state,
             source_roles={"SPIDER": 1},  # type: ignore[arg-type]
         )
+
+
+def test_phase_memory_rejects_nonstring_extra_key_without_raw_typeerror() -> None:
+    state = empty_memory_state()
+    state[7] = "unexpected"  # type: ignore[index]
+    with pytest.raises(PhaseMemoryError, match="keys mismatch"):
+        validate_memory_state(state)
+
+
+def test_memory_order_rejects_nonmapping_base_scores() -> None:
+    state = empty_memory_state()
+    with pytest.raises(PhaseMemoryError, match="base_scores must be a mapping"):
+        memory_order(
+            ("SPIDER",),
+            [("SPIDER", 0.5)],  # type: ignore[arg-type]
+            state,
+        )
