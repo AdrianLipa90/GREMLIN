@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pytest
 
+from gremlin_mcp.phase_memory_runtime import empty_memory_state, update_memory_state
 from gremlin_mcp.user_task_gateway import build_user_task_plan
 
 
@@ -135,3 +136,38 @@ def test_memory_ontology_algebra_is_bound_to_default_gateway() -> None:
         out["worker_payload"]["memory_ontology"]["source_contract_sha256"]
         == mo["source_contract_sha256"]
     )
+
+
+def test_phase_memory_bias_reorders_without_changing_octopus_membership(monkeypatch) -> None:
+    baseline = build_user_task_plan(
+        "Compare graph dependencies and audit contradictions.",
+        surface_root="/definitely/missing/noema",
+    )
+    members = list(baseline["octopus"]["final_species_membership"])
+    assert len(members) >= 2
+    source, target = members[0], members[-1]
+
+    def equal_phase_order(_phase36, species):
+        names = list(species)
+        return names, {name: 0.5 for name in names}
+
+    monkeypatch.setattr(
+        "gremlin_mcp.user_task_gateway._phase_schedule_order",
+        equal_phase_order,
+    )
+
+    state = empty_memory_state()
+    for _ in range(4):
+        state = update_memory_state(state, (target, source))
+
+    out = build_user_task_plan(
+        "Compare graph dependencies and audit contradictions.",
+        surface_root="/definitely/missing/noema",
+        phase_memory_state=state,
+    )
+    assert set(out["phasenav"]["schedule_order"]) == set(members)
+    assert set(out["octopus"]["final_species_membership"]) == set(members)
+    assert out["phasenav"]["schedule_order"][0] == target
+    assert out["phasenav"]["phase_memory"]["applied"] is True
+    assert out["phasenav"]["phase_memory"]["membership_changed"] is False
+    assert out["claims"]["phase_memory_changes_membership"] is False
