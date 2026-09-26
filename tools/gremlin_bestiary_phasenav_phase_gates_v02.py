@@ -21,6 +21,29 @@ TAU = 2.0 * math.pi
 SCHEMA = "GREMLIN_BESTIARY_PHASE_MEMORY_CARRIER_V0_2"
 VERSION = "0.2.0"
 
+REALIZATION_MODE = {
+    "HUMMINGBIRD": "HYBRID",
+    "OCTOPUS": "HYBRID",
+    "SPIDER": "ANALOG_CORE_HYBRID_CONTROL",
+    "RAVEN": "ANALOG_CORE_HYBRID_CONTROL",
+    "HOUND": "ANALOG_CORE_HYBRID_CONTROL",
+    "MOLE": "ANALOG_CORE_HYBRID_CONTROL",
+    "OWL": "HYBRID",
+    "ANT": "HYBRID",
+    "MANTIS": "HYBRID",
+    "FOX": "ANALOG_CORE_HYBRID_CONTROL",
+    "BEAVER": "ANALOG_CORE_HYBRID_CONTROL",
+    "BAT": "ANALOG_CORE_HYBRID_CONTROL",
+    "CANARY": "ANALOG_CORE_HYBRID_CONTROL",
+    "SERPENT": "ANALOG_CORE_HYBRID_CONTROL",
+    "CHAMELEON": "HYBRID",
+    "ELEPHANT": "HYBRID_MEMORY",
+    "BEES": "HYBRID_COHERENCE",
+    "BELZEBUB": "HYBRID",
+    "FERRET": "HYBRID_AUTHORITY_BOUNDARY",
+    "GREMLIN": "HYBRID",
+}
+
 # 36 pairwise-coprime modular channels. All moduli exceed the bounded
 # role-address diameter, so the finite signature is injective on this role set.
 ARPL_MODULI = (
@@ -58,6 +81,10 @@ if set(_ROLE_BINDING) != set(SPECIES):
 
 class PhaseCarrierError(ValueError):
     pass
+
+
+# Compatibility alias for live-binding code paths.
+PhaseGateError = PhaseCarrierError
 
 
 def _canonical(value: Any) -> bytes:
@@ -423,7 +450,9 @@ __all__ = [
     "ARPL_MODULI",
     "DUAL_PAIRS",
     "SPECIES",
+    "REALIZATION_MODE",
     "PhaseCarrierError",
+    "PhaseGateError",
     "PhaseState36",
     "PhaseGate36",
     "role_binding",
