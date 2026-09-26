@@ -57,3 +57,26 @@ ferret_worker_fanout = false
 routing_authority = OCTOPUS_OR_EXPLICIT_HOST_ONLY
 canon_allowed = false
 ```
+
+
+## Immutable NOEMA Library proxy recovery
+
+When direct source transport is unavailable but exact FITS bytes were previously captured and indexed in the NOEMA Library knowledge plane, FERRET may use a second read-only source path.
+
+The source must be identified by a canonical selector of the form:
+
+\`\`\`text
+noema://zip/sha256/<archive-sha256>/entry/<selector-entry-sha256>
+\`\`\`
+
+and the request must separately bind:
+
+- exact archive SHA-256;
+- exact uncompressed FITS SHA-256;
+- positive byte count;
+- file name and source classification;
+- fixed target coordinates.
+
+This recovery mode is provenance-preserving, not a live-observation claim. A historical/repository copy is never relabelled as a newly acquired observation. Hash mismatch, selector mismatch, or missing size fails closed.
+
+For the PBH CMB lane this allows the pre-existing Planck 100/143/217 GHz cutouts to be handed to the Bestiary while GitHub Actions / external binary transport is unavailable.
