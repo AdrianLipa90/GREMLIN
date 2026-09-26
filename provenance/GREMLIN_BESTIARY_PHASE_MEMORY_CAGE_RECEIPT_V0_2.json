@@ -1,0 +1,100 @@
+{
+  "schema": "GREMLIN_BESTIARY_PHASE_MEMORY_CAGE_RECEIPT_V0_2",
+  "date": "2026-09-26",
+  "repository": "AdrianLipa90/GREMLIN",
+  "branch": "feat/bestiary-phase-memory-cage-v02-20260926",
+  "base_main_sha": "fccd26a9ccd6be9d4b81c4797018129301e5fd04",
+  "head_under_live_validation": "c2d5d1a15085b0d4d6cae20fff26dd487fdaff26",
+  "main_modified": false,
+  "tether": {
+    "root": "/dev/shm/ciel_noema",
+    "guard_schema": "noema.aux-tether-guard/v2",
+    "status": "ACTIVE",
+    "failures": [],
+    "socket": "/run/user/1000/noema/ciel_headless.sock",
+    "static_fallback": false
+  },
+  "arpl_gate": {
+    "status": "PASS_NUMERICAL_RENDERING",
+    "source_repository": "AdrianLipa90/On-Primes",
+    "source_branch": "feat/arithmetic-relational-phase-law-v0.1",
+    "source_artifact": "proofs/ARITHMETIC_RELATIONAL_PHASE_LAW_V0_1.md",
+    "role_addresses": 20,
+    "modular_channels": 36,
+    "unique_signatures": 20,
+    "max_phase_difference_residual": 1.7763568394002505e-15,
+    "tolerance": 1e-12
+  },
+  "role_geometry": {
+    "status": "PASS_EXACT_BY_CONSTRUCTION_CANDIDATE_BINDING",
+    "geometry": "10-ORTHOPLEX",
+    "role_count": 20,
+    "dual_pair_count": 10,
+    "semantic_intrinsic_claim": false
+  },
+  "memory_law": {
+    "status": "IMPLEMENTED_TEST_GATED",
+    "source_repository": "AdrianLipa90/Memory-Ontology",
+    "source_artifact": "formalism/memory-law-v0.1.md",
+    "state_model": "append-only visit/transition history with SHA-256 parent chain",
+    "causal_action": "bounded future route-score bias",
+    "max_bias": 0.12,
+    "may_change_semantic_membership": false
+  },
+  "live_operator_binding": {
+    "status": "PASS_CURRENT_LIVE_SNAPSHOT",
+    "operator_registry_count": 36,
+    "missing_required_operators": [],
+    "armed_roles": 20,
+    "unique_live_carriers": 20,
+    "all_one_step_target_distance_reduced": true,
+    "elephant": {
+      "before_distance": 10.984683770730912,
+      "after_distance": 10.765653290771098,
+      "reduced": true,
+      "operators": [
+        "MEMORY",
+        "COMPOSITION",
+        "RETURN"
+      ]
+    },
+    "bees": {
+      "before_distance": 11.899756815028349,
+      "after_distance": 11.691945109614544,
+      "reduced": true,
+      "operators": [
+        "DIFFERENCE",
+        "COMPOSITION",
+        "ASSERTION"
+      ]
+    },
+    "all_role_one_step_ratio_range": [
+      0.9779193060064757,
+      0.9871953008588389
+    ],
+    "physical_analog_claim": false,
+    "canon_allowed": false
+  },
+  "github_actions": {
+    "workflow": "GREMLIN Bestiary Phase Memory v0.2",
+    "run_id": 36256699823,
+    "head_sha": "c2d5d1a15085b0d4d6cae20fff26dd487fdaff26",
+    "conclusion": "failure",
+    "classification": "CI_INFRASTRUCTURE_FAIL_BEFORE_EXECUTION",
+    "evidence": "workflow completed in approximately four seconds; job returned no step summaries and downloadable logs were unavailable/404",
+    "code_test_result_from_this_run": "NOT_EXECUTED"
+  },
+  "validation_boundary": {
+    "targeted_pytest_executed": false,
+    "reason": "GitHub runner did not execute steps; external YepCode harness unavailable due connector authorization; local container has no GitHub network checkout",
+    "live_binding_executed": true,
+    "arpl_numeric_gate_executed": true,
+    "full_repository_regression": "OPEN"
+  },
+  "authority": {
+    "external_effects": false,
+    "production_runtime_write": false,
+    "canon_allowed": false,
+    "merge_to_main": false
+  }
+}
