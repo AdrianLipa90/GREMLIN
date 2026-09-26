@@ -100,3 +100,14 @@ The active ARPL feature branch was intentionally updated to avoid concurrent-hea
 Divergent historical Moire work was preserved intact.
 
 Promotion/merge remains a separate decision.
+
+
+## Local executable validation
+
+The fetched Orbital-System-base reference module and its test file were replayed in an isolated local Python/pytest environment.
+
+Result:
+- 8/8 tests PASS;
+- recorded in Orbital-System-base at docs/audit/FRACTAL_MOIRE_HILBERT_V0_1_LOCAL_VALIDATION_20260926.md.
+
+This validation covers representation invariants only and is not a physical-binding promotion.
