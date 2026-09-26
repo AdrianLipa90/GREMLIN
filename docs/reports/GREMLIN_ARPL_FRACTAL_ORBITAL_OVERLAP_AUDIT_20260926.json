@@ -49,6 +49,18 @@
         "ahead_by": 20,
         "behind_by": 0
       }
+    },
+    "arpl_visibility_theorem": {
+      "repo": "AdrianLipa90/On-Primes",
+      "branch": "research/arpl-infinite-clock-visibility-frontier-v0.1-20260926",
+      "sha": "deac8af3ae12ac80f0cfab21b440b6e727c0b342",
+      "proof": "proofs/ARPL_GRH_SOURCE_PRIME_REPLICATION_THEOREM_V0_1.md",
+      "receipt": "receipts/ARPL_GRH_SOURCE_PRIME_REPLICATION_THEOREM_V0_1_VALIDATION_20260926.md"
+    },
+    "phasenav_grh_visibility": {
+      "repo": "AdrianLipa90/noema-phasenav-core",
+      "branch": "formalism/fractal-moire-hilbert-36d-bridge-v0.12-20260926",
+      "validation_receipt_sha": "c9bc3b07016e2d41258c0f68294400cf54c13755"
     }
   },
   "exact_pass": [
