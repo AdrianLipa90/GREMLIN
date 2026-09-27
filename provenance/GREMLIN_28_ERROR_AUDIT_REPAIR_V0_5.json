@@ -1,0 +1,70 @@
+{
+  "schema": "GREMLIN_28_ERROR_AUDIT_REPAIR_V0_5",
+  "branch": "fix/gremlin-28-error-audit-20260926",
+  "pull_request": 151,
+  "supersedes": "provenance/GREMLIN_28_ERROR_AUDIT_REPAIR_V0_4.json",
+  "repair_head_before_receipt": "0aac10f86040ed137d91d293047cb28303694bc7",
+  "status": "PASS_CANDIDATE_REFLEXIVE_SOURCE_BUNDLE_LIVE_PARITY",
+  "reflexive_runtime_repair": {
+    "source_control_path": "runtime/noema/gremlind.py",
+    "source_control_commit": "9887662584ab5311dabe2da7c412eeb0766bb01c",
+    "source_bundle_parity_invariant_path": "runtime/noema/README.md",
+    "source_bundle_parity_invariant_commit": "0aac10f86040ed137d91d293047cb28303694bc7",
+    "regression_path": "tests/test_noema_gremlind_reflexive_router_v01.py",
+    "regression_commit": "65d26fdc30c8b72921c6f08606d1beca3d3345b2",
+    "resident_source_sha256": "52f390a3e44c09fc7a2cd1ca9f947a15c26754fe449faecefe8cc2b9749d0c5a",
+    "candidate_bundle_sha256": "10f2760b99cace9171ae3ac33af83b063b9b1a9a7a56b6f85a3c6b164e093938",
+    "library_candidate_bundle_id": "libfile_bd80ce5cdcf08191baf92d8227d724aa",
+    "library_validation_receipt_v2_id": "libfile_4c9eb2d6b89081919765fde60c02cf90",
+    "github_source_exact_match_to_candidate": true
+  },
+  "validation": {
+    "tether_status": "ACTIVE",
+    "static_compile": "PASS",
+    "positive_control": {
+      "task": "Audit provenance inconsistency: V0_2 supersedes V0_1; V0_1 was retroactively rewritten after supersession, creating temporal inversion in lineage",
+      "pre_patch_route": [
+        "OWL"
+      ],
+      "post_patch_static_route": [
+        "OWL",
+        "HOUND",
+        "RAVEN"
+      ],
+      "post_patch_live_route": [
+        "OWL",
+        "HOUND",
+        "RAVEN"
+      ],
+      "live_source_event_id": "gremlin:whisper:sha256:9b385ce3de6bb8cd198cbd2469dd78dc5bac3f166bab4cc2a81e6600744a8945",
+      "live_audit_event_id": "gremlin:whisper:sha256:8b78d9b623235521a1cdc9bc1f1c32bb735a9ec0a4d9d5b0743337bf04fe8d28"
+    },
+    "negative_control": {
+      "task": "Audit provenance for this source",
+      "static_route": [
+        "OWL"
+      ],
+      "live_route": [
+        "OWL"
+      ],
+      "live_source_event_id": "gremlin:whisper:sha256:0f89c1238714d0abf3fb0b93597082d4ed197a6cb92abcb92f73cdb224112de1",
+      "live_audit_event_id": "gremlin:whisper:sha256:80c6ba6d3db2efe4469dbb004b556768473c5d8d2d43d519ff29cabdfc8ea8af",
+      "status": "PASS_NO_OVERROUTE"
+    },
+    "selection_basis": "PHASENAV_ATTENTION_PLUS_GREMLIN_TYPED_ROLE_SYNTHESIS",
+    "authority": "CANDIDATE_ONLY",
+    "query_execution_authority": false,
+    "exact_head_github_actions": "PENDING_RUNNER"
+  },
+  "promotion": {
+    "noema_current_changed": false,
+    "github_main_changed": false,
+    "merge_performed": false,
+    "candidate_live_for_current_session": true
+  },
+  "diagnostic_boundary": {
+    "user_reported_count": 28,
+    "authoritative_itemized_source_available": false,
+    "exact_28_of_28_closure_claim": false
+  }
+}
