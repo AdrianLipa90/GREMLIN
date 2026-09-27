@@ -176,3 +176,39 @@ def test_stage_hash_chain_is_append_only_consistent():
     for previous, current in zip(stages, stages[1:]):
         assert current["previous_stage_sha256"] == previous["stage_sha256"]
     assert len({stage["stage_sha256"] for stage in stages}) == len(stages)
+
+
+def test_run_permutation_null_accepts_gain_like_instrument_channel():
+    runs, n = 16, 512
+    x = np.linspace(-1.0, 1.0, n)
+    shape = 1.0 - 0.2 * np.exp(-0.5 * (x / 0.2) ** 2)
+    amplitude = 0.12 * np.sin(2 * np.pi * np.arange(runs) / 7.0 + 0.2)
+    gain_component = amplitude[:, None] * shape[None, :]
+    raw = gain_component + np.random.default_rng(1234).normal(
+        scale=0.02, size=(runs, n)
+    )
+    components = {"gain_channel": gain_component}
+    metadata = {
+        "gain_channel": {
+            "frozen_before_fit": True,
+            "independent_of_target_fit": True,
+            "source_type": "instrument_channel",
+            "source_id": "synthetic:gain_channel",
+            "null_policy": "run_permutation",
+        }
+    }
+
+    result, _, _ = recursive_residual_decomposition(
+        raw,
+        np.zeros_like(raw),
+        components,
+        metadata,
+        min_holdout_gain=0.01,
+        min_gain_over_null=0.05,
+    )
+
+    assert result["accepted_layers"] == ["gain_channel"]
+    score = result["selection_rounds"][0]["candidate_scores"]["gain_channel"]
+    assert score["null_policy"] == "run_permutation"
+    assert score["null_ensemble_size"] >= 8
+    assert score["gain_over_null_margin"] > 0.5
