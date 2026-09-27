@@ -68,25 +68,35 @@ def _fold_pairs(n_runs: int) -> list[tuple[np.ndarray, np.ndarray]]:
     return pairs
 
 
-def _null_proxy(component: np.ndarray, policy: str) -> np.ndarray:
+def _null_proxies(component: np.ndarray, policy: str, count: int = 12) -> list[np.ndarray]:
     # Null generation is content-addressed rather than label-addressed.
     # The null policy itself is frozen in nuisance provenance.
     n_runs, n_samples = component.shape
     seed = int(_sha_array(component)[:8], 16)
 
     if policy == "sample_circular_shift":
-        out = np.empty_like(component)
-        for i in range(n_runs):
-            shift = 1 + ((seed + 7919 * i) % (n_samples - 1))
-            out[i] = np.roll(component[i], shift)
+        out: list[np.ndarray] = []
+        for k in range(count):
+            proxy = np.empty_like(component)
+            for i in range(n_runs):
+                shift = 1 + ((seed + 7919 * i + 104729 * k) % (n_samples - 1))
+                proxy[i] = np.roll(component[i], shift)
+            out.append(proxy)
         return out
 
     if policy == "run_permutation":
-        rng = np.random.default_rng(seed)
-        order = rng.permutation(n_runs)
-        if np.array_equal(order, np.arange(n_runs)):
-            order = np.roll(order, 1)
-        return component[order]
+        n_null = min(count, n_runs - 1)
+        shifts: list[int] = []
+        for k in range(n_null):
+            shift = 1 + ((seed + 3 * k) % (n_runs - 1))
+            if shift not in shifts:
+                shifts.append(shift)
+        for shift in range(1, n_runs):
+            if len(shifts) >= n_null:
+                break
+            if shift not in shifts:
+                shifts.append(shift)
+        return [np.roll(component, shift, axis=0) for shift in shifts]
 
     raise ValueError("unsupported nuisance null policy")
 
@@ -109,9 +119,8 @@ def _increment_score(
     null_policy: str,
 ) -> dict[str, Any]:
     target = raw - initial
-    null = _null_proxy(candidate, null_policy)
+    nulls = _null_proxies(candidate, null_policy)
     gains: list[float] = []
-    null_gains: list[float] = []
     coefficients: list[float] = []
 
     for train, holdout in _fold_pairs(raw.shape[0]):
@@ -127,25 +136,37 @@ def _increment_score(
         gains.append(1.0 - sse_aug / sse_base)
         coefficients.append(float(beta_aug[-1]))
 
-        beta_null = _fit(target, [*accepted, null], train)
-        model_null = _model(initial, [*accepted, null], beta_null)
-        sse_null = float(np.sum((raw[holdout] - model_null[holdout]) ** 2))
-        null_gains.append(1.0 - sse_null / sse_base)
+    null_conservative_gains: list[float] = []
+    for null in nulls:
+        fold_null_gains: list[float] = []
+        for train, holdout in _fold_pairs(raw.shape[0]):
+            beta_base = _fit(target, accepted, train)
+            model_base = _model(initial, accepted, beta_base)
+            sse_base = float(np.sum((raw[holdout] - model_base[holdout]) ** 2))
+            beta_null = _fit(target, [*accepted, null], train)
+            model_null = _model(initial, [*accepted, null], beta_null)
+            sse_null = float(np.sum((raw[holdout] - model_null[holdout]) ** 2))
+            fold_null_gains.append(1.0 - sse_null / sse_base)
+        null_conservative_gains.append(float(min(fold_null_gains)))
 
     nonzero_signs = [int(np.sign(x)) for x in coefficients if abs(x) > 1e-12]
     sign_consistent = bool(nonzero_signs) and all(x == nonzero_signs[0] for x in nonzero_signs)
     conservative_gain = float(min(gains))
-    conservative_null_gain = float(max(null_gains))
-    margin = conservative_gain - conservative_null_gain
+    null_q90 = float(np.quantile(null_conservative_gains, 0.90))
+    null_max = float(max(null_conservative_gains))
+    margin = conservative_gain - null_q90
     return {
         "holdout_gains": gains,
-        "phase_scrambled_null_gains": null_gains,
+        "null_conservative_gains": null_conservative_gains,
         "crossfit_coefficients": coefficients,
         "coefficient_sign_consistent": sign_consistent,
         "conservative_holdout_gain": conservative_gain,
-        "conservative_null_gain": conservative_null_gain,
+        "conservative_null_gain": null_q90,
+        "null_q90_gain": null_q90,
+        "null_max_gain": null_max,
         "gain_over_null_margin": margin,
         "null_policy": null_policy,
+        "null_ensemble_size": len(null_conservative_gains),
     }
 
 
@@ -242,7 +263,7 @@ def recursive_residual_decomposition(
             if score["conservative_holdout_gain"] < min_holdout_gain:
                 reason = "NO_CONSERVATIVE_HOLDOUT_GAIN"
             elif score["gain_over_null_margin"] < min_gain_over_null:
-                reason = "FAIL_PHASE_SCRAMBLED_NULL_MARGIN"
+                reason = "FAIL_TYPED_NULL_Q90_MARGIN"
             elif score["coefficient_sign_consistent"] is not True:
                 reason = "CROSSFIT_COEFFICIENT_SIGN_INSTABILITY"
             else:
