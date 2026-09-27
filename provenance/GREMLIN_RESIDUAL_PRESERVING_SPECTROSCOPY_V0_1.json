@@ -1,0 +1,29 @@
+{
+  "schema":"GREMLIN_RESIDUAL_PRESERVING_SPECTROSCOPY_RECEIPT_V0_1",
+  "date":"2026-09-26",
+  "status":"IMPLEMENTED_CANDIDATE_LOCAL_6_OF_6_PASS",
+  "branch":"feat/residual-preserving-spectroscopy-v01-20260926",
+  "base_main_sha":"ca82949818b49465d0c2d0535aa9c219c32bdf32",
+  "gremlin_live_audit":{
+    "authority":"CANDIDATE_ONLY",
+    "task_event":"gremlin:whisper:sha256:978ca43dd54126beba34ff27ab9b4021eef8c958fa5178e93cbabae33c2b230b",
+    "audit_event":"gremlin:whisper:sha256:f60e50b96e580a4c35b1fac8d21a6afd2ee1f65d0783475eb44027f18332a0d5",
+    "route_species":["OWL","SPIDER","HOUND"]
+  },
+  "reused_project_nodes":[
+    "GREMLIN spectroscopic holonomy",
+    "GREMLIN acquisition-bound PhaseNav provenance",
+    "CIEL structural residual precedent",
+    "Resonant-Chemistry relational holonomy spectroscopy",
+    "Resonant-Chemistry correlated spectrum"
+  ],
+  "local_tests":{"passed":6,"failed":0},
+  "firewalls":[
+    "NO_DESTRUCTIVE_DENOISING",
+    "NO_NEW_PHYSICS_FROM_RESIDUAL_ONLY",
+    "NO_TIME_FLUCTUATION_PROMOTION",
+    "RAW_MODEL_RESIDUAL_SEPARATE_COMMITMENTS",
+    "INTERPRETATION_LAST"
+  ],
+  "main_modified":false
+}

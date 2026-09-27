@@ -53,11 +53,12 @@ GREMLIN      authority/aggregate root
 FERRET       explicitly authorized actuation boundary
 ```
 
-ELEPHANT and BEES are worker-schedulable even though the current validated
-PhaseNav species-carrier surface still contains 18 legacy roles and does not
-yet provide dedicated carriers for them. For explicit T^36 scheduling they use
-an anchor-neutral contribution; GREMLIN does not invent or silently validate a
-carrier.
+Historical compatibility note: at the earlier v0.2.4 boundary, ELEPHANT and
+BEES were worker-schedulable before dedicated PhaseNav carriers were promoted,
+so explicit T^36 scheduling used an anchor-neutral contribution. That limitation
+is superseded by the active v0.2 20-role carrier surface. The current v0.2.6
+runtime has software-validated v0.2 carriers for ELEPHANT and BEES; this remains
+a computational/runtime claim, not a physical analog-hardware claim.
 
 ## Registration
 
@@ -409,10 +410,11 @@ ELEPHANT BEES BELZEBUB
 
 The worker scheduler therefore admits ELEPHANT and BEES.
 
-This does **not** claim that those two roles have validated PhaseNav species
-carriers. The current carrier surface remains 18 legacy roles. When ELEPHANT or
-BEES provides explicit T^36 state, the species-anchor term is neutral until a
-separate carrier validation exists.
+At the v0.2.4 revision this did **not** claim dedicated PhaseNav carriers for
+those two roles: the carrier surface at that revision remained the 18 legacy
+roles and ELEPHANT/BEES used an anchor-neutral species term. This historical
+v0.2.4 limitation is superseded by the active 20-role PhaseNav v0.2 carrier
+promotion; v0.2.6 retains the old statement only as versioned provenance.
 
 The runtime must fail loudly if:
 

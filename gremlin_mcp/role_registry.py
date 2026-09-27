@@ -19,7 +19,7 @@ BESTIARY_ROLES: dict[str, dict[str, str]] = {
     "ELEPHANT": {"stage": "memory", "role": "append-only relational memory consolidation, replay and retention planning"},
     "BEES": {"stage": "coherence", "role": "local overlap coherence, anti-entropy delta and reconciliation proposals"},
     "BELZEBUB": {"stage": "synthesis", "role": "defensive candidate synthesis"},
-    "FERRET": {"stage": "actuation", "role": "explicitly authorized interactive web actuator"},
+    "FERRET": {"stage": "actuation", "role": "explicitly authorized interactive web actuator plus fail-closed read-only scientific source acquisition and Bestiary handoff boundary"},
     "GREMLIN": {"stage": "aggregate", "role": "aggregate verified heads and emit research candidates"},
 }
 
@@ -28,10 +28,10 @@ BESTIARY_ROLE_NAMES = frozenset(BESTIARY_ROLES)
 # These roles are architectural boundaries, not ordinary exact-cover workers.
 CORE_BOUNDARY_SPECIES = frozenset({"HUMMINGBIRD", "OCTOPUS", "GREMLIN", "FERRET"})
 
-# These roles are legitimate dynamic workload modules without validated
-# PhaseNav species carriers. They may execute through carrier-neutral
-# WorkerBroker scheduling or, when explicitly registered, through replay-safe
-# in-process local adapters.
+# These memory/coherence roles are legitimate dynamic workload modules and
+# remain eligible for replay-safe in-process local adapters. PhaseNav v0.2 now
+# provides software-validated carriers for them; local-adapter eligibility is an
+# execution-policy property and must not be used as a proxy for carrier status.
 LOCAL_ADAPTER_ELIGIBLE_SPECIES = frozenset({"ELEPHANT", "BEES"})
 # Compatibility alias retained for the v0.2 executor contract.
 LOCAL_EXECUTION_SPECIES = LOCAL_ADAPTER_ELIGIBLE_SPECIES

@@ -15,6 +15,12 @@ The model is informational. It does not require a biological substrate and does 
 
 The current PhaseNav carrier set remains the validated 18-role runtime surface. ELEPHANT and BEES are introduced first as typed memory roles with no scheduler profile and no physical/analog claim.
 
+### Post-promotion carrier status — 2026-09-26
+
+The sentence above records the v0.1 state at introduction time and is retained as historical provenance. It is superseded for current-runtime claims by the PhaseNav v0.2 promotion: the active software carrier surface now covers all **20 Bestiary roles**, including ELEPHANT and BEES.
+
+This promotion does not change the authority boundary: both roles still have no orbital scheduler profile, no physical-analog hardware claim, and no canon authority. The historical 18-role scalar/vector/continuous validation remains frozen at its original scope rather than being retroactively relabeled 20/20.
+
 ## Relational-memory state
 
 A candidate memory trace is represented by a 6 x 6 phase-organized state
@@ -138,7 +144,7 @@ Human self-report can serve as one empirical reference series, but the software 
 2. Phase coherence does not establish truth.
 3. No Bestiary role receives DELETE, OVERWRITE or IN_PLACE_EDIT.
 4. New memory states are append-only derivations or typed proposals.
-5. ELEPHANT and BEES are memory-only candidate roles until separate PhaseNav carrier validation passes.
+5. ELEPHANT and BEES remain memory/coherence candidate roles; PhaseNav v0.2 carrier validation has passed for both, but carrier status grants no execution, physical-analog or canon authority.
 6. Current 18-carrier PhaseNav validation remains historically intact and is not retroactively relabeled as 20/20.
 
 

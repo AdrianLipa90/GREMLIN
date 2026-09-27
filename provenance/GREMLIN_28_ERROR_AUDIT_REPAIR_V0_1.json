@@ -1,0 +1,189 @@
+{
+  "schema": "GREMLIN_28_ERROR_AUDIT_REPAIR_V0_1",
+  "date": "2026-09-26",
+  "repository": "AdrianLipa90/GREMLIN",
+  "branch": "fix/gremlin-28-error-audit-20260926",
+  "pull_request": 151,
+  "base_main_sha": "ca82949818b49465d0c2d0535aa9c219c32bdf32",
+  "repair_head_before_receipt": "630f3abca131a36f86c32bf6151a2d613266f998",
+  "reported_diagnostics": {
+    "user_reported_count": 28,
+    "authoritative_itemized_source_available": false,
+    "policy": "DO_NOT_INVENT_28_NUMBERED_DEFECTS",
+    "interpretation": "Treat 28 as the reported diagnostic count; repair only defects independently confirmed from repository state, branch history, tests, contracts, and runtime invariants."
+  },
+  "confirmed_fix_groups": [
+    {
+      "id": "REGISTRY_COUNT_DRIFT",
+      "fixes": [
+        "reference MCP tests derive the count from REFERENCE_MCP_TOOLS instead of stale 33",
+        "reference Workspace and visual-client contracts derive the same registry count",
+        "actual reference registry count verified as 35"
+      ]
+    },
+    {
+      "id": "UI_HEALTH_CONTRACT_DRIFT",
+      "fixes": [
+        "browser MCP health badge no longer assumes 29 tools for every surface",
+        "health now requires exact unique coverage of the reported tool_groups"
+      ]
+    },
+    {
+      "id": "BESTIARY_18_TO_20_DRIFT",
+      "fixes": [
+        "README current runtime moved from stale 18-role wording to active 20-role wording",
+        "Worker ABI current version aligned to v0.2.6",
+        "RAPHAEL wording corrected to remain above the 20-role Bestiary",
+        "external worker list now includes ELEPHANT and BEES"
+      ]
+    },
+    {
+      "id": "CARRIER_PROMOTION_PROVENANCE_DRIFT",
+      "fixes": [
+        "current 20-role PhaseNav v0.2 carriers are distinguished from the frozen legacy 18-role three-way scope",
+        "Worker ABI, roadmap, relational-memory, role-registry and orchorbital text preserve historical 18-role provenance without presenting it as current",
+        "ELEPHANT and BEES carrier validation is recorded without granting execution, physical-analog or canon authority"
+      ]
+    },
+    {
+      "id": "DUPLICATE_IMPORT",
+      "fixes": [
+        "duplicate require_constitutional_admission import removed from server_with_hive.py"
+      ]
+    },
+    {
+      "id": "PHASE_MEMORY_SCHEMA_AND_TYPE_INTEGRITY",
+      "fixes": [
+        "phase-memory state requires the exact key set",
+        "roles are no longer coerced from arbitrary non-string values",
+        "max_bias and base scores reject bool/string coercion",
+        "route/species/source_roles reject mapping/string iterable confusion"
+      ]
+    },
+    {
+      "id": "PHASE_MEMORY_NORMALIZATION_COLLISIONS",
+      "fixes": [
+        "normalized visit-role aliases fail closed, including zero-count aliases",
+        "normalized transition aliases fail closed"
+      ]
+    },
+    {
+      "id": "PHASE_MEMORY_STATE_INVARIANTS",
+      "fixes": [
+        "sequence zero must be the exact empty state",
+        "non-empty state requires lineage metadata and a visited last_role",
+        "transition total must equal total visits minus one",
+        "transition endpoints must have positive visit counts",
+        "parent commitment must be lowercase SHA-256 hex"
+      ]
+    },
+    {
+      "id": "PHASE_MEMORY_LEDGER_LINEAGE",
+      "fixes": [
+        "first persisted record must be sequence 1",
+        "first parent must equal the canonical empty-state commitment",
+        "subsequent records must advance sequence by exactly one and bind the previous commitment",
+        "state is revalidated before append"
+      ]
+    },
+    {
+      "id": "PHASE_MEMORY_ERROR_BOUNDARIES_AND_SCORE_NORMALIZATION",
+      "fixes": [
+        "mixed-type unexpected state keys fail with PhaseMemoryError instead of leaking a raw sorting TypeError",
+        "memory_order requires base_scores to be a Mapping",
+        "direct transition_affinity calls reject non-iterable source_roles through the domain error contract",
+        "memory_order normalizes role-key casing before selecting scores so lowercase aliases are not silently ignored",
+        "invalid UTF-8 ledgers fail with PhaseMemoryError instead of leaking UnicodeDecodeError",
+        "ledger parent-directory creation is inside the append OSError boundary",
+        "memory_order validates all supplied base-score values, including roles outside the selected species subset"
+      ]
+    },
+    {
+      "id": "PHASE_MEMORY_DETERMINISM_AND_JSON_INTEGRITY",
+      "fixes": [
+        "ordered memory routes must be Sequence values; unordered sets are rejected",
+        "ledger JSON objects reject duplicate keys at every object level instead of last-key-wins parsing"
+      ]
+    },
+    {
+      "id": "GATEWAY_PHASE_MEMORY_MEMBERSHIP_FIREWALL",
+      "fixes": [
+        "regression coverage binds memory bias to scheduling order only",
+        "phase-memory bias is verified not to change OCTOPUS species membership"
+      ]
+    }
+  ],
+  "regression_tests_added": [
+    "reject unknown state fields",
+    "reject normalized role collisions",
+    "reject string route and numeric coercions",
+    "reject validly hashed but inconsistent counts",
+    "reject forged ledger genesis",
+    "reject ledger sequence gaps",
+    "reject zero-count normalized alias collision",
+    "reject mapping as route/source_roles",
+    "reject non-string unexpected state key without raw TypeError",
+    "reject non-mapping memory_order base_scores",
+    "reject non-iterable transition_affinity source_roles",
+    "normalize lowercase base-score role keys in memory_order",
+    "reject invalid UTF-8 ledger with PhaseMemoryError",
+    "reject unordered route set",
+    "reject duplicate JSON keys in ledger",
+    "gateway phase-memory reorder preserves OCTOPUS membership",
+    "reject invalid base score outside selected species"
+  ],
+  "repair_commits": {
+    "phase_memory_hardening": "279d19cb26d4dccdfa5eb588a8e37e51fe559938",
+    "phase_memory_tests": "50a3382d44c1e9e03df3f8bbc698436a9c33d7b4",
+    "normalization_iterable_hardening": "83800507e5f9b297765c44c532e6cd97b0f973f4",
+    "normalization_iterable_tests": "55d97084d50089be0729bf041caf3199c52ed01a",
+    "external_worker_list_alignment": "ccae06797deb61949b8e4430b3b5f5b05d744e76",
+    "relational_memory_invariant_alignment": "3eea6409f9f1209cf79cee6e095a36a9b96ab868",
+    "malformed_input_error_contract": "9251c69ce7ae88e32108a42a3358f2a9f991258d",
+    "malformed_input_regressions": "336ad38f1bd934980bc17de262ea408246c4bbb5",
+    "normalization_and_ledger_error_gaps": "e2764671868a2a9ebb2ef492b9dfd6d79bcf1d85",
+    "normalization_and_utf8_regressions": "0c6f739b942506822234fc203fe0a364336f2016",
+    "ordered_routes_and_duplicate_key_ledger": "0984dd856bdf81339c4f762efa2d2c7b06134ae7",
+    "ordered_routes_and_duplicate_key_tests": "d21a368d40283c710e93b3659b711fe1ee7d0c65",
+    "gateway_membership_firewall_test": "5deb5ac087ff113bacb4556ef222595a97a2ae7b",
+    "all_memory_order_scores_fail_closed": "414ab283fc412252b15e50051f75e5e5c24435ea",
+    "unselected_invalid_score_regression": "f51b9debccb3044de584d4d62ec1abfd09ea116d"
+  },
+  "validation": {
+    "noema_aux_tether": {
+      "status": "ACTIVE",
+      "guard_schema": "noema.aux-tether-guard/v2",
+      "failures": [],
+      "static_fallback": false,
+      "latest_fresh_guard_observed": true
+    },
+    "github_actions": {
+      "exact_head_run_count_observed": 17,
+      "status": "INFRASTRUCTURE_FAILURE_BEFORE_STEPS",
+      "representative_jobs_step_count": 0,
+      "code_test_pass_claim": false,
+      "code_test_fail_claim": false
+    },
+    "external_code_runner": {
+      "yepcode": "UNAVAILABLE_NOT_AUTHORIZED_EMPTY_TEAM_ID"
+    },
+    "local_private_checkout": {
+      "github_token_present": false,
+      "status": "UNAVAILABLE"
+    },
+    "static_checks": {
+      "reference_mcp_tool_count": 35,
+      "product_mcp_tool_count": 29,
+      "product_29_is_intentional_surface_specific_contract": true,
+      "pr_mergeable": true
+    },
+    "full_exact_head_regression": "PENDING_RUNNER_AVAILABILITY"
+  },
+  "authority": {
+    "main_mutated": false,
+    "merge_performed": false,
+    "pull_request_draft": true,
+    "production_runtime_write": false,
+    "canon_allowed": false
+  }
+}

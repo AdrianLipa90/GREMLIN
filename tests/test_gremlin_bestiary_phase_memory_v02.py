@@ -1,12 +1,21 @@
 from __future__ import annotations
 
+import json
 import math
 
+import pytest
+
+import gremlin_mcp.phase_memory_runtime as phase_memory
+import tools.gremlin_bestiary_phasenav_phase_gates_v02 as phase_gates
+
 from gremlin_mcp.phase_memory_runtime import (
+    PhaseMemoryError,
     PhaseMemoryRuntime,
     empty_memory_state,
+    memory_bias_scores,
     memory_order,
     update_memory_state,
+    validate_memory_state,
 )
 from gremlin_mcp.role_registry import BESTIARY_ROLE_NAMES
 from tools.gremlin_bestiary_phasenav_live_binding_v02 import SPECIES_OPERATOR_BINDINGS
@@ -146,3 +155,223 @@ def test_binding_manifest_preserves_candidate_firewall() -> None:
     assert manifest["semantic_axis_assignment"] is False
     assert manifest["physical_analog_claim"] is False
     assert manifest["canon_allowed"] is False
+
+
+def test_phase_memory_rejects_unknown_state_fields() -> None:
+    state = empty_memory_state()
+    state["unexpected"] = True
+    with pytest.raises(PhaseMemoryError, match="keys mismatch"):
+        validate_memory_state(state)
+
+
+def test_phase_memory_rejects_normalized_role_collisions() -> None:
+    state = empty_memory_state()
+    state.update(
+        {
+            "sequence": 1,
+            "last_role": "SPIDER",
+            "visit_counts": {"SPIDER": 1, "spider": 1},
+            "parent_commitment": empty_memory_state()["commitment"],
+        }
+    )
+    with pytest.raises(PhaseMemoryError, match="duplicate normalized visit role"):
+        validate_memory_state(state)
+
+
+def test_phase_memory_rejects_string_route_and_numeric_coercions() -> None:
+    state = empty_memory_state()
+    with pytest.raises(PhaseMemoryError, match="route must be a sequence"):
+        update_memory_state(state, "SPIDER")  # type: ignore[arg-type]
+    with pytest.raises(PhaseMemoryError, match="max_bias must be a real number"):
+        memory_bias_scores({"SPIDER": 0.5}, state, max_bias=True)
+    with pytest.raises(PhaseMemoryError, match="base scores must be real numbers"):
+        memory_bias_scores({"SPIDER": "0.5"}, state)  # type: ignore[dict-item]
+
+
+def test_phase_memory_rejects_validly_hashed_but_inconsistent_counts() -> None:
+    genesis = empty_memory_state()
+    core = {
+        "schema": phase_memory.SCHEMA,
+        "version": phase_memory.VERSION,
+        "sequence": 1,
+        "last_role": "SPIDER",
+        "visit_counts": {"SPIDER": 2},
+        "transition_counts": {},
+        "parent_commitment": genesis["commitment"],
+    }
+    forged = {**core, "commitment": phase_memory._sha(core)}
+    with pytest.raises(PhaseMemoryError, match="transition count"):
+        validate_memory_state(forged)
+
+
+def test_phase_memory_ledger_rejects_forged_genesis(tmp_path) -> None:
+    core = {
+        "schema": phase_memory.SCHEMA,
+        "version": phase_memory.VERSION,
+        "sequence": 1,
+        "last_role": "SPIDER",
+        "visit_counts": {"SPIDER": 1},
+        "transition_counts": {},
+        "parent_commitment": "0" * 64,
+    }
+    forged = {**core, "commitment": phase_memory._sha(core)}
+    path = tmp_path / "forged-genesis.jsonl"
+    path.write_text(json.dumps(forged, sort_keys=True) + "\n", encoding="utf-8")
+    with pytest.raises(PhaseMemoryError, match="genesis break"):
+        PhaseMemoryRuntime(ledger_path=path)
+
+
+def test_phase_memory_ledger_rejects_sequence_gap(tmp_path) -> None:
+    genesis = empty_memory_state()
+    first = update_memory_state(genesis, ("SPIDER",))
+    core = {
+        "schema": phase_memory.SCHEMA,
+        "version": phase_memory.VERSION,
+        "sequence": 3,
+        "last_role": "SPIDER",
+        "visit_counts": {"SPIDER": 3},
+        "transition_counts": {"SPIDER->SPIDER": 2},
+        "parent_commitment": first["commitment"],
+    }
+    gap = {**core, "commitment": phase_memory._sha(core)}
+    path = tmp_path / "sequence-gap.jsonl"
+    path.write_text(
+        "\n".join(
+            (
+                json.dumps(first, sort_keys=True),
+                json.dumps(gap, sort_keys=True),
+            )
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(PhaseMemoryError, match="sequence break"):
+        PhaseMemoryRuntime(ledger_path=path)
+
+
+def test_phase_memory_zero_count_alias_still_collides() -> None:
+    state = empty_memory_state()
+    state.update(
+        {
+            "sequence": 1,
+            "last_role": "SPIDER",
+            "visit_counts": {"SPIDER": 0, "spider": 1},
+            "parent_commitment": empty_memory_state()["commitment"],
+        }
+    )
+    with pytest.raises(PhaseMemoryError, match="duplicate normalized visit role"):
+        validate_memory_state(state)
+
+
+def test_phase_memory_rejects_mapping_as_route_or_source_roles() -> None:
+    state = empty_memory_state()
+    with pytest.raises(PhaseMemoryError, match="route must be a sequence"):
+        update_memory_state(state, {"SPIDER": 1})  # type: ignore[arg-type]
+    with pytest.raises(PhaseMemoryError, match="source_roles must be an iterable"):
+        memory_bias_scores(
+            {"SPIDER": 0.5},
+            state,
+            source_roles={"SPIDER": 1},  # type: ignore[arg-type]
+        )
+
+
+def test_phase_memory_rejects_nonstring_extra_key_without_raw_typeerror() -> None:
+    state = empty_memory_state()
+    state[7] = "unexpected"  # type: ignore[index]
+    with pytest.raises(PhaseMemoryError, match="keys mismatch"):
+        validate_memory_state(state)
+
+
+def test_memory_order_rejects_nonmapping_base_scores() -> None:
+    state = empty_memory_state()
+    with pytest.raises(PhaseMemoryError, match="base_scores must be a mapping"):
+        memory_order(
+            ("SPIDER",),
+            [("SPIDER", 0.5)],  # type: ignore[arg-type]
+            state,
+        )
+
+
+def test_transition_affinity_rejects_noniterable_source_roles() -> None:
+    state = empty_memory_state()
+    with pytest.raises(PhaseMemoryError, match="source_roles must be an iterable"):
+        phase_memory.transition_affinity(
+            state,
+            123,  # type: ignore[arg-type]
+            "SPIDER",
+        )
+
+
+def test_memory_order_normalizes_base_score_role_keys() -> None:
+    state = empty_memory_state()
+    order, scores = memory_order(
+        ("SPIDER", "MOLE"),
+        {"spider": 0.75, "mole": 0.25},
+        state,
+    )
+    assert order == ["SPIDER", "MOLE"]
+    assert scores["SPIDER"] == pytest.approx(0.75)
+    assert scores["MOLE"] == pytest.approx(0.25)
+
+
+def test_phase_memory_ledger_invalid_utf8_fails_with_domain_error(tmp_path) -> None:
+    path = tmp_path / "invalid-utf8.jsonl"
+    path.write_bytes(b"\xff\xfe\xfa")
+    with pytest.raises(PhaseMemoryError, match="ledger cannot be read"):
+        PhaseMemoryRuntime(ledger_path=path)
+
+
+def test_phase_memory_rejects_unordered_route_set() -> None:
+    state = empty_memory_state()
+    with pytest.raises(PhaseMemoryError, match="route must be a sequence"):
+        update_memory_state(state, {"SPIDER", "HOUND"})  # type: ignore[arg-type]
+
+
+def test_phase_memory_ledger_rejects_duplicate_json_keys(tmp_path) -> None:
+    path = tmp_path / "duplicate-keys.jsonl"
+    state = update_memory_state(empty_memory_state(), ("SPIDER",))
+    raw = json.dumps(state, sort_keys=True)
+    raw = raw[:-1] + ',"sequence":1}'
+    path.write_text(raw + "\n", encoding="utf-8")
+    with pytest.raises(PhaseMemoryError, match="duplicate JSON key"):
+        PhaseMemoryRuntime(ledger_path=path)
+
+
+def test_memory_order_rejects_invalid_score_outside_selected_species() -> None:
+    state = empty_memory_state()
+    with pytest.raises(PhaseMemoryError, match="base scores must be real numbers"):
+        memory_order(
+            ("SPIDER",),
+            {"SPIDER": 0.5, "MOLE": "invalid"},  # type: ignore[dict-item]
+            state,
+        )
+
+
+def test_phase_carrier_rejects_coordinate_and_species_coercion() -> None:
+    with pytest.raises(phase_gates.PhaseCarrierError, match="real numbers"):
+        phase_gates.PhaseState36(["0.0"] * phase_gates.DIM)  # type: ignore[list-item]
+    with pytest.raises(phase_gates.PhaseCarrierError, match="real numbers"):
+        phase_gates.PhaseState36([False] * phase_gates.DIM)
+    with pytest.raises(phase_gates.PhaseCarrierError, match="role must be a string"):
+        phase_gates.role_binding(7)  # type: ignore[arg-type]
+
+
+def test_phase_gate_rejects_coerced_coefficients() -> None:
+    with pytest.raises(phase_gates.PhaseCarrierError, match="coefficients must be real numbers"):
+        phase_gates.PhaseGate36("MOLE", drive_gain="0.3")  # type: ignore[arg-type]
+    with pytest.raises(phase_gates.PhaseCarrierError, match="coefficients must be real numbers"):
+        phase_gates.PhaseGate36("MOLE", dt=True)
+
+
+def test_phase_route_rejects_unordered_or_coerced_inputs() -> None:
+    state = phase_gates.PhaseState36([0.0] * phase_gates.DIM)
+    with pytest.raises(phase_gates.PhaseCarrierError, match="candidates must be a sequence"):
+        phase_gates.route_phase_order(state.theta, {"MOLE", "OWL"})  # type: ignore[arg-type]
+    with pytest.raises(phase_gates.PhaseCarrierError, match="route species must be strings"):
+        phase_gates.route_phase_order(state.theta, ["MOLE", 7])  # type: ignore[list-item]
+    with pytest.raises(phase_gates.PhaseCarrierError, match="max_species must be a positive integer"):
+        phase_gates.octopus_route(state, ["MOLE"], max_species=1.9)  # type: ignore[arg-type]
+    with pytest.raises(phase_gates.PhaseCarrierError, match="min_score must be a real number"):
+        phase_gates.octopus_route(state, ["MOLE"], min_score="0.1")  # type: ignore[arg-type]
+    with pytest.raises(phase_gates.PhaseCarrierError, match="min_score must be finite"):
+        phase_gates.octopus_route(state, ["MOLE"], min_score=math.nan)

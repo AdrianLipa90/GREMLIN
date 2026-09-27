@@ -6,6 +6,7 @@ import cmath
 import hashlib
 import json
 import math
+from numbers import Real
 from typing import Any, Mapping, Sequence
 
 try:
@@ -113,16 +114,27 @@ def circular_delta(a: float, b: float) -> float:
 
 
 def _theta36(values: Sequence[float]) -> tuple[float, ...]:
-    out = tuple(float(x) for x in values)
-    if len(out) != DIM:
+    if (
+        isinstance(values, (str, bytes, Mapping))
+        or not isinstance(values, Sequence)
+        or len(values) != DIM
+    ):
         raise PhaseCarrierError(f"phase state must contain exactly {DIM} coordinates")
-    if not all(math.isfinite(x) and 0.0 <= x < TAU for x in out):
-        raise PhaseCarrierError("phase coordinates must be finite and lie in [0,2pi)")
-    return out
+    out: list[float] = []
+    for value in values:
+        if isinstance(value, bool) or not isinstance(value, Real):
+            raise PhaseCarrierError("phase coordinates must be real numbers")
+        coordinate = float(value)
+        if not math.isfinite(coordinate) or not 0.0 <= coordinate < TAU:
+            raise PhaseCarrierError("phase coordinates must be finite and lie in [0,2pi)")
+        out.append(coordinate)
+    return tuple(out)
 
 
 def role_binding(species: str) -> dict[str, int | str]:
-    name = str(species).strip().upper()
+    if not isinstance(species, str):
+        raise PhaseCarrierError("Bestiary role must be a string")
+    name = species.strip().upper()
     if name not in _ROLE_BINDING:
         raise PhaseCarrierError(f"unknown Bestiary role: {species!r}")
     axis, orientation, address = _ROLE_BINDING[name]
@@ -222,13 +234,22 @@ class PhaseGate36:
         harmonic_gain: float = 0.04,
         dt: float = 0.20,
     ) -> None:
-        name = str(species).strip().upper()
+        if not isinstance(species, str):
+            raise PhaseCarrierError("species must be a string")
+        name = species.strip().upper()
         if name not in SPECIES:
             raise PhaseCarrierError(f"unknown species: {species!r}")
-        gains = (drive_gain, neighbor_coupling, harmonic_gain, dt)
-        if not all(math.isfinite(float(x)) for x in gains):
+        raw_gains = (drive_gain, neighbor_coupling, harmonic_gain, dt)
+        if any(isinstance(value, bool) or not isinstance(value, Real) for value in raw_gains):
+            raise PhaseCarrierError("phase-gate coefficients must be real numbers")
+        drive = float(drive_gain)
+        coupling = float(neighbor_coupling)
+        harmonic = float(harmonic_gain)
+        step_dt = float(dt)
+        gains = (drive, coupling, harmonic, step_dt)
+        if not all(math.isfinite(value) for value in gains):
             raise PhaseCarrierError("phase-gate coefficients must be finite")
-        if drive_gain < 0 or neighbor_coupling < 0 or harmonic_gain < 0 or dt <= 0:
+        if drive < 0 or coupling < 0 or harmonic < 0 or step_dt <= 0:
             raise PhaseCarrierError("invalid phase-gate coefficients")
         object.__setattr__(self, "species", name)
         object.__setattr__(
@@ -236,10 +257,10 @@ class PhaseGate36:
             "phase_bias",
             _theta36(role_phase_carrier(name) if phase_bias is None else phase_bias),
         )
-        object.__setattr__(self, "drive_gain", float(drive_gain))
-        object.__setattr__(self, "neighbor_coupling", float(neighbor_coupling))
-        object.__setattr__(self, "harmonic_gain", float(harmonic_gain))
-        object.__setattr__(self, "dt", float(dt))
+        object.__setattr__(self, "drive_gain", drive)
+        object.__setattr__(self, "neighbor_coupling", coupling)
+        object.__setattr__(self, "harmonic_gain", harmonic)
+        object.__setattr__(self, "dt", step_dt)
 
     def step(
         self,
@@ -270,6 +291,11 @@ class PhaseGate36:
     ) -> tuple[PhaseState36, ...]:
         if np is None:
             raise PhaseCarrierError("NumPy is required for vectorized phase execution")
+        if (
+            isinstance(states, (str, bytes, Mapping))
+            or not isinstance(states, Sequence)
+        ):
+            raise PhaseCarrierError("states must be a sequence of PhaseState36 values")
         if not states:
             return ()
         if not all(isinstance(state, PhaseState36) for state in states):
@@ -300,9 +326,16 @@ def route_phase_order(
     candidates: Sequence[str],
 ) -> tuple[list[str], dict[str, float]]:
     state = PhaseState36(phase36)
+    if (
+        isinstance(candidates, (str, bytes, Mapping))
+        or not isinstance(candidates, Sequence)
+    ):
+        raise PhaseCarrierError("candidates must be a sequence of role strings")
     unique: list[str] = []
     for raw in candidates:
-        name = str(raw).strip().upper()
+        if not isinstance(raw, str):
+            raise PhaseCarrierError("route species must be strings")
+        name = raw.strip().upper()
         if name not in SPECIES:
             raise PhaseCarrierError(f"unknown route species: {raw!r}")
         if name not in unique:
@@ -324,10 +357,17 @@ def octopus_route(
 ) -> dict[str, Any]:
     if not isinstance(state, PhaseState36):
         raise PhaseCarrierError("PhaseState36 required")
+    if isinstance(max_species, bool) or not isinstance(max_species, int) or max_species < 1:
+        raise PhaseCarrierError("max_species must be a positive integer")
+    if isinstance(min_score, bool) or not isinstance(min_score, Real):
+        raise PhaseCarrierError("min_score must be a real number")
+    score_floor = float(min_score)
+    if not math.isfinite(score_floor) or score_floor < 0.0:
+        raise PhaseCarrierError("min_score must be finite and non-negative")
     ordered, scores = route_phase_order(state.theta, candidates)
     admitted = [
-        name for name in ordered if scores[name] >= float(min_score)
-    ][: int(max_species)]
+        name for name in ordered if scores[name] >= score_floor
+    ][:max_species]
     return {
         "schema": "GREMLIN_PHASENAV_ROUTE_V0_2",
         "status": "PASS_CANDIDATE",

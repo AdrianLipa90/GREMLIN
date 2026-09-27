@@ -6,6 +6,20 @@
 **Status:** `WORKING_ROADMAP / POST-PR62 / EVIDENCE-FIRST / FAIL-CLOSED`  
 **Canonical constant:** `kappa = ln(2)/(24*pi)`
 
+## Post-2026-09-26 current-state addendum
+
+The numbered roadmap below is preserved as the dated 2026-09-18 baseline. It must not be read as a claim about the repository state after the v0.2 phase-memory promotion.
+
+Active post-promotion state:
+
+- Bestiary runtime surface: **20 roles** (the 18-role baseline plus ELEPHANT and BEES);
+- Worker ABI: **v0.2.6**;
+- active PhaseNav v0.2 carrier surface: **20 software-validated role carriers**;
+- the scalar/vector/continuous three-way suite remains a **legacy frozen 18-role validation scope** and is not relabeled as 20/20;
+- ELEPHANT and BEES remain candidate memory/coherence roles with no physical-analog or canon-authority claim.
+
+Historical 2026-09-18 statements below are retained for provenance.
+
 ## 1. Why v0.2 exists
 
 Roadmap v0.1 captured the state of 2026-08-29, when the repository still described MCP v0.4 as the operational baseline, PR #22 as unfinished and several research lanes as future merge work.

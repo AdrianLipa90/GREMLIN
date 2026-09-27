@@ -1,6 +1,10 @@
 from __future__ import annotations
 
+import math
+
 import asyncio
+
+import pytest
 
 from gremlin_mcp.router import ROUTER_SCHEMA, auto_fanout, route
 from gremlin_mcp.workers import WorkerBroker
@@ -99,3 +103,36 @@ def test_mcp_discovery_exposes_octopus_tools() -> None:
             assert routed.is_error is False
 
     asyncio.run(exercise())
+
+
+def test_router_rejects_numeric_coercion_and_nonfinite_thresholds() -> None:
+    payload = {"query": "audit graph dependencies"}
+    with pytest.raises(ValueError, match="max_species must be an integer"):
+        route(payload, max_species=True)
+    with pytest.raises(ValueError, match="max_species must be an integer"):
+        route(payload, max_species=1.9)  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="min_score must be a real number"):
+        route(payload, min_score="2.0")  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="min_score must be finite"):
+        route(payload, min_score=math.inf)
+    with pytest.raises(ValueError, match="relative_cutoff must be a real number"):
+        route(payload, relative_cutoff=True)
+    with pytest.raises(ValueError, match="relative_cutoff must be finite"):
+        route(payload, relative_cutoff=math.nan)
+
+
+def test_octopus_routes_provenance_temporal_inversion_to_history_and_audit() -> None:
+    decision = route(
+        {
+            "query": (
+                "Audit provenance inconsistency: V0_2 supersedes V0_1; "
+                "V0_1 was retroactively rewritten after supersession, "
+                "creating temporal inversion in lineage"
+            ),
+            "provenance": {"supersession": ["V0_2", "V0_1"]},
+        },
+        max_species=4,
+        relative_cutoff=0.25,
+    )
+    mask = set(decision["route_mask"])
+    assert {"OWL", "HOUND", "RAVEN"} <= mask

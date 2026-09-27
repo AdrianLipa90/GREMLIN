@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 import hashlib
 import json
+import math
+from numbers import Real
 import re
 import unicodedata
 from typing import Any, Iterable, Mapping
@@ -45,6 +47,8 @@ CUES: dict[str, tuple[Cue, ...]] = {
     ),
     "RAVEN": (
         Cue("memory", 4.0), Cue("recall", 4.0), Cue("remember", 3.0),
+        Cue("lineage", 3.0), Cue("supersede", 3.0), Cue("retroactive", 3.0),
+        Cue("temporal", 2.0), Cue("immutable", 2.0), Cue("chronology", 3.0),
         Cue("previous", 1.0), Cue("prior", 1.0), Cue("history", 3.0), Cue("archive", 3.0),
         Cue("earlier", 1.0), Cue("similar", 1.0), Cue("precedent", 3.0), Cue("retrieve", 3.0),
         Cue("past work", 3.0), Cue("earlier work", 3.0), Cue("retrieve context", 4.0),
@@ -59,6 +63,7 @@ CUES: dict[str, tuple[Cue, ...]] = {
         Cue("falsify", 4.0), Cue("falsification", 4.0), Cue("test", 2.0),
         Cue("verify", 2.0), Cue("validate", 2.0), Cue("regression", 3.0), Cue("debug", 3.0),
         Cue("discrepancy", 4.0), Cue("challenge assumptions", 4.0), Cue("stress check", 4.0),
+        Cue("inversion", 4.0), Cue("temporal inversion", 4.0), Cue("provenance breach", 4.0),
         Cue("stress-check", 4.0), Cue("sanity check", 3.0), Cue("look for problems", 3.0),
         Cue("spot issues", 3.0), Cue("sprzecz", 4.0), Cue("blad", 3.0), Cue("testuj", 2.0),
         Cue("sprawdz", 2.0), Cue("niezgodn", 4.0), Cue("anomali", 4.0),
@@ -112,6 +117,7 @@ PREFIX_CUES = frozenset({
     "regression", "derive", "derivation", "equation", "formula", "calculate", "compute",
     "source", "citation", "claim", "reference", "combination", "permutation", "variants",
     "duplicate", "redundant", "obsolete", "overlap",
+    "lineage", "supersede", "retroactive", "temporal", "immutable", "chronology", "inversion",
     "powiaz", "zalezn", "relacj", "polaczen", "mapuj",
     "pamiec", "wczesn", "poprzed", "histori", "archiw", "przywol",
     "sprzecz", "blad", "testuj", "sprawdz", "niezgodn", "anomali", "weryfik", "walid",
@@ -123,7 +129,7 @@ PREFIX_CUES = frozenset({
 
 STRUCTURAL_KEYS: dict[str, frozenset[str]] = {
     "SPIDER": frozenset({"graph", "graphs", "edges", "nodes", "dependencies", "relations", "links", "topology"}),
-    "RAVEN": frozenset({"memory", "history", "previous", "prior", "archive", "timeline"}),
+    "RAVEN": frozenset({"memory", "history", "previous", "prior", "archive", "timeline", "lineage", "supersession"}),
     "HOUND": frozenset({"errors", "failures", "tests", "mismatches", "anomalies", "contradictions"}),
     "MOLE": frozenset({"equation", "equations", "formula", "derivation", "proof", "solver", "parameters"}),
     "OWL": frozenset({"sources", "citations", "evidence", "provenance", "claims", "confidence", "methodology"}),
@@ -228,15 +234,23 @@ def route(
         if key not in {SCHEDULER_KEY, MEMORY_REQUESTS_KEY, MEMORY_AUTHORIZATION_KEY}
     }
 
-    limit = int(max_species)
+    if isinstance(max_species, bool) or not isinstance(max_species, int):
+        raise ValueError("max_species must be an integer")
+    limit = max_species
     if limit <= 0 or limit > MAX_ROUTE_SPECIES:
         raise ValueError(f"max_species must be in 1..{MAX_ROUTE_SPECIES}")
+
+    if isinstance(min_score, bool) or not isinstance(min_score, Real):
+        raise ValueError("min_score must be a real number")
     floor = float(min_score)
+    if not math.isfinite(floor) or floor <= 0:
+        raise ValueError("min_score must be finite and positive")
+
+    if isinstance(relative_cutoff, bool) or not isinstance(relative_cutoff, Real):
+        raise ValueError("relative_cutoff must be a real number")
     cutoff = float(relative_cutoff)
-    if floor <= 0:
-        raise ValueError("min_score must be positive")
-    if not (0.0 < cutoff <= 1.0):
-        raise ValueError("relative_cutoff must be in (0, 1]")
+    if not math.isfinite(cutoff) or not (0.0 < cutoff <= 1.0):
+        raise ValueError("relative_cutoff must be finite and in (0, 1]")
 
     strings: list[str] = []
     keys: list[str] = []

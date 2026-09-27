@@ -1,0 +1,32 @@
+{
+  "schema":"GREMLIN_RESIDUAL_PRESERVING_SPECTROSCOPY_RECEIPT_V0_2",
+  "date":"2026-09-26",
+  "status":"IMPLEMENTED_CANDIDATE_LOCAL_7_OF_7_PASS",
+  "branch":"feat/residual-preserving-spectroscopy-v01-20260926",
+  "gremlin_live_audit":{
+    "authority":"CANDIDATE_ONLY",
+    "task_event":"gremlin:whisper:sha256:978ca43dd54126beba34ff27ab9b4021eef8c958fa5178e93cbabae33c2b230b",
+    "audit_event":"gremlin:whisper:sha256:f60e50b96e580a4c35b1fac8d21a6afd2ee1f65d0783475eb44027f18332a0d5",
+    "route_species":["OWL","SPIDER","HOUND"]
+  },
+  "new_v02_gates":[
+    "median stacked PSD",
+    "weak persistent line recovery",
+    "persistent micro-offset",
+    "cross-channel coherence",
+    "multi-scale block-mean slope"
+  ],
+  "synthetic_controls":{
+    "passed":7,
+    "failed":0,
+    "weak_line_amplitude_over_noise_sigma":0.10,
+    "weak_line_bin":137
+  },
+  "firewalls":[
+    "NO_DESTRUCTIVE_DENOISING",
+    "NO_NEW_PHYSICS_FROM_RESIDUAL_ONLY",
+    "NO_TIME_FLUCTUATION_PROMOTION",
+    "INTERPRETATION_LAST"
+  ],
+  "main_modified":false
+}

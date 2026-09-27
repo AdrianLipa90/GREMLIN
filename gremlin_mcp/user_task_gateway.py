@@ -338,6 +338,14 @@ def build_user_task_plan(
             memory_state,
             max_bias=PHASE_MEMORY_MAX_BIAS,
         )
+        if (
+            len(phase_order) != len(base_phase_order)
+            or set(phase_order) != set(base_phase_order)
+            or set(phase_scores) != set(base_phase_scores)
+        ):
+            raise ValueError(
+                "phase memory may reorder OCTOPUS membership but cannot change it"
+            )
         phase_memory = {
             "applied": True,
             "state_commitment": memory_state["commitment"],

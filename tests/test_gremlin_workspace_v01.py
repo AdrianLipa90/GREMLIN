@@ -12,6 +12,7 @@ from urllib.request import Request, urlopen
 import pytest
 
 import gremlin_mcp.workspace as workspace
+from gremlin_mcp.core import REFERENCE_MCP_TOOLS
 from gremlin_mcp.install.paths import resolve_paths
 from gremlin_mcp.product import ProductAuthorizationError
 from tools.gremlin_client_protocol_v01 import REQUEST_SCHEMA
@@ -288,7 +289,7 @@ def test_reference_dashboard_uses_reference_registry_without_product_identity() 
     payload = workspace.system_payload(surface="reference")
     assert payload["surface"] == "reference"
     assert payload["product"]["status"] == "UNLICENSED_RESEARCH"
-    assert payload["mcp"]["tool_count"] == 33
+    assert payload["mcp"]["tool_count"] == len(REFERENCE_MCP_TOOLS)
     assert payload["mcp"]["capability_contract"] == "EXACT_REFERENCE_REGISTRY_V0_1"
     assert payload["bestiary"]["species_count"] == 20
     assert payload["product"]["license"]["edition"] is None

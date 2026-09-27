@@ -1,0 +1,101 @@
+{
+  "schema": "GREMLIN_28_ERROR_AUDIT_REPAIR_V0_3",
+  "created_utc": "2026-09-26T22:48:17Z",
+  "branch": "fix/gremlin-28-error-audit-20260926",
+  "pull_request": 151,
+  "base_main_sha": "ca82949818b49465d0c2d0535aa9c219c32bdf32",
+  "supersedes": "provenance/GREMLIN_28_ERROR_AUDIT_REPAIR_V0_2.json",
+  "repair_head_before_receipt": "a4ad46488d3d5b2bd970d2497c94e664695f5b79",
+  "status": "PARTIAL_PASS_WITH_OPEN_RUNTIME_GAP",
+  "reported_diagnostics": {
+    "user_reported_count": 28,
+    "authoritative_itemized_source_available": false,
+    "exact_28_of_28_closure_claim": false,
+    "note": "Confirmed defects are repaired independently; no fabricated one-to-one mapping is asserted."
+  },
+  "reflexive_self_audit": {
+    "live_tether_status": "ACTIVE",
+    "live_gremlin_authority": "CANDIDATE_ONLY",
+    "live_gremlin_runtime_source_sha256": "c2a294a48bf3e1db1d07a98096c7fd174b591c4c7c5c41d98105d2d5ac8dcffd",
+    "first_task_event_id": "gremlin:whisper:sha256:c0b88377dd253aae22b1a522197440fdb715d13d863c8961dced6045dd740cbd",
+    "first_audit_candidate_event_id": "gremlin:whisper:sha256:f129bbd88336d44b4e9e1dfc5ceb455b27ee721a80a3f6e9c4c89fe5f56e7ec9",
+    "first_route_species": [
+      "OWL",
+      "HOUND",
+      "RAVEN",
+      "MANTIS"
+    ],
+    "first_phase_attention_terms": [
+      "contradictions",
+      "phase-memory",
+      "membership",
+      "mismatches"
+    ],
+    "second_task_event_id": "gremlin:whisper:sha256:d28c1537e81afd4658b43922be8bce2007e94fa075fcb741918ae2ca48e17ba6",
+    "second_audit_candidate_event_id": "gremlin:whisper:sha256:90fabc6573801b5469069c655a46a97b9aa12e0453bf82297fa0ec6768c56b0d",
+    "second_route_species": [
+      "OWL"
+    ],
+    "second_phase_attention_terms": [
+      "retroactively",
+      "inversion",
+      "scheduler",
+      "creating"
+    ],
+    "finding": "The live NOEMA GREMLIN role-cue router failed to route an explicit provenance temporal-inversion case to HOUND/RAVEN even though the repository OCTOPUS router has stronger audit semantics. This is treated as runtime semantic drift, not as a repaired live-runtime claim."
+  },
+  "confirmed_repairs_since_v0_2": [
+    {
+      "id": "IMMUTABLE_PROVENANCE_CHAIN",
+      "status": "REPAIRED",
+      "detail": "V0_1 had been retroactively expanded after V0_2 already superseded it. V0_1 was restored byte-for-byte to its historical blob from 4dee9ad so supersession is monotonic again.",
+      "restored_v0_1_blob_sha": "3d6676cb28eadf4c2693469d901a2cce7fc93a05",
+      "repair_commit": "76780968a7c4ff9eb318e14636c47f178836ce8b"
+    },
+    {
+      "id": "REPO_REFLEXIVE_PROVENANCE_ROUTING",
+      "status": "REPAIRED_CANDIDATE",
+      "detail": "Repository OCTOPUS router now recognizes lineage/supersession/retroactive/temporal/chronology cues for RAVEN and temporal inversion/provenance breach cues for HOUND.",
+      "router_commit": "fa95f765ab7526a7a59755018a0ea76162b233a7",
+      "regression_commit": "a4ad46488d3d5b2bd970d2497c94e664695f5b79",
+      "executable_validation": "PENDING_RUNNER_AVAILABILITY"
+    },
+    {
+      "id": "POST_V0_2_STRICT_INPUT_HARDENING",
+      "status": "STATIC_REVIEWED_EXECUTION_PENDING",
+      "detail": "OCTOPUS numeric ABI, active PhaseNav v0.2 input contracts, scheduler provenance inputs, scheduler canonical IDs/hints/lanes/affinity and full control-plane validation were added after V0_2."
+    }
+  ],
+  "open_findings": [
+    {
+      "id": "LIVE_GREMLIND_ROLE_CUE_DRIFT",
+      "severity": "INTEGRITY",
+      "status": "OPEN_EXTERNAL_RUNTIME",
+      "detail": "The live gremlind.py used by NOEMA is not present in this GREMLIN repository according to repository code search. Its _ROLE_CUES surface remains narrower than the repository router, so the live self-audit runtime still has a provenance/history routing blind spot.",
+      "required_action": "Port the repo-level provenance chronology routing contract into the source-controlled NOEMA gremlind runtime and add an executable self-audit regression there."
+    },
+    {
+      "id": "EXACT_HEAD_EXECUTABLE_REGRESSION",
+      "severity": "VALIDATION",
+      "status": "OPEN_INFRASTRUCTURE",
+      "detail": "GitHub Actions previously failed before steps and no authorized alternate runner is available. Static review is not represented as an executable PASS."
+    }
+  ],
+  "branch_state_before_receipt": {
+    "head": "a4ad46488d3d5b2bd970d2497c94e664695f5b79",
+    "ahead_of_main": 55,
+    "behind_main": 0,
+    "changed_files": 22,
+    "additions": 1275,
+    "deletions": 100,
+    "pull_request_mergeable": true,
+    "pull_request_draft": true,
+    "main_mutated": false,
+    "merge_performed": false
+  },
+  "authority": {
+    "canon_allowed": false,
+    "production_runtime_write": false,
+    "main_merge_authorized": false
+  }
+}

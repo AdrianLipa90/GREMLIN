@@ -1,0 +1,23 @@
+{
+  "schema":"GREMLIN_LAYERED_RESIDUAL_DISCOVERY_RECEIPT_V0_1",
+  "date":"2026-09-27",
+  "status":"SYNTHETIC_ADVERSARIAL_PASS",
+  "branch":"feat/residual-preserving-spectroscopy-v01-20260926",
+  "seed":270927,
+  "shape":[16,4096],
+  "nuisance":{"bin":31,"amplitude":2.0,"stage1_median_abs_correlation":0.8148111167460168},
+  "weak_structure":{"bin":137,"amplitude":0.10,"noise_sigma":1.0,"stage2_stacked_peak_to_median_ratio":16.389934756829437,"stage2_support_fraction":1.0},
+  "stage1_classification":"SYSTEMATIC_OR_INSTRUMENTAL_CANDIDATE",
+  "stage2_classification":"UNRESOLVED_STRUCTURED_CANDIDATE",
+  "provenance":{
+    "same_raw_commitment_across_stages":true,
+    "model_commitment_changes":true,
+    "residual_commitment_changes":true
+  },
+  "claim_boundary":{
+    "weak_structure_physically_identified":false,
+    "new_physics_established":false,
+    "time_fluctuation_established":false
+  },
+  "main_modified":false
+}

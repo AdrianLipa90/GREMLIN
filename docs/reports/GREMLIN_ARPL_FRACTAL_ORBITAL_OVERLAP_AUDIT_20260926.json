@@ -1,0 +1,213 @@
+{
+  "schema": "gremlin.arpl-fractal-orbital-overlap-audit/v0.1",
+  "date": "2026-09-26",
+  "status": "PASS",
+  "pins": {
+    "on_primes": {
+      "repo": "AdrianLipa90/On-Primes",
+      "branch": "integrate/arpl-fractal-orbital-bridge-v0.2-20260926-r4",
+      "sha": "22171349917c97392db7d35605f15be1441fa5bb",
+      "compare_at_receipt": {
+        "ahead_by": 6,
+        "behind_by": 0
+      }
+    },
+    "orbital_system": {
+      "repo": "AdrianLipa90/Orbital-System-base",
+      "branch": "formalism/fractal-orbital-moire-hilbert-v0.8-20260926",
+      "validation_receipt_sha": "074f04328f7a615928d24b33474acb056e151985"
+    },
+    "phasenav": {
+      "repo": "AdrianLipa90/noema-phasenav-core",
+      "branch": "formalism/fractal-moire-hilbert-36d-bridge-v0.10-20260926",
+      "validation_receipt_sha": "2006fcad8e6c02ab4df5f26d98b15bdc82658ed9"
+    },
+    "on_primes_clock_fibre": {
+      "repo": "AdrianLipa90/On-Primes",
+      "branch": "integrate/arpl-clock-fibre-matrix-gram-v0.1-20260926",
+      "sha": "8781f4a685257eced538daa7462ec4fc48093a6b",
+      "base_compare": {
+        "ahead_by": 11,
+        "behind_by": 0
+      }
+    },
+    "orbital_heterogeneous": {
+      "repo": "AdrianLipa90/Orbital-System-base",
+      "branch": "formalism/fractal-orbital-moire-hilbert-v0.9-20260926",
+      "validation_receipt_sha": "cbf5d83a40ebe4e090ffad0749418dbac732f25b"
+    },
+    "phasenav_heterogeneous": {
+      "repo": "AdrianLipa90/noema-phasenav-core",
+      "branch": "formalism/fractal-moire-hilbert-36d-bridge-v0.11-20260926",
+      "validation_receipt_sha": "f26002ac57c8dd1c42ded490d37f63726f9e7abe"
+    },
+    "arpl_visibility_frontier": {
+      "repo": "AdrianLipa90/On-Primes",
+      "branch": "research/arpl-infinite-clock-visibility-frontier-v0.1-20260926",
+      "sha": "dc1cdbb401dd618738c8a23249fa4c23c8fe5515",
+      "base_compare": {
+        "ahead_by": 20,
+        "behind_by": 0
+      }
+    },
+    "arpl_visibility_theorem": {
+      "repo": "AdrianLipa90/On-Primes",
+      "branch": "research/arpl-infinite-clock-visibility-frontier-v0.1-20260926",
+      "sha": "deac8af3ae12ac80f0cfab21b440b6e727c0b342",
+      "proof": "proofs/ARPL_GRH_SOURCE_PRIME_REPLICATION_THEOREM_V0_1.md",
+      "receipt": "receipts/ARPL_GRH_SOURCE_PRIME_REPLICATION_THEOREM_V0_1_VALIDATION_20260926.md"
+    },
+    "phasenav_grh_visibility": {
+      "repo": "AdrianLipa90/noema-phasenav-core",
+      "branch": "formalism/fractal-moire-hilbert-36d-bridge-v0.12-20260926",
+      "validation_receipt_sha": "c9bc3b07016e2d41258c0f68294400cf54c13755"
+    },
+    "arpl_unconditional_frontier": {
+      "repo": "AdrianLipa90/On-Primes",
+      "branch": "research/arpl-unconditional-exposure-frontier-v0.1-20260926",
+      "sha": "7e0fd3e236fb96149e09a4c775ab4bd2fd9e8754",
+      "proof": "proofs/ARPL_UNCONDITIONAL_GENERIC_EXPOSURE_FRONTIER_V0_1.md",
+      "receipt": "receipts/ARPL_UNCONDITIONAL_GENERIC_EXPOSURE_FRONTIER_V0_1_VALIDATION_20260926.md"
+    },
+    "arpl_cyclotomic_two_target": {
+      "repo": "AdrianLipa90/On-Primes",
+      "branch": "research/arpl-cyclotomic-two-target-frontier-v0.1-20260927",
+      "validation_receipt_sha": "2cf143124a9b5e34e27160b525a5ca405ab79e6d",
+      "base_compare": {
+        "ahead_by": 4,
+        "behind_by": 0
+      }
+    },
+    "arpl_pair_intersection_barrier": {
+      "repo": "AdrianLipa90/On-Primes",
+      "branch": "research/arpl-cyclotomic-two-target-frontier-v0.1-20260927",
+      "validation_receipt_sha": "688c3c28e0fb7463d9cca690b1efc638f57559a6"
+    },
+    "arpl_torus_order_divisibility": {
+      "repo": "AdrianLipa90/On-Primes",
+      "branch": "research/arpl-cyclotomic-two-target-frontier-v0.1-20260927",
+      "validation_receipt_sha": "698087095df85536b448bf6518da1f8f63d4c8c8"
+    }
+  },
+  "exact_pass": [
+    "ARPL_REFINEMENT_TO_CUNTZ_BRANCHING",
+    "ARPL_ODOMETER_TO_CARRY_COCYCLE",
+    "ARPL_HIT_CYLINDER_TO_OVERLAP_GRAM",
+    "OVERLAP_STABILIZER_INTERTWINER_THEOREM",
+    "RANK_DEFICIENT_OVERLAP_HIDDEN_FREEDOM_REFERENCE",
+    "IMMUTABLE_ARPL_SOURCE_PINNING",
+    "SOURCE_OWNED_NONTRIVIAL_MATRIX_ARPL_CROSS_GRAM",
+    "ARPL_RECTANGULAR_ODOMETER_INTERTWINER",
+    "ARPL_CLOCK_FIBRE_RANK_EQUALS_GCD",
+    "ARPL_FINITE_SUPPORT_NETWORK_VISIBILITY",
+    "ARPL_ACTIVE_IFF_SIGNED_DYADIC_SUBGROUP",
+    "ARPL_INFINITE_PERSISTENCE_REDUCTION",
+    "ARPL_H6_FINITE_EXPOSURE_CONTROLS",
+    "INFINITE_ARPL_ACTIVE_CHANNELS",
+    "PRESCRIBED_ORD4_DIVISIBILITY_POSITIVE_DENSITY",
+    "SIGNED_DYADIC_FIXED_DENOMINATOR_EXPOSURE",
+    "GRH_SOURCE_PRIME_REPLICATION_CERTIFICATE",
+    "GENERIC_FIXED_DENOMINATOR_EXPOSURE_UNDER_GRH",
+    "INFINITE_SUPPORT_HIDDEN_SUBSPACE_ZERO_UNDER_GRH",
+    "STRICT_POWER_TOWER_EXPOSURE_EQUIVALENCE",
+    "ENHANCED_SCHINZEL_WOJCIK_REDUCTION",
+    "ARPL_CYCLOTOMIC_TWO_TARGET_SOURCE_CALIBRATION",
+    "TWO_TARGET_SUPPORT_IMPLIES_ARPL_EXPOSURE",
+    "BETA_H_PAIR_SUPPORT_UNCONDITIONAL",
+    "BETA_ZETA_PAIR_SUPPORT_UNCONDITIONAL",
+    "ARPL_TWO_TARGET_TO_TORUS_ORDER_DIVISIBILITY",
+    "ARPL_RANK_TWO_TORUS_SUBGROUP_REDUCTION"
+  ],
+  "fail_preserved": [
+    {
+      "claim": "ARPL_PULSE_ANGLE_EQUALS_SCALAR_OVERLAP_ORBITAL_PHASE",
+      "residual": 1.0236181222825256
+    }
+  ],
+  "no_go": [
+    "GENERIC_IFS_EQUALS_GLOBAL_UNITARY_DILATION",
+    "GLOBAL_UNITARY_IMPLIES_FIXED_BRANCH_RECURSION",
+    "LOCAL_UNITARITY_SUFFICIENT_UNDER_OVERLAP",
+    "TRIVIAL_INTERNAL_EXTENSION_RESCUES_CHANNEL_PHASES",
+    "FULL_RANK_FRAME_CONJUGACY_IMPLIES_INDEPENDENT_EXTERNAL_DYNAMICS",
+    "36D_EQUALS_FULL_INFINITE_HILBERT_STATE",
+    "FULL_FOURIER_REEXPRESSION_OF_SCALAR_HIT_VECTOR_CREATES_NEW_MATRIX_GRAM",
+    "FINITE_SUPPORT_HIDDEN_IMPLIES_INFINITE_SUPPORT_HIDDEN",
+    "ORDER_DIVISIBILITY_ALONE_IMPLIES_EXPOSURE",
+    "UNCONDITIONAL_ACTIVE_MARGINAL_PLUS_ORDER_MARGINAL_IMPLIES_JOINT",
+    "CARELLA_2103_04822_V1_LEMMA_2_2",
+    "RECURRENCE_MULTIPLE_EXPONENT_SHORTCUT",
+    "ACTIVE_PLUS_CYCLOTOMIC_CONGRUENCE_SHORTCUT",
+    "ONE_PRODUCT_ENCODER_FOR_TWO_TARGETS",
+    "EXPONENT_PRIME_PROGRESSIONS_CONTROL_OUTPUT_FROBENIUS",
+    "PAIRWISE_INFINITUDE_IMPLIES_INTERSECTION",
+    "POLLACK_PAIR_PROOF_DIRECT_ITERATION_TO_INTERSECTION",
+    "SHARED_FILTER_EXPONENT_SYNCHRONIZES_OUTPUT_PRIMES",
+    "FINITE_SELECTED_ELL_ADIC_CONTROLS_IMPLY_GLOBAL_ORDER_DIVISIBILITY"
+  ],
+  "repaired": [
+    "ON_PRIMES_PARENT_DIVERGENCE",
+    "MISSING_FRACTION_IMPORT",
+    "STALE_ARPL_SOURCE_PIN"
+  ],
+  "open": [
+    "INFINITE_TORUS_ORDER_DIVISIBILITY_SUPPORT",
+    "SIMULTANEOUS_CYCLOTOMIC_TWO_TARGET_SUPPORT",
+    "PHYSICAL_PRIME_PHASE_BINDING",
+    "PHYSICAL_ORBITAL_REALIZATION",
+    "PHYSICAL_36D_CALIBRATION",
+    "HOSTED_CI"
+  ],
+  "canon_allowed": false,
+  "next_witness": "UNCONDITIONAL_HIGHER_RANK_TORUS_ORDER_DIVISIBILITY_EXISTENCE_OR_FINITE_SET_SCHINZEL_WOJCIK",
+  "frontier": {
+    "exact_reduction": "active q iff h in +/-<2>; mode exposed iff reduced denominator divides ord_q(4)",
+    "status": "OPEN_ARTIN_TYPE",
+    "h6_finite_controls": {
+      "e6_exposure": {
+        "q": 37,
+        "ord4": 18
+      },
+      "e9_exposure": {
+        "q": 37,
+        "ord4": 18
+      },
+      "e5_exposure": {
+        "q": 61,
+        "ord4": 30
+      },
+      "countercontrol": {
+        "q": 31,
+        "ord4": 5,
+        "active": false
+      }
+    },
+    "active_marginal": "CLOSED_UNCONDITIONAL_INFINITUDE",
+    "order_divisibility_marginal": "CLOSED_POSITIVE_NATURAL_DENSITY",
+    "signed_dyadic_joint": "CLOSED_POSITIVE_NATURAL_DENSITY",
+    "generic_joint": "OPEN",
+    "exact_set": "E_{h,d}={q: h in +/-<2> mod q and d | ord_q(4)}",
+    "generic_joint_under_grh": "CLOSED_POSITIVE_LOWER_DENSITY",
+    "generic_joint_unconditional": "OPEN",
+    "infinite_support_hidden_under_grh": "ZERO_FOR_EVERY_FIXED_LOCAL_FIBRE",
+    "theorem_mechanism": "NONEMPTY_EXACT_INDEX_TUPLE_PLUS_CYCLOTOMIC_FROBENIUS_REPLICATION",
+    "unconditional_missing_input": "CHEBOTAREV_RESTRICTED_TWO_VARIABLE_SUPPORT",
+    "recurrence_subsequence_shortcut": "REFUTED",
+    "active_plus_congruence_shortcut": "REFUTED",
+    "sgr2025_scope": "ONE_SUBGROUP_VALUATION_OR_CONVERGENCE_STRUCTURED_NOT_GENERIC_EXACT_MULTIVARIABLE_SINGLETON",
+    "cyclotomic_two_target": "EXACT_REDUCTION_PASS",
+    "pairwise_calibrated_support": "CLOSED_UNCONDITIONALLY_SEPARATELY",
+    "simultaneous_calibrated_support": "OPEN_UNCONDITIONALLY",
+    "stronger_sufficient_target": "FINITE_SET_SCHINZEL_WOJCIK_FOR_CALIBRATED_TRIPLE",
+    "single_product_encoder": "REFUTED",
+    "pair_theorem_intersection_barrier": "PASS_EXACT_LOGIC",
+    "unconditional_finite_list_in_reviewed_sources": "NOT_FOUND",
+    "minimal_missing_synchronization": "SIMULTANEOUS_CYCLOTOMIC_TWO_TARGET_SUPPORT",
+    "torus_formulation": "P=(4,4), T=(beta_h,beta_zeta), two-target support iff ord_Q(T)|ord_Q(P)",
+    "torus_existential_status": "OPEN_UNCONDITIONALLY",
+    "finite_ell_adic_reduction_results": "INSUFFICIENT_FOR_ALL_ELL_DIVISIBILITY"
+  },
+  "excluded_evidence": [
+    "CARELLA_ARXIV_2103_04822_V1_PROOF_INVALID_AS_PRINTED"
+  ]
+}

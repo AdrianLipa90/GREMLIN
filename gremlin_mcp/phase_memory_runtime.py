@@ -4,7 +4,9 @@ from copy import deepcopy
 import hashlib
 import json
 import math
+from numbers import Real
 import os
+import re
 from pathlib import Path
 from threading import RLock
 from typing import Any, Iterable, Mapping, Sequence
@@ -14,6 +16,19 @@ from gremlin_mcp.role_registry import BESTIARY_ROLE_NAMES
 SCHEMA = "GREMLIN_PHASE_MEMORY_RUNTIME_V0_1"
 VERSION = "0.1.0"
 MAX_BIAS = 0.12
+_HEX64 = re.compile(r"^[0-9a-f]{64}$")
+_STATE_KEYS = frozenset(
+    {
+        "schema",
+        "version",
+        "sequence",
+        "last_role",
+        "visit_counts",
+        "transition_counts",
+        "parent_commitment",
+        "commitment",
+    }
+)
 
 
 class PhaseMemoryError(ValueError):
@@ -38,7 +53,9 @@ def _sha(value: Any) -> str:
 
 
 def _role(value: str) -> str:
-    name = str(value).strip().upper()
+    if not isinstance(value, str):
+        raise PhaseMemoryError("Bestiary role must be a string")
+    name = value.strip().upper()
     if name not in BESTIARY_ROLE_NAMES:
         raise PhaseMemoryError(f"unknown Bestiary role: {value!r}")
     return name
@@ -61,6 +78,13 @@ def validate_memory_state(state: Mapping[str, Any]) -> dict[str, Any]:
     if not isinstance(state, Mapping):
         raise PhaseMemoryError("memory state must be a mapping")
     row = deepcopy(dict(state))
+    keys = frozenset(row)
+    if keys != _STATE_KEYS:
+        missing = sorted(_STATE_KEYS - keys)
+        extra = sorted((repr(key) for key in keys - _STATE_KEYS))
+        raise PhaseMemoryError(
+            f"memory state keys mismatch: missing={missing!r} extra={extra!r}"
+        )
     if row.get("schema") != SCHEMA or row.get("version") != VERSION:
         raise PhaseMemoryError("unsupported phase-memory state")
     sequence = row.get("sequence")
@@ -68,31 +92,67 @@ def validate_memory_state(state: Mapping[str, Any]) -> dict[str, Any]:
         raise PhaseMemoryError("memory sequence must be a non-negative integer")
     last_role = row.get("last_role")
     if last_role is not None:
-        last_role = _role(str(last_role))
+        last_role = _role(last_role)
     visits = row.get("visit_counts")
     transitions = row.get("transition_counts")
     if not isinstance(visits, Mapping) or not isinstance(transitions, Mapping):
         raise PhaseMemoryError("memory counts must be mappings")
     normalized_visits: dict[str, int] = {}
+    seen_visit_roles: set[str] = set()
     for raw_role, raw_count in visits.items():
-        name = _role(str(raw_role))
+        name = _role(raw_role)
+        if name in seen_visit_roles:
+            raise PhaseMemoryError(f"duplicate normalized visit role: {name}")
+        seen_visit_roles.add(name)
         if isinstance(raw_count, bool) or not isinstance(raw_count, int) or raw_count < 0:
             raise PhaseMemoryError("visit counts must be non-negative integers")
         if raw_count:
             normalized_visits[name] = raw_count
     normalized_transitions: dict[str, int] = {}
+    seen_transitions: set[str] = set()
     for raw_edge, raw_count in transitions.items():
         if not isinstance(raw_edge, str) or "->" not in raw_edge:
             raise PhaseMemoryError("transition keys must use SOURCE->TARGET")
         source, target = raw_edge.split("->", 1)
         key = f"{_role(source)}->{_role(target)}"
+        if key in seen_transitions:
+            raise PhaseMemoryError(f"duplicate normalized transition: {key}")
+        seen_transitions.add(key)
         if isinstance(raw_count, bool) or not isinstance(raw_count, int) or raw_count < 0:
             raise PhaseMemoryError("transition counts must be non-negative integers")
         if raw_count:
             normalized_transitions[key] = raw_count
     parent = row.get("parent_commitment")
-    if parent is not None and (not isinstance(parent, str) or len(parent) != 64):
-        raise PhaseMemoryError("parent commitment must be a SHA-256 hex string")
+    if parent is not None and (
+        not isinstance(parent, str) or _HEX64.fullmatch(parent) is None
+    ):
+        raise PhaseMemoryError("parent commitment must be a lowercase SHA-256 hex string")
+
+    total_visits = sum(normalized_visits.values())
+    total_transitions = sum(normalized_transitions.values())
+    if sequence == 0:
+        if (
+            last_role is not None
+            or normalized_visits
+            or normalized_transitions
+            or parent is not None
+        ):
+            raise PhaseMemoryError("sequence zero must be the canonical empty state")
+    else:
+        if last_role is None or parent is None or total_visits < sequence:
+            raise PhaseMemoryError("non-empty memory state has invalid lineage metadata")
+        if normalized_visits.get(last_role, 0) <= 0:
+            raise PhaseMemoryError("last_role must have a positive visit count")
+        if total_transitions != total_visits - 1:
+            raise PhaseMemoryError(
+                "transition count must equal total visits minus one"
+            )
+        for edge in normalized_transitions:
+            source, target = edge.split("->", 1)
+            if source not in normalized_visits or target not in normalized_visits:
+                raise PhaseMemoryError(
+                    "transition endpoint must have a positive visit count"
+                )
     core = {
         "schema": SCHEMA,
         "version": VERSION,
@@ -113,7 +173,15 @@ def update_memory_state(
     route: Sequence[str],
 ) -> dict[str, Any]:
     current = validate_memory_state(state)
-    names = tuple(_role(name) for name in route)
+    if (
+        isinstance(route, (str, bytes, Mapping))
+        or not isinstance(route, Sequence)
+    ):
+        raise PhaseMemoryError("route must be a sequence of role strings")
+    try:
+        names = tuple(_role(name) for name in route)
+    except TypeError as exc:
+        raise PhaseMemoryError("route must be a sequence of role strings") from exc
     if not names:
         return current
     visits = dict(current["visit_counts"])
@@ -144,7 +212,12 @@ def transition_affinity(
 ) -> float:
     current = validate_memory_state(state)
     target = _role(target_role)
-    sources = tuple(dict.fromkeys(_role(source) for source in source_roles))
+    if isinstance(source_roles, (str, bytes, Mapping)):
+        raise PhaseMemoryError("source_roles must be an iterable of role strings")
+    try:
+        sources = tuple(dict.fromkeys(_role(source) for source in source_roles))
+    except TypeError as exc:
+        raise PhaseMemoryError("source_roles must be an iterable of role strings") from exc
     if not sources:
         if current["last_role"] is None:
             return 0.0
@@ -175,17 +248,28 @@ def memory_bias_scores(
 ) -> dict[str, float]:
     if not isinstance(base_scores, Mapping):
         raise PhaseMemoryError("base_scores must be a mapping")
+    if isinstance(max_bias, bool) or not isinstance(max_bias, Real):
+        raise PhaseMemoryError("max_bias must be a real number")
     strength = float(max_bias)
     if not math.isfinite(strength) or not 0.0 <= strength <= 0.5:
         raise PhaseMemoryError("max_bias must be finite and in [0,0.5]")
     normalized: dict[str, float] = {}
     for raw_role, raw_score in base_scores.items():
-        name = _role(str(raw_role))
+        name = _role(raw_role)
+        if name in normalized:
+            raise PhaseMemoryError(f"duplicate normalized base-score role: {name}")
+        if isinstance(raw_score, bool) or not isinstance(raw_score, Real):
+            raise PhaseMemoryError("base scores must be real numbers")
         score = float(raw_score)
         if not math.isfinite(score):
             raise PhaseMemoryError("base scores must be finite")
         normalized[name] = score
-    sources = tuple(source_roles)
+    if isinstance(source_roles, (str, bytes, Mapping)):
+        raise PhaseMemoryError("source_roles must be an iterable of role strings")
+    try:
+        sources = tuple(source_roles)
+    except TypeError as exc:
+        raise PhaseMemoryError("source_roles must be an iterable of role strings") from exc
     return {
         name: score + strength * transition_affinity(state, sources, name)
         for name, score in normalized.items()
@@ -200,9 +284,30 @@ def memory_order(
     source_roles: Iterable[str] = (),
     max_bias: float = MAX_BIAS,
 ) -> tuple[list[str], dict[str, float]]:
-    names = tuple(dict.fromkeys(_role(name) for name in species))
+    if not isinstance(base_scores, Mapping):
+        raise PhaseMemoryError("base_scores must be a mapping")
+    if (
+        isinstance(species, (str, bytes, Mapping))
+        or not isinstance(species, Sequence)
+    ):
+        raise PhaseMemoryError("species must be a sequence of role strings")
+    try:
+        names = tuple(dict.fromkeys(_role(name) for name in species))
+    except TypeError as exc:
+        raise PhaseMemoryError("species must be a sequence of role strings") from exc
+    normalized_base_scores: dict[str, float] = {}
+    for raw_role, raw_score in base_scores.items():
+        name = _role(raw_role)
+        if name in normalized_base_scores:
+            raise PhaseMemoryError(f"duplicate normalized base-score role: {name}")
+        if isinstance(raw_score, bool) or not isinstance(raw_score, Real):
+            raise PhaseMemoryError("base scores must be real numbers")
+        score = float(raw_score)
+        if not math.isfinite(score):
+            raise PhaseMemoryError("base scores must be finite")
+        normalized_base_scores[name] = score
     scored = memory_bias_scores(
-        {name: float(base_scores.get(name, 0.0)) for name in names},
+        {name: normalized_base_scores.get(name, 0.0) for name in names},
         state,
         source_roles=source_roles,
         max_bias=max_bias,
@@ -257,21 +362,43 @@ class PhaseMemoryRuntime:
     @staticmethod
     def _load_ledger(path: Path) -> dict[str, Any]:
         previous: dict[str, Any] | None = None
+        genesis = empty_memory_state()
         try:
             lines = path.read_text(encoding="utf-8").splitlines()
-        except OSError as exc:
+        except (OSError, UnicodeError) as exc:
             raise PhaseMemoryError("phase-memory ledger cannot be read") from exc
         for line_no, raw in enumerate(lines, start=1):
             if not raw.strip():
                 continue
+            def reject_duplicates(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+                parsed_object: dict[str, Any] = {}
+                for key, value in pairs:
+                    if key in parsed_object:
+                        raise PhaseMemoryError(
+                            f"duplicate JSON key in phase-memory ledger at line {line_no}: {key!r}"
+                        )
+                    parsed_object[key] = value
+                return parsed_object
+
             try:
-                parsed = json.loads(raw)
+                parsed = json.loads(raw, object_pairs_hook=reject_duplicates)
+            except PhaseMemoryError:
+                raise
             except json.JSONDecodeError as exc:
                 raise PhaseMemoryError(
                     f"invalid phase-memory ledger JSON at line {line_no}"
                 ) from exc
             current = validate_memory_state(parsed)
-            if previous is not None:
+            if previous is None:
+                if current["sequence"] != 1:
+                    raise PhaseMemoryError(
+                        f"phase-memory ledger must start at sequence 1 (line {line_no})"
+                    )
+                if current["parent_commitment"] != genesis["commitment"]:
+                    raise PhaseMemoryError(
+                        f"phase-memory ledger genesis break at line {line_no}"
+                    )
+            else:
                 if current["parent_commitment"] != previous["commitment"]:
                     raise PhaseMemoryError(
                         f"phase-memory ledger chain break at line {line_no}"
@@ -286,9 +413,10 @@ class PhaseMemoryRuntime:
     def _append(self, state: Mapping[str, Any]) -> None:
         if self._ledger_path is None:
             return
-        self._ledger_path.parent.mkdir(parents=True, exist_ok=True)
-        raw = _canonical(dict(state)) + b"\n"
+        validated = validate_memory_state(state)
+        raw = _canonical(validated) + b"\n"
         try:
+            self._ledger_path.parent.mkdir(parents=True, exist_ok=True)
             with self._ledger_path.open("ab") as handle:
                 handle.write(raw)
                 handle.flush()
