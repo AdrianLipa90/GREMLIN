@@ -15,15 +15,20 @@ For each frozen nuisance candidate the engine evaluates incremental explanatory 
 - first half -> second half;
 - second half -> first half.
 
-A layer is admitted only if its conservative holdout gain passes a fixed minimum, beats a phase-scrambled null candidate, and keeps a stable coefficient sign across the cross-fit surfaces.
+A layer is admitted only if its conservative holdout gain passes a fixed minimum, beats the q0.90 gain of a typed content-addressed null ensemble, and keeps a stable coefficient sign across the cross-fit surfaces.
 
-## Null control
+## Typed null ensemble
 
-The null twin of a nuisance channel is built by a deterministic per-run circular shift.
+The null policy is frozen in nuisance provenance.
 
-This preserves the channel's per-run power spectrum exactly while breaking the original phase/time alignment used for attribution.
+Two v0.3 null policies are admitted:
 
-Therefore a spectral match alone is insufficient: the aligned nuisance must predict held-out raw data better than its spectrum-preserving scrambled twin.
+- sample_circular_shift: for phase/spectral templates; each proxy preserves the per-run power spectrum while changing sample/phase alignment;
+- run_permutation: for measured instrument/environment/clock channels; each proxy preserves complete run observations while changing run-to-channel alignment.
+
+Null generation is content-addressed, not label-addressed, so identical nuisance arrays receive identical null ensembles regardless of channel naming.
+
+The engine evaluates an ensemble of deterministic null proxies and uses the q0.90 conservative null gain. Therefore admission is not controlled by one lucky or unlucky scramble.
 
 ## Provenance firewall
 
