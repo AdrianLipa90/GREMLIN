@@ -77,6 +77,11 @@
         "ahead_by": 4,
         "behind_by": 0
       }
+    },
+    "arpl_pair_intersection_barrier": {
+      "repo": "AdrianLipa90/On-Primes",
+      "branch": "research/arpl-cyclotomic-two-target-frontier-v0.1-20260927",
+      "validation_receipt_sha": "688c3c28e0fb7463d9cca690b1efc638f57559a6"
     }
   },
   "exact_pass": [
@@ -127,7 +132,10 @@
     "RECURRENCE_MULTIPLE_EXPONENT_SHORTCUT",
     "ACTIVE_PLUS_CYCLOTOMIC_CONGRUENCE_SHORTCUT",
     "ONE_PRODUCT_ENCODER_FOR_TWO_TARGETS",
-    "EXPONENT_PRIME_PROGRESSIONS_CONTROL_OUTPUT_FROBENIUS"
+    "EXPONENT_PRIME_PROGRESSIONS_CONTROL_OUTPUT_FROBENIUS",
+    "PAIRWISE_INFINITUDE_IMPLIES_INTERSECTION",
+    "POLLACK_PAIR_PROOF_DIRECT_ITERATION_TO_INTERSECTION",
+    "SHARED_FILTER_EXPONENT_SYNCHRONIZES_OUTPUT_PRIMES"
   ],
   "repaired": [
     "ON_PRIMES_PARENT_DIVERGENCE",
@@ -182,7 +190,10 @@
     "pairwise_calibrated_support": "CLOSED_UNCONDITIONALLY_SEPARATELY",
     "simultaneous_calibrated_support": "OPEN_UNCONDITIONALLY",
     "stronger_sufficient_target": "FINITE_SET_SCHINZEL_WOJCIK_FOR_CALIBRATED_TRIPLE",
-    "single_product_encoder": "REFUTED"
+    "single_product_encoder": "REFUTED",
+    "pair_theorem_intersection_barrier": "PASS_EXACT_LOGIC",
+    "unconditional_finite_list_in_reviewed_sources": "NOT_FOUND",
+    "minimal_missing_synchronization": "SIMULTANEOUS_CYCLOTOMIC_TWO_TARGET_SUPPORT"
   },
   "excluded_evidence": [
     "CARELLA_ARXIV_2103_04822_V1_PROOF_INVALID_AS_PRINTED"
