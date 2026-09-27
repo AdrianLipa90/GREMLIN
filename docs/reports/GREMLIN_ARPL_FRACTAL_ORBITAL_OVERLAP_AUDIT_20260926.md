@@ -1539,3 +1539,156 @@ commit
 688c3c28e0fb7463d9cca690b1efc638f57559a6.
 }
 \]
+
+
+## 29. Torus order-divisibility packaging of the simultaneous frontier
+
+The simultaneous cyclotomic two-target condition has an exact single-point
+formulation on the split torus
+
+\[
+G=\mathbb G_m^2.
+\]
+
+Define
+
+\[
+P=(4,4),
+\qquad
+T=(\beta_h,\beta_\zeta).
+\]
+
+For every good prime ideal Q,
+
+\[
+\operatorname{ord}_Q(P)
+=
+\operatorname{ord}_Q(4),
+\]
+
+while
+
+\[
+\operatorname{ord}_Q(T)
+=
+\operatorname{lcm}
+\left(
+\operatorname{ord}_Q(\beta_h),
+\operatorname{ord}_Q(\beta_\zeta)
+\right).
+\]
+
+Since the residue-field multiplicative group is cyclic,
+
+\[
+\boxed{
+\beta_h,\beta_\zeta\in\langle4\rangle
+\iff
+\operatorname{ord}_Q(T)
+\mid
+\operatorname{ord}_Q(P).
+}
+\]
+
+Thus the existing frontier
+
+SIMULTANEOUS_CYCLOTOMIC_TWO_TARGET_SUPPORT
+
+is exactly equivalent to
+
+\[
+\boxed{
+\text{INFINITE TORUS ORDER-DIVISIBILITY SUPPORT}.
+}
+\]
+
+The same condition is also
+
+\[
+T\bmod Q
+\in
+\langle(4,1),(1,4)\rangle.
+\]
+
+This preserves the independent exponents of the two target coordinates and
+does not use the already-refuted one-product encoder.
+
+### Concrete controls
+
+For the h=6, p=11, d=5 source calibration
+
+\[
+\beta_h=576,
+\qquad
+\beta_\zeta=4^5\zeta_5,
+\]
+
+q=31 with \(\zeta_5\mapsto2\) gives
+
+\[
+\operatorname{ord}(P)=5,
+\qquad
+\operatorname{ord}(T)=15,
+\]
+
+so the torus divisibility fails.
+
+q=61 with \(\zeta_5\mapsto9\) gives
+
+\[
+\operatorname{ord}(P)
+=
+\operatorname{ord}(T)
+=
+30.
+\]
+
+### Finite-l-adic barrier
+
+At q=31,
+
+\[
+v_5(\operatorname{ord}T)
+=
+v_5(\operatorname{ord}P)
+=
+1
+\]
+
+while globally
+
+\[
+15\nmid5.
+\]
+
+Therefore controlling any fixed selected finite family of l-adic order
+valuations does not by itself establish complete point-order divisibility.
+
+Reviewed reduction-of-points theorems for tori provide strong finite-l-adic
+density statements, while classical support-problem theorems are converse
+almost-all-primes statements.
+
+Neither reviewed class is promoted here as the missing existential theorem.
+
+Updated equivalent unconditional frontier:
+
+\[
+\boxed{
+\#\{Q:\operatorname{ord}_Q(T)\mid\operatorname{ord}_Q(P)\}=\infty.
+}
+\]
+
+This is an exact higher-rank torus support existence problem.
+
+Current source receipt:
+
+AdrianLipa90/On-Primes  
+research/arpl-cyclotomic-two-target-frontier-v0.1-20260927
+
+receipt head:
+
+\[
+\boxed{
+698087095df85536b448bf6518da1f8f63d4c8c8.
+}
+\]
