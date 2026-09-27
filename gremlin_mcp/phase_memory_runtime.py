@@ -6,6 +6,7 @@ import json
 import math
 from numbers import Real
 import os
+import re
 from pathlib import Path
 from threading import RLock
 from typing import Any, Iterable, Mapping, Sequence
@@ -15,7 +16,7 @@ from gremlin_mcp.role_registry import BESTIARY_ROLE_NAMES
 SCHEMA = "GREMLIN_PHASE_MEMORY_RUNTIME_V0_1"
 VERSION = "0.1.0"
 MAX_BIAS = 0.12
-_HEX64 = __import__("re").compile(r"^[0-9a-f]{64}$")
+_HEX64 = re.compile(r"^[0-9a-f]{64}$")
 _STATE_KEYS = frozenset(
     {
         "schema",
@@ -80,7 +81,7 @@ def validate_memory_state(state: Mapping[str, Any]) -> dict[str, Any]:
     keys = frozenset(row)
     if keys != _STATE_KEYS:
         missing = sorted(_STATE_KEYS - keys)
-        extra = sorted(keys - _STATE_KEYS)
+        extra = sorted((repr(key) for key in keys - _STATE_KEYS))
         raise PhaseMemoryError(
             f"memory state keys mismatch: missing={missing!r} extra={extra!r}"
         )
@@ -97,22 +98,26 @@ def validate_memory_state(state: Mapping[str, Any]) -> dict[str, Any]:
     if not isinstance(visits, Mapping) or not isinstance(transitions, Mapping):
         raise PhaseMemoryError("memory counts must be mappings")
     normalized_visits: dict[str, int] = {}
+    seen_visit_roles: set[str] = set()
     for raw_role, raw_count in visits.items():
         name = _role(raw_role)
-        if name in normalized_visits:
+        if name in seen_visit_roles:
             raise PhaseMemoryError(f"duplicate normalized visit role: {name}")
+        seen_visit_roles.add(name)
         if isinstance(raw_count, bool) or not isinstance(raw_count, int) or raw_count < 0:
             raise PhaseMemoryError("visit counts must be non-negative integers")
         if raw_count:
             normalized_visits[name] = raw_count
     normalized_transitions: dict[str, int] = {}
+    seen_transitions: set[str] = set()
     for raw_edge, raw_count in transitions.items():
         if not isinstance(raw_edge, str) or "->" not in raw_edge:
             raise PhaseMemoryError("transition keys must use SOURCE->TARGET")
         source, target = raw_edge.split("->", 1)
         key = f"{_role(source)}->{_role(target)}"
-        if key in normalized_transitions:
+        if key in seen_transitions:
             raise PhaseMemoryError(f"duplicate normalized transition: {key}")
+        seen_transitions.add(key)
         if isinstance(raw_count, bool) or not isinstance(raw_count, int) or raw_count < 0:
             raise PhaseMemoryError("transition counts must be non-negative integers")
         if raw_count:
@@ -168,9 +173,15 @@ def update_memory_state(
     route: Sequence[str],
 ) -> dict[str, Any]:
     current = validate_memory_state(state)
-    if isinstance(route, (str, bytes)):
+    if (
+        isinstance(route, (str, bytes, Mapping))
+        or not isinstance(route, Sequence)
+    ):
         raise PhaseMemoryError("route must be a sequence of role strings")
-    names = tuple(_role(name) for name in route)
+    try:
+        names = tuple(_role(name) for name in route)
+    except TypeError as exc:
+        raise PhaseMemoryError("route must be a sequence of role strings") from exc
     if not names:
         return current
     visits = dict(current["visit_counts"])
@@ -203,7 +214,10 @@ def transition_affinity(
     target = _role(target_role)
     if isinstance(source_roles, (str, bytes, Mapping)):
         raise PhaseMemoryError("source_roles must be an iterable of role strings")
-    sources = tuple(dict.fromkeys(_role(source) for source in source_roles))
+    try:
+        sources = tuple(dict.fromkeys(_role(source) for source in source_roles))
+    except TypeError as exc:
+        raise PhaseMemoryError("source_roles must be an iterable of role strings") from exc
     if not sources:
         if current["last_role"] is None:
             return 0.0
@@ -250,7 +264,12 @@ def memory_bias_scores(
         if not math.isfinite(score):
             raise PhaseMemoryError("base scores must be finite")
         normalized[name] = score
-    sources = tuple(source_roles)
+    if isinstance(source_roles, (str, bytes, Mapping)):
+        raise PhaseMemoryError("source_roles must be an iterable of role strings")
+    try:
+        sources = tuple(source_roles)
+    except TypeError as exc:
+        raise PhaseMemoryError("source_roles must be an iterable of role strings") from exc
     return {
         name: score + strength * transition_affinity(state, sources, name)
         for name, score in normalized.items()
@@ -265,11 +284,30 @@ def memory_order(
     source_roles: Iterable[str] = (),
     max_bias: float = MAX_BIAS,
 ) -> tuple[list[str], dict[str, float]]:
-    if isinstance(species, (str, bytes)):
+    if not isinstance(base_scores, Mapping):
+        raise PhaseMemoryError("base_scores must be a mapping")
+    if (
+        isinstance(species, (str, bytes, Mapping))
+        or not isinstance(species, Sequence)
+    ):
         raise PhaseMemoryError("species must be a sequence of role strings")
-    names = tuple(dict.fromkeys(_role(name) for name in species))
+    try:
+        names = tuple(dict.fromkeys(_role(name) for name in species))
+    except TypeError as exc:
+        raise PhaseMemoryError("species must be a sequence of role strings") from exc
+    normalized_base_scores: dict[str, float] = {}
+    for raw_role, raw_score in base_scores.items():
+        name = _role(raw_role)
+        if name in normalized_base_scores:
+            raise PhaseMemoryError(f"duplicate normalized base-score role: {name}")
+        if isinstance(raw_score, bool) or not isinstance(raw_score, Real):
+            raise PhaseMemoryError("base scores must be real numbers")
+        score = float(raw_score)
+        if not math.isfinite(score):
+            raise PhaseMemoryError("base scores must be finite")
+        normalized_base_scores[name] = score
     scored = memory_bias_scores(
-        {name: base_scores.get(name, 0.0) for name in names},
+        {name: normalized_base_scores.get(name, 0.0) for name in names},
         state,
         source_roles=source_roles,
         max_bias=max_bias,
@@ -327,13 +365,25 @@ class PhaseMemoryRuntime:
         genesis = empty_memory_state()
         try:
             lines = path.read_text(encoding="utf-8").splitlines()
-        except OSError as exc:
+        except (OSError, UnicodeError) as exc:
             raise PhaseMemoryError("phase-memory ledger cannot be read") from exc
         for line_no, raw in enumerate(lines, start=1):
             if not raw.strip():
                 continue
+            def reject_duplicates(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+                parsed_object: dict[str, Any] = {}
+                for key, value in pairs:
+                    if key in parsed_object:
+                        raise PhaseMemoryError(
+                            f"duplicate JSON key in phase-memory ledger at line {line_no}: {key!r}"
+                        )
+                    parsed_object[key] = value
+                return parsed_object
+
             try:
-                parsed = json.loads(raw)
+                parsed = json.loads(raw, object_pairs_hook=reject_duplicates)
+            except PhaseMemoryError:
+                raise
             except json.JSONDecodeError as exc:
                 raise PhaseMemoryError(
                     f"invalid phase-memory ledger JSON at line {line_no}"
@@ -363,10 +413,10 @@ class PhaseMemoryRuntime:
     def _append(self, state: Mapping[str, Any]) -> None:
         if self._ledger_path is None:
             return
-        self._ledger_path.parent.mkdir(parents=True, exist_ok=True)
         validated = validate_memory_state(state)
         raw = _canonical(validated) + b"\n"
         try:
+            self._ledger_path.parent.mkdir(parents=True, exist_ok=True)
             with self._ledger_path.open("ab") as handle:
                 handle.write(raw)
                 handle.flush()
