@@ -78,6 +78,11 @@ ARTIFACT_TYPES = (
     "SYNTHESIS_CANDIDATE",
     "THREAT_MODEL",
     "SEARCH_RECEIPT",
+    "ASTRO_SOURCE_RECEIPT",
+    "FITS_PROVENANCE_RECEIPT",
+    "FITS_CUTOUT_MANIFEST",
+    "BESTIARY_HANDOFF_RECEIPT",
+    "PHASE_MARKER_PACKET",
     "AGGREGATE_CANDIDATE",
     "ORCHESTRATION_RECEIPT",
     "RETENTION_PROPOSAL",
@@ -288,7 +293,18 @@ POLICY: dict[str, tuple[CapabilityGrant, ...]] = {
     ),
     "FERRET": (
         _grant(("WORKING", "SEMANTIC", "RELATIONAL"), ("READ_METADATA", "QUERY"), ALL_ARTIFACTS, payload_access=False, scope_mode="TASK_SCOPED"),
-        _grant("EPISODIC", "DERIVE", "SEARCH_RECEIPT", scope_mode="TASK_SCOPED"),
+        _grant(
+            "EPISODIC",
+            "DERIVE",
+            (
+                "SEARCH_RECEIPT",
+                "ASTRO_SOURCE_RECEIPT",
+                "FITS_PROVENANCE_RECEIPT",
+                "FITS_CUTOUT_MANIFEST",
+                "BESTIARY_HANDOFF_RECEIPT",
+            ),
+            scope_mode="TASK_SCOPED",
+        ),
     ),
     "GREMLIN": (
         _grant(MEMORY_LAYERS, ("READ_METADATA", "QUERY"), ALL_ARTIFACTS, payload_access=False, scope_mode="TASK_SCOPED"),

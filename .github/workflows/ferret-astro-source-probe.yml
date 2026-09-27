@@ -1,0 +1,37 @@
+name: FERRET astro source probe
+
+on:
+  push:
+    branches: [ferret-astro-cmb-pbh-v01]
+    paths:
+      - ".github/workflows/ferret-astro-source-probe.yml"
+      - "gremlin_mcp/ferret_astro.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Runtime
+        run: |
+          python --version
+          echo FERRET_ASTRO_PROBE_START
+
+      - name: Probe official source endpoints
+        shell: python
+        run: |
+          import urllib.request
+          urls = [
+              "https://irsa.ipac.caltech.edu/applications/Heal2Tan/",
+              "https://skyview.gsfc.nasa.gov/current/docs/batchpage.html",
+              "https://lambda.gsfc.nasa.gov/product/wmap/dr5/maps_forered_band_r9_i_9yr_get.html",
+          ]
+          for url in urls:
+              req=urllib.request.Request(url,headers={"User-Agent":"GREMLIN-FERRET/0.1 read-only"})
+              with urllib.request.urlopen(req,timeout=30) as r:
+                  data=r.read(128)
+                  print(r.status, r.headers.get("content-type"), url, data[:32])

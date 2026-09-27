@@ -19,7 +19,7 @@ BESTIARY_ROLES: dict[str, dict[str, str]] = {
     "ELEPHANT": {"stage": "memory", "role": "append-only relational memory consolidation, replay and retention planning"},
     "BEES": {"stage": "coherence", "role": "local overlap coherence, anti-entropy delta and reconciliation proposals"},
     "BELZEBUB": {"stage": "synthesis", "role": "defensive candidate synthesis"},
-    "FERRET": {"stage": "actuation", "role": "explicitly authorized interactive web actuator"},
+    "FERRET": {"stage": "actuation", "role": "explicitly authorized interactive web actuator plus fail-closed read-only scientific source acquisition and Bestiary handoff boundary"},
     "GREMLIN": {"stage": "aggregate", "role": "aggregate verified heads and emit research candidates"},
 }
 
