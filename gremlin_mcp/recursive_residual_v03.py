@@ -67,8 +67,11 @@ def _fold_pairs(n_runs: int) -> list[tuple[np.ndarray, np.ndarray]]:
 def _phase_scrambled_null(component: np.ndarray, name: str) -> np.ndarray:
     # Preserve each run's spectrum exactly under circular shift while destroying
     # the original time/phase alignment used for nuisance attribution.
+    #
+    # The null seed is content-addressed rather than label-addressed: identical
+    # nuisance arrays must receive identical null controls regardless of naming.
     n_runs, n_samples = component.shape
-    seed = int(hashlib.sha256(name.encode()).hexdigest()[:8], 16)
+    seed = int(_sha_array(component)[:8], 16)
     out = np.empty_like(component)
     for i in range(n_runs):
         shift = 1 + ((seed + 7919 * i) % (n_samples - 1))
