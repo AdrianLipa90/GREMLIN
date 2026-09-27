@@ -12,6 +12,7 @@ def _meta(names):
             "independent_of_target_fit": True,
             "source_type": "instrument_channel",
             "source_id": f"synthetic:{name}",
+            "null_policy": "sample_circular_shift",
         }
         for name in names
     }
