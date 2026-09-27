@@ -1,7 +1,7 @@
 {
   "schema":"GREMLIN_RECURSIVE_RESIDUAL_DECOMPOSITION_RECEIPT_V0_3",
   "date":"2026-09-27",
-  "status":"IMPLEMENTED_CANDIDATE_LOCAL_VALIDATION_PENDING_EXACT_BRANCH_REPLAY",
+  "status":"IMPLEMENTED_CANDIDATE_EXACT_BRANCH_REPLAY_7_OF_7_PASS",
   "branch":"feat/residual-preserving-spectroscopy-v01-20260926",
   "gremlin_internal_audit":{
     "authority":"CANDIDATE_ONLY",
@@ -10,9 +10,26 @@
     "selected_internal_task":"residual decomposition orthogonal provenance",
     "route_species":["OWL","SPIDER"]
   },
+  "exact_branch_replay":{
+    "module_git_blob_sha1":"d792c2b59c382fca0910e60caa454fa90d56054b",
+    "test_git_blob_sha1":"1269a5f73ef29313b09357ee62f9517a5992784e",
+    "dependency_v02_git_blob_sha1":"30d73d30d30963487af7cf458ae14f3f2c68c860",
+    "pytest":"7 passed",
+    "elapsed_s":0.83
+  },
+  "error_log":[
+    {
+      "status":"FOUND_AND_FIXED",
+      "issue":"initial phase-scrambled null seed depended on nuisance channel name",
+      "effect":"identical nuisance arrays with different labels could receive different null controls and therefore different selection scores",
+      "repair":"null seed changed to nuisance-array content hash; identical data now receive identical null controls",
+      "pre_fix_replay":"6 passed, 1 failed",
+      "post_fix_replay":"7 passed, 0 failed"
+    }
+  ],
   "gates":[
     "four-direction run-level cross-fit",
-    "phase-scrambled spectrum-preserving null",
+    "content-addressed phase-scrambled spectrum-preserving null",
     "coefficient sign stability",
     "frozen-before-fit provenance",
     "target-derived nuisance rejection",
@@ -21,6 +38,16 @@
     "candidate-order non-authority",
     "alias/attribution ambiguity reporting",
     "append-only stage hash chain"
+  ],
+  "synthetic_adversarial_results":[
+    "three true nuisance layers accepted",
+    "independent noise proxy rejected",
+    "weak residual line recovered after nuisance closure",
+    "candidate mapping order reversal leaves accepted sequence and final residual commitment unchanged",
+    "duplicate nuisance accepted once and attribution alias flagged",
+    "target-derived nuisance rejected before fit",
+    "train-only leakage candidate rejected by cross-fit",
+    "stage hash chain consistent"
   ],
   "claim_boundary":{
     "predictive_decomposition_is_unique_causal_attribution":false,
