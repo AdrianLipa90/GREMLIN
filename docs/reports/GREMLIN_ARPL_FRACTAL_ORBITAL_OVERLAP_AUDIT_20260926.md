@@ -1455,3 +1455,87 @@ receipt commit
 \]
 
 No main/master branch was modified.
+
+
+## 28. Pair-theorem intersection barrier
+
+The current Pollack 2025 number-field theorem closes each source-calibrated
+target separately:
+
+\[
+\#S(4;\beta_h)=\infty,
+\]
+
+\[
+\#S(4;\beta_\zeta)=\infty.
+\]
+
+It does not close
+
+\[
+\#\left(
+S(4;\beta_h)\cap S(4;\beta_\zeta)
+\right)=\infty.
+\]
+
+This is not only a set-theoretic warning.
+
+Pollack's proof is pair-specific: its fundamental-identity mechanism starts
+from failure/finite support hypotheses for one fixed pair
+\((\alpha,\beta)\). Finiteness of the simultaneous intersection does not imply
+finiteness of either pair-support marginal, so the Proposition-2.1 entry
+hypothesis cannot be inferred for either calibrated target.
+
+Using the same auxiliary exponent prime in both pair arguments does not
+synchronize the final output prime ideals. Common divisors of
+
+\[
+\alpha^q-\beta_1
+\]
+
+and
+
+\[
+\alpha^q-\beta_2
+\]
+
+for one shared exponent q divide the fixed difference
+
+\[
+\beta_1-\beta_2
+\]
+
+and therefore cannot generate the required generic infinite simultaneous
+support.
+
+Pollack's 2025 paper itself records finite-list analogues as known under GRH or
+Schinzel Hypothesis H, while its unconditional theorem remains pairwise.
+
+Therefore:
+
+POLLACK_PAIR_THEOREM_PLUS_PAIR_THEOREM = NO_GO_AS_DIRECT_INTERSECTION_PROOF.
+
+SHARED_FILTER_EXPONENT_SYNCHRONIZATION = NO_GO.
+
+The current unconditional frontier remains:
+
+\[
+\boxed{
+\text{SIMULTANEOUS CYCLOTOMIC TWO-TARGET SUPPORT}.
+}
+\]
+
+This is now the minimal missing synchronization input found in the reviewed
+proof mechanisms.
+
+Pinned barrier receipt:
+
+AdrianLipa90/On-Primes  
+research/arpl-cyclotomic-two-target-frontier-v0.1-20260927  
+commit
+
+\[
+\boxed{
+688c3c28e0fb7463d9cca690b1efc638f57559a6.
+}
+\]
