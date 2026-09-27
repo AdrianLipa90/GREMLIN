@@ -19,6 +19,10 @@ _ALLOWED_SOURCE_TYPES = {
     "preregistered_template",
     "known_systematic_template",
 }
+_ALLOWED_NULL_POLICIES = {
+    "sample_circular_shift",
+    "run_permutation",
+}
 
 
 def _sha_array(x: np.ndarray) -> str:
@@ -64,19 +68,27 @@ def _fold_pairs(n_runs: int) -> list[tuple[np.ndarray, np.ndarray]]:
     return pairs
 
 
-def _phase_scrambled_null(component: np.ndarray, name: str) -> np.ndarray:
-    # Preserve each run's spectrum exactly under circular shift while destroying
-    # the original time/phase alignment used for nuisance attribution.
-    #
-    # The null seed is content-addressed rather than label-addressed: identical
-    # nuisance arrays must receive identical null controls regardless of naming.
+def _null_proxy(component: np.ndarray, policy: str) -> np.ndarray:
+    # Null generation is content-addressed rather than label-addressed.
+    # The null policy itself is frozen in nuisance provenance.
     n_runs, n_samples = component.shape
     seed = int(_sha_array(component)[:8], 16)
-    out = np.empty_like(component)
-    for i in range(n_runs):
-        shift = 1 + ((seed + 7919 * i) % (n_samples - 1))
-        out[i] = np.roll(component[i], shift)
-    return out
+
+    if policy == "sample_circular_shift":
+        out = np.empty_like(component)
+        for i in range(n_runs):
+            shift = 1 + ((seed + 7919 * i) % (n_samples - 1))
+            out[i] = np.roll(component[i], shift)
+        return out
+
+    if policy == "run_permutation":
+        rng = np.random.default_rng(seed)
+        order = rng.permutation(n_runs)
+        if np.array_equal(order, np.arange(n_runs)):
+            order = np.roll(order, 1)
+        return component[order]
+
+    raise ValueError("unsupported nuisance null policy")
 
 
 def _flat_corr(a: np.ndarray, b: np.ndarray) -> float:
@@ -94,9 +106,10 @@ def _increment_score(
     accepted: Sequence[np.ndarray],
     candidate: np.ndarray,
     name: str,
+    null_policy: str,
 ) -> dict[str, Any]:
     target = raw - initial
-    null = _phase_scrambled_null(candidate, name)
+    null = _null_proxy(candidate, null_policy)
     gains: list[float] = []
     null_gains: list[float] = []
     coefficients: list[float] = []
@@ -132,6 +145,7 @@ def _increment_score(
         "conservative_holdout_gain": conservative_gain,
         "conservative_null_gain": conservative_null_gain,
         "gain_over_null_margin": margin,
+        "null_policy": null_policy,
     }
 
 
@@ -148,6 +162,8 @@ def _validate_metadata(metadata: Mapping[str, Mapping[str, Any]], names: Sequenc
             raise ValueError(f"unsupported nuisance source_type for {name}")
         if not isinstance(m.get("source_id"), str) or not m["source_id"]:
             raise ValueError(f"missing nuisance source_id for {name}")
+        if m.get("null_policy") not in _ALLOWED_NULL_POLICIES:
+            raise ValueError(f"unsupported nuisance null_policy for {name}")
 
 
 def recursive_residual_decomposition(
@@ -215,7 +231,14 @@ def recursive_residual_decomposition(
         for name in names:
             if name in accepted:
                 continue
-            score = _increment_score(raw, initial, accepted_arrays, components[name], name)
+            score = _increment_score(
+                raw,
+                initial,
+                accepted_arrays,
+                components[name],
+                name,
+                str(nuisance_metadata[name]["null_policy"]),
+            )
             if score["conservative_holdout_gain"] < min_holdout_gain:
                 reason = "NO_CONSERVATIVE_HOLDOUT_GAIN"
             elif score["gain_over_null_margin"] < min_gain_over_null:
@@ -291,7 +314,7 @@ def recursive_residual_decomposition(
         "schema": SCHEMA,
         "version": VERSION,
         "status": status,
-        "ordering_policy": "MAX_CONSERVATIVE_CROSSFIT_GAIN_OVER_PHASE_SCRAMBLED_NULL_THEN_LEXICAL_TIEBREAK",
+        "ordering_policy": "MAX_CONSERVATIVE_CROSSFIT_GAIN_OVER_TYPED_CONTENT_ADDRESSED_NULL_THEN_LEXICAL_TIEBREAK",
         "input_mapping_order_authoritative": False,
         "raw_sha256": _sha_array(raw),
         "initial_model_sha256": _sha_array(initial),
@@ -308,7 +331,7 @@ def recursive_residual_decomposition(
         "policy": {
             "raw_preserved_across_all_stages": True,
             "each_layer_requires_out_of_fold_gain": True,
-            "phase_scrambled_null_required": True,
+            "typed_content_addressed_null_required": True,
             "candidate_must_be_frozen_before_fit": True,
             "target_derived_nuisance_forbidden": True,
             "joint_refit_after_acceptance": True,
