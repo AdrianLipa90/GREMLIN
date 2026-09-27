@@ -1,0 +1,100 @@
+{
+  "schema": "GREMLIN_DOCUMENTATION_REFRESH_V0_3",
+  "date": "2026-09-27",
+  "repository": "AdrianLipa90/GREMLIN",
+  "branch": "docs/post-lossless-main-refresh-20260927",
+  "source_main_sha": "ce0504a05ec371c40d51c3d535c08e588d9249e4",
+  "preconsolidation_main_sha": "ca82949818b49465d0c2d0535aa9c219c32bdf32",
+  "consolidation": {
+    "pull_request": 152,
+    "integration_branch": "integrate/crossrepo-lossless-20260927",
+    "integration_head_sha": "151094256b91f44bfa2e3a005828d4eae1720290",
+    "main_merge_sha": "ce0504a05ec371c40d51c3d535c08e588d9249e4",
+    "compare": {
+      "commits_ahead": 164,
+      "commits_behind": 0,
+      "files_changed": 78,
+      "files_added": 56,
+      "files_modified": 22
+    },
+    "reverse_audit": {
+      "named_source_branches": 26,
+      "all_ahead_by_zero_before_promotion": true,
+      "open_pull_requests_after_merge": 0
+    },
+    "conflict_resolution": {
+      "arpl": {
+        "source_branch": "audit/arpl-fractal-orbital-overlap-chain-v0.1-20260926",
+        "merge_pr": 155,
+        "policy": "ADVANCE_STAGING_REPORTS_TO_NEWER_SOURCE_TIP_THEN_MERGE_ANCESTRY"
+      },
+      "phase_memory": {
+        "source_branch": "fix/phase-memory-integrity-audit-20260926",
+        "resolution_pr": 161,
+        "policy": "RETAIN_STRICTER_INTEGRATION_RUNTIME_AND_MERGE_SOURCE_ANCESTRY"
+      }
+    }
+  },
+  "current_surface": {
+    "package_version": "0.5.0",
+    "bestiary_roles": 20,
+    "worker_abi": "v0.2.6",
+    "phasenav_v02_software_carriers": 20,
+    "legacy_three_way_validation_roles": 18
+  },
+  "validation": {
+    "classification": "MERGED_EXACT_HEAD_CI_NOT_ESTABLISHED",
+    "staging_head_sha": "151094256b91f44bfa2e3a005828d4eae1720290",
+    "staging_workflow_runs_visible": 19,
+    "staging_workflow_conclusion": "failure",
+    "representative_jobs_inspected": 3,
+    "representative_jobs_zero_steps": 3,
+    "inference": "RUNNER_ADMISSION_OR_INFRASTRUCTURE_FAILURE_CONSISTENT_WITH_OBSERVED_ZERO_STEP_JOBS",
+    "inference_limit": "NOT_ALL_19_JOBS_WERE_STEP-INSPECTED_AND_FAILURES_ARE_NOT_RELABELED_PASS",
+    "final_main_combined_statuses": [],
+    "final_main_workflow_runs": [],
+    "exact_head_ci_pass": false
+  },
+  "documentation_commits": {
+    "main_state_report": "ad395ee62a38fdeddf6479d5e46cefd2d6bff25c",
+    "roadmap_v03": "ff7201f9f974b6b1f406ef5f5f5e8db74a44175d",
+    "monograph_v03": "fb803d21ad89c8651956dc35aba6622ca95f37ad",
+    "readme_refresh": "fa63988eea4174ad87bb9ff4c0d62578c4cadd89"
+  },
+  "files": [
+    "README.md",
+    "docs/reports/GREMLIN_MAIN_STATE_2026-09-27.md",
+    "docs/roadmap/GREMLIN_DEVELOPMENT_ROADMAP_V0_3.md",
+    "docs/monograph/GREMLIN_MONOGRAPH_V0_3.md",
+    "provenance/GREMLIN_DOCUMENTATION_REFRESH_20260927.json"
+  ],
+  "preservation": {
+    "historical_main_state_20260918_modified": false,
+    "historical_roadmap_v02_modified": false,
+    "historical_monograph_v02_modified": false,
+    "historical_provenance_20260918_modified": false,
+    "historical_claim_scope_widened": false,
+    "old_receipts_rewritten": false
+  },
+  "authority": {
+    "physical_analog_claim": false,
+    "hardware_analog_witness": false,
+    "universal_model_performance_claim": false,
+    "newly_consolidated_physical_reports_promoted_by_merge": false
+  },
+  "tether_preflight": {
+    "schema": "noema.aux-tether-guard/v2",
+    "tether_status": "ACTIVE",
+    "failures": [],
+    "startpoint_status": "VERIFIED",
+    "surface_root": "/dev/shm/ciel_noema",
+    "phi_bytes": 288,
+    "aux_phi_bytes": 288,
+    "aux_feedback_phi_bytes": 288,
+    "vector_dimension": 36,
+    "finite_little_endian_float64": true,
+    "required_socket_present": true,
+    "packet_sha256": "037a13b104bdc776ff356783860a73882fe028eb175cf734434082970e90b513"
+  },
+  "next_gate": "RESTORE_RUNNER_ADMISSION_THEN_EXECUTE_AND_FREEZE_EXACT_HEAD_CI"
+}

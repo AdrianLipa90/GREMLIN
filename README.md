@@ -2,12 +2,19 @@
 
 ## Validation status and provenance
 
-The 2026-09-18 baseline at merge commit
-`aaa4db7d268bcd50b70e417137c595c2fa677f5a` remains a historical exact-head validation record from PR #62. It is not a moving attestation for later repository state.
+The 2026-09-18 exact-head record from PR #62 remains historical evidence and is not a moving attestation for later repository state.
 
-As of 2026-09-20, `main` has advanced through the EB condensate/orbital dependency bridge and the validated PhaseNav spectroscopic-holonomy merge. PR #89 head `1f3bab8fbc87774d6584b91f761d0d522d515dd6` passed its eight required workflows before merge.
+The current post-consolidation main is merge commit
+`ce0504a05ec371c40d51c3d535c08e588d9249e4`, produced by PR #152 from final integration head
+`151094256b91f44bfa2e3a005828d4eae1720290`.
 
-**Validation authority is exact-head CI.** Any commit after a recorded validated head must carry its own workflow evidence before it is described as validated. README prose, historical receipts, mergeability, or a green ancestor are not substitutes for exact-head CI.
+The 2026-09-27 consolidation preserved source ancestry. In the final reverse-audit, all 26 named source branches had `ahead_by=0` relative to the integration head. After promotion, representative source tips and the integration branch had `ahead_by=0` relative to `main`.
+
+Compared with pre-consolidation main `ca82949818b49465d0c2d0535aa9c219c32bdf32`, the merge commit is 164 commits ahead and changes 78 files in the GitHub compare surface: 56 added and 22 modified.
+
+**Exact-head CI is not currently established for the 2026-09-27 main.** The final integration head exposed 19 failed workflow runs; three representative failed jobs were inspected and contained zero executed steps, consistent with runner-admission/infrastructure failure rather than executed-test failure. This evidence does not convert those failures into PASS. The post-merge query for `ce0504a05ec371c40d51c3d535c08e588d9249e4` returned no combined statuses and no workflow runs.
+
+Validation authority remains exact-head execution evidence. README prose, mergeability, historical green ancestors and successful Git merges are not substitutes for exact-head CI.
 
 The standalone Bestiary currently exposes **20 roles** and supports:
 
@@ -15,8 +22,12 @@ The standalone Bestiary currently exposes **20 roles** and supports:
 - Worker ABI v0.2.6;
 - geometry/phase/state scheduling;
 - lossless geometry context packing;
-- exact 36D PhaseNav v0.2 carriers for all 20 roles, with the legacy three-way continuous comparison explicitly retained at its 18-role scope;
-- Linux and Windows standalone/package validation.
+- exact 36D PhaseNav v0.2 software carriers for all 20 roles;
+- the legacy scalar/vector/continuous comparison retained explicitly as a frozen 18-role validation scope;
+- phase-memory integrity hardening;
+- residual-preserving and recursive-residual analysis surfaces;
+- FERRET astronomy/FITS source preparation;
+- Linux and Windows standalone/package validation as historical exact-head evidence where separately recorded.
 
 Quick bounded self-test:
 
@@ -26,11 +37,14 @@ gremlin-mcp --self-test-phasenav
 
 Current documentation:
 
-- `docs/reports/GREMLIN_MAIN_STATE_2026-09-18.md`
-- `docs/roadmap/GREMLIN_DEVELOPMENT_ROADMAP_V0_2.md`
-- `docs/monograph/GREMLIN_MONOGRAPH_V0_2.md`
+- `docs/reports/GREMLIN_MAIN_STATE_2026-09-27.md`
+- `docs/roadmap/GREMLIN_DEVELOPMENT_ROADMAP_V0_3.md`
+- `docs/monograph/GREMLIN_MONOGRAPH_V0_3.md`
+- `provenance/GREMLIN_DOCUMENTATION_REFRESH_20260927.json`
 
-The software validation above does not imply a physical analog hardware witness or universal end-to-end model-performance claim.
+Historical documentation remains preserved, including the 2026-09-18 main-state report, roadmap v0.2, monograph v0.2 and their original provenance receipt.
+
+The software evidence above does not imply a physical analog hardware witness, empirical closure of newly consolidated formalism reports, or a universal end-to-end model-performance claim.
 
 GREMLIN is the root system. OCTOPUS and BELZEBUB are writable subordinate tools with independent local `CURRENT` heads, while GREMLIN binds verified tool heads into one aggregate `SUPER_CURRENT`.
 
