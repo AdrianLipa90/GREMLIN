@@ -82,6 +82,11 @@
       "repo": "AdrianLipa90/On-Primes",
       "branch": "research/arpl-cyclotomic-two-target-frontier-v0.1-20260927",
       "validation_receipt_sha": "688c3c28e0fb7463d9cca690b1efc638f57559a6"
+    },
+    "arpl_torus_order_divisibility": {
+      "repo": "AdrianLipa90/On-Primes",
+      "branch": "research/arpl-cyclotomic-two-target-frontier-v0.1-20260927",
+      "validation_receipt_sha": "698087095df85536b448bf6518da1f8f63d4c8c8"
     }
   },
   "exact_pass": [
@@ -109,7 +114,9 @@
     "ARPL_CYCLOTOMIC_TWO_TARGET_SOURCE_CALIBRATION",
     "TWO_TARGET_SUPPORT_IMPLIES_ARPL_EXPOSURE",
     "BETA_H_PAIR_SUPPORT_UNCONDITIONAL",
-    "BETA_ZETA_PAIR_SUPPORT_UNCONDITIONAL"
+    "BETA_ZETA_PAIR_SUPPORT_UNCONDITIONAL",
+    "ARPL_TWO_TARGET_TO_TORUS_ORDER_DIVISIBILITY",
+    "ARPL_RANK_TWO_TORUS_SUBGROUP_REDUCTION"
   ],
   "fail_preserved": [
     {
@@ -135,7 +142,8 @@
     "EXPONENT_PRIME_PROGRESSIONS_CONTROL_OUTPUT_FROBENIUS",
     "PAIRWISE_INFINITUDE_IMPLIES_INTERSECTION",
     "POLLACK_PAIR_PROOF_DIRECT_ITERATION_TO_INTERSECTION",
-    "SHARED_FILTER_EXPONENT_SYNCHRONIZES_OUTPUT_PRIMES"
+    "SHARED_FILTER_EXPONENT_SYNCHRONIZES_OUTPUT_PRIMES",
+    "FINITE_SELECTED_ELL_ADIC_CONTROLS_IMPLY_GLOBAL_ORDER_DIVISIBILITY"
   ],
   "repaired": [
     "ON_PRIMES_PARENT_DIVERGENCE",
@@ -143,6 +151,7 @@
     "STALE_ARPL_SOURCE_PIN"
   ],
   "open": [
+    "INFINITE_TORUS_ORDER_DIVISIBILITY_SUPPORT",
     "SIMULTANEOUS_CYCLOTOMIC_TWO_TARGET_SUPPORT",
     "PHYSICAL_PRIME_PHASE_BINDING",
     "PHYSICAL_ORBITAL_REALIZATION",
@@ -150,7 +159,7 @@
     "HOSTED_CI"
   ],
   "canon_allowed": false,
-  "next_witness": "UNCONDITIONAL_SIMULTANEOUS_TWO_TARGET_SUPPORT_OR_FINITE_SET_SCHINZEL_WOJCIK",
+  "next_witness": "UNCONDITIONAL_HIGHER_RANK_TORUS_ORDER_DIVISIBILITY_EXISTENCE_OR_FINITE_SET_SCHINZEL_WOJCIK",
   "frontier": {
     "exact_reduction": "active q iff h in +/-<2>; mode exposed iff reduced denominator divides ord_q(4)",
     "status": "OPEN_ARTIN_TYPE",
@@ -193,7 +202,10 @@
     "single_product_encoder": "REFUTED",
     "pair_theorem_intersection_barrier": "PASS_EXACT_LOGIC",
     "unconditional_finite_list_in_reviewed_sources": "NOT_FOUND",
-    "minimal_missing_synchronization": "SIMULTANEOUS_CYCLOTOMIC_TWO_TARGET_SUPPORT"
+    "minimal_missing_synchronization": "SIMULTANEOUS_CYCLOTOMIC_TWO_TARGET_SUPPORT",
+    "torus_formulation": "P=(4,4), T=(beta_h,beta_zeta), two-target support iff ord_Q(T)|ord_Q(P)",
+    "torus_existential_status": "OPEN_UNCONDITIONALLY",
+    "finite_ell_adic_reduction_results": "INSUFFICIENT_FOR_ALL_ELL_DIVISIBILITY"
   },
   "excluded_evidence": [
     "CARELLA_ARXIV_2103_04822_V1_PROOF_INVALID_AS_PRINTED"
