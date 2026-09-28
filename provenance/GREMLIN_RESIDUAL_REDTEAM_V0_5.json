@@ -1,0 +1,51 @@
+{
+  "schema":"GREMLIN_RESIDUAL_REDTEAM_V0_5_RECEIPT",
+  "date":"2026-09-28",
+  "status":"IMPLEMENTED_CANDIDATE_CI_PENDING",
+  "branch":"audit/residual-redteam-v05-20260928",
+  "base_branch":"audit/residual-redteam-v04-20260928",
+  "base_sha":"d6c551cf3472ec8bf42d14f6d82f1e3f685c093c",
+  "gremlin_authority":"CANDIDATE_ONLY",
+  "new_v05_repairs":[
+    "phase-ordered versus phase-unordered narrowband taxonomy",
+    "run-order permutation null for phase trajectory",
+    "experimentwise alpha frozen before recursive search",
+    "fixed Bonferroni alpha spending across planned recursive rounds",
+    "rank-based familywise Monte Carlo p-value",
+    "fail-closed null-count resolution gate"
+  ],
+  "pinned_prior_failures":[
+    "v0.2 AR1 colored noise false structured promotion",
+    "v0.2 alternating offset loses sign semantics",
+    "v0.2 half-bin leakage false negative",
+    "v0.3 64-candidate pure-noise false nuisance acceptance"
+  ],
+  "new_redteam_findings":[
+    {
+      "issue":"v0.4 narrowband class conflates phase-ordered and phase-unordered narrowband processes",
+      "evidence":"random-phase fixed-frequency synthetic resonator passes narrowband gate",
+      "repair":"phase trajectory diagnostic subclass"
+    },
+    {
+      "issue":"v0.4 familywise alpha is per recursive round rather than experimentwise across all planned rounds",
+      "repair":"sequential fixed alpha spending with experimentwise budget"
+    }
+  ],
+  "local_exploratory_monte_carlo":{
+    "status":"NON_RECEIPT_EXPLORATORY_NOT_CI",
+    "white_noise_narrowband_false_positives":"0 observed in tested seed bank",
+    "one_over_f_narrowband_false_positives":"0 observed in tested seed bank",
+    "random_phase_narrowband":"passes spectral gate but has low phase-trajectory ordering",
+    "ordered_phase_narrowband":"passes spectral gate and phase-trajectory ordering",
+    "colored_background_power_note":"weak narrow lines on strong AR1 background show substantial false-negative region"
+  },
+  "ci_workflow":".github/workflows/residual-redteam-v05.yml",
+  "claim_boundary":{
+    "false_positive_rate_fully_calibrated":false,
+    "detection_power_fully_calibrated":false,
+    "hidden_confounders_excluded":false,
+    "new_physics_established":false,
+    "time_fluctuation_established":false
+  },
+  "main_modified":false
+}
