@@ -13,6 +13,21 @@ For supported clients, use **GREMLIN Control Center → Setup / AI Providers →
 
 GREMLIN uses local `stdio` MCP by default. No listening network port is required for the normal desktop integration.
 
+## ChatGPT clean-account setup
+
+ChatGPT is a separate deployment surface. Do not treat a local `stdio` registration as a ChatGPT installation.
+
+For a fresh ChatGPT account:
+
+1. deploy GREMLIN behind a remotely reachable HTTPS MCP endpoint ending in `/mcp`, or bind the local service through a supported secure tunnel;
+2. run `gremlin-chatgpt-package --build --endpoint https://HOST/mcp --output GREMLIN-ChatGPT-Plugin-v1.zip --json`;
+3. inspect the ZIP with `gremlin-chatgpt-package --inspect ... --json`;
+4. install/upload or publish the plugin through the supported ChatGPT plugin surface;
+5. complete host-side authentication and Scan Tools;
+6. report READY only after the ChatGPT host confirms the connection and tools.
+
+The packager is intentionally independent of prior conversations, ChatGPT Memory, Library files, NOEMA session files, and local MCP client configuration.
+
 ## Provider integration modes
 
 GREMLIN prefers the provider's own MCP command interface when the client exposes one. Current native-CLI integrations include Codex, OpenCode, Claude Code, Gemini CLI, and VS Code/Copilot. Cursor, Windsurf, and Windows Claude Desktop use a backed-up, atomic MCP configuration merge.
