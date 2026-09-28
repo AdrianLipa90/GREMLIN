@@ -96,32 +96,37 @@ def _smooth_continuum_excess(
     }
 
 
-def _crossfit_low_frequency_gate(
+def _crossfit_difference_attenuation_gate(
     residual: np.ndarray,
     *,
-    low_frequency_max_bin: int = 8,
+    difference_gain_floor: float = 0.02,
     prominence_threshold: float = 4.0,
-    support_threshold: float = 0.50,
+    support_fraction_threshold: float = 0.50,
 ) -> dict[str, Any]:
     directions = []
     for train, holdout in _fold_pairs(residual.shape[0]):
         discover = _stacked_psd(residual[train])
         k = int(np.argmax(discover[1:]) + 1)
 
+        difference_gain = float(
+            2.0 * abs(math.sin(math.pi * k / residual.shape[1]))
+        )
+        fit_hi = max(64, min(discover.size - 1, 8 * max(1, k)))
         check = _smooth_continuum_excess(
             residual[holdout],
             k,
-            fit_hi=max(64, low_frequency_max_bin * 8),
+            fit_hi=fit_hi,
             halfwidth=1,
             support_threshold=prominence_threshold,
         )
         passed = (
-            k <= low_frequency_max_bin
+            difference_gain < difference_gain_floor
             and check["prominence"] >= prominence_threshold
-            and check["support_fraction"] >= support_threshold
+            and check["support_fraction"] >= support_fraction_threshold
         )
         directions.append({
             "discovery_peak_bin": k,
+            "first_difference_transfer_gain": difference_gain,
             "smooth_continuum_validation": check,
             "pass": bool(passed),
         })
@@ -141,7 +146,7 @@ def _crossfit_low_frequency_gate(
         "pass_fraction": pass_fraction,
         "bin_agreement_fraction": agreement,
         "median_discovery_bin": median_bin,
-        "low_frequency_max_bin": int(low_frequency_max_bin),
+        "difference_gain_floor": float(difference_gain_floor),
         "pass": bool(pass_fraction >= 0.75 and agreement >= 0.75),
     }
 
@@ -154,7 +159,7 @@ def analyze_residual_stack_v05(
     known_template_runs: Sequence[Sequence[float]] | None = None,
     channel_runs: Mapping[str, Sequence[Sequence[float]]] | None = None,
     sample_spacing: float = 1.0,
-    low_frequency_max_bin: int = 8,
+    difference_gain_floor: float = 0.02,
 ) -> dict[str, Any]:
     raw = np.asarray(raw_runs, float)
     model = np.asarray(model_runs, float)
@@ -174,9 +179,9 @@ def analyze_residual_stack_v05(
         sample_spacing=sample_spacing,
     )
     residual = raw - model
-    low_gate = _crossfit_low_frequency_gate(
+    low_gate = _crossfit_difference_attenuation_gate(
         residual,
-        low_frequency_max_bin=low_frequency_max_bin,
+        difference_gain_floor=difference_gain_floor,
     )
 
     protected = {
@@ -191,7 +196,7 @@ def analyze_residual_stack_v05(
     if base["classification"] in protected:
         classification = base["classification"]
     elif low_gate["pass"]:
-        classification = "UNRESOLVED_LOW_FREQUENCY_SPECTRAL_FEATURE_CANDIDATE"
+        classification = "UNRESOLVED_DIFFERENCE_ATTENUATED_SPECTRAL_FEATURE_CANDIDATE"
     else:
         classification = base["classification"]
 
@@ -209,19 +214,20 @@ def analyze_residual_stack_v05(
         },
         "metrics": {
             **dict(base["metrics"]),
-            "crossfit_low_frequency_feature_gate": low_gate,
+            "crossfit_difference_attenuation_feature_gate": low_gate,
         },
         "policy": {
             **dict(base["policy"]),
-            "low_frequency_feature_not_forced_through_first_difference": True,
-            "low_frequency_feature_is_not_automatically_a_line": True,
+            "first_difference_transfer_function_explicit": True,
+            "difference_attenuated_feature_not_forced_through_first_difference": True,
+            "difference_attenuated_feature_is_not_automatically_a_line": True,
             "spectral_knee_or_bump_may_remain_structured_without_physical_assignment": True,
             "interpretation_last": True,
             "new_physics_from_residual_only": False,
             "time_fluctuation_claim_allowed": False,
         },
         "promotion_gates": list(base["promotion_gates"]) + [
-            "low-frequency smooth-continuum excess cross-fit",
+            "difference-attenuated smooth-continuum excess cross-fit",
             "feature morphology before line/mechanism assignment",
         ],
     }
