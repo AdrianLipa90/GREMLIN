@@ -1,0 +1,62 @@
+{
+  "schema":"GREMLIN_RESIDUAL_REDTEAM_V0_10_RECEIPT",
+  "date":"2026-09-28",
+  "status":"INDEPENDENT_REFERENCE_MONTE_CARLO_PASS_EXACT_BRANCH_TESTS_ADDED_NOT_EXECUTED",
+  "branch":"audit/residual-redteam-v10-shared-run-leakage-20260928",
+  "module":"gremlin_mcp/residual_spectroscopy_v10.py",
+  "module_version":"0.10.1",
+  "findings":{
+    "shared_run_leakage_is_real":true,
+    "train_holdout_split_alone_establishes_independence":false,
+    "absolute_correlation_thresholds_rejected":true,
+    "surrogate_calibration_required":true,
+    "extreme_long_memory_requires_abstention":true
+  },
+  "narrowband_reference_monte_carlo":{
+    "white":{"passes":0,"trials":100},
+    "ar1_phi_0_8":{"passes":0,"trials":100},
+    "one_over_f":{"passes":0,"trials":100},
+    "periodic_heteroskedastic":{"passes":0,"trials":100},
+    "ar2_quasi_oscillatory":{"passes":43,"trials":100,"interpretation":"genuine stochastic narrowband structure, not automatically physical"}
+  },
+  "recursive_familywise_reference":{
+    "alpha":0.05,
+    "pure_noise_family_1":{"false_accepts":0,"trials":100},
+    "pure_noise_family_8":{"false_accepts":0,"trials":100},
+    "pure_noise_family_32":{"false_accepts":0,"trials":80},
+    "pure_noise_family_64":{"false_accepts":0,"trials":60},
+    "true_plus_31_noise":{"true_accepts":30,"trials":30,"extra_false_layers":0}
+  },
+  "absolute_threshold_failure_examples":[
+    {"n":256,"ar1_phi":0.95,"false_flags":50,"trials":50},
+    {"n":512,"ar1_phi":0.95,"false_flags":34,"trials":50},
+    {"n":1024,"ar1_phi":0.98,"false_flags":40,"trials":50},
+    {"n":2048,"ar1_phi":0.99,"false_flags":44,"trials":50}
+  ],
+  "surrogate_gate":{
+    "null_kind":"independent phase randomization preserving per-run Fourier power spectrum",
+    "default_null_count":255,
+    "default_alpha":0.01,
+    "long_memory_abstain_median_abs_lag1":0.97,
+    "absolute_correlation_threshold_authoritative":false
+  },
+  "surrogate_reference_255_nulls":{
+    "independent_white":{"flags":0,"trials":12},
+    "shared_20_percent":{"flags":12,"trials":12},
+    "shifted_shared_white":{"flags":12,"trials":12},
+    "independent_ar1_phi_0_99":{"raw_flags":1,"trials":12,"policy":"abstain because median lag1 exceeds 0.97"}
+  },
+  "deterministic_reference_127_nulls":{
+    "shared_20_percent":{"p":0.0078125},
+    "shifted_copy":{"p":0.0078125},
+    "independent_weak_line":{"p":0.953125},
+    "independent_ar1_phi_0_99":{"median_abs_lag1":0.9829665588430236,"action":"LONG_MEMORY_UNCALIBRATED"}
+  },
+  "claim_boundary":{
+    "passing_run_independence_proves_physical_signal":false,
+    "failing_run_independence_proves_instrumental_origin":false,
+    "new_physics_established":false,
+    "time_fluctuation_established":false
+  },
+  "main_modified":false
+}
