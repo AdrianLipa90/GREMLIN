@@ -32,12 +32,14 @@ The confirmation rules are deliberately asymmetric:
 
 1. the confirmatory dataset must be declared sealed before discovery;
 2. it must be a distinct dataset; reusing the discovery RAW fails closed;
-3. the nuisance components must be independently available on the confirmatory dataset;
-4. all discovery coefficients are frozen;
-5. no coefficient may be refit on confirmation;
-6. every selected discovery layer receives a drop-one confirmatory gain;
-7. each selected layer is compared with a typed null ensemble;
-8. familywise max-null control is applied across all selected layers in the single confirmatory stage.
+3. a GREMLIN v0.12 run-independence result must bind exactly to the confirmatory RAW and baseline-model commitments;
+4. the v0.12 receipt must have crossfit_valid_under_run_dependence_audit=true; declaration alone is insufficient;
+5. the nuisance components must be independently available on the confirmatory dataset;
+6. all discovery coefficients are frozen;
+7. no coefficient may be refit on confirmation;
+8. every selected discovery layer receives a drop-one confirmatory gain;
+9. each selected layer is compared with a typed null ensemble;
+10. familywise max-null control is applied across all selected layers in the single confirmatory stage.
 
 A discovery layer that fails confirmation is retained in provenance but is not confirmed.
 
@@ -67,3 +69,12 @@ A sealed-confirmation PASS does not establish a physical mechanism.
 A surviving residual remains unresolved until domain controls and independent physical replication.
 
 No confirmation result establishes new physics or time fluctuations.
+
+
+## Independence is evidenced, not asserted
+
+A different RAW hash is necessary but not sufficient for independence. Shifted, overlapping or shared-realization data can have different byte commitments while still invalidating replication logic.
+
+v0.13 therefore requires the v0.12 IAAFT run-dependence audit for the exact confirmatory RAW/model pair. RAW or model commitment mismatch fails closed. A v0.12 abstention or INVALID result also blocks sealed confirmation.
+
+This does not prove metaphysical or causal independence; it establishes only that the declared run set passed the current source-owned run-dependence audit surface.
