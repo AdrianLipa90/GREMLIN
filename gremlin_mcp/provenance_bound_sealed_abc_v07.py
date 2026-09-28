@@ -101,7 +101,6 @@ def provenance_bound_sealed_abc_v07(
     replication_runs:Sequence[int],
     analysis_plan_sha256:str,
     analysis_plan_frozen_before_fit:bool,
-    trusted_provenance_authorities:Sequence[str]=_DEFAULT_TRUSTED_AUTHORITIES,
     **kwargs:Any,
 )->tuple[dict[str,Any],np.ndarray,np.ndarray]:
     if not _is_sha256(analysis_plan_sha256):
@@ -117,7 +116,7 @@ def provenance_bound_sealed_abc_v07(
         components,
         provenance_receipts,
         analysis_plan_sha256=analysis_plan_sha256,
-        trusted_authorities=trusted_provenance_authorities,
+        trusted_authorities=_DEFAULT_TRUSTED_AUTHORITIES,
     )
 
     result,model,residual=sealed_abc_residual_confirmation_v06(
@@ -144,6 +143,7 @@ def provenance_bound_sealed_abc_v07(
             "candidate_payload_hash_bound":True,
             "independent_source_lineage_required":True,
             "construction_rule_frozen_before_fit_required":True,
+            "provenance_authority_allowlist_versioned_in_code":True,
             "provenance_authority_trust_external":True,
             "forged_trusted_authority_receipt_not_detectable_locally":True,
         },
