@@ -237,9 +237,27 @@ def sealed_abc_residual_confirmation_v06(
     )
     evidence_model=_apply_model(initial,confirmed_full,beta_final)
     final_residual=raw-evidence_model
-    final_packet=analyze_residual_stack_v05(
-        raw,evidence_model,sample_spacing=sample_spacing
+    # Sealed B/C data are not returned to a discovery-capable analyzer.
+    # Residual discovery after confirmation remains restricted to A.
+    discovery_residual_packet=analyze_residual_stack_v05(
+        raw[A],evidence_model[A],sample_spacing=sample_spacing
     )
+    sealed_residual_diagnostics={
+        "B":{
+            "residual_sha256":hashlib.sha256(
+                np.ascontiguousarray(final_residual[B],dtype=np.float64).tobytes()
+            ).hexdigest(),
+            "sse":float(np.sum(final_residual[B]**2)),
+            "spectral_discovery_permitted":False,
+        },
+        "C":{
+            "residual_sha256":hashlib.sha256(
+                np.ascontiguousarray(final_residual[C],dtype=np.float64).tobytes()
+            ).hexdigest(),
+            "sse":float(np.sum(final_residual[C]**2)),
+            "spectral_discovery_permitted":False,
+        },
+    }
 
     alias_pairs=list(discovery.get("alias_pairs") or [])
     alias_with_confirmed=[
@@ -281,7 +299,8 @@ def sealed_abc_residual_confirmation_v06(
             name:float(value)
             for name,value in zip(confirmed,beta_final)
         },
-        "final_packet":final_packet,
+        "discovery_residual_packet_A":discovery_residual_packet,
+        "sealed_residual_diagnostics":sealed_residual_diagnostics,
         "discovery_result_sha256":discovery["decomposition_sha256"],
         "attribution_ambiguous":bool(alias_with_confirmed),
         "policy":{
@@ -290,6 +309,7 @@ def sealed_abc_residual_confirmation_v06(
             "C_role":"SEALED_REPLICATION_NO_REFIT",
             "stop_on_first_sealed_failure":True,
             "no_discovery_on_B_or_C":True,
+            "post_confirmation_residual_discovery_requires_fresh_D_or_new_dataset":True,
             "analysis_plan_frozen_before_fit":True,
             "destructive_denoising":False,
             "interpretation_last":True,
