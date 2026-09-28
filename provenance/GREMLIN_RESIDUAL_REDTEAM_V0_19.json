@@ -1,0 +1,73 @@
+{
+  "schema":"GREMLIN_RESIDUAL_REDTEAM_V0_19_RECEIPT",
+  "date":"2026-09-28",
+  "status":"PREPROCESSING_ORDER_NO_GO_REPRODUCED_RAW_KSG_FAMILY_AUDIT_CANDIDATE",
+  "branch":"audit/residual-redteam-v19-raw-dependence-order-20260928",
+  "base_branch":"audit/residual-redteam-v18-nonlinear-run-dependence-20260928",
+  "base_sha":"3468776a06c4f6a508bb7b09c4a0cec56802fca3",
+  "preprocessing_order_reproducer":{
+    "relation":"x1 = sqrt(2)*T_17(x0/sqrt(2))",
+    "deterministic_dependence":true,
+    "shape":[8,256],
+    "content_addressed_null_worlds":199,
+    "alpha":0.005,
+    "raw":{
+      "observed_max_pair_ksg_mi":0.27778491038091424,
+      "witness_pair":[0,1],
+      "monte_carlo_p":0.005,
+      "q99_null":0.15325195778778927
+    },
+    "notched":{
+      "observed_max_pair_ksg_mi":0.09672927009472865,
+      "witness_pair":[1,4],
+      "monte_carlo_p":0.39,
+      "q99_null":0.1624663725375227
+    },
+    "conclusion":"postprocessing can mask exact nonlinear run dependence"
+  },
+  "strict_independent_prototype":{
+    "alpha":0.005,
+    "null_worlds":255,
+    "shape":[8,128],
+    "white":"5/5 no false invalidation",
+    "student_t3":"5/5 no false invalidation",
+    "ar1_phi_0p8":"5/5 no false invalidation",
+    "garch_like":"5/5 no false invalidation",
+    "bursty_heavy_tail":"5/5 no false invalidation",
+    "total":"25/25 no false invalidation",
+    "formal_fpr_bound":false
+  },
+  "finite_sample_power_warning":{
+    "shape_8x128":{
+      "quadratic":"detected",
+      "chebyshev_m5":"detected",
+      "chebyshev_m7":"detected",
+      "chebyshev_m17":"missed"
+    },
+    "shape_8x256":{
+      "chebyshev_m17":"detected"
+    },
+    "pass_proves_independence":false
+  },
+  "implementation":{
+    "runtime_dependency_added":false,
+    "ksg":"pure NumPy KSG-1, fixed k=3",
+    "family_scope":"MAX_OVER_ALL_RAW_RUN_PAIRS",
+    "joint_null":"independent RAW IAAFT per run within one family null world",
+    "null_seed":"content addressed from RAW residual",
+    "exact_ties":"ABSTAIN",
+    "downstream_order":"RAW audit before detrend/notch"
+  },
+  "claim_boundary":{
+    "reject_identifies_cause":false,
+    "pass_proves_arbitrary_independence":false,
+    "new_physics_established":false,
+    "time_fluctuation_established":false
+  },
+  "execution_note":{
+    "exact_private_branch_checkout_in_local_container":false,
+    "independent_rule_reimplementation_used":true
+  },
+  "main_modified":false,
+  "next_gate":"RAW_KSG_FAMILY_AUDIT_LARGER_NULL_AND_POWER_CALIBRATION_PLUS_PREPROCESSING_OPERATOR_INVARIANCE_TESTS"
+}
