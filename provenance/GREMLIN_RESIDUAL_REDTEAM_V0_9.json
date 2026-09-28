@@ -1,0 +1,46 @@
+{
+  "schema":"GREMLIN_RESIDUAL_REDTEAM_V0_9_RECEIPT",
+  "date":"2026-09-28",
+  "status":"IMPLEMENTED_CANDIDATE_CORE_GATE_REPLAY_PASS_EXACT_BRANCH_CI_PENDING",
+  "branch":"audit/residual-redteam-v09-20260928",
+  "base_branch":"audit/residual-redteam-v08-20260928",
+  "base_sha":"e24e235838e591a27b00ee2d3fc87ad7c83c2388",
+  "gremlin_authority":"CANDIDATE_ONLY",
+  "new_class":"UNRESOLVED_TRANSIENT_COHORT_STRUCTURE_CANDIDATE",
+  "deterministic_witness":{
+    "seed":340001,
+    "shape":[16,2048],
+    "amplitude_sigma":0.8,
+    "active_runs":[5,6,7],
+    "exploratory_recovered_cluster":[5,6,7]
+  },
+  "exploratory_power":{
+    "one_active_run":"no top-level cohort; isolated-run diagnostic only",
+    "two_active_runs":"17/50",
+    "three_active_runs":"26/50",
+    "four_active_runs":"37/50",
+    "six_active_runs":"42/50"
+  },
+  "exploratory_null":{
+    "white":{"cohorts":"0/200","isolated_run_diagnostics":"12/200"},
+    "ar1_phi0_8":{"cohorts":"0/100","isolated_run_diagnostics":"3/100"},
+    "one_over_f":{"cohorts":"0/100","isolated_run_diagnostics":"0/100"}
+  },
+  "firewalls":[
+    "ordered run provenance required",
+    "minimum two adjacent reproducible runs for top-level cohort",
+    "single-run anomaly retained but not promoted",
+    "cross-half frequency validation required",
+    "no physical attribution",
+    "no time-fluctuation promotion"
+  ],
+  "claim_boundary":{
+    "transient_rank_is_fully_calibrated_p_value":false,
+    "transient_detection_power_fully_calibrated":false,
+    "single_run_anomaly_is_discovery":false,
+    "transient_cohort_is_physical_attribution":false,
+    "new_physics_established":false,
+    "time_fluctuation_established":false
+  },
+  "main_modified":false
+}
