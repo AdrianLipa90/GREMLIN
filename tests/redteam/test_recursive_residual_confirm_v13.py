@@ -43,17 +43,29 @@ def _case(seed=30116):
         "independent_dataset":True,
         "dataset_id":"confirm:seed30116:independent",
     }
-    return raw,components,metadata,discovery,declaration
+    run_audit={
+        "schema":"GREMLIN_RESIDUAL_PRESERVING_SPECTROSCOPY_V0_12",
+        "analysis_sha256":"b"*64,
+        "commitments":{
+            "raw_sha256":_sha_array(raw),
+            "model_sha256":_sha_array(np.zeros_like(raw)),
+        },
+        "policy":{
+            "crossfit_valid_under_run_dependence_audit":True,
+        },
+    }
+    return raw,components,metadata,discovery,run_audit,declaration
 
 
 def test_seed30116_false_layer_fails_sealed_confirmation():
-    raw,components,metadata,discovery,declaration=_case()
+    raw,components,metadata,discovery,run_audit,declaration=_case()
     out=confirm_recursive_selection_v13(
         discovery,
         raw,
         np.zeros_like(raw),
         components,
         metadata,
+        run_audit,
         declaration,
         confirmatory_alpha=0.01,
         null_count=255,
@@ -66,13 +78,13 @@ def test_seed30116_false_layer_fails_sealed_confirmation():
 
 
 def test_true_only_selection_confirms_without_refit():
-    raw,components,metadata,discovery,declaration=_case(30117)
+    raw,components,metadata,discovery,run_audit,declaration=_case(30117)
     discovery["accepted_layers"]=["true_0","true_1","true_2"]
     discovery["final_joint_coefficients"]={
         "true_0":0.6,"true_1":0.5,"true_2":0.4,
     }
     out=confirm_recursive_selection_v13(
-        discovery,raw,np.zeros_like(raw),components,metadata,declaration,
+        discovery,raw,np.zeros_like(raw),components,metadata,run_audit,declaration,
         confirmatory_alpha=0.01,null_count=255,
     )
     assert out["status"]=="SEALED_CONFIRMATION_PASS"
@@ -81,11 +93,11 @@ def test_true_only_selection_confirms_without_refit():
 
 
 def test_reusing_discovery_raw_fails_closed():
-    raw,components,metadata,discovery,declaration=_case()
+    raw,components,metadata,discovery,run_audit,declaration=_case()
     discovery["raw_sha256"]=_sha_array(raw)
     try:
         confirm_recursive_selection_v13(
-            discovery,raw,np.zeros_like(raw),components,metadata,declaration,
+            discovery,raw,np.zeros_like(raw),components,metadata,run_audit,declaration,
             null_count=255,
         )
     except ValueError as exc:
@@ -95,11 +107,11 @@ def test_reusing_discovery_raw_fails_closed():
 
 
 def test_unsealed_confirmation_fails_closed():
-    raw,components,metadata,discovery,declaration=_case()
+    raw,components,metadata,discovery,run_audit,declaration=_case()
     declaration["sealed_before_discovery"]=False
     try:
         confirm_recursive_selection_v13(
-            discovery,raw,np.zeros_like(raw),components,metadata,declaration,
+            discovery,raw,np.zeros_like(raw),components,metadata,run_audit,declaration,
             null_count=255,
         )
     except ValueError as exc:
@@ -109,10 +121,10 @@ def test_unsealed_confirmation_fails_closed():
 
 
 def test_underresolved_confirmatory_alpha_fails_closed():
-    raw,components,metadata,discovery,declaration=_case()
+    raw,components,metadata,discovery,run_audit,declaration=_case()
     try:
         confirm_recursive_selection_v13(
-            discovery,raw,np.zeros_like(raw),components,metadata,declaration,
+            discovery,raw,np.zeros_like(raw),components,metadata,run_audit,declaration,
             confirmatory_alpha=0.001,null_count=255,
         )
     except ValueError as exc:
@@ -122,14 +134,42 @@ def test_underresolved_confirmatory_alpha_fails_closed():
 
 
 def test_target_derived_confirmatory_nuisance_fails_closed():
-    raw,components,metadata,discovery,declaration=_case()
+    raw,components,metadata,discovery,run_audit,declaration=_case()
     metadata["true_0"]["independent_of_confirmatory_target_fit"]=False
     try:
         confirm_recursive_selection_v13(
-            discovery,raw,np.zeros_like(raw),components,metadata,declaration,
+            discovery,raw,np.zeros_like(raw),components,metadata,run_audit,declaration,
             null_count=255,
         )
     except ValueError as exc:
         assert "target-derived" in str(exc)
     else:
         raise AssertionError("target-derived confirmatory nuisance accepted")
+
+
+def test_run_independence_raw_commitment_mismatch_fails_closed():
+    raw,components,metadata,discovery,run_audit,declaration=_case()
+    run_audit["commitments"]["raw_sha256"]="c"*64
+    try:
+        confirm_recursive_selection_v13(
+            discovery,raw,np.zeros_like(raw),components,metadata,run_audit,declaration,
+            null_count=255,
+        )
+    except ValueError as exc:
+        assert "RAW commitment mismatch" in str(exc)
+    else:
+        raise AssertionError("mismatched run-independence RAW accepted")
+
+
+def test_invalid_run_independence_audit_fails_closed():
+    raw,components,metadata,discovery,run_audit,declaration=_case()
+    run_audit["policy"]["crossfit_valid_under_run_dependence_audit"]=False
+    try:
+        confirm_recursive_selection_v13(
+            discovery,raw,np.zeros_like(raw),components,metadata,run_audit,declaration,
+            null_count=255,
+        )
+    except ValueError as exc:
+        assert "did not validate crossfit" in str(exc)
+    else:
+        raise AssertionError("invalid run-independence audit accepted")
