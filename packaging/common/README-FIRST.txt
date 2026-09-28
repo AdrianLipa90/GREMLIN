@@ -32,6 +32,28 @@ Supported on Linux:
 - Visual Studio Code / GitHub Copilot
 - Windsurf
 
+ChatGPT clean-account setup
+---------------------------
+
+ChatGPT is not treated as another local desktop MCP client. A fresh ChatGPT account must pass the dedicated clean-account gate.
+
+Run:
+
+gremlin-chatgpt-clean --json
+
+The bootstrap is fail-closed. It requires all of the following before READY:
+- supported ChatGPT web surface explicitly confirmed;
+- developer mode explicitly confirmed for the target account/workspace;
+- either a deployed public HTTPS /mcp endpoint or an admitted Secure MCP Tunnel route;
+- GREMLIN app/plugin registration explicitly confirmed;
+- ChatGPT tool scan explicitly PASS;
+- the actual account capability recorded as read or full.
+
+The clean-account path must not depend on prior chat history, ChatGPT Memory, NOEMA Library state, or an existing GREMLIN account/session.
+
+Full instructions:
+packaging/common/CHATGPT-CLEAN-INSTALL.md
+
 If setup does not reach READY, open Diagnostics in Control Center. It will show the action still required.
 For support, Diagnostics can export a sanitized committed report without license keys, config contents or provider command output.
 
