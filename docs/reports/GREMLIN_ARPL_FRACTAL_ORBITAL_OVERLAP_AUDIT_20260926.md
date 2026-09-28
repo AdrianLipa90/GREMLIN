@@ -2277,3 +2277,258 @@ Primary proof interface:
 P. Pollack,
 "Two variants of a theorem of Schinzel and Wójcik on multiplicative orders",
 Acta Arith. 218 (2025), 337--345.
+
+
+## 35. Relational-zero operator closure
+
+The current arithmetic exposure gate now has an exact Hilbert-operator form.
+
+For one residue fibre
+
+\[
+G_Q=k_Q^\times,
+\qquad
+\mathcal H_Q=\ell^2(G_Q),
+\]
+
+and subgroup averaging projectors
+
+\[
+\Pi_H
+=
+\frac1{|H|}
+\sum_{h\in H}\lambda_h,
+\]
+
+the calibrated subgroup chain
+
+\[
+\Gamma_0
+\le
+\Gamma_h
+\le
+\Gamma_{h\zeta}
+\]
+
+produces
+
+\[
+\Delta_h=\Pi_0-\Pi_h,
+\]
+
+\[
+\Delta_\zeta=\Pi_h-\Pi_{h\zeta},
+\]
+
+\[
+\Delta=\Pi_0-\Pi_{h\zeta}.
+\]
+
+Exact identities:
+
+\[
+\boxed{
+\Delta=\Delta_h+\Delta_\zeta
+}
+\]
+
+and
+
+\[
+\boxed{
+\Delta_h\Delta_\zeta=0.
+}
+\]
+
+Each defect is an orthogonal projection with spectrum contained in
+
+\[
+\{0,1\}.
+\]
+
+The complete ARPL exposure condition is exactly
+
+\[
+\boxed{
+\Delta_Q=0.
+}
+\]
+
+Thus the former Boolean correlation gate
+
+\[
+A_Q=1,\quad D_Q=1
+\]
+
+is now an orthogonal positive-operator zero condition.
+
+The defect ranks are
+
+\[
+r_h=I_0-I_h,
+\]
+
+\[
+r_\zeta=I_h-I_{h\zeta},
+\]
+
+\[
+r=r_h+r_\zeta.
+\]
+
+For the h=6,p=11,d=5 controls:
+
+q=31 gives
+
+\[
+(r_h,r_\zeta,r)=(4,0,4),
+\]
+
+so failure is purely activity.
+
+q=61 gives
+
+\[
+(r_h,r_\zeta,r)=(0,0,0),
+\]
+
+an exact relational zero.
+
+Pinned sources:
+
+AdrianLipa90/On-Primes  
+research/arpl-relational-zero-exposure-v0.1-20260928  
+receipt 605119b2b2e50ff6eb4cab550382b48630f14c67
+
+AdrianLipa90/Orbital-System-base  
+formalism/fractal-orbital-moire-hilbert-v0.10-20260928  
+receipt ae9c11d4f0b835fe298c4ff31536d554bf978952
+
+AdrianLipa90/noema-phasenav-core  
+formalism/fractal-moire-hilbert-36d-bridge-v0.13-20260928  
+receipt 25c080d8af9ada56771ee441ee97429578f45363
+
+The unconditional prime-distribution problem is now equivalently:
+
+\[
+\boxed{
+\dim\ker M_\mu=\infty,
+\qquad
+\mu(Q)=\operatorname{rank}\Delta_Q.
+}
+\]
+
+This is a spectral-zero multiplicity formulation, not yet an unconditional
+infinitude proof.
+
+## 36. Relational quantum-information invariant and kappa
+
+Normalize the subgroup projectors:
+
+\[
+\rho_H
+=
+\Pi_H/\operatorname{Tr}\Pi_H.
+\]
+
+For
+
+\[
+H\le K,
+\]
+
+the exact Umegaki relative entropy is
+
+\[
+\boxed{
+D(\rho_K\|\rho_H)
+=
+\ln[K:H].
+}
+\]
+
+Hence relational information is additive along subgroup chains.
+
+The invariant-subspace survival ratio is
+
+\[
+s(H\to K)=1/[K:H],
+\]
+
+so
+
+\[
+D=-\ln s.
+\]
+
+The normalized defect
+
+\[
+\varepsilon=1-s
+\]
+
+obeys the exact cascade law
+
+\[
+\boxed{
+\varepsilon_{02}
+=
+\varepsilon_{01}
++
+\varepsilon_{12}
+-
+\varepsilon_{01}\varepsilon_{12}.
+}
+\]
+
+Using the project's pre-existing canonical phase-information normalization,
+
+\[
+\mathcal I_{24\pi}
+=
+\frac{D}{24\pi},
+\]
+
+a binary relational enlargement gives
+
+\[
+\boxed{
+[K:H]=2
+\Longrightarrow
+\mathcal I_{24\pi}
+=
+\frac{\ln2}{24\pi}
+=
+\kappa.
+}
+\]
+
+The algebra derives the logarithmic relative-entropy increment exactly.
+The factor \(24\pi\) remains the pre-existing canonical normalization and is
+not newly derived here.
+
+Pinned sources:
+
+AdrianLipa90/Orbital-System-base  
+formalism/fractal-orbital-moire-hilbert-v0.11-20260928  
+receipt c96531e0816dba01f3ade8a849f67494d064727a
+
+AdrianLipa90/noema-phasenav-core  
+formalism/fractal-moire-hilbert-36d-bridge-v0.14-20260928  
+receipt 8bbe5f7143114f51157a5c3b0c79cfac10bc88ea
+
+Updated GREMLIN operator surface:
+
+- RELATIONAL_AVERAGING_PROJECTOR
+- RELATIONAL_ACTIVITY_DEFECT_PROJECTOR
+- RELATIONAL_DEPTH_DEFECT_PROJECTOR
+- RELATIONAL_ZERO_PROJECTOR
+- PRIME_FIBRE_DEFECT_MULTIPLICATION
+- RELATIONAL_PROJECTOR_STATE
+- RELATIONAL_UMEGAKI_INFORMATION
+- RELATIONAL_MODULAR_GAP
+- RELATIONAL_INFORMATION_24PI
+- BINARY_RELATIONAL_KAPPA
+
+Physical quantum-observable and thermodynamic interpretations remain separate
+binding gates.
