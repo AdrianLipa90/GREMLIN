@@ -1,0 +1,67 @@
+{
+  "schema":"GREMLIN_RESIDUAL_REDTEAM_V0_13_RECEIPT",
+  "date":"2026-09-28",
+  "status":"IMPLEMENTED_CANDIDATE_INDEPENDENT_HARNESS_PASS_EXACT_PACKAGE_REPLAY_BLOCKED_BY_EXECUTOR_AUTH",
+  "branch":"audit/residual-redteam-v13-sealed-confirmation-20260928",
+  "base_branch":"audit/residual-redteam-v12-iaaft-stationarity-20260928",
+  "base_sha":"d352d83fc49efd139a61d7b92a3b9cd0ddf6d893",
+  "gremlin_authority":"CANDIDATE_ONLY",
+  "failure_reproducer":{
+    "seed":30116,
+    "discovery_schema":"GREMLIN_RECURSIVE_RESIDUAL_DECOMPOSITION_V0_5",
+    "experimentwise_alpha":0.01,
+    "null_count":1023,
+    "accepted_layers":["true_0","true_1","true_2","noise_01"],
+    "false_layer":"noise_01",
+    "false_layer_round4_p":0.0009765625
+  },
+  "prototype_sealed_confirmation":{
+    "true_0_gain":0.281991278099997,
+    "true_1_gain":0.16917845659967057,
+    "true_2_gain":0.14809221751766222,
+    "noise_01_gain":-0.02431423985088621,
+    "familywise_threshold":0.03251619177770086,
+    "result":"FALSE_DISCOVERY_LAYER_REJECTED_TRUE_LAYERS_RETAINED"
+  },
+  "run_independence_binding":{
+    "required_schema":"GREMLIN_RESIDUAL_PRESERVING_SPECTROSCOPY_V0_12",
+    "exact_raw_commitment_required":true,
+    "exact_model_commitment_required":true,
+    "crossfit_valid_required":true,
+    "declaration_without_receipt_sufficient":false
+  },
+  "independent_harness":{
+    "status":"PASS",
+    "checks":7,
+    "valid_receipt_accepts":true,
+    "same_discovery_raw_rejected":true,
+    "raw_commitment_mismatch_rejected":true,
+    "model_commitment_mismatch_rejected":true,
+    "invalid_crossfit_receipt_rejected":true,
+    "unsealed_dataset_rejected":true,
+    "target_derived_nuisance_rejected":true
+  },
+  "exact_package_replay":{
+    "status":"BLOCKED_BY_EXECUTOR_AUTH",
+    "detail":"remote code executor returned FORBIDDEN: Not authorized, empty team ID",
+    "not_interpreted_as_code_failure":true
+  },
+  "new_firewalls":[
+    "sealed before discovery",
+    "v0.12 run-independence receipt bound to exact confirmatory RAW/model",
+    "discovery RAW cannot be confirmation RAW",
+    "fixed discovery coefficients",
+    "no confirmatory refit",
+    "familywise max-null across selected discovery layers",
+    "under-resolved confirmatory alpha fails closed"
+  ],
+  "claim_boundary":{
+    "selection_is_confirmation":false,
+    "passing_v12_proves_independence":false,
+    "confirmed_nuisance_is_unique_cause":false,
+    "sealed_confirmation_is_physical_promotion":false,
+    "new_physics_established":false,
+    "time_fluctuation_established":false
+  },
+  "main_modified":false
+}

@@ -1,0 +1,57 @@
+{
+  "schema":"GREMLIN_RESIDUAL_REDTEAM_V0_11_RECEIPT",
+  "date":"2026-09-28",
+  "status":"IMPLEMENTED_CANDIDATE_LOCAL_CORE_REPLAY_6_OF_6_PASS_EXACT_PACKAGE_REPLAY_OPEN",
+  "branch":"audit/residual-redteam-v11-20260928",
+  "base_branch":"audit/residual-redteam-v10-shared-run-leakage-20260928",
+  "base_sha":"eb52fe435a63a865d9bd27bce644ab00c3258174",
+  "gremlin_authority":"CANDIDATE_ONLY",
+  "v10_failure":{
+    "issue":"fixed run-correlation thresholds are background-color and sample-count dependent",
+    "ar1_phi0_8_false_invalid":{"N128":"100/100","N256":"29/100","N512":"0/100","N1024":"0/100","N2048":"0/100"},
+    "one_over_f_false_invalid":{"N128":"100/100","N256":"92/100","N512":"50/100","N1024":"19/100","N2048":"0/100"}
+  },
+  "rejected_prototype":{
+    "issue":"phase randomization after preprocessing",
+    "reason":"does not preserve amplitude-phase constraints induced by detrend/notch",
+    "one_over_f_false_invalid_observed":"62-70 percent in tested banks",
+    "retained_for_use":false
+  },
+  "repair":{
+    "operator_order":"RAW_PHASE_SURROGATE_THEN_IDENTICAL_DETREND_AND_NOTCH",
+    "per_run_raw_amplitude_spectrum_preserved":true,
+    "statistics":["median_abs_zero_lag_interrun_correlation","median_max_circular_interrun_correlation"],
+    "multiple_metric_control":"BONFERRONI_ALPHA_OVER_2",
+    "monte_carlo_rank_p":true,
+    "stationarity_declaration_required":true,
+    "fixed_absolute_threshold_fallback":false
+  },
+  "local_core_replay":{
+    "status":"6/6 PASS",
+    "ar1_seed123_16x128":{"p_zero":0.9296875,"p_circular":0.703125,"invalid":false},
+    "one_over_f_seed123_16x256":{"p_zero":0.40625,"p_circular":0.1875,"invalid":false},
+    "shared_white_rho0_2":{"p_zero":0.00390625,"p_circular":0.00390625,"invalid":true},
+    "shared_ar1_rho0_2":{"p_zero":0.00390625,"p_circular":0.140625,"invalid":true},
+    "underresolved_null_fails_closed":true,
+    "raw_surrogate_psd_preservation_test":true
+  },
+  "exploratory_independent_backgrounds":{
+    "ar1_N128_256_512":"0/20 false INVALID per tested bank",
+    "one_over_f_N128_256_512":"0/20 false INVALID per tested bank"
+  },
+  "exploratory_shared_realization_power":{
+    "white_N512":{"rho0_05":"9/10","rho0_10":"10/10","rho0_20":"10/10"},
+    "ar1_N512":{"rho0_05":"1/10","rho0_10":"9/10","rho0_20":"10/10"},
+    "one_over_f_N512":{"rho0_05":"0/10","rho0_10":"1/10","rho0_20":"10/10"}
+  },
+  "claim_boundary":{
+    "exact_package_replay_completed":false,
+    "false_invalid_rate_fully_calibrated":false,
+    "dependence_detection_power_fully_calibrated":false,
+    "nonstationary_background_calibrated":false,
+    "dependence_source_identified":false,
+    "new_physics_established":false,
+    "time_fluctuation_established":false
+  },
+  "main_modified":false
+}
