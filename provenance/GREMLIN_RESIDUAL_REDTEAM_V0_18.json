@@ -1,0 +1,69 @@
+{
+  "schema": "GREMLIN_RESIDUAL_REDTEAM_V0_18_RECEIPT",
+  "date": "2026-09-28",
+  "status": "LIMITED_FEATURE_BANK_CANDIDATE_PASS_HIGH_ORDER_DETERMINISTIC_NO_GO",
+  "branch": "audit/residual-redteam-v18-nonlinear-run-dependence-20260928",
+  "base_branch": "audit/residual-redteam-v17-external-chronology-20260928",
+  "base_sha": "c897286dc0f9dc7619d188da51805fa62fe09900",
+  "v12_failure_reproducer": {
+    "sparse_pair": {
+      "seed": 120122,
+      "pearson_corr": 0.023002144881943676,
+      "deterministic_nonlinear_r2": 1,
+      "v12_zero_lag_p": 0.671875,
+      "v12_circular_p": 0.35546875
+    },
+    "harmonic_shared_latent": {
+      "seed": 120121,
+      "v12_zero_lag_p": 0.6484375,
+      "v12_circular_p": 0.75390625
+    }
+  },
+  "v18_prototype": {
+    "nonlinear_alpha": 0.005,
+    "null_worlds": 255,
+    "iaaft_iterations": 10,
+    "sparse_pair_p": 0.00390625,
+    "harmonic_shared_latent_p": 0.00390625,
+    "independent_controls_no_false_invalid": {
+      "white": "3/3",
+      "student_t3": "8/8",
+      "ar1_phi_0p8": "3/3",
+      "garch_like": "8/8",
+      "bursty": "3/3"
+    }
+  },
+  "power_warning": {
+    "shape": [
+      16,
+      256
+    ],
+    "trials_per_rho": 3,
+    "threshold_p": 0.005,
+    "rho_0p10": "0/3",
+    "rho_0p20": "0/3",
+    "rho_0p30": "1/3",
+    "rho_0p40": "0/3",
+    "interpretation": "exploratory tiny-bank only; low and unstable power"
+  },
+  "claim_boundary": {
+    "pass_proves_independence": false,
+    "fail_identifies_cause": false,
+    "arbitrary_nonlinear_dependence_excluded": false,
+    "new_physics_established": false,
+    "time_fluctuation_established": false
+  },
+  "main_modified": false,
+  "high_order_no_go": {
+    "relation": "x1 = sqrt(2)*T_m(x0/sqrt(2))",
+    "deterministic_dependence": true,
+    "strict_alpha": 0.005,
+    "results": {
+      "m5_p": 0.3984375,
+      "m7_p": 0.671875,
+      "m17_p": 0.015625
+    },
+    "conclusion": "finite low-order feature bank is not a universal independence test"
+  },
+  "next_gate": "CHARACTERISTIC_KERNEL_OR_EQUIVALENT_UNIVERSAL_DEPENDENCE_STATISTIC"
+}

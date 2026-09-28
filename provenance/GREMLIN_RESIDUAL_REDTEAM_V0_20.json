@@ -1,0 +1,63 @@
+{
+  "schema":"GREMLIN_RESIDUAL_REDTEAM_V0_20_RECEIPT",
+  "date":"2026-09-28",
+  "status":"SHARED_SAMPLE_INDEX_CONFOUND_CANDIDATE_PASS",
+  "branch":"audit/residual-redteam-v20-shared-sample-index-confound-20260928",
+  "base_branch":"audit/residual-redteam-v19-raw-dependence-order-20260928",
+  "operator_matrix_m17":{
+    "shape":[8,256],
+    "null_worlds":199,
+    "alpha":0.005,
+    "RAW":{"p":0.005,"witness":[0,1]},
+    "ZSCORE":{"p":0.005,"witness":[0,1]},
+    "DETREND":{"p":0.095},
+    "DIFF1":{"p":0.115},
+    "MOVAVG5":{"p":0.12},
+    "NOTCH20":{"p":0.39}
+  },
+  "hann_induced_dependence_reproducer":{
+    "source":"independent white runs",
+    "operator":"common Hann window",
+    "raw_white_p":0.015,
+    "hann_white_p":0.005,
+    "existing_half_split_nonstationarity_obvious":false,
+    "conclusion":"common sample-index envelope can create apparent dependence"
+  },
+  "v20_gate":{
+    "profile_blocks":8,
+    "null_worlds":199,
+    "alpha":0.005,
+    "null_kind":"independent content-addressed circular shift per run",
+    "statistics":[
+      "median pair scale-profile correlation",
+      "median pair location-profile correlation"
+    ],
+    "family_statistic":"max(location,scale)"
+  },
+  "positive_controls":{
+    "hann_windowed_white":"5/5 detected",
+    "shared_location_envelope":"5/5 detected",
+    "shared_scale_envelope":"5/5 detected"
+  },
+  "independent_controls":{
+    "white":"5/5 no false confound",
+    "ar1_phi_0p8":"5/5 no false confound",
+    "garch_like":"5/5 no false confound",
+    "bursty_heavy_tail":"5/5 no false confound",
+    "total":"20/20 no false confound",
+    "formal_fpr_bound":false
+  },
+  "claim_boundary":{
+    "shared_profile_reject_is_stochastic_run_dependence":false,
+    "shared_profile_reject_identifies_cause":false,
+    "shared_profile_pass_proves_stationarity":false,
+    "new_physics_established":false,
+    "time_fluctuation_established":false
+  },
+  "execution_note":{
+    "exact_private_branch_checkout_in_local_container":false,
+    "independent_rule_reimplementation_used":true
+  },
+  "main_modified":false,
+  "next_gate":"EMPIRICAL_OPERATOR_PROVENANCE_AND_CONDITIONED_RUN_DEPENDENCE_AFTER_EXPLICIT_SHARED_ENVELOPE_MODEL"
+}

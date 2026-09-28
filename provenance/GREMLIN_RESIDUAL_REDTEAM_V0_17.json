@@ -1,0 +1,58 @@
+{
+  "schema":"GREMLIN_RESIDUAL_REDTEAM_V0_17_RECEIPT",
+  "date":"2026-09-28",
+  "status":"EXTERNAL_CHRONOLOGY_SYNTHETIC_PASS_MUTATION_SURFACE_PARTIALLY_AUDITED",
+  "branch":"audit/residual-redteam-v17-external-chronology-20260928",
+  "authority":"NOEMA_LIBRARY_METADATA",
+  "noema_witness_receipt":{
+    "library_file_id":"libfile_98c33ebb4d908191ba509b1fa630e95f",
+    "receipt_sha256":"d6a0c94b4fe4c15ffd3e5a2012d52a6b8a6aca3134b7e5c22b574676af93712c"
+  },
+  "positive_control":{
+    "bank_library_file_id":"libfile_981621b52854819190b7813fdcc985c1",
+    "bank_file_id":"file_00000000752081f4ae926c725b548877",
+    "bank_created_at":"2026-09-28T05:00:52+00:00",
+    "bank_manifest_sha256":"9ff44054e94226d6b94986c59afe978759fe1bda60a3d38de06bdf24211d26ee",
+    "target_library_file_id":"libfile_5221ac4e8c3081918c168a37a8870083",
+    "target_file_id":"file_0000000021ac81f4915eb5078dbac52a",
+    "target_created_at":"2026-09-28T05:01:06+00:00",
+    "target_manifest_sha256":"95c4ec90ba3fff6880aff535d1a72643ccc237ade76a657b761a48a8cff03580",
+    "verdict":"PASS_BANK_PRECEDES_TARGET"
+  },
+  "overwrite_attack":{
+    "library_file_id":"libfile_811db35c0c148191a0c4da7de5f846a0",
+    "old_created_at":"2026-09-28T04:58:30+00:00",
+    "post_overwrite_file_id":"file_0000000074ec824697d7a426ac313162",
+    "post_overwrite_created_at":"2026-09-28T04:59:49+00:00",
+    "target_created_at":"2026-09-28T04:58:45+00:00",
+    "version_id":"1",
+    "verdict":"REJECT_CURRENT_VERSION_POST_TARGET"
+  },
+  "path_replacement_attack":{
+    "original_library_file_id":"libfile_981621b52854819190b7813fdcc985c1",
+    "replacement_library_file_id":"libfile_43a783b1a78c8191863770d60acf8542",
+    "replacement_created_at":"2026-09-28T05:01:36+00:00",
+    "verdict":"REJECT_REPLACEMENT_AND_FOLLOW_STABLE_ID"
+  },
+  "required_runtime_checks":[
+    "re-query current object by stable library_file_id",
+    "bind current backing file_id",
+    "bind current manifest/content hash",
+    "bind server-side created_at",
+    "bind current version metadata when available",
+    "reject path-only identity",
+    "reject cached-only chronology"
+  ],
+  "open":[
+    "in-place patch/edit mutation surface unavailable in current session",
+    "Library service remains external trust root",
+    "chronology does not prove causal independence"
+  ],
+  "claim_boundary":{
+    "chronology_proves_causal_independence":false,
+    "library_service_truth_proven_by_gremlin":false,
+    "new_physics_established":false,
+    "time_fluctuation_established":false
+  },
+  "main_modified":false
+}

@@ -1,0 +1,33 @@
+{
+  "schema":"GREMLIN_RESIDUAL_REDTEAM_V0_15_RECEIPT",
+  "date":"2026-09-28",
+  "status":"JOINT_NULL_CANDIDATE_PASS_TARGET_DERIVED_BANK_FAIL",
+  "branch":"audit/residual-redteam-v15-joint-null-worlds-20260928",
+  "joint_null":{
+    "status":"CANDIDATE_PASS",
+    "dependency_preserving_worlds":true,
+    "mapping_order_non_authoritative":true
+  },
+  "failure_reproducer":{
+    "seed":151500,
+    "shape":[8,128],
+    "raw_process":"IID_GAUSSIAN",
+    "candidate_family_size":8,
+    "target_derived_candidate":"leak_raw = RAW.copy()",
+    "null_policy":"run_permutation",
+    "null_worlds":127,
+    "familywise_alpha":0.05,
+    "conservative_holdout_gain":1.0,
+    "familywise_monte_carlo_p":0.0078125,
+    "decision":"PASS"
+  },
+  "root_cause":"candidate-bank admissibility/provenance is not enforced by v0.15",
+  "next_gate":"SEALED_CANDIDATE_BANK_PROVENANCE",
+  "claim_boundary":{
+    "joint_null_closes_target_leakage":false,
+    "accepted_candidate_is_unique_cause":false,
+    "new_physics_established":false,
+    "time_fluctuation_established":false
+  },
+  "main_modified":false
+}
