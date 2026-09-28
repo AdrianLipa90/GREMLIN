@@ -1,0 +1,39 @@
+{
+  "schema":"GREMLIN_RESIDUAL_REDTEAM_V0_19_RECEIPT",
+  "date":"2026-09-28",
+  "status":"CANDIDATE_IMPLEMENTED_VALIDATION_PENDING_EXACT_BRANCH_REPLAY",
+  "branch":"audit/residual-redteam-v19-provenance-conditional-independence-20260928",
+  "base_branch":"audit/residual-redteam-v18-nonlinear-run-dependence-20260928",
+  "base_sha":"3468776a06c4f6a508bb7b09c4a0cec56802fca3",
+  "live_runtime":{
+    "tether_status":"ACTIVE",
+    "gremlin_status":"ACTIVE",
+    "gremlin_authority":"CANDIDATE_ONLY",
+    "q28_available":true,
+    "h200_kuramoto_status":"ACTIVE",
+    "h200_e2e_status":"ACTIVE",
+    "prompt_id":"prompt-1b4634bf2025d406efddc6daa86b44d5"
+  },
+  "independent_prototype_findings":{
+    "shared_envelope_raw_p_127_nulls":0.0078125,
+    "shared_envelope_external_conditioned_p_127_nulls":0.4296875,
+    "target_derived_crossrun_zscore_p_127_nulls":0.0078125,
+    "high_order_chebyshev_complete_graph_63_nulls":{
+      "m5_p":0.015625,
+      "m7_p":0.015625,
+      "m17_p":0.015625
+    },
+    "white_controls":"5/5 no rejection",
+    "ar1_phi_0p8_controls":"5/5 no rejection",
+    "student_t3_controls":"5/5 no rejection",
+    "garch_like_controls":"5/5 no rejection"
+  },
+  "known_open_limits":[
+    "conditioned PASS does not prove independence",
+    "external conditioner truth remains a trust root",
+    "IAAFT null applicability must be declared and quality-controlled",
+    "finite-sample power is not universal",
+    "full empirical calibration on real instrument data remains open"
+  ],
+  "main_modified":false
+}
