@@ -124,3 +124,38 @@ It does not exclude arbitrary nonlinear dependence.
 It does not identify cause.
 
 No result establishes physical mechanism, new physics or time fluctuations.
+
+
+## High-order deterministic no-go
+
+The finite feature bank was attacked with a dependence outside its low-order span.
+
+Let
+
+[
+x_0=\sqrt2\cos\phi,
+\qquad
+x_1=\sqrt2\cos(m\phi)
+=\sqrt2\,T_m(x_0/\sqrt2).
+]
+
+Thus x1 is a deterministic Chebyshev-polynomial function of x0.
+
+Nevertheless, with the v0.18 feature family {x,x^2,x^3,|x|} and the strict
+nonlinear alpha 0.005:
+
+- m=5 produced p=0.3984375;
+- m=7 produced p=0.671875;
+- m=17 produced p=0.015625.
+
+All three therefore fail to invalidate cross-fit at the strict threshold despite
+deterministic dependence.
+
+This is retained as an explicit no-go:
+
+[
+\boxed{\text{finite handcrafted feature bank} \neq \text{universal independence test}.}
+]
+
+The next candidate should use a characteristic-kernel or equivalent universal
+dependence statistic rather than extending the polynomial list ad hoc.
