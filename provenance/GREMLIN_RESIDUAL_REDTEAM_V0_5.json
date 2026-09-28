@@ -1,0 +1,99 @@
+{
+  "schema":"GREMLIN_RESIDUAL_REDTEAM_V0_5_RECEIPT",
+  "date":"2026-09-28",
+  "status":"CANDIDATE_SEMANTIC_MONTE_CARLO_PASS_EXACT_BRANCH_REPLAY_OPEN",
+  "branch":"audit/residual-redteam-v04-20260928",
+  "tether_status":"ACTIVE",
+  "v04_failures_extended":[
+    "first-difference low-cycle attenuation",
+    "per-round alpha is not a global recursive alpha budget",
+    "candidate-independent null sequences do not constitute a synchronized family null world",
+    "independent_of_target_fit boolean is not provenance proof"
+  ],
+  "spectral_redteam":{
+    "v04_line_amp_sigma":0.2,
+    "v04_n4096_detection_rate":{
+      "bin2":0.0,
+      "bin3":0.0,
+      "bin5":0.0,
+      "bin10":0.9,
+      "bin30":1.0,
+      "bin137_5":1.0
+    },
+    "v05_semantic_null_batches":{
+      "white":"0/100 structured",
+      "AR1":"0/100 structured",
+      "one_over_f":"0/100 structured",
+      "random_walk":"0/100 structured"
+    },
+    "v05_line_amp_0_2_sigma":{
+      "bin2":"20/20 difference-attenuated feature",
+      "bin3":"20/20 difference-attenuated feature",
+      "bin5":"20/20 difference-attenuated feature",
+      "bin30":"20/20 narrowband",
+      "bin137_5":"20/20 narrowband"
+    },
+    "hard_feature_note":"broken power-law knees and finite-width bumps can be repeatable spectral features and must not be auto-labeled as a single physical line"
+  },
+  "recursive_redteam":{
+    "loose_reproducer":{
+      "seed":10029,
+      "settings":{"runs":8,"samples":64,"candidate_count":8,"alpha_per_round":0.05,"null_worlds":31},
+      "selected":["true","noise02"]
+    },
+    "current_v04_default_checkpoint":{
+      "settings":{"candidate_count":8,"alpha_per_round":0.01,"null_worlds":255},
+      "seeds":100,
+      "true_first":100,
+      "false_after_true":0
+    },
+    "v04_k64_checkpoint":{
+      "seeds":6,
+      "true_first":6,
+      "false_layers":0
+    },
+    "v05_shared_null_seed10029":{
+      "accepted":["true"],
+      "true_adjusted_p":0.0009765625,
+      "noise02_round2_adjusted_p":0.001953125,
+      "round_alpha_budget":0.00125
+    },
+    "v05_power_checkpoint":{
+      "amp_0_5_sigma":"10/10 true, 0 false",
+      "amp_0_3_sigma":"5/5 true, 0 false",
+      "amp_0_2_sigma":"1/5 true, 0 false"
+    }
+  },
+  "v05_code":{
+    "recursive_module":"gremlin_mcp/recursive_residual_v05.py",
+    "spectroscopy_module":"gremlin_mcp/residual_spectroscopy_v05.py",
+    "recursive_test":"tests/redteam/test_recursive_residual_v05.py",
+    "spectroscopy_test":"tests/redteam/test_residual_spectroscopy_v05.py",
+    "global_alpha":0.01,
+    "default_max_layers":8,
+    "default_null_worlds":1023,
+    "shared_synchronized_null_worlds":true,
+    "null_resolution_fail_closed":true,
+    "difference_transfer_function_explicit":true
+  },
+  "execution_limits":{
+    "container_private_github":"BLOCKED_NO_DNS",
+    "remote_python_exact_replay":"BLOCKED_EMPTY_TEAM_ID",
+    "github_actions_used":false,
+    "exact_private_branch_pytest":"OPEN"
+  },
+  "provenance_boundary":{
+    "noema_acquisition_validator_exists":true,
+    "noema_validator_reused_for_external_telescope":false,
+    "generic_external_instrument_acquisition_receipt":"OPEN",
+    "statistical_nuisance_acceptance_implies_causal_provenance":false
+  },
+  "claim_boundary":{
+    "exact_sequential_fwer_proven":false,
+    "causal_nuisance_identity_proven":false,
+    "physical_residual_interpretation_proven":false,
+    "new_physics_established":false,
+    "time_fluctuation_established":false
+  },
+  "main_modified":false
+}
