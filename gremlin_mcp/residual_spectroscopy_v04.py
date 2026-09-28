@@ -46,20 +46,20 @@ def _stacked_psd(runs: np.ndarray)->np.ndarray:
     return np.median(np.stack([_spectrum(x) for x in runs]),axis=0)
 
 
-def _band_indices(length:int,k:int,halfwidth:int=1)->tuple[list[int],list[int]]:
+def _band_indices(length:int,k:int,halfwidth:int=2)->tuple[list[int],list[int]]:
     lo=max(1,k-halfwidth)
     hi=min(length,k+halfwidth+1)
     band=list(range(lo,hi))
     local=[
         j for j in range(max(1,k-16),min(length,k+17))
-        if j not in band and abs(j-k)>1
+        if j not in band and abs(j-k)>halfwidth
     ]
     if len(local)<8:
-        local=[j for j in range(1,min(length,34)) if j not in band and abs(j-k)>1]
+        local=[j for j in range(1,min(length,34)) if j not in band and abs(j-k)>halfwidth]
     return band,local
 
 
-def _band_validation(runs: np.ndarray,k:int,*,support_threshold:float=3.0)->dict[str,float]:
+def _band_validation(runs: np.ndarray,k:int,*,support_threshold:float=2.5)->dict[str,float]:
     psd=np.stack([_spectrum(x) for x in runs])
     stacked=np.median(psd,axis=0)
     kk=min(max(1,int(k)),len(stacked)-1)
@@ -104,9 +104,9 @@ def _crossfit_narrowband_gate(residual:np.ndarray)->dict[str,Any]:
         diff_check=_band_validation(diff,kd)
 
         passed=(
-            raw_check["prominence"]>=4.0
+            raw_check["prominence"]>=2.5
             and raw_check["support_fraction"]>=0.50
-            and diff_check["prominence"]>=3.0
+            and diff_check["prominence"]>=2.5
             and diff_check["support_fraction"]>=0.50
         )
         directions.append({
