@@ -4,6 +4,8 @@ from gremlin_mcp.recursive_residual_v05 import (
     recursive_residual_decomposition_v05,
 )
 
+PLAN="a"*64
+
 
 def _meta(names):
     return {
@@ -37,6 +39,8 @@ def test_v05_repairs_seed10100_recursive_alpha_refresh_false_accept():
         global_familywise_alpha=0.01,
         null_count=255,
         max_layers=2,
+        analysis_plan_sha256=PLAN,
+        analysis_plan_frozen_before_fit=True,
     )
 
     assert result["accepted_layers"]==["true_0"]
@@ -59,6 +63,8 @@ def test_v05_fails_closed_when_null_resolution_cannot_support_global_budget():
             global_familywise_alpha=0.01,
             null_count=255,
             max_layers=8,
+            analysis_plan_sha256=PLAN,
+            analysis_plan_frozen_before_fit=True,
         )
     except ValueError as exc:
         assert "cannot resolve round alpha" in str(exc)
@@ -86,6 +92,8 @@ def test_v05_two_strong_true_layers_survive_global_budget():
         global_familywise_alpha=0.02,
         null_count=127,
         max_layers=2,
+        analysis_plan_sha256=PLAN,
+        analysis_plan_frozen_before_fit=True,
     )
 
     assert set(result["accepted_layers"])=={"true_a","true_b"}
@@ -112,7 +120,31 @@ def test_v05_pure_noise_family_stays_empty():
         global_familywise_alpha=0.02,
         null_count=127,
         max_layers=2,
+        analysis_plan_sha256=PLAN,
+        analysis_plan_frozen_before_fit=True,
     )
 
     assert result["accepted_layers"]==[]
     assert result["status"]=="NO_NUISANCE_LAYER_ACCEPTED"
+
+
+def test_v05_unfrozen_analysis_plan_fails_before_search():
+    rng=np.random.default_rng(5003)
+    raw=rng.normal(size=(8,64))
+    candidates={"x":rng.normal(size=raw.shape)}
+    try:
+        recursive_residual_decomposition_v05(
+            raw,
+            np.zeros_like(raw),
+            candidates,
+            _meta(candidates),
+            global_familywise_alpha=0.02,
+            null_count=127,
+            max_layers=2,
+            analysis_plan_sha256=PLAN,
+            analysis_plan_frozen_before_fit=False,
+        )
+    except ValueError as exc:
+        assert "analysis plan" in str(exc)
+    else:
+        raise AssertionError("unfrozen analysis plan accepted")
