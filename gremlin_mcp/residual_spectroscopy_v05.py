@@ -38,7 +38,7 @@ def _linear_run_phase_gate(
     phases:np.ndarray,
     *,
     holdout_coherence_threshold:float=0.70,
-    pass_fraction_threshold:float=0.75,
+    pass_fraction_threshold:float=1.0,
     grid_size:int=721,
 )->dict[str,Any]:
     ids=np.arange(len(phases),dtype=float)
