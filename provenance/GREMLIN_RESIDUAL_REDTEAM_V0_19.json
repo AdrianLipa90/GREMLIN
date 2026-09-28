@@ -1,0 +1,42 @@
+{
+  "schema":"GREMLIN_RESIDUAL_REDTEAM_V0_19_RECEIPT",
+  "date":"2026-09-28",
+  "status":"CANDIDATE_FUNCTIONAL_GUARD_PASS_UNIVERSAL_INDEPENDENCE_OPEN",
+  "branch":"audit/residual-redteam-v19-dual-surface-dependence-20260928",
+  "base_branch":"audit/residual-redteam-v18-nonlinear-run-dependence-20260928",
+  "base_sha":"3468776a06c4f6a508bb7b09c4a0cec56802fca3",
+  "high_order_witness":{
+    "relation":"x1=sqrt(2)*cos(17 phi)=sqrt(2)*T17(x0/sqrt(2))",
+    "shape":[8,128],
+    "raw_max_knn_predictive_r2":0.7598744629477965,
+    "raw_familywise_screen_p":0.03125,
+    "post_operator_max_knn_predictive_r2":0.020113695344214144,
+    "post_operator_screen_p":0.25,
+    "verdict":"OPERATOR_SENSITIVE_RUN_DEPENDENCE_AMBIGUOUS"
+  },
+  "white_adversarial_seed":{
+    "seed":190107,
+    "strict_null_worlds":255,
+    "strict_p":0.04296875,
+    "alpha":0.005,
+    "false_invalidation":false
+  },
+  "explicit_no_go":{
+    "relation":"Y=X*epsilon with zero-mean independent epsilon",
+    "prototype_p":0.125,
+    "conclusion":"functional mean-predictability guard is not universal"
+  },
+  "open":[
+    "characteristic-kernel or equivalent conditional-distribution dependence gate",
+    "joint experimentwise alpha allocation across v12/v18/v19",
+    "larger empirical false-positive and power calibration",
+    "post-operator dependence cannot certify RAW independence"
+  ],
+  "claim_boundary":{
+    "pass_proves_independence":false,
+    "fail_identifies_cause":false,
+    "new_physics_established":false,
+    "time_fluctuation_established":false
+  },
+  "main_modified":false
+}
