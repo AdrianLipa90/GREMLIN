@@ -172,6 +172,19 @@
       "pytest": "5 passed",
       "status": "PASS",
       "note": "first local transcription attempt changed whitespace and failed blob-SHA gate; no test result from that attempt was accepted; exact text was restored before replay"
+    },
+    "railway_attempt": {
+      "status": "BLOCKED_BEFORE_SERVICE_PROVISION",
+      "project_name": "gremlin-local-ci",
+      "project_id": "1efe8be6-7a92-4780-a81f-f9c81a7541c6",
+      "environment_id": "5554c5c7-aa61-42ca-b2ac-9f0663780dcf",
+      "requested_repo": "AdrianLipa90/GREMLIN",
+      "requested_branch": "integrate/gremlin-self-audit-lossless-20260928",
+      "error": "Free plan resource provision limit exceeded",
+      "service_created": false,
+      "deployment_started": false,
+      "classification": "INFRASTRUCTURE_QUOTA_BLOCKER_NOT_CODE_FAILURE",
+      "cleanup_note": "Railway connector exposes no delete-project operation; empty project left unchanged"
     }
   },
   "promotion_gate": {
