@@ -11,6 +11,7 @@ import numpy as np
 SCHEMA="GREMLIN_RECURSIVE_RESIDUAL_SEALED_CONFIRMATION_V0_13"
 VERSION="0.13.0"
 DISCOVERY_SCHEMA="GREMLIN_RECURSIVE_RESIDUAL_DECOMPOSITION_V0_5"
+RUN_INDEPENDENCE_SCHEMA="GREMLIN_RESIDUAL_PRESERVING_SPECTROSCOPY_V0_12"
 _ALLOWED_NULL_POLICIES={"sample_circular_shift","run_permutation"}
 
 
@@ -70,6 +71,7 @@ def confirm_recursive_selection_v13(
     confirm_initial_model_runs:Sequence[Sequence[float]],
     confirm_nuisance_components:Mapping[str,Sequence[Sequence[float]]],
     confirm_nuisance_metadata:Mapping[str,Mapping[str,Any]],
+    confirmatory_run_independence_result:Mapping[str,Any],
     confirmatory_declaration:Mapping[str,Any],
     *,
     confirmatory_alpha:float=0.01,
@@ -91,9 +93,27 @@ def confirm_recursive_selection_v13(
         raise ValueError("confirmatory raw/initial must be finite")
 
     confirm_raw_sha=_sha_array(raw)
+    confirm_initial_sha=_sha_array(initial)
     discovery_raw_sha=discovery_result.get("raw_sha256")
     if isinstance(discovery_raw_sha,str) and discovery_raw_sha==confirm_raw_sha:
         raise ValueError("confirmation reuses discovery RAW")
+
+    audit=confirmatory_run_independence_result
+    if not isinstance(audit,Mapping) or audit.get("schema")!=RUN_INDEPENDENCE_SCHEMA:
+        raise ValueError("missing or unsupported v0.12 run-independence result")
+    audit_commitments=audit.get("commitments")
+    if not isinstance(audit_commitments,Mapping):
+        raise ValueError("run-independence commitments missing")
+    if audit_commitments.get("raw_sha256")!=confirm_raw_sha:
+        raise ValueError("run-independence RAW commitment mismatch")
+    if audit_commitments.get("model_sha256")!=confirm_initial_sha:
+        raise ValueError("run-independence model commitment mismatch")
+    audit_policy=audit.get("policy")
+    if not isinstance(audit_policy,Mapping) or audit_policy.get("crossfit_valid_under_run_dependence_audit") is not True:
+        raise ValueError("confirmatory run-independence audit did not validate crossfit")
+    audit_sha=audit.get("analysis_sha256")
+    if not isinstance(audit_sha,str) or len(audit_sha)!=64:
+        raise ValueError("run-independence analysis commitment missing")
 
     selected=[str(x) for x in discovery_result.get("accepted_layers") or []]
     beta_map=discovery_result.get("final_joint_coefficients") or {}
@@ -186,6 +206,7 @@ def confirm_recursive_selection_v13(
         "version":VERSION,
         "status":"SEALED_CONFIRMATION_PASS" if all_confirmed else "SEALED_CONFIRMATION_FAIL",
         "confirmatory_dataset_id":confirmatory_declaration["dataset_id"],
+        "confirmatory_run_independence_analysis_sha256":audit_sha,
         "discovery_raw_sha256":discovery_raw_sha,
         "confirmatory_raw_sha256":confirm_raw_sha,
         "same_raw_reused":False,
@@ -200,6 +221,8 @@ def confirm_recursive_selection_v13(
         "policy":{
             "sealed_before_discovery_required":True,
             "independent_dataset_required":True,
+            "v0_12_run_independence_receipt_required":True,
+            "run_independence_receipt_must_bind_exact_raw_and_model":True,
             "fixed_discovery_coefficients_required":True,
             "no_confirmatory_refit":True,
             "familywise_max_null_required":True,
@@ -214,4 +237,4 @@ def confirm_recursive_selection_v13(
     return out
 
 
-__all__=["SCHEMA","VERSION","DISCOVERY_SCHEMA","confirm_recursive_selection_v13"]
+__all__=["SCHEMA","VERSION","DISCOVERY_SCHEMA","RUN_INDEPENDENCE_SCHEMA","confirm_recursive_selection_v13"]
