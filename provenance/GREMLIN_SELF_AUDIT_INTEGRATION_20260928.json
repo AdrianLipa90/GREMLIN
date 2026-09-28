@@ -170,7 +170,14 @@
       "test_blob_sha": "f7238daac9701967d9d2fd0ff10c67f2a7db0d0b",
       "blob_sha_matches": "2/2",
       "pytest": "5 passed",
-      "status": "PASS"
+      "status": "PASS",
+      "transcription_gate_incident": {
+        "first_attempt_blob_sha_match": false,
+        "first_attempt_test_accepted": false,
+        "cause": "local reconstruction changed formatting/whitespace",
+        "remediation": "restored exact GitHub text; verified 2/2 Git blob SHA before pytest",
+        "accepted_replay": "5 passed"
+      }
     },
     "railway_attempt": {
       "status": "BLOCKED_BEFORE_SERVICE_PROVISION",
