@@ -10,7 +10,7 @@ import numpy as np
 from .residual_spectroscopy_v09 import analyze_residual_stack_v09
 
 SCHEMA="GREMLIN_RESIDUAL_PRESERVING_SPECTROSCOPY_V0_10"
-VERSION="0.10.1"
+VERSION="0.10.2"
 
 
 def _sha_array(x:np.ndarray)->str:
@@ -58,20 +58,6 @@ def _dependence_stat(runs:np.ndarray)->tuple[float,float]:
     return zero,circular
 
 
-def _phase_randomize_rows(runs:np.ndarray,rng:np.random.Generator)->np.ndarray:
-    out=[]
-    for row in runs:
-        y=np.asarray(row,float)-float(np.mean(row))
-        F=np.fft.rfft(y); mag=np.abs(F)
-        phase=rng.uniform(0.0,2*np.pi,len(F))
-        phase[0]=0.0
-        if len(y)%2==0:
-            phase[-1]=0.0 if F[-1].real>=0.0 else np.pi
-        Z=mag*np.exp(1j*phase); Z[0]=F[0]
-        out.append(np.fft.irfft(Z,n=len(y)))
-    return np.asarray(out)
-
-
 def _median_abs_lag1(runs:np.ndarray)->float:
     vals=[]
     for row in runs:
@@ -80,11 +66,52 @@ def _median_abs_lag1(runs:np.ndarray)->float:
     return float(np.median(vals))
 
 
+def _iaaft_row(
+    x:np.ndarray,
+    rng:np.random.Generator,
+    iterations:int,
+)->tuple[np.ndarray,float]:
+    x=np.asarray(x,float)
+    sorted_x=np.sort(x)
+    target_mag=np.abs(np.fft.rfft(x))
+    y=rng.permutation(x)
+
+    for _ in range(iterations):
+        Y=np.fft.rfft(y)
+        phase=np.exp(1j*np.angle(Y))
+        z=np.fft.irfft(target_mag*phase,n=len(x))
+        order=np.argsort(z)
+        y_new=np.empty_like(y)
+        y_new[order]=sorted_x
+        if np.array_equal(y_new,y):
+            y=y_new
+            break
+        y=y_new
+
+    mag=np.abs(np.fft.rfft(y))
+    den=max(float(np.linalg.norm(target_mag)),1e-15)
+    rel=float(np.linalg.norm(mag-target_mag)/den)
+    return y,rel
+
+
+def _iaaft_rows(
+    runs:np.ndarray,
+    rng:np.random.Generator,
+    iterations:int,
+)->tuple[np.ndarray,float]:
+    rows=[]; errors=[]
+    for row in runs:
+        y,e=_iaaft_row(row,rng,iterations)
+        rows.append(y); errors.append(e)
+    return np.asarray(rows),float(np.median(errors))
+
+
 def _run_dependence_surrogate_audit(
     residual:np.ndarray,
     candidate_bin:int,
     *,
     null_count:int,
+    iaaft_iterations:int,
 )->dict[str,Any]:
     background=_notch(residual,candidate_bin)
     observed_zero,observed_circular=_dependence_stat(background)
@@ -92,19 +119,26 @@ def _run_dependence_surrogate_audit(
     seed=int(_sha_array(background)[:16],16)
     rng=np.random.default_rng(seed)
     null=np.empty((null_count,2),dtype=float)
+    quality=np.empty(null_count,dtype=float)
+
     for i in range(null_count):
-        null[i]=_dependence_stat(_phase_randomize_rows(background,rng))
+        surrogate,quality[i]=_iaaft_rows(background,rng,iaaft_iterations)
+        null[i]=_dependence_stat(surrogate)
 
     med_zero=float(np.median(null[:,0]))
     med_circular=float(np.median(null[:,1]))
     scale_zero=max(med_zero,1e-15)
     scale_circular=max(med_circular,1e-15)
-    null_score=np.maximum(null[:,0]/scale_zero,null[:,1]/scale_circular)
+    null_score=np.maximum(
+        null[:,0]/scale_zero,
+        null[:,1]/scale_circular,
+    )
     observed_score=max(
         observed_zero/scale_zero,
         observed_circular/scale_circular,
     )
     p=float((1+np.sum(null_score>=observed_score))/(null_count+1))
+
     return {
         "candidate_bin_removed":int(candidate_bin),
         "observed_median_abs_zero_lag_correlation":observed_zero,
@@ -114,7 +148,10 @@ def _run_dependence_surrogate_audit(
         "combined_relative_dependence_score":float(observed_score),
         "monte_carlo_p":p,
         "null_count":int(null_count),
-        "null_kind":"INDEPENDENT_PHASE_RANDOMIZATION_PRESERVING_PER_RUN_POWER_SPECTRUM",
+        "iaaft_iterations":int(iaaft_iterations),
+        "median_surrogate_psd_relative_error":float(np.median(quality)),
+        "q90_surrogate_psd_relative_error":float(np.quantile(quality,.90)),
+        "null_kind":"IAAFT_PRESERVING_EMPIRICAL_AMPLITUDE_DISTRIBUTION_AND_APPROX_POWER_SPECTRUM",
     }
 
 
@@ -134,15 +171,21 @@ def analyze_residual_stack_v10(
     path_slope_step:float=0.25,
     transient_half_alpha:float=0.01,
     run_dependence_alpha:float=0.01,
-    run_dependence_null_count:int=255,
+    run_dependence_null_count:int=127,
+    iaaft_iterations:int=20,
+    max_median_surrogate_psd_relative_error:float=0.15,
     long_memory_lag1_abstain:float=0.97,
 )->dict[str,Any]:
     if not (0.0<run_dependence_alpha<1.0):
         raise ValueError("run_dependence_alpha must be in (0,1)")
     if run_dependence_null_count<99:
         raise ValueError("run_dependence_null_count must be >=99")
+    if iaaft_iterations<5:
+        raise ValueError("iaaft_iterations must be >=5")
     if not (0.0<long_memory_lag1_abstain<1.0):
         raise ValueError("long_memory_lag1_abstain must be in (0,1)")
+    if max_median_surrogate_psd_relative_error<=0.0:
+        raise ValueError("surrogate PSD error threshold must be positive")
 
     raw=np.asarray(raw_runs,float); model=np.asarray(model_runs,float)
     base=analyze_residual_stack_v09(
@@ -165,14 +208,23 @@ def analyze_residual_stack_v10(
     background=_notch(residual,k)
     lag1=_median_abs_lag1(background)
     audit=_run_dependence_surrogate_audit(
-        residual,k,null_count=run_dependence_null_count,
+        residual,
+        k,
+        null_count=run_dependence_null_count,
+        iaaft_iterations=iaaft_iterations,
     )
     audit["median_abs_background_lag1"]=lag1
     audit["alpha"]=float(run_dependence_alpha)
     audit["long_memory_lag1_abstain"]=float(long_memory_lag1_abstain)
+    audit["max_median_surrogate_psd_relative_error"]=float(
+        max_median_surrogate_psd_relative_error
+    )
 
     if lag1>=long_memory_lag1_abstain:
         cls="RUN_DEPENDENCE_AUDIT_LONG_MEMORY_UNCALIBRATED"
+        crossfit_valid=False
+    elif audit["median_surrogate_psd_relative_error"]>max_median_surrogate_psd_relative_error:
+        cls="RUN_DEPENDENCE_SURROGATE_QUALITY_UNCALIBRATED"
         crossfit_valid=False
     elif audit["monte_carlo_p"]<=run_dependence_alpha:
         cls="RUN_DEPENDENCE_INVALIDATES_CROSSFIT"
@@ -192,12 +244,15 @@ def analyze_residual_stack_v10(
         "run_independence_required_for_crossfit":True,
         "crossfit_valid_under_run_dependence_audit":crossfit_valid,
         "shared_or_shifted_background_realization_is_not_independent_replication":True,
-        "run_dependence_null_preserves_each_run_power_spectrum":True,
+        "run_dependence_null_preserves_empirical_amplitude_distribution":True,
+        "run_dependence_null_approximately_preserves_each_run_power_spectrum":True,
         "absolute_correlation_threshold_is_authoritative":False,
         "extreme_long_memory_causes_abstention":True,
+        "poor_surrogate_spectral_fidelity_causes_abstention":True,
     })
     out["promotion_gates"]=[
-        "phase-randomized run-dependence surrogate audit",
+        "IAAFT run-dependence surrogate audit",
+        "surrogate spectral-fidelity gate",
         "long-memory abstention before cross-fit interpretation",
         *base["promotion_gates"],
     ]
