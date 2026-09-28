@@ -106,3 +106,32 @@ def test_v04_requires_enough_runs_for_crossfit_search():
         assert ">=8 runs" in str(exc)
     else:
         raise AssertionError("v0.4 accepted too few runs")
+
+
+def test_v04_random_phase_narrowband_is_not_distinguished_from_coherent_line():
+    # Semantic reproducer: v0.4 detects stable narrowband energy correctly,
+    # but does not distinguish cross-run coherent phase from random phase.
+    rng=np.random.default_rng(444)
+    runs,n=16,2048
+    t=np.arange(n)
+    phases=rng.uniform(0,2*np.pi,runs)
+    raw=np.array([
+        rng.normal(size=n)
+        +0.35*np.sin(2*np.pi*137.5*t/n+phases[i])
+        for i in range(runs)
+    ])
+
+    out=analyze_residual_stack_v04(raw,np.zeros_like(raw))
+    assert out["classification"]=="UNRESOLVED_NARROWBAND_STRUCTURE_CANDIDATE"
+    assert out["metrics"]["crossfit_narrowband_gate"]["pass"] is True
+
+    # Independent diagnostic: the validated narrowband energy has almost no
+    # common phase across runs. v0.4 does not expose/type this distinction yet.
+    k=int(round(out["metrics"]["crossfit_narrowband_gate"]["median_discovery_bin"]))
+    recovered=[]
+    for row in raw:
+        tt=np.arange(n,dtype=float)
+        detr=row-np.polyval(np.polyfit(tt,row,1),tt)
+        recovered.append(np.angle(np.fft.rfft(detr-detr.mean())[k]))
+    phase_coherence=float(abs(np.mean(np.exp(1j*np.asarray(recovered)))))
+    assert phase_coherence<0.20
