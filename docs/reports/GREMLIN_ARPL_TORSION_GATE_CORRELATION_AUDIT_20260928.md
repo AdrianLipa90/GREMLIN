@@ -349,3 +349,91 @@ is infinite for every source-calibrated class.
 
 No physical interpretation is involved.
 No main branch was modified by this audit.
+
+
+## 9. Pollack restricted-output architecture barrier
+
+The source-calibrated class reduces the missing theorem to
+
+\[
+\#(S_h\cap\mathcal C_{p,d})=\infty.
+\]
+
+A direct reuse of Pollack's unrestricted pair proof fails at one exact point.
+
+For an auxiliary prime exponent r and output prime divisor P of
+
+\[
+\alpha^r-\beta,
+\]
+
+pair-badness implies
+
+\[
+r\mid\operatorname{ord}_P(\alpha)
+\]
+
+and hence
+
+\[
+r\mid N(P)-1.
+\]
+
+This is the congruence that removes pair-bad output factors in the fundamental
+identity.
+
+Under the restricted-good definition there is a third class:
+
+\[
+P\text{ pair-good but }P\notin\mathcal C_{p,d}.
+\]
+
+For these primes,
+
+\[
+\langle\alpha^r\rangle=\langle\alpha\rangle,
+\]
+
+so for prime r,
+
+\[
+\gcd(r,\operatorname{ord}_P(\alpha))=1.
+\]
+
+There is no corresponding divisibility
+
+\[
+r\mid N(P)-1.
+\]
+
+Therefore the restricted-finiteness hypothesis does not imply the same
+fundamental identity.
+
+This proves:
+
+VERBATIM_POLLACK_RESTRICTION_TO_FIXED_OUTPUT_FROBENIUS = NO_GO.
+
+The auxiliary filter prime and the final output prime are distinct arithmetic
+objects.
+
+Updated next mechanism:
+
+\[
+\boxed{
+\text{FROBENIUS-WEIGHTED OUTPUT CONTROL}
+}
+\]
+
+or an exactly equivalent
+
+\[
+\boxed{
+\text{CHEBOTAREV-RESTRICTED TWO-VARIABLE SUPPORT THEOREM}.
+}
+\]
+
+Source receipt:
+
+AdrianLipa90/On-Primes  
+research/arpl-cyclotomic-two-target-frontier-v0.1-20260927  
+ARPL_CHEBOTAREV_RESTRICTED_POLLACK_BARRIER_V0_1_VALIDATION_20260928.md.
