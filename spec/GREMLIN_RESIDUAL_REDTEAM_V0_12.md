@@ -110,3 +110,30 @@ INVALID means only that naive independent-run cross-fit is not supported.
 ABSTAIN means the null is not calibrated for the observed regime.
 
 None of these establishes an instrumental cause, astrophysical origin, new physics, or time fluctuations.
+
+
+## Additional calibration after initial v0.12 commit
+
+Hard-abstention false-abstain bank, 200 seeds per class, 16x256:
+
+- independent white: 0/200 abstentions;
+- independent Student-t3: 0/200;
+- independent GARCH-like: 0/200;
+- independent AR(1), phi=0.8: 0/200.
+
+This is 0/800 observed false hard-abstentions in the tested bank. It is not a universal bound.
+
+IAAFT convergence sensitivity on deterministic Student-t3 seed 300 and shared-white rho=0.20 was checked at 5, 10, 20 and 50 iterations.
+
+Student-t3 remained PASS at every iteration count while median raw-spectrum relative error decreased from approximately 3.6 percent at 5 iterations to approximately 1.7 percent at 50 iterations.
+
+Shared-white rho=0.20 remained INVALID at every tested iteration count.
+
+Default strict heavy-tail continuation at alpha_run=0.01, 255 null worlds:
+
+- Student-t3 seeds 3000..3019: 20/20 PASS;
+- GARCH-like: 5/5 PASS;
+- bursty/spike: 5/5 PASS;
+- shared-white rho=0.20: 3/3 INVALID with p_zero=p_circular=1/256.
+
+The recursive decomposition line on this branch remains v0.5 and retains experimentwise alpha spending across planned recursive rounds. The earlier v0.4 per-round-only error-budget issue is therefore not re-opened by v0.12.
