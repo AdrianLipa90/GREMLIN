@@ -170,3 +170,37 @@ def test_v06_confirmation_null_resolution_fails_closed():
         assert "cannot resolve" in str(exc)
     else:
         raise AssertionError("unresolved confirmation alpha accepted")
+
+
+def test_v06_provenance_leak_exploit_if_target_derived_candidate_is_falsely_attested():
+    # Deliberate attack reproducer.
+    # Statistical A/B/C sealing cannot detect a nuisance candidate constructed
+    # directly from target RAW when metadata falsely claims independence.
+    rng=np.random.default_rng(777)
+    raw=rng.normal(size=(24,64))
+    candidate=raw.copy()
+    candidates={"leaked_target_copy":candidate}
+    metadata=_meta(candidates)
+
+    result,_,_=sealed_abc_residual_confirmation_v06(
+        raw,
+        np.zeros_like(raw),
+        candidates,
+        metadata,
+        discovery_runs=A,
+        confirmation_runs=B,
+        replication_runs=C,
+        analysis_plan_sha256=PLAN,
+        analysis_plan_frozen_before_fit=True,
+        discovery_familywise_alpha=0.01,
+        discovery_null_count=255,
+        confirmation_alpha=0.01,
+        confirmation_null_count=255,
+        max_layers=1,
+    )
+
+    # This intentionally pins the v0.6 trust-boundary failure.
+    assert result["confirmed_layers"]==["leaked_target_copy"]
+    stage=result["confirmation_stages"][0]
+    assert stage["confirmation_B"]["empirical_p"]==1/256
+    assert stage["replication_C"]["empirical_p"]==1/256
