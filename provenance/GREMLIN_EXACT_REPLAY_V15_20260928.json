@@ -1,0 +1,28 @@
+{
+  "schema": "GREMLIN_EXACT_REPLAY_RECEIPT_V1",
+  "date": "2026-09-28",
+  "status": "PASS",
+  "authority": "CANDIDATE_ONLY",
+  "canon_allowed": false,
+  "branch": "integrate/gremlin-self-audit-lossless-20260928",
+  "scope": "v15 joint-family null targeted exact replay",
+  "module": {
+    "path": "gremlin_mcp/joint_family_null_v15.py",
+    "blob_sha": "fa8d960d20d9034b104670fc09793038c80cc453",
+    "sha_match": true
+  },
+  "test": {
+    "path": "tests/redteam/test_joint_family_null_v15.py",
+    "blob_sha": "83d3530ff402a89ba88cc9ac3d678d4bf781ccfa",
+    "sha_match": true
+  },
+  "runtime": {
+    "python": "3.13.5"
+  },
+  "pytest": {
+    "returncode": 0,
+    "result": "4 passed",
+    "pytest_reported_seconds": 0.84,
+    "wall_seconds": 2.38945
+  }
+}
