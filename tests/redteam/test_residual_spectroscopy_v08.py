@@ -1,3 +1,4 @@
+import json
 import numpy as np
 
 from gremlin_mcp.residual_spectroscopy_v07 import analyze_residual_stack_v07
@@ -84,3 +85,15 @@ def test_v08_path_candidate_never_promotes_physics():
     out=analyze_residual_stack_v08(raw,np.zeros_like(raw))
     assert out["policy"]["spectral_path_candidate_is_not_physical_attribution"] is True
     assert out["policy"]["time_fluctuation_claim_allowed"] is False
+
+
+def test_v08_white_noise_report_is_strict_json_finite():
+    raw=np.random.default_rng(904).normal(size=(16,256))
+    out=analyze_residual_stack_v08(raw,np.zeros_like(raw))
+    json.dumps(out,sort_keys=True,allow_nan=False)
+    directions=out["metrics"]["spectral_path_gate"]["directions"]
+    assert any(
+        d["raw_log_prominence_score"] is None
+        or d["difference_log_prominence_score"] is None
+        for d in directions
+    )
