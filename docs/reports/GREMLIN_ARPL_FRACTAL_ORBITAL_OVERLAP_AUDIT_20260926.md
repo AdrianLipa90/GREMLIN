@@ -1692,3 +1692,211 @@ receipt head:
 698087095df85536b448bf6518da1f8f63d4c8c8.
 }
 \]
+
+
+## 30. Relative-index correlation barrier
+
+The simultaneous two-target / torus frontier now has an exact nested-subgroup
+formulation.
+
+Work in
+
+\[
+K_d=\mathbb Q(\zeta_d)
+\]
+
+with
+
+\[
+W_0=\langle4\rangle
+\subset
+\Gamma=\langle4,h^2,\zeta_d\rangle.
+\]
+
+For every good prime ideal Q define
+
+\[
+I_0(Q)
+=
+[k_Q^\times:\overline{W_0}],
+\]
+
+\[
+I_\Gamma(Q)
+=
+[k_Q^\times:\overline\Gamma].
+\]
+
+Because the reduction subgroups are nested,
+
+\[
+I_\Gamma(Q)\mid I_0(Q).
+\]
+
+Define the relative index
+
+\[
+\boxed{
+J(Q)
+=
+[\overline\Gamma:\overline{W_0}]
+=
+\frac{I_0(Q)}{I_\Gamma(Q)}.
+}
+\]
+
+Then the ARPL exposure event is exactly
+
+\[
+\boxed{
+Q\text{ exposes }(h,d)
+\iff
+I_0(Q)=I_\Gamma(Q)
+\iff
+J(Q)=1.
+}
+\]
+
+For split rational controls q,
+
+\[
+I_0(q)
+=
+\frac{q-1}{\operatorname{ord}_q(4)},
+\]
+
+\[
+I_\Gamma(q)
+=
+\frac{q-1}{
+\operatorname{lcm}
+(
+\operatorname{ord}_q(4),
+\operatorname{ord}_q(h^2),
+d
+)
+}.
+\]
+
+### Marginal-index no-go controls
+
+For h=6,d=5:
+
+q=31 has
+
+\[
+\operatorname{ord}_{31}(4)=5,
+\qquad
+\operatorname{ord}_{31}(36)=3,
+\]
+
+and therefore
+
+\[
+(I_0,I_\Gamma,J)=(6,2,3).
+\]
+
+q=61 has
+
+\[
+\operatorname{ord}_{61}(4)
+=
+\operatorname{ord}_{61}(36)
+=
+30,
+\]
+
+hence
+
+\[
+(I_0,I_\Gamma,J)=(2,2,1).
+\]
+
+Thus
+
+\[
+\boxed{
+I_\Gamma(31)=I_\Gamma(61)=2
+}
+\]
+
+while the exposure verdict is opposite.
+
+Likewise q=31 and q=1021 satisfy
+
+\[
+\boxed{
+I_0(31)=I_0(1021)=6
+}
+\]
+
+while q=31 fails and q=1021 passes.
+
+Therefore neither one-subgroup index marginal determines the ARPL joint event.
+
+### Scope of current unconditional one-subgroup index results
+
+The 2025 unconditional Artin-index framework of Sgobba studies the reduction
+index of one fixed finitely generated subgroup, optionally with finite
+Frobenius restrictions.
+
+That machinery is relevant to either
+
+\[
+I_0
+\]
+
+or
+
+\[
+I_\Gamma
+\]
+
+separately.
+
+The exact ARPL gate is the correlation equation
+
+\[
+\boxed{
+I_0=I_\Gamma.
+}
+\]
+
+The arithmetic controls above prove that no theorem about either one marginal
+alone can be promoted to the ARPL exposure theorem without an additional
+two-subgroup correlation input.
+
+Hence the minimal unconditional frontier may now be stated equivalently as:
+
+\[
+\boxed{
+\#\{Q:J(Q)=1\}=\infty.
+}
+\]
+
+Equivalent forms remain:
+
+- simultaneous cyclotomic two-target support;
+- infinite torus order-divisibility support;
+- equality of the two nested-subgroup reduction indices.
+
+Pinned source receipt:
+
+AdrianLipa90/On-Primes  
+branch research/arpl-cyclotomic-two-target-frontier-v0.1-20260927
+
+\[
+\boxed{
+159058708e0b75afd3cbad8c855a0dcd71d8ed47.
+}
+\]
+
+Current unconditional missing input:
+
+\[
+\boxed{
+\text{TWO-SUBGROUP RELATIVE-INDEX CORRELATION THEOREM}.
+}
+\]
+
+The GRH multivariable exact-index closure remains valid and unchanged.
