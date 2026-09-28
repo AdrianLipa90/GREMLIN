@@ -1,23 +1,25 @@
 {
   "schema":"GREMLIN_RESIDUAL_REDTEAM_V0_10_RECEIPT",
   "date":"2026-09-28",
-  "status":"INDEPENDENT_REFERENCE_MONTE_CARLO_PASS_EXACT_BRANCH_TESTS_ADDED_NOT_EXECUTED",
+  "status":"INDEPENDENT_REFERENCE_MONTE_CARLO_PASS_WITH_OPEN_TAIL_CALIBRATION_EXACT_BRANCH_TESTS_ADDED_NOT_EXECUTED",
   "branch":"audit/residual-redteam-v10-shared-run-leakage-20260928",
   "module":"gremlin_mcp/residual_spectroscopy_v10.py",
-  "module_version":"0.10.1",
+  "module_version":"0.10.2",
   "findings":{
     "shared_run_leakage_is_real":true,
     "train_holdout_split_alone_establishes_independence":false,
     "absolute_correlation_thresholds_rejected":true,
-    "surrogate_calibration_required":true,
-    "extreme_long_memory_requires_abstention":true
+    "psd_only_phase_randomization_rejected":true,
+    "iaaft_selected":true,
+    "extreme_long_memory_requires_abstention":true,
+    "tail_calibration_remains_open":true
   },
   "narrowband_reference_monte_carlo":{
     "white":{"passes":0,"trials":100},
     "ar1_phi_0_8":{"passes":0,"trials":100},
     "one_over_f":{"passes":0,"trials":100},
     "periodic_heteroskedastic":{"passes":0,"trials":100},
-    "ar2_quasi_oscillatory":{"passes":43,"trials":100,"interpretation":"genuine stochastic narrowband structure, not automatically physical"}
+    "ar2_quasi_oscillatory":{"passes":43,"trials":100,"interpretation":"stochastic narrowband structure; not physical attribution"}
   },
   "recursive_familywise_reference":{
     "alpha":0.05,
@@ -33,24 +35,42 @@
     {"n":1024,"ar1_phi":0.98,"false_flags":40,"trials":50},
     {"n":2048,"ar1_phi":0.99,"false_flags":44,"trials":50}
   ],
+  "phase_randomized_null_failure_alpha_0_05_63_nulls":{
+    "student_t3":{"false_flags":5,"trials":20},
+    "garch_like":{"false_flags":3,"trials":20},
+    "bursty_spike":{"false_flags":20,"trials":20}
+  },
+  "iaaft_reference_alpha_0_05_31_nulls":{
+    "student_t3":{"false_flags":0,"trials":10},
+    "garch_like":{"false_flags":0,"trials":10},
+    "bursty_spike":{"false_flags":0,"trials":10},
+    "shared_20_percent":{"flags":10,"trials":10},
+    "shifted_shared_white":{"flags":10,"trials":10},
+    "independent_weak_line":{"false_flags":0,"trials":10}
+  },
+  "iaaft_reference_alpha_0_01_127_nulls":{
+    "student_t3":{"flags":1,"trials":20,"note":"tail calibration remains open"},
+    "deterministic_shared_20_percent":{"p":0.0078125},
+    "deterministic_shifted_copy":{"p":0.0078125},
+    "deterministic_independent_weak_line":{"p":0.9375}
+  },
   "surrogate_gate":{
-    "null_kind":"independent phase randomization preserving per-run Fourier power spectrum",
-    "default_null_count":255,
+    "null_kind":"IAAFT preserving empirical amplitude distribution exactly and Fourier magnitude approximately",
+    "default_null_count":127,
     "default_alpha":0.01,
-    "long_memory_abstain_median_abs_lag1":0.97,
+    "iaaft_iterations":20,
+    "max_median_surrogate_psd_relative_error":0.15,
+    "long_memory_abstain_conservative_median_abs_lag1":0.97,
+    "long_memory_checked_pre_and_post_notch":true,
     "absolute_correlation_threshold_authoritative":false
   },
-  "surrogate_reference_255_nulls":{
-    "independent_white":{"flags":0,"trials":12},
-    "shared_20_percent":{"flags":12,"trials":12},
-    "shifted_shared_white":{"flags":12,"trials":12},
-    "independent_ar1_phi_0_99":{"raw_flags":1,"trials":12,"policy":"abstain because median lag1 exceeds 0.97"}
-  },
-  "deterministic_reference_127_nulls":{
-    "shared_20_percent":{"p":0.0078125},
-    "shifted_copy":{"p":0.0078125},
-    "independent_weak_line":{"p":0.953125},
-    "independent_ar1_phi_0_99":{"median_abs_lag1":0.9829665588430236,"action":"LONG_MEMORY_UNCALIBRATED"}
+  "deterministic_reference_seeds":{
+    "shared_20_percent_seed_101":{"p":0.0078125},
+    "shifted_copy_seed_102":{"p":0.0078125},
+    "independent_weak_line_seed_103":{"p":0.9375},
+    "ar1_phi_0_99_seed_104":{"pre_notch_lag1_above_0_97":true,"action":"LONG_MEMORY_UNCALIBRATED"},
+    "student_t3_seed_106":{"p":0.5703125},
+    "bursty_seed_107":{"p":0.9609375}
   },
   "claim_boundary":{
     "passing_run_independence_proves_physical_signal":false,
