@@ -2134,3 +2134,146 @@ A. Perucca,
 tori",
 J. Number Theory 129 (2009), 1883--1892,
 DOI 10.1016/j.jnt.2009.01.005.
+
+
+## 34. Pollack torsion-depth filtered-set barrier
+
+The minimal ARPL gate cannot be obtained by replacing Pollack's one-pair good
+set with a torsion-filtered good set inside the published norm proof.
+
+For a pair \((\alpha,\beta)\), Pollack's argument uses the implication
+
+\[
+P\notin S,\quad
+P\mid(\alpha^q-\beta)
+\Longrightarrow
+q\mid N(P)-1,
+\]
+
+where
+
+\[
+S=
+\{P:\operatorname{ord}_P(\alpha)=\operatorname{ord}_P(\beta)\}.
+\]
+
+The reason is exact: if \(q\nmid N(P)-1\), the q-th power map is an
+automorphism of the finite residue multiplicative group, and
+\(\alpha^q=\beta\) forces equal order.
+
+For ARPL one would need
+
+\[
+S_d
+=
+\{
+P:
+\operatorname{ord}_P(\alpha)=\operatorname{ord}_P(\beta),
+\quad
+d\mid\operatorname{ord}_P(\alpha)
+\}.
+\]
+
+The same automorphism step proves only pair-goodness, not the order-depth
+predicate.
+
+### Exact h=6,d=5 countercontrol
+
+Take
+
+\[
+\alpha=4,\qquad
+\beta=576,\qquad
+P=13,\qquad
+q=7.
+\]
+
+Then
+
+\[
+\operatorname{ord}_{13}(4)
+=
+\operatorname{ord}_{13}(576)
+=
+6,
+\]
+
+so P is pair-good.
+
+But
+
+\[
+5\nmid6,
+\]
+
+so
+
+\[
+P\notin S_5.
+\]
+
+Also
+
+\[
+4^7\equiv576\pmod{13},
+\]
+
+hence
+
+\[
+P\mid(4^7-576).
+\]
+
+Yet
+
+\[
+7\nmid12=N(P)-1.
+\]
+
+Therefore
+
+\[
+\boxed{
+P\notin S_5,\quad
+P\mid(4^7-576)
+\not\Rightarrow
+7\mid N(P)-1.
+}
+\]
+
+The critical off-good-set norm simplification is lost.
+
+Thus:
+
+DIRECT_POLLACK_S_TO_S_D_FILTER = REFUTED.
+
+A congruence condition on the auxiliary exponent q is not a typed condition on
+the output-prime order.
+
+The missing input remains a genuine correlation theorem:
+
+\[
+\boxed{
+\#\{Q:A_Q=1,\ D_Q=1\}=\infty.
+}
+\]
+
+Reviewed unconditional two-variable Artin lower-bound results do not add the
+prescribed order-depth filter on the same output primes.
+
+Current source receipt:
+
+AdrianLipa90/On-Primes  
+branch research/arpl-cyclotomic-frontier-v3-20260928
+
+\[
+\boxed{
+4591a6cd650ca00b1350696624835fd94969f8b7.
+}
+\]
+
+Primary proof interface:
+
+P. Pollack,
+"Two variants of a theorem of Schinzel and Wójcik on multiplicative orders",
+Acta Arith. 218 (2025), 337--345.
