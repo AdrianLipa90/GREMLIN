@@ -17,16 +17,25 @@ GREMLIN uses local `stdio` MCP by default. No listening network port is required
 
 ChatGPT is a separate deployment surface. Do not treat a local `stdio` registration as a ChatGPT installation.
 
+### Portable remote-MCP package path
+
 For a fresh ChatGPT account:
 
-1. deploy GREMLIN behind a remotely reachable HTTPS MCP endpoint ending in `/mcp`, or bind the local service through a supported secure tunnel;
-2. run `gremlin-chatgpt-package --build --endpoint https://HOST/mcp --output GREMLIN-ChatGPT-Plugin-v1.zip --json`;
-3. inspect the ZIP with `gremlin-chatgpt-package --inspect ... --json`;
-4. install/upload or publish the plugin through the supported ChatGPT plugin surface;
-5. complete host-side authentication and Scan Tools;
-6. report READY only after the ChatGPT host confirms the connection and tools.
+1. deploy GREMLIN behind a stable remotely reachable HTTPS Streamable HTTP MCP endpoint ending in `/mcp`;
+2. run `gremlin-chatgpt-package --plan --endpoint https://HOST/mcp --json`;
+3. build with `gremlin-chatgpt-package --build --endpoint https://HOST/mcp --output GREMLIN-ChatGPT-Plugin-v1.zip --json`;
+4. inspect the ZIP with `gremlin-chatgpt-package --inspect GREMLIN-ChatGPT-Plugin-v1.zip --json`;
+5. register/install the plugin through the supported ChatGPT plugin/developer surface;
+6. complete host-side authentication, permission review, and Scan Tools/tool discovery;
+7. report end-to-end READY only after the ChatGPT host actually exposes and successfully calls GREMLIN tools.
 
-The packager is intentionally independent of prior conversations, ChatGPT Memory, Library files, NOEMA session files, and local MCP client configuration.
+The ZIP builder returns `PACKAGE_READY`, not end-to-end `READY`.
+
+### Secure MCP Tunnel path
+
+`gremlin-openai-tunnel` remains a separate transport integration for keeping a local/private GREMLIN server off the public Internet. ChatGPT host registration for a Secure MCP Tunnel is performed through the OpenAI tunnel/app surface. The portable ZIP builder does not invent a tunnel URL or a ChatGPT registration ID.
+
+The clean-account contract is intentionally independent of prior conversations, ChatGPT Memory, Library files, NOEMA session files, and local MCP client configuration.
 
 ## Provider integration modes
 
