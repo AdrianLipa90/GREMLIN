@@ -112,6 +112,46 @@
       "repo": "AdrianLipa90/On-Primes",
       "branch": "research/arpl-cyclotomic-two-target-frontier-v0.1-20260927",
       "receipt_sha": "40b6ecaaf824f3dfc8711c0620dfb4916011a1b8"
+    },
+    "arpl_torus_cofinite_no_go": {
+      "repo": "AdrianLipa90/On-Primes",
+      "branch": "research/arpl-torus-cofinite-no-go-v0.1-20260928-r2",
+      "validation_receipt_sha": "a40ea5e58e727c743ca69ecf5c879aabdb6d8550"
+    },
+    "arpl_current_cyclotomic_frontier": {
+      "repo": "AdrianLipa90/On-Primes",
+      "branch": "research/arpl-cyclotomic-frontier-v3-20260928",
+      "pollack_filter_receipt_sha": "4591a6cd650ca00b1350696624835fd94969f8b7",
+      "cofinite_no_go_receipt_sha": "15236fcca74695f5cf16c412e96d27d6d3a73bf5",
+      "base_compare_at_last_check": {
+        "ahead_by": 18,
+        "behind_by": 0
+      }
+    },
+    "arpl_relational_zero": {
+      "repo": "AdrianLipa90/On-Primes",
+      "branch": "research/arpl-relational-zero-exposure-v0.1-20260928",
+      "validation_receipt_sha": "605119b2b2e50ff6eb4cab550382b48630f14c67"
+    },
+    "orbital_relational_projectors": {
+      "repo": "AdrianLipa90/Orbital-System-base",
+      "branch": "formalism/fractal-orbital-moire-hilbert-v0.10-20260928",
+      "validation_receipt_sha": "ae9c11d4f0b835fe298c4ff31536d554bf978952"
+    },
+    "phasenav_relational_projectors": {
+      "repo": "AdrianLipa90/noema-phasenav-core",
+      "branch": "formalism/fractal-moire-hilbert-36d-bridge-v0.13-20260928",
+      "validation_receipt_sha": "25c080d8af9ada56771ee441ee97429578f45363"
+    },
+    "orbital_relational_information": {
+      "repo": "AdrianLipa90/Orbital-System-base",
+      "branch": "formalism/fractal-orbital-moire-hilbert-v0.11-20260928",
+      "validation_receipt_sha": "c96531e0816dba01f3ade8a849f67494d064727a"
+    },
+    "phasenav_relational_information": {
+      "repo": "AdrianLipa90/noema-phasenav-core",
+      "branch": "formalism/fractal-moire-hilbert-36d-bridge-v0.14-20260928",
+      "validation_receipt_sha": "8bbe5f7143114f51157a5c3b0c79cfac10bc88ea"
     }
   },
   "exact_pass": [
@@ -150,7 +190,18 @@
     "RANK_TWO_GCD_SUPPORT_REDUCTION",
     "TORSION_GATE_FINITE_STATE_REDUCTION",
     "CYCLOTOMIC_TARGET_LOG_PARAMETRIZATION",
-    "CYCLOTOMIC_TARGET_IS_FINITE_STATE_AFTER_ORDER_GATE"
+    "CYCLOTOMIC_TARGET_IS_FINITE_STATE_AFTER_ORDER_GATE",
+    "NONDYADIC_INFINITE_JOINT_EXPOSURE_FAILURES",
+    "H6_INFINITE_JOINT_EXPOSURE_FAILURES",
+    "SIGNED_DYADIC_SUPPORT_RELATION_BOUNDARY",
+    "POLLACK_TORSION_FILTER_COUNTERCONTROL",
+    "RELATIONAL_AVERAGING_PROJECTOR",
+    "RELATIONAL_ZERO_PROJECTOR",
+    "ARPL_ACTIVITY_DEPTH_ORTHOGONAL_DEFECT_DECOMPOSITION",
+    "PRIME_FIBRE_ZERO_MULTIPLICITY_REDUCTION",
+    "RELATIONAL_UMEGAKI_INFORMATION_EQUALS_LOG_INDEX",
+    "RELATIONAL_INFORMATION_CHAIN_ADDITIVITY",
+    "BINARY_RELATIONAL_24PI_INFORMATION_EQUALS_KAPPA"
   ],
   "fail_preserved": [
     {
@@ -184,7 +235,10 @@
     "FIXED_NONIDENTITY_AFFINE_SYNCHRONIZATION",
     "POLLACK_SAME_EXPONENT_FINITE_LIST_LIFT",
     "POLLACK_FIXED_AFFINE_ONE_PARAMETER_LIFT",
-    "GENERIC_SECOND_TARGET_SUPPORT_THEOREM_REQUIRED_AS_MINIMAL_INPUT"
+    "GENERIC_SECOND_TARGET_SUPPORT_THEOREM_REQUIRED_AS_MINIMAL_INPUT",
+    "NONDYADIC_COFINITE_JOINT_EXPOSURE",
+    "DIRECT_POLLACK_S_TO_S_D_FILTER",
+    "AUXILIARY_EXPONENT_CONGRUENCE_IMPLIES_OUTPUT_ORDER_DEPTH"
   ],
   "repaired": [
     "ON_PRIMES_PARENT_DIVERGENCE",
@@ -203,7 +257,7 @@
     "HOSTED_CI"
   ],
   "canon_allowed": false,
-  "next_witness": "UNCONDITIONAL_TORSION_GATE_CORRELATION_OR_RESTRICTED_TWO_VARIABLE_SUPPORT",
+  "next_witness": "UNCONDITIONAL_RESTRICTED_TWO_VARIABLE_SUPPORT_WITH_FIXED_ORDER_DEPTH",
   "frontier": {
     "exact_reduction": "active q iff h in +/-<2>; mode exposed iff reduced denominator divides ord_q(4)",
     "status": "OPEN_ARTIN_TYPE",
@@ -260,7 +314,18 @@
     "conditional_grh_status": "CLOSED_POSITIVE_DENSITY",
     "minimal_form": "E_{h,d}=S_h cap T_d = {Q:A_Q=1,D_Q=1}",
     "second_target": "finite-state cyclotomic log once d|ord_Q(4)",
-    "generic_rank_two": "EQUIVALENT_BUT_NOT_MINIMAL"
+    "generic_rank_two": "EQUIVALENT_BUT_NOT_MINIMAL",
+    "nondyadic_cofinite_success": "REFUTED_BY_SUPPORT_PROBLEM",
+    "nondyadic_failure_set": "INFINITE_UNCONDITIONALLY",
+    "h6_failure_set": "INFINITE_UNCONDITIONALLY",
+    "signed_dyadic_support_obstruction": "ABSENT_NECESSARY_RELATION_EXPLICIT",
+    "unconditional_success_status": "OPEN_NONCOFINITE",
+    "pollack_torsion_filter": "REFUTED_BY_P13_Q7_COUNTERCONTROL",
+    "next_analytic_route": "UNCONDITIONAL_RESTRICTED_TWO_VARIABLE_SUPPORT_OR_NEW_TORSION_GATE_CORRELATION",
+    "operator_form": "Delta_Q=Pi_<4>-Pi_<4,beta_h,beta_zeta>; exposure iff Delta_Q=0",
+    "prime_fibre_spectral_form": "dim ker M_mu = infinity, mu(Q)=rank Delta_Q",
+    "relational_information": "D(rho_K||rho_H)=ln[K:H]",
+    "binary_information_24pi": "ln(2)/(24*pi)=kappa under canonical normalization"
   },
   "excluded_evidence": [
     "CARELLA_ARXIV_2103_04822_V1_PROOF_INVALID_AS_PRINTED"

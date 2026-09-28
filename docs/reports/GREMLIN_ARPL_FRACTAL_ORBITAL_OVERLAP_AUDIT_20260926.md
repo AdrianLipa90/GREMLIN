@@ -1995,3 +1995,540 @@ Updated minimal NEXT WITNESS:
 \]
 
 equivalently, two-variable subgroup support restricted to the fixed order-depth condition \(d\mid\operatorname{ord}_Q(4)\).
+
+
+## 33. Cofinite-support no-go for nondyadic h
+
+The classical torus support problem gives a new unconditional boundary on the
+current existential frontier.
+
+For the source-calibrated torus points
+
+\[
+P=(4,4),
+\qquad
+T=(4^{s_h}h^2,\ 4^{s_\zeta}\zeta_d),
+\]
+
+Perucca's support theorem says:
+
+if
+
+\[
+\operatorname{ord}_Q(T)
+\mid
+\operatorname{ord}_Q(P)
+\]
+
+for all but finitely many good prime ideals Q, then there exist a torus
+endomorphism
+
+\[
+\phi\in\operatorname{End}(\mathbb G_m^2)
+\cong M_2(\mathbb Z)
+\]
+
+and a nonzero integer c such that
+
+\[
+\phi(P)=[c]T.
+\]
+
+For
+
+\[
+P=(4,4),
+\]
+
+every torus endomorphism gives coordinates that are integral powers of 4.
+
+Therefore the first coordinate of the global relation would force
+
+\[
+(4^{s_h}h^2)^c=4^m.
+\]
+
+For nonzero integer h this is possible only when
+
+\[
+\boxed{
+h=\pm2^k.
+}
+\]
+
+Hence for every nondyadic integer h,
+
+\[
+\boxed{
+\operatorname{ord}_Q(T)\nmid\operatorname{ord}_Q(P)
+}
+\]
+
+for infinitely many good prime ideals Q.
+
+In particular,
+
+\[
+\boxed{
+h=6
+\Longrightarrow
+\text{infinitely many joint-exposure failures unconditionally}.
+}
+\]
+
+This is compatible with the existing GRH positive-density success theorem.
+
+The signed-dyadic boundary is exact: if
+
+\[
+h=\pm2^k,
+\]
+
+then taking multiplier c=d kills the cyclotomic torsion and one can construct
+an endomorphism satisfying the necessary global relation.
+
+This does NOT prove cofinite support in the dyadic case; it proves only that
+the Perucca obstruction disappears.
+
+### Consequence for the frontier
+
+For generic nondyadic h the desired successful set, if proved infinite
+unconditionally, is necessarily non-cofinite.
+
+Therefore the current missing theorem cannot be replaced by a hidden
+almost-all-primes support theorem.
+
+The frontier remains:
+
+\[
+\boxed{
+\#\{Q:A_Q=1,\ D_Q=1\}=\infty,
+}
+\]
+
+but now with the independent unconditional fact
+
+\[
+\boxed{
+\#\{Q:(A_Q,D_Q)\ne(1,1)\}=\infty
+}
+\]
+
+for every nondyadic integer h.
+
+Source receipt:
+
+AdrianLipa90/On-Primes  
+branch research/arpl-torus-cofinite-no-go-v0.1-20260928-r2
+
+\[
+\boxed{
+a40ea5e58e727c743ca69ecf5c879aabdb6d8550.
+}
+\]
+
+Reference:
+
+A. Perucca,
+"Two variants of the support problem for products of abelian varieties and
+tori",
+J. Number Theory 129 (2009), 1883--1892,
+DOI 10.1016/j.jnt.2009.01.005.
+
+
+## 34. Pollack torsion-depth filtered-set barrier
+
+The minimal ARPL gate cannot be obtained by replacing Pollack's one-pair good
+set with a torsion-filtered good set inside the published norm proof.
+
+For a pair \((\alpha,\beta)\), Pollack's argument uses the implication
+
+\[
+P\notin S,\quad
+P\mid(\alpha^q-\beta)
+\Longrightarrow
+q\mid N(P)-1,
+\]
+
+where
+
+\[
+S=
+\{P:\operatorname{ord}_P(\alpha)=\operatorname{ord}_P(\beta)\}.
+\]
+
+The reason is exact: if \(q\nmid N(P)-1\), the q-th power map is an
+automorphism of the finite residue multiplicative group, and
+\(\alpha^q=\beta\) forces equal order.
+
+For ARPL one would need
+
+\[
+S_d
+=
+\{
+P:
+\operatorname{ord}_P(\alpha)=\operatorname{ord}_P(\beta),
+\quad
+d\mid\operatorname{ord}_P(\alpha)
+\}.
+\]
+
+The same automorphism step proves only pair-goodness, not the order-depth
+predicate.
+
+### Exact h=6,d=5 countercontrol
+
+Take
+
+\[
+\alpha=4,\qquad
+\beta=576,\qquad
+P=13,\qquad
+q=7.
+\]
+
+Then
+
+\[
+\operatorname{ord}_{13}(4)
+=
+\operatorname{ord}_{13}(576)
+=
+6,
+\]
+
+so P is pair-good.
+
+But
+
+\[
+5\nmid6,
+\]
+
+so
+
+\[
+P\notin S_5.
+\]
+
+Also
+
+\[
+4^7\equiv576\pmod{13},
+\]
+
+hence
+
+\[
+P\mid(4^7-576).
+\]
+
+Yet
+
+\[
+7\nmid12=N(P)-1.
+\]
+
+Therefore
+
+\[
+\boxed{
+P\notin S_5,\quad
+P\mid(4^7-576)
+\not\Rightarrow
+7\mid N(P)-1.
+}
+\]
+
+The critical off-good-set norm simplification is lost.
+
+Thus:
+
+DIRECT_POLLACK_S_TO_S_D_FILTER = REFUTED.
+
+A congruence condition on the auxiliary exponent q is not a typed condition on
+the output-prime order.
+
+The missing input remains a genuine correlation theorem:
+
+\[
+\boxed{
+\#\{Q:A_Q=1,\ D_Q=1\}=\infty.
+}
+\]
+
+Reviewed unconditional two-variable Artin lower-bound results do not add the
+prescribed order-depth filter on the same output primes.
+
+Current source receipt:
+
+AdrianLipa90/On-Primes  
+branch research/arpl-cyclotomic-frontier-v3-20260928
+
+\[
+\boxed{
+4591a6cd650ca00b1350696624835fd94969f8b7.
+}
+\]
+
+Primary proof interface:
+
+P. Pollack,
+"Two variants of a theorem of Schinzel and Wójcik on multiplicative orders",
+Acta Arith. 218 (2025), 337--345.
+
+
+## 35. Relational-zero operator closure
+
+The current arithmetic exposure gate now has an exact Hilbert-operator form.
+
+For one residue fibre
+
+\[
+G_Q=k_Q^\times,
+\qquad
+\mathcal H_Q=\ell^2(G_Q),
+\]
+
+and subgroup averaging projectors
+
+\[
+\Pi_H
+=
+\frac1{|H|}
+\sum_{h\in H}\lambda_h,
+\]
+
+the calibrated subgroup chain
+
+\[
+\Gamma_0
+\le
+\Gamma_h
+\le
+\Gamma_{h\zeta}
+\]
+
+produces
+
+\[
+\Delta_h=\Pi_0-\Pi_h,
+\]
+
+\[
+\Delta_\zeta=\Pi_h-\Pi_{h\zeta},
+\]
+
+\[
+\Delta=\Pi_0-\Pi_{h\zeta}.
+\]
+
+Exact identities:
+
+\[
+\boxed{
+\Delta=\Delta_h+\Delta_\zeta
+}
+\]
+
+and
+
+\[
+\boxed{
+\Delta_h\Delta_\zeta=0.
+}
+\]
+
+Each defect is an orthogonal projection with spectrum contained in
+
+\[
+\{0,1\}.
+\]
+
+The complete ARPL exposure condition is exactly
+
+\[
+\boxed{
+\Delta_Q=0.
+}
+\]
+
+Thus the former Boolean correlation gate
+
+\[
+A_Q=1,\quad D_Q=1
+\]
+
+is now an orthogonal positive-operator zero condition.
+
+The defect ranks are
+
+\[
+r_h=I_0-I_h,
+\]
+
+\[
+r_\zeta=I_h-I_{h\zeta},
+\]
+
+\[
+r=r_h+r_\zeta.
+\]
+
+For the h=6,p=11,d=5 controls:
+
+q=31 gives
+
+\[
+(r_h,r_\zeta,r)=(4,0,4),
+\]
+
+so failure is purely activity.
+
+q=61 gives
+
+\[
+(r_h,r_\zeta,r)=(0,0,0),
+\]
+
+an exact relational zero.
+
+Pinned sources:
+
+AdrianLipa90/On-Primes  
+research/arpl-relational-zero-exposure-v0.1-20260928  
+receipt 605119b2b2e50ff6eb4cab550382b48630f14c67
+
+AdrianLipa90/Orbital-System-base  
+formalism/fractal-orbital-moire-hilbert-v0.10-20260928  
+receipt ae9c11d4f0b835fe298c4ff31536d554bf978952
+
+AdrianLipa90/noema-phasenav-core  
+formalism/fractal-moire-hilbert-36d-bridge-v0.13-20260928  
+receipt 25c080d8af9ada56771ee441ee97429578f45363
+
+The unconditional prime-distribution problem is now equivalently:
+
+\[
+\boxed{
+\dim\ker M_\mu=\infty,
+\qquad
+\mu(Q)=\operatorname{rank}\Delta_Q.
+}
+\]
+
+This is a spectral-zero multiplicity formulation, not yet an unconditional
+infinitude proof.
+
+## 36. Relational quantum-information invariant and kappa
+
+Normalize the subgroup projectors:
+
+\[
+\rho_H
+=
+\Pi_H/\operatorname{Tr}\Pi_H.
+\]
+
+For
+
+\[
+H\le K,
+\]
+
+the exact Umegaki relative entropy is
+
+\[
+\boxed{
+D(\rho_K\|\rho_H)
+=
+\ln[K:H].
+}
+\]
+
+Hence relational information is additive along subgroup chains.
+
+The invariant-subspace survival ratio is
+
+\[
+s(H\to K)=1/[K:H],
+\]
+
+so
+
+\[
+D=-\ln s.
+\]
+
+The normalized defect
+
+\[
+\varepsilon=1-s
+\]
+
+obeys the exact cascade law
+
+\[
+\boxed{
+\varepsilon_{02}
+=
+\varepsilon_{01}
++
+\varepsilon_{12}
+-
+\varepsilon_{01}\varepsilon_{12}.
+}
+\]
+
+Using the project's pre-existing canonical phase-information normalization,
+
+\[
+\mathcal I_{24\pi}
+=
+\frac{D}{24\pi},
+\]
+
+a binary relational enlargement gives
+
+\[
+\boxed{
+[K:H]=2
+\Longrightarrow
+\mathcal I_{24\pi}
+=
+\frac{\ln2}{24\pi}
+=
+\kappa.
+}
+\]
+
+The algebra derives the logarithmic relative-entropy increment exactly.
+The factor \(24\pi\) remains the pre-existing canonical normalization and is
+not newly derived here.
+
+Pinned sources:
+
+AdrianLipa90/Orbital-System-base  
+formalism/fractal-orbital-moire-hilbert-v0.11-20260928  
+receipt c96531e0816dba01f3ade8a849f67494d064727a
+
+AdrianLipa90/noema-phasenav-core  
+formalism/fractal-moire-hilbert-36d-bridge-v0.14-20260928  
+receipt 8bbe5f7143114f51157a5c3b0c79cfac10bc88ea
+
+Updated GREMLIN operator surface:
+
+- RELATIONAL_AVERAGING_PROJECTOR
+- RELATIONAL_ACTIVITY_DEFECT_PROJECTOR
+- RELATIONAL_DEPTH_DEFECT_PROJECTOR
+- RELATIONAL_ZERO_PROJECTOR
+- PRIME_FIBRE_DEFECT_MULTIPLICATION
+- RELATIONAL_PROJECTOR_STATE
+- RELATIONAL_UMEGAKI_INFORMATION
+- RELATIONAL_MODULAR_GAP
+- RELATIONAL_INFORMATION_24PI
+- BINARY_RELATIONAL_KAPPA
+
+Physical quantum-observable and thermodynamic interpretations remain separate
+binding gates.
