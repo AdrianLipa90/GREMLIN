@@ -98,6 +98,10 @@ def test_v06_true_second_layer_survives_discovery_confirmation_replication():
     assert stage["true_1"]["replication_C"]["pass"] is True
     assert stage["true_1"]["refit_on_B"] is False
     assert stage["true_1"]["refit_on_C"] is False
+    assert result["discovery_residual_packet_A"]["shape"][0]==len(A)
+    assert result["sealed_residual_diagnostics"]["B"]["spectral_discovery_permitted"] is False
+    assert result["sealed_residual_diagnostics"]["C"]["spectral_discovery_permitted"] is False
+    assert result["policy"]["post_confirmation_residual_discovery_requires_fresh_D_or_new_dataset"] is True
 
 
 def test_v06_overlapping_splits_fail_closed():
