@@ -89,11 +89,24 @@ def _shared_null_worlds(
 
     worlds: list[dict[str, np.ndarray]] = []
     seen_perm: set[tuple[int, ...]] = set()
+    seen_shifts: set[tuple[int, ...]] = set()
     identity = tuple(range(n_runs))
+    needs_perm = any(
+        metadata[name]["null_policy"] == "run_permutation"
+        for name in remaining
+    )
+    needs_shift = any(
+        metadata[name]["null_policy"] == "sample_circular_shift"
+        for name in remaining
+    )
+    if needs_perm and count > math.factorial(n_runs) - 1:
+        raise ValueError(
+            "requested null_count exceeds unique nonidentity run permutations"
+        )
 
     for _ in range(count):
         perm: tuple[int, ...] | None = None
-        if any(metadata[name]["null_policy"] == "run_permutation" for name in remaining):
+        if needs_perm:
             attempts = 0
             while perm is None:
                 attempts += 1
@@ -105,8 +118,24 @@ def _shared_null_worlds(
                     perm = candidate
 
         shifts = None
-        if any(metadata[name]["null_policy"] == "sample_circular_shift" for name in remaining):
-            shifts = rng.integers(1, n_samples, size=n_runs, endpoint=False)
+        if needs_shift:
+            attempts = 0
+            while shifts is None:
+                attempts += 1
+                if attempts > 10000:
+                    raise RuntimeError(
+                        "could not construct unique shared circular-shift null world"
+                    )
+                candidate_shifts = tuple(
+                    int(x)
+                    for x in rng.integers(
+                        1, n_samples, size=n_runs, endpoint=False
+                    )
+                )
+                if candidate_shifts in seen_shifts:
+                    continue
+                seen_shifts.add(candidate_shifts)
+                shifts = np.asarray(candidate_shifts, dtype=int)
 
         world: dict[str, np.ndarray] = {}
         for name in remaining:
