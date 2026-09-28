@@ -1995,3 +1995,142 @@ Updated minimal NEXT WITNESS:
 \]
 
 equivalently, two-variable subgroup support restricted to the fixed order-depth condition \(d\mid\operatorname{ord}_Q(4)\).
+
+
+## 33. Cofinite-support no-go for nondyadic h
+
+The classical torus support problem gives a new unconditional boundary on the
+current existential frontier.
+
+For the source-calibrated torus points
+
+\[
+P=(4,4),
+\qquad
+T=(4^{s_h}h^2,\ 4^{s_\zeta}\zeta_d),
+\]
+
+Perucca's support theorem says:
+
+if
+
+\[
+\operatorname{ord}_Q(T)
+\mid
+\operatorname{ord}_Q(P)
+\]
+
+for all but finitely many good prime ideals Q, then there exist a torus
+endomorphism
+
+\[
+\phi\in\operatorname{End}(\mathbb G_m^2)
+\cong M_2(\mathbb Z)
+\]
+
+and a nonzero integer c such that
+
+\[
+\phi(P)=[c]T.
+\]
+
+For
+
+\[
+P=(4,4),
+\]
+
+every torus endomorphism gives coordinates that are integral powers of 4.
+
+Therefore the first coordinate of the global relation would force
+
+\[
+(4^{s_h}h^2)^c=4^m.
+\]
+
+For nonzero integer h this is possible only when
+
+\[
+\boxed{
+h=\pm2^k.
+}
+\]
+
+Hence for every nondyadic integer h,
+
+\[
+\boxed{
+\operatorname{ord}_Q(T)\nmid\operatorname{ord}_Q(P)
+}
+\]
+
+for infinitely many good prime ideals Q.
+
+In particular,
+
+\[
+\boxed{
+h=6
+\Longrightarrow
+\text{infinitely many joint-exposure failures unconditionally}.
+}
+\]
+
+This is compatible with the existing GRH positive-density success theorem.
+
+The signed-dyadic boundary is exact: if
+
+\[
+h=\pm2^k,
+\]
+
+then taking multiplier c=d kills the cyclotomic torsion and one can construct
+an endomorphism satisfying the necessary global relation.
+
+This does NOT prove cofinite support in the dyadic case; it proves only that
+the Perucca obstruction disappears.
+
+### Consequence for the frontier
+
+For generic nondyadic h the desired successful set, if proved infinite
+unconditionally, is necessarily non-cofinite.
+
+Therefore the current missing theorem cannot be replaced by a hidden
+almost-all-primes support theorem.
+
+The frontier remains:
+
+\[
+\boxed{
+\#\{Q:A_Q=1,\ D_Q=1\}=\infty,
+}
+\]
+
+but now with the independent unconditional fact
+
+\[
+\boxed{
+\#\{Q:(A_Q,D_Q)\ne(1,1)\}=\infty
+}
+\]
+
+for every nondyadic integer h.
+
+Source receipt:
+
+AdrianLipa90/On-Primes  
+branch research/arpl-torus-cofinite-no-go-v0.1-20260928-r2
+
+\[
+\boxed{
+a40ea5e58e727c743ca69ecf5c879aabdb6d8550.
+}
+\]
+
+Reference:
+
+A. Perucca,
+"Two variants of the support problem for products of abelian varieties and
+tori",
+J. Number Theory 129 (2009), 1883--1892,
+DOI 10.1016/j.jnt.2009.01.005.
