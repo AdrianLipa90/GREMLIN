@@ -206,3 +206,39 @@ Verified against current OpenAI documentation on 2026-09-28:
 - OpenAI API: Secure MCP Tunnel.
 
 These host requirements can change; exact-head GREMLIN validation must not substitute historical documentation for a fresh host-side install test.
+
+
+## Unified preflight
+
+The operator does not need to guess which ChatGPT transport path is viable.
+
+```text
+gremlin-chatgpt-install-check --json
+```
+
+checks both supported paths without exposing secrets:
+
+```text
+REMOTE_HTTPS_MCP
+SECURE_MCP_TUNNEL
+```
+
+An optional remote endpoint may be supplied:
+
+```text
+gremlin-chatgpt-install-check \
+  --endpoint https://gremlin.example/mcp \
+  --json
+```
+
+Possible top-level states are:
+
+- `PACKAGE_READY` — the portable remote-MCP package path is statically ready;
+- `TUNNEL_PREREQUISITES_READY` — the Secure MCP Tunnel prerequisites are present, but tunnel `init` + `doctor` and ChatGPT host admission still have to pass;
+- `BLOCKED` — neither route is ready, with per-route blocker details.
+
+The remote path has deterministic precedence when both paths are available. Neither of the first two states implies `CHATGPT_HOST_ADMISSION=PASS`.
+
+Reference implementation: `gremlin_mcp/chatgpt_install_preflight.py`.
+
+Tests: `tests/test_chatgpt_install_preflight_v1.py`.
