@@ -1900,3 +1900,46 @@ Current unconditional missing input:
 \]
 
 The GRH multivariable exact-index closure remains valid and unchanged.
+
+
+## 30. Two-exponent synchronization barrier
+
+For simultaneous support choose logs r_Q,s_Q modulo n_Q=ord_Q(4). For fixed integers u,v,c, the congruence
+
+\[
+ur_Q+vs_Q\equiv c\pmod{n_Q}
+\]
+
+implies \(\beta_h^u\beta_\zeta^v\equiv4^c\pmod Q\). If the corresponding global identity is false, only finitely many good prime ideals can satisfy that fixed affine synchronization.
+
+For h=6,d=5 the complete global relation lattice is
+
+\[
+\boxed{\mathcal L=\{(0,5k,25k):k\in\mathbb Z\}}.
+\]
+
+The same-exponent line is therefore nonpersistent. Its explicit norm certificate is
+
+\[
+N_{\mathbb Q(\zeta_5)/\mathbb Q}(576-1024\zeta_5)=2^{24}\cdot11\cdot71\cdot181.
+\]
+
+The calibrated source q=11 has \((r,s)=(1,1)\pmod5\), while the later simultaneous output q=61 has \((r,s)=(9,11)\pmod{30}\). Infinite simultaneous output must therefore use genuine rank-two exponent motion modulo the true global relation lattice.
+
+## 31. Pollack one-pair architecture barrier
+
+Pollack's generous-prime proof factors \((\alpha^q-\beta)\mathcal O_K\) for one prime exponent q and uses pairwise non-goodness to deduce \(q\mid N(P)-1\) for off-set prime divisors. That exact implication fails for the simultaneous-good complement: a prime may be pair-good for the h-target and simultaneous-bad because the cyclotomic target fails.
+
+The direct same-q finite-list lift is also impossible because every common divisor of \(\alpha^q-\beta_h\) and \(\alpha^q-\beta_\zeta\) divides the fixed difference \(\beta_\zeta-\beta_h\).
+
+The exact remaining rank-two ideal problem is
+
+\[
+\boxed{\#\bigcup_{r,s\in\mathbb Z}\operatorname{Supp}(\alpha^r-\beta_h,\alpha^s-\beta_\zeta)=\infty.}
+\]
+
+This is equivalent to the current torus order-divisibility / relative-index-one frontier. Existing gcd/S-unit results found in the literature give upper bounds on common gcd outside exceptional algebraic subgroups; they do not supply this infinitude theorem.
+
+Source receipts: 1e76c4739056537ed0ba69d9d957439678544f5e and 2d0082667076db14feb12f0cb815e596bced7dab.
+
+Updated unconditional NEXT WITNESS: RANK_TWO_GENEROUS_SUPPORT_PROPAGATION, or an exactly equivalent unconditional higher-rank torus support theorem.
