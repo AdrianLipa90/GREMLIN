@@ -1,0 +1,75 @@
+{
+  "schema": "GREMLIN_28_ERROR_AUDIT_REPAIR_V0_6",
+  "branch": "audit/gremlin-reflexive-postmerge-v06-20260928",
+  "supersedes": "provenance/GREMLIN_28_ERROR_AUDIT_REPAIR_V0_5.json",
+  "status": "PASS_POSTMERGE_STATE_RECONCILED",
+  "purpose": "Reconcile append-only provenance after PR #151 was merged after V0_5 had recorded main as unchanged, and bind a fresh post-reset live reflexive self-audit.",
+  "historical_state": {
+    "v0_5_was_true_at_creation": true,
+    "v0_5_recorded_main_unchanged": true,
+    "later_pr151_merge_observed": true,
+    "pr151_merged_at_utc": "2026-09-27T10:11:55Z",
+    "pr151_merged_head": "cf722a7d4358d57515ab510734cdceafb3a657a1",
+    "note": "V0_5 is not rewritten. Its promotion fields are historical-at-creation facts; V0_6 records the later state transition."
+  },
+  "current_repository_state": {
+    "observed_main_head": "016a087900141cab0145b92f6fa01e48c58837b5",
+    "observed_main_head_message": "Merge pull request #162 from AdrianLipa90/docs/post-lossless-main-refresh-20260927",
+    "resident_source_path": "runtime/noema/gremlind.py",
+    "resident_source_blob_sha": "faecb2cafb267266517ce6f0e52ff0c7d0e48034",
+    "original_source_commit": "9887662584ab5311dabe2da7c412eeb0766bb01c",
+    "original_source_blob_sha": "faecb2cafb267266517ce6f0e52ff0c7d0e48034",
+    "resident_source_exactly_preserved_after_merges": true,
+    "regression_path": "tests/test_noema_gremlind_reflexive_router_v01.py",
+    "parity_invariant_path": "runtime/noema/README.md"
+  },
+  "fresh_runtime_validation": {
+    "recovery_route": "FULL_AUTOBOOT_RECOVERY",
+    "q28_primary": true,
+    "static_fallback": false,
+    "candidate_bundle_sha256": "10f2760b99cace9171ae3ac33af83b063b9b1a9a7a56b6f85a3c6b164e093938",
+    "resident_pid": 695,
+    "resident_runtime_source_sha256": "52f390a3e44c09fc7a2cd1ca9f947a15c26754fe449faecefe8cc2b9749d0c5a",
+    "tether_guard": {
+      "schema": "noema.aux-tether-guard/v2",
+      "status": "ACTIVE",
+      "failures": [],
+      "max_heartbeat_age_s": 2
+    },
+    "positive_control": {
+      "task": "Audit provenance inconsistency: V0_2 supersedes V0_1; V0_1 was retroactively rewritten after supersession, creating temporal inversion in lineage",
+      "source_event_id": "gremlin:whisper:sha256:a83983867b391021d153d6be5dc4e051c3aceda3850a681bf750a69e95c78727",
+      "audit_event_id": "gremlin:whisper:sha256:93035cd392f69e98efd4ac2f37f2a6d3770c4e708f0be03bbb95f517418bc918",
+      "route_species": [
+        "OWL",
+        "HOUND",
+        "RAVEN"
+      ],
+      "selection_basis": "PHASENAV_ATTENTION_PLUS_GREMLIN_TYPED_ROLE_SYNTHESIS",
+      "authority": "CANDIDATE_ONLY",
+      "query_execution_authority": false,
+      "status": "PASS"
+    },
+    "negative_control": {
+      "task": "Audit provenance for this source",
+      "source_event_id": "gremlin:whisper:sha256:a1ea4768759662f0479495a920c8e788aac6fbd487af2c8a8c8af928dcf42ab8",
+      "audit_event_id": "gremlin:whisper:sha256:1605cdfba85a8a6a559722ea56ccf4133c2f8df91037ed0514e4342c50ca8a61",
+      "route_species": [
+        "OWL"
+      ],
+      "authority": "CANDIDATE_ONLY",
+      "status": "PASS_NO_OVERROUTE"
+    }
+  },
+  "diagnostic_boundary": {
+    "user_reported_count": 28,
+    "authoritative_itemized_source_available": false,
+    "exact_28_of_28_closure_claim": false
+  },
+  "authority": {
+    "canon_allowed": false,
+    "noema_current_promotion_performed": false,
+    "this_branch_main_mutation": false,
+    "merge_performed_in_this_reconciliation": false
+  }
+}
