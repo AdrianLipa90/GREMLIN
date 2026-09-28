@@ -112,8 +112,8 @@ def _spectral_path_gate(
             "slope_bins_per_run":slope,
             "raw_rank_p":raw_p,
             "difference_rank_p":diff_p,
-            "raw_log_prominence_score":observed,
-            "difference_log_prominence_score":observed_diff,
+            "raw_log_prominence_score":None if not np.isfinite(observed) else observed,
+            "difference_log_prominence_score":None if not np.isfinite(observed_diff) else observed_diff,
             "pass":passed,
         })
 
