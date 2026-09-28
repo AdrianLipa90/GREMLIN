@@ -136,3 +136,38 @@ def test_v04_duplicate_channels_leave_attribution_open():
     assert result["status"]=="PASS_WITH_ATTRIBUTION_ALIAS_OPEN"
     assert result["attribution_ambiguous"] is True
     assert result["alias_pairs"][0]["abs_correlation"]>0.999999
+
+
+def test_v04_recursive_rounds_refresh_alpha_and_false_accept_seed10100():
+    # Global-recursion FWER reproducer.
+    # One real nuisance is accepted first; round 2 then receives a fresh
+    # familywise alpha and deterministically admits a pure-noise proxy.
+    rng=np.random.default_rng(10100)
+    runs,n=8,64
+    true=rng.normal(size=(runs,n))
+    candidates={"true_0":true}
+    candidates.update({
+        f"noise_{j:02d}":rng.normal(size=(runs,n))
+        for j in range(7)
+    })
+    raw=0.9*true+rng.normal(size=(runs,n))
+
+    result,_,_=recursive_residual_decomposition_v04(
+        raw,
+        np.zeros_like(raw),
+        candidates,
+        _meta(candidates),
+        familywise_alpha=0.01,
+        null_count=255,
+        max_layers=3,
+    )
+
+    # This test intentionally pins the v0.4 failure so a later repair cannot
+    # silently erase the counterexample.
+    assert result["accepted_layers"]==["true_0","noise_04"]
+
+    round2=result["selection_rounds"][1]
+    score=round2["candidate_scores"]["noise_04"]
+    assert score["decision"]=="PASS"
+    assert score["conservative_holdout_gain"]>0.0100
+    assert score["familywise_max_null_threshold"]<score["conservative_holdout_gain"]
