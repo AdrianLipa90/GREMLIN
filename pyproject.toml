@@ -37,6 +37,7 @@ gremlinctl = "gremlin_mcp.install.cli:main"
 gremlin-ferret = "gremlin_mcp.ferret_cli:main"
 gremlin-workspace = "gremlin_mcp.workspace:main"
 gremlin-openai-tunnel = "gremlin_mcp.openai_tunnel:main"
+gremlin-chatgpt-package = "gremlin_mcp.chatgpt_clean_install:main"
 gremlin-semantic-graph-mcp = "gremlin_mcp.semantic_graph_server:main"
 
 [tool.setuptools.packages.find]
