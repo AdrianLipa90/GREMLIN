@@ -69,3 +69,28 @@ The external append-only/Git/timestamped provenance layer remains a trust root.
 A statistically passing candidate is not unique causal attribution.
 
 A sealed-bank PASS does not establish physical mechanism, new physics or time fluctuation.
+
+
+## Red-team trust-root reproducer
+
+The external trust boundary was attacked directly.
+
+A near-target candidate was constructed as
+
+[
+N = 0.999,RAW + 10^{-4}epsilon.
+]
+
+Its array commitment differs from RAW, so exact-hash defense does not fire.
+
+If the caller also supplies internally consistent but forged pre-target provenance
+fields, v0.16 admits the bank and the downstream v0.15 joint-null accepts the
+near-target candidate with approximately unit holdout gain and familywise
+Monte-Carlo p=1/128.
+
+Therefore v0.16 is retained as a provenance-contract layer, not a
+self-authenticating security boundary.
+
+A future repair must bind chronology to evidence obtained from an authority the
+analysis code cannot synthesize itself, such as externally queried append-only
+NOEMA/Library metadata or independently verified signed provenance.
