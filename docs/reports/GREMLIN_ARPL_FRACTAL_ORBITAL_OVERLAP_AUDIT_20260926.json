@@ -92,6 +92,16 @@
       "repo": "AdrianLipa90/On-Primes",
       "branch": "research/arpl-cyclotomic-two-target-frontier-v0.1-20260927",
       "validation_receipt_sha": "159058708e0b75afd3cbad8c855a0dcd71d8ed47"
+    },
+    "arpl_two_exponent_barrier": {
+      "repo": "AdrianLipa90/On-Primes",
+      "branch": "research/arpl-cyclotomic-two-target-frontier-v0.1-20260927",
+      "receipt_sha": "1e76c4739056537ed0ba69d9d957439678544f5e"
+    },
+    "arpl_pollack_rank_two_frontier": {
+      "repo": "AdrianLipa90/On-Primes",
+      "branch": "research/arpl-cyclotomic-two-target-frontier-v0.1-20260927",
+      "receipt_sha": "2d0082667076db14feb12f0cb815e596bced7dab"
     }
   },
   "exact_pass": [
@@ -123,7 +133,11 @@
     "ARPL_TWO_TARGET_TO_TORUS_ORDER_DIVISIBILITY",
     "ARPL_RANK_TWO_TORUS_SUBGROUP_REDUCTION",
     "ARPL_EXPOSURE_AS_RELATIVE_INDEX_ONE",
-    "ARPL_TWO_SUBGROUP_INDEX_EQUALITY_REDUCTION"
+    "ARPL_TWO_SUBGROUP_INDEX_EQUALITY_REDUCTION",
+    "FIXED_AFFINE_EXPONENT_RELATION_FINITE_SUPPORT",
+    "H6_D5_GLOBAL_RELATION_LATTICE",
+    "POLLACK_PAIR_PROOF_DIRECT_FINITE_LIST_LIFT_BLOCKED",
+    "RANK_TWO_GCD_SUPPORT_REDUCTION"
   ],
   "fail_preserved": [
     {
@@ -152,7 +166,11 @@
     "SHARED_FILTER_EXPONENT_SYNCHRONIZES_OUTPUT_PRIMES",
     "FINITE_SELECTED_ELL_ADIC_CONTROLS_IMPLY_GLOBAL_ORDER_DIVISIBILITY",
     "SINGLE_INDEX_GAMMA_DETERMINES_EXPOSURE",
-    "SINGLE_INDEX_W0_DETERMINES_EXPOSURE"
+    "SINGLE_INDEX_W0_DETERMINES_EXPOSURE",
+    "SAME_EXPONENT_INFINITE_SYNCHRONIZATION",
+    "FIXED_NONIDENTITY_AFFINE_SYNCHRONIZATION",
+    "POLLACK_SAME_EXPONENT_FINITE_LIST_LIFT",
+    "POLLACK_FIXED_AFFINE_ONE_PARAMETER_LIFT"
   ],
   "repaired": [
     "ON_PRIMES_PARENT_DIVERGENCE",
@@ -160,6 +178,7 @@
     "STALE_ARPL_SOURCE_PIN"
   ],
   "open": [
+    "RANK_TWO_GENEROUS_SUPPORT_PROPAGATION",
     "TWO_SUBGROUP_RELATIVE_INDEX_CORRELATION",
     "INFINITE_TORUS_ORDER_DIVISIBILITY_SUPPORT",
     "SIMULTANEOUS_CYCLOTOMIC_TWO_TARGET_SUPPORT",
@@ -169,7 +188,7 @@
     "HOSTED_CI"
   ],
   "canon_allowed": false,
-  "next_witness": "UNCONDITIONAL_TWO_SUBGROUP_RELATIVE_INDEX_CORRELATION_OR_EQUIVALENT_TORUS_SUPPORT",
+  "next_witness": "RANK_TWO_GENEROUS_SUPPORT_PROPAGATION_OR_EQUIVALENT_UNCONDITIONAL_TORUS_SUPPORT_THEOREM",
   "frontier": {
     "exact_reduction": "active q iff h in +/-<2>; mode exposed iff reduced denominator divides ord_q(4)",
     "status": "OPEN_ARTIN_TYPE",
@@ -218,7 +237,12 @@
     "finite_ell_adic_reduction_results": "INSUFFICIENT_FOR_ALL_ELL_DIVISIBILITY",
     "relative_index_formulation": "J(Q)=[Gamma_Q:<4>_Q]=I0(Q)/IGamma(Q); exposure iff J(Q)=1",
     "single_subgroup_index_results": "INSUFFICIENT_BY_EXPLICIT_SAME_INDEX_OPPOSITE_VERDICT_CONTROLS",
-    "current_unconditional_minimal_input": "TWO_SUBGROUP_RELATIVE_INDEX_CORRELATION"
+    "current_unconditional_minimal_input": "TWO_SUBGROUP_RELATIVE_INDEX_CORRELATION",
+    "exponent_geometry": "genuinely rank-two modulo global relation lattice",
+    "common_support_ideal": "union_{r,s} Supp(alpha^r-beta_h, alpha^s-beta_zeta)",
+    "pollack_direct_lift": "BLOCKED",
+    "unconditional_status": "OPEN",
+    "conditional_grh_status": "CLOSED_POSITIVE_DENSITY"
   },
   "excluded_evidence": [
     "CARELLA_ARXIV_2103_04822_V1_PROOF_INVALID_AS_PRINTED"
