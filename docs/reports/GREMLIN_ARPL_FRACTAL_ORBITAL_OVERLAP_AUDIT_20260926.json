@@ -127,6 +127,31 @@
         "ahead_by": 18,
         "behind_by": 0
       }
+    },
+    "arpl_relational_zero": {
+      "repo": "AdrianLipa90/On-Primes",
+      "branch": "research/arpl-relational-zero-exposure-v0.1-20260928",
+      "validation_receipt_sha": "605119b2b2e50ff6eb4cab550382b48630f14c67"
+    },
+    "orbital_relational_projectors": {
+      "repo": "AdrianLipa90/Orbital-System-base",
+      "branch": "formalism/fractal-orbital-moire-hilbert-v0.10-20260928",
+      "validation_receipt_sha": "ae9c11d4f0b835fe298c4ff31536d554bf978952"
+    },
+    "phasenav_relational_projectors": {
+      "repo": "AdrianLipa90/noema-phasenav-core",
+      "branch": "formalism/fractal-moire-hilbert-36d-bridge-v0.13-20260928",
+      "validation_receipt_sha": "25c080d8af9ada56771ee441ee97429578f45363"
+    },
+    "orbital_relational_information": {
+      "repo": "AdrianLipa90/Orbital-System-base",
+      "branch": "formalism/fractal-orbital-moire-hilbert-v0.11-20260928",
+      "validation_receipt_sha": "c96531e0816dba01f3ade8a849f67494d064727a"
+    },
+    "phasenav_relational_information": {
+      "repo": "AdrianLipa90/noema-phasenav-core",
+      "branch": "formalism/fractal-moire-hilbert-36d-bridge-v0.14-20260928",
+      "validation_receipt_sha": "8bbe5f7143114f51157a5c3b0c79cfac10bc88ea"
     }
   },
   "exact_pass": [
@@ -169,7 +194,14 @@
     "NONDYADIC_INFINITE_JOINT_EXPOSURE_FAILURES",
     "H6_INFINITE_JOINT_EXPOSURE_FAILURES",
     "SIGNED_DYADIC_SUPPORT_RELATION_BOUNDARY",
-    "POLLACK_TORSION_FILTER_COUNTERCONTROL"
+    "POLLACK_TORSION_FILTER_COUNTERCONTROL",
+    "RELATIONAL_AVERAGING_PROJECTOR",
+    "RELATIONAL_ZERO_PROJECTOR",
+    "ARPL_ACTIVITY_DEPTH_ORTHOGONAL_DEFECT_DECOMPOSITION",
+    "PRIME_FIBRE_ZERO_MULTIPLICITY_REDUCTION",
+    "RELATIONAL_UMEGAKI_INFORMATION_EQUALS_LOG_INDEX",
+    "RELATIONAL_INFORMATION_CHAIN_ADDITIVITY",
+    "BINARY_RELATIONAL_24PI_INFORMATION_EQUALS_KAPPA"
   ],
   "fail_preserved": [
     {
@@ -289,7 +321,11 @@
     "signed_dyadic_support_obstruction": "ABSENT_NECESSARY_RELATION_EXPLICIT",
     "unconditional_success_status": "OPEN_NONCOFINITE",
     "pollack_torsion_filter": "REFUTED_BY_P13_Q7_COUNTERCONTROL",
-    "next_analytic_route": "UNCONDITIONAL_RESTRICTED_TWO_VARIABLE_SUPPORT_OR_NEW_TORSION_GATE_CORRELATION"
+    "next_analytic_route": "UNCONDITIONAL_RESTRICTED_TWO_VARIABLE_SUPPORT_OR_NEW_TORSION_GATE_CORRELATION",
+    "operator_form": "Delta_Q=Pi_<4>-Pi_<4,beta_h,beta_zeta>; exposure iff Delta_Q=0",
+    "prime_fibre_spectral_form": "dim ker M_mu = infinity, mu(Q)=rank Delta_Q",
+    "relational_information": "D(rho_K||rho_H)=ln[K:H]",
+    "binary_information_24pi": "ln(2)/(24*pi)=kappa under canonical normalization"
   },
   "excluded_evidence": [
     "CARELLA_ARXIV_2103_04822_V1_PROOF_INVALID_AS_PRINTED"
