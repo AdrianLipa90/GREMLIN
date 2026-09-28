@@ -1,0 +1,44 @@
+{
+  "schema": "gremlin.crossrepo-48h-consolidation/v0.1",
+  "date": "2026-09-28",
+  "status": "PARTIAL_PASS_CONTENT_CONSOLIDATED_EXECUTION_GATES_BLOCKED_PRE_STEP",
+  "repositories": {
+    "Memory-Ontology": "CLEAN_CONTENT_CONSOLIDATED",
+    "BIONTOLOGY": "CLEAN_CONTENT_CONSOLIDATED",
+    "WARP": "MAIN_ONLY",
+    "Primordial-Black-Hole-in-the-Solar-System": "CLEAN_CONTENT_CONSOLIDATED",
+    "NOEMA-Telekom": "CLEAN_CONTENT_CONSOLIDATED",
+    "Clay-Solutions": "CLEAN_CONTENT_CONSOLIDATED",
+    "On-Primes": {
+      "state": "BLOCKED_PRE_STEP_CI",
+      "pr": 14,
+      "head": "bca34eb62cd3cda1712dfa1d650bff053f7f00f7",
+      "reverse_audit": {
+        "cyclotomic_missing_count": 0,
+        "infinite_clock_missing_count": 0,
+        "arithmetic_biontology_missing_count": 0
+      },
+      "runs": [
+        36364547091,
+        36364550485
+      ]
+    },
+    "GREMLIN": {
+      "state": "BLOCKED_PRE_STEP_CI",
+      "pr": 165,
+      "head": "d6c551cf3472ec8bf42d14f6d82f1e3f685c093c",
+      "runs": [
+        36363467824
+      ]
+    }
+  },
+  "ci_failure_classification": "ACCOUNT_OR_RUNNER_LAYER_PRE_STEP_FAILURE_ROOT_CAUSE_NOT_VISIBLE_VIA_CURRENT_CONNECTOR",
+  "invariants": {
+    "exact_head_guards": true,
+    "force_merges": false,
+    "history_only_merges": false,
+    "proof_firewalls_preserved": true,
+    "blocked_branches_not_promoted": true
+  },
+  "canon_allowed": false
+}
