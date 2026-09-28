@@ -1,7 +1,7 @@
 {
   "schema": "GREMLIN_SELF_AUDIT_INTEGRATION_V0_1",
   "date": "2026-09-28",
-  "status": "INTEGRATED_CANDIDATE_EXACT_LOCAL_TEST_PENDING_TRANSPORT",
+  "status": "INTEGRATED_CANDIDATE_PARTIAL_EXACT_REPLAY_PASS_REMAINING_EXACT_REPLAY_OPEN",
   "authority": "CANDIDATE_ONLY",
   "canon_allowed": false,
   "base_main": "3298365027ec3a74546fde5895c7c4fd79bf1c9a",
@@ -13,7 +13,7 @@
     "guard_failures": [],
     "fail_closed": true,
     "startpoint_status": "VERIFIED",
-    "startpoint_packet_sha256": "06208771ed29b2fc6942f3597f01fe2853f5ac893e0b12b5da92febff7e90a93"
+    "startpoint_packet_sha256": "79e84772063cb5ed55052fac1ecda8bdb7f3ee1a7711faa2b9b53cecc4fd70e3"
   },
   "live_gremlin": {
     "daemon_status": "ACTIVE",
@@ -116,11 +116,54 @@
       "private signed raw URLs are not accepted by container download bridge",
       "YepCode execution connector returned FORBIDDEN because no authorized team ID is configured"
     ],
-    "interpretation": "ENVIRONMENT/TRANSPORT BLOCKER; NOT A CODE TEST FAILURE"
+    "interpretation": "ENVIRONMENT/TRANSPORT BLOCKER; NOT A CODE TEST FAILURE",
+    "library_proxy_manifest_sha256_entries": 6,
+    "library_proxy_manifest_mismatches": 0,
+    "library_proxy_selftest_receipts": [
+      {
+        "verdict": "PASS",
+        "commands": [
+          "compileall",
+          "unittest"
+        ]
+      },
+      {
+        "verdict": "PASS",
+        "commands": [
+          "compileall",
+          "unittest"
+        ]
+      }
+    ],
+    "integration_exact_targeted_replay": {
+      "scope": "v15 joint-family null module + exact v15 red-team test",
+      "module": "gremlin_mcp/joint_family_null_v15.py",
+      "module_blob_sha": "fa8d960d20d9034b104670fc09793038c80cc453",
+      "test": "tests/redteam/test_joint_family_null_v15.py",
+      "test_blob_sha": "83d3530ff402a89ba88cc9ac3d678d4bf781ccfa",
+      "blob_sha_matches": "2/2",
+      "pytest": "4 passed",
+      "pytest_seconds": 0.97,
+      "status": "PASS"
+    },
+    "remaining_exact_replay": {
+      "scope": "current integration tree v10-v14 residual red-team closure",
+      "status": "OPEN",
+      "reason": "host container cannot resolve GitHub; private raw download bridge unavailable; YepCode runner lacks authorized team ID",
+      "classification": "ENVIRONMENT_TRANSPORT_LIMITATION_NOT_CODE_FAILURE"
+    }
   },
   "promotion_gate": {
-    "branch_merge_to_main": "BLOCKED_UNTIL_EXACT_TEST_PASS_AND_EXPLICIT_USER_AUTHORIZATION",
-    "monograph_refresh": "BLOCKED_UNTIL_EXACT_TEST_PASS",
+    "branch_merge_to_main": "BLOCKED_UNTIL_FULL_EXACT_TEST_PASS_AND_EXPLICIT_USER_AUTHORIZATION",
+    "monograph_refresh": "BLOCKED_UNTIL_FULL_EXACT_TEST_PASS",
     "delete_source_branches": false
+  },
+  "historical_validation": {
+    "v10": "INDEPENDENT_REFERENCE_MONTE_CARLO_PASS_WITH_OPEN_TAIL_CALIBRATION; exact branch tests were not executed in its original receipt",
+    "v11": "LOCAL_CORE_REPLAY_6_OF_6_PASS; exact package replay open in original receipt",
+    "v12": "INDEPENDENT_PROTOTYPE_REDTEAM_PASS; exact package replay open in original receipt",
+    "v13": "INDEPENDENT_HARNESS_PASS; exact package replay blocked by executor auth in original receipt",
+    "v14": "INDEPENDENT_WITNESS_PASS; exact package replay open in original receipt",
+    "v15": "CURRENT_INTEGRATION_EXACT_TARGETED_REPLAY_4_OF_4_PASS"
   }
 }
