@@ -49,8 +49,8 @@ def _line(seed, fbin, amplitude, runs=16, n=4096):
 def test_v05_recovers_low_frequency_feature_hidden_by_v04_difference_bias():
     raw = _line(601, fbin=3.0, amplitude=0.2)
     out = analyze_residual_stack_v05(raw, np.zeros_like(raw))
-    assert out["classification"] == "UNRESOLVED_LOW_FREQUENCY_SPECTRAL_FEATURE_CANDIDATE"
-    gate = out["metrics"]["crossfit_low_frequency_feature_gate"]
+    assert out["classification"] == "UNRESOLVED_DIFFERENCE_ATTENUATED_SPECTRAL_FEATURE_CANDIDATE"
+    gate = out["metrics"]["crossfit_difference_attenuation_feature_gate"]
     assert gate["pass"] is True
     assert gate["median_discovery_bin"] <= 5
 
@@ -59,14 +59,14 @@ def test_v05_powerlaw_background_stays_colored_background():
     raw = _powerlaw(602, alpha=1.5)
     out = analyze_residual_stack_v05(raw, np.zeros_like(raw))
     assert out["classification"] == "STOCHASTIC_COLORED_BACKGROUND_COMPATIBLE"
-    assert out["metrics"]["crossfit_low_frequency_feature_gate"]["pass"] is False
+    assert out["metrics"]["crossfit_difference_attenuation_feature_gate"]["pass"] is False
 
 
 def test_v05_spectral_knee_is_preserved_as_feature_not_called_line():
     raw = _broken_powerlaw(603, knee=8)
     out = analyze_residual_stack_v05(raw, np.zeros_like(raw))
     assert out["classification"] in {
-        "UNRESOLVED_LOW_FREQUENCY_SPECTRAL_FEATURE_CANDIDATE",
+        "UNRESOLVED_DIFFERENCE_ATTENUATED_SPECTRAL_FEATURE_CANDIDATE",
         "STOCHASTIC_COLORED_BACKGROUND_COMPATIBLE",
         "UNRESOLVED_RESIDUAL",
     }
@@ -83,4 +83,4 @@ def test_v05_white_noise_remains_nonstructured():
     raw = np.random.default_rng(605).normal(size=(16, 4096))
     out = analyze_residual_stack_v05(raw, np.zeros_like(raw))
     assert out["classification"] == "STOCHASTIC_WHITE_BACKGROUND_COMPATIBLE"
-    assert out["metrics"]["crossfit_low_frequency_feature_gate"]["pass"] is False
+    assert out["metrics"]["crossfit_difference_attenuation_feature_gate"]["pass"] is False
