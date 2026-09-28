@@ -15,7 +15,15 @@ GREMLIN Workspace binds to loopback only and remains subject to the same signed 
 
 CHATGPT CLEAN ACCOUNT
 ---------------------
-ChatGPT is not installed through the local Control Center provider path. A clean ChatGPT account requires a portable GREMLIN plugin package bound to a remotely reachable HTTPS MCP endpoint. Build it with `gremlin-chatgpt-package --build --endpoint https://HOST/mcp`. Localhost, private IPs, prior ChatGPT Memory/Library state, and /dev/shm are explicitly rejected as clean-account dependencies.
+ChatGPT is a separate deployment surface and is not installed through the local Control Center provider path.
+
+A clean ChatGPT account requires a portable GREMLIN plugin package bound to a remotely reachable HTTPS Streamable HTTP MCP endpoint. Build it with:
+
+gremlin-chatgpt-package --build --endpoint https://HOST/mcp
+
+A successful build is PACKAGE_READY, not end-to-end READY. The remaining CHATGPT_HOST_ADMISSION gate must be completed in ChatGPT by registering/installing the plugin, running Scan Tools (or the current equivalent), reviewing permissions, and verifying that GREMLIN tools are actually discovered.
+
+Localhost, private IPs, URL-embedded credentials/query tokens, prior ChatGPT Memory/Library state, and /dev/shm are explicitly rejected as clean-account dependencies.
 
 Supported on Windows:
 - OpenAI Codex
