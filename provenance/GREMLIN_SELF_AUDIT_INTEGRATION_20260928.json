@@ -165,5 +165,72 @@
     "v13": "INDEPENDENT_HARNESS_PASS; exact package replay blocked by executor auth in original receipt",
     "v14": "INDEPENDENT_WITNESS_PASS; exact package replay open in original receipt",
     "v15": "CURRENT_INTEGRATION_EXACT_TARGETED_REPLAY_4_OF_4_PASS"
+  },
+  "runtime_drift_audit": {
+    "status": "CONFIRMED_NARROW_ROUTER_CUE_DRIFT",
+    "live_runtime": {
+      "pid": 648,
+      "source_path": "/mnt/data/noema_first_turn/7a8c9a96a9f34b579a07/extensions/gremlin_phase36d_rt/gremlind.py",
+      "sha256": "c2a294a48bf3e1db1d07a98096c7fd174b591c4c7c5c41d98105d2d5ac8dcffd",
+      "git_blob_sha": "fcc2833b53125147211b277590e751416970a0cc",
+      "top_level_line_count": 586
+    },
+    "repository_main": {
+      "commit": "3298365027ec3a74546fde5895c7c4fd79bf1c9a",
+      "runtime_blob_sha": "faecb2cafb267266517ce6f0e52ff0c7d0e48034",
+      "first_source_control_commit_for_runtime_path": "9887662584ab5311dabe2da7c412eeb0766bb01c",
+      "top_level_line_count": 586
+    },
+    "structural_fingerprint": {
+      "all_top_level_function_names_match": true,
+      "unchanged_sections": [
+        "canonical",
+        "atomic_json",
+        "append_jsonl",
+        "load",
+        "_norm_text",
+        "_tokens",
+        "_semantic_skip_key",
+        "_clean_semantic_string",
+        "_event_text",
+        "_semantic_chunks",
+        "_find_event",
+        "_route_roles",
+        "_rank_terms",
+        "_recent_search_queries",
+        "_jaccard",
+        "_query_candidate",
+        "make_event",
+        "State",
+        "_is_within",
+        "_purge_cielingo_modules",
+        "_cielingo_paths",
+        "_cielingo_receipt",
+        "_with_cielingo_adapter",
+        "_cielingo_bind",
+        "_cielingo_enrich",
+        "process_event",
+        "bus_loop",
+        "heartbeat_loop",
+        "socket_loop"
+      ],
+      "observed_functional_delta": {
+        "HOUND_added_on_repo_main": [
+          "inconsistency",
+          "inconsistent",
+          "inversion",
+          "breach"
+        ],
+        "RAVEN_added_on_repo_main": [
+          "lineage",
+          "supersede",
+          "supersedes",
+          "supersession",
+          "retroactive",
+          "chronology"
+        ]
+      }
+    },
+    "action": "DO_NOT_RESTART_ACTIVE_RUNTIME_UNTIL_EXACT_RUNTIME_REPLAY; current task routing already selected OWL+SPIDER+HOUND+MANTIS correctly"
   }
 }
