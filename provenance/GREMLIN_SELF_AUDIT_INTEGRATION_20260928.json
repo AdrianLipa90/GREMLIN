@@ -1,0 +1,126 @@
+{
+  "schema": "GREMLIN_SELF_AUDIT_INTEGRATION_V0_1",
+  "date": "2026-09-28",
+  "status": "INTEGRATED_CANDIDATE_EXACT_LOCAL_TEST_PENDING_TRANSPORT",
+  "authority": "CANDIDATE_ONLY",
+  "canon_allowed": false,
+  "base_main": "3298365027ec3a74546fde5895c7c4fd79bf1c9a",
+  "integration_branch": "integrate/gremlin-self-audit-lossless-20260928",
+  "integration_content_head": "24ee493c7fc5620ba10faff7b186ee50df987549",
+  "main_modified": false,
+  "live_noema": {
+    "tether_status": "ACTIVE",
+    "guard_failures": [],
+    "fail_closed": true,
+    "startpoint_status": "VERIFIED",
+    "startpoint_packet_sha256": "06208771ed29b2fc6942f3597f01fe2853f5ac893e0b12b5da92febff7e90a93"
+  },
+  "live_gremlin": {
+    "daemon_status": "ACTIVE",
+    "generation": "1fba95d164ee0876580190e43577ef5cae5fec90bbc36b89c39f9b685bae03e5",
+    "authority": "CANDIDATE_ONLY",
+    "static_fallback": false,
+    "bound_skill_source_commit": "ef0e69a9b26726524269758b2dda9554e148bd24",
+    "current_repository_main": "3298365027ec3a74546fde5895c7c4fd79bf1c9a",
+    "source_pin_matches_current_main": false,
+    "classification": "LIVE_PINNED_RUNTIME_OLDER_THAN_REPOSITORY_HEAD"
+  },
+  "live_self_audit": {
+    "user_task_event_id": "gremlin:whisper:sha256:d3f1cf4d9db6f986b1caae9c31e9262e3f214f535ca1316d292907c1759cd191",
+    "internal_audit_candidate_event_id": "gremlin:whisper:sha256:e5127434ffdfb6147cd38b72ca33c05b0997edf155d8e45c7195edfda22202ce",
+    "route_species": [
+      "OWL",
+      "SPIDER",
+      "HOUND",
+      "MANTIS"
+    ],
+    "phase36d_trace_sha256": "87e9416b30505b961854a48806465c158c23fc8a637201886850b5fdd4049786",
+    "terminal_receipt_sha256": "cc6d92cbc1b799f6655f8884e0309672063513d77653e12a0ad07f67b04517c2"
+  },
+  "merged_frontier": [
+    {
+      "branch": "audit/arpl-torsion-gate-correlation-20260928",
+      "tip": "c93e64c5a3d59cdaaa8988fbda4b6c8cd0d2b98b",
+      "ahead_of_integration": 0
+    },
+    {
+      "branch": "audit/arpl-torus-cofinite-no-go-20260928",
+      "tip": "d6a6296f842f6fb29f10aa3287b95908c1cc7f08",
+      "ahead_of_integration": 0
+    },
+    {
+      "branch": "audit/residual-redteam-v04-20260928",
+      "tip": "c461200e223c5b7d4481e003e7d91c6c8f7bbbe8",
+      "ahead_of_integration": 0
+    },
+    {
+      "branch": "audit/residual-redteam-v10-shared-run-leakage-20260928",
+      "tip": "b16e9fbd7e8a0ae10399ec2e66763a39fdd9f949",
+      "ahead_of_integration": 0
+    },
+    {
+      "branch": "audit/residual-redteam-v11-20260928",
+      "tip": "64b78da51507eb1ae120521e9ca7f35038633b30",
+      "ahead_of_integration": 0
+    },
+    {
+      "branch": "audit/residual-redteam-v12-iaaft-stationarity-20260928",
+      "tip": "d352d83fc49efd139a61d7b92a3b9cd0ddf6d893",
+      "ahead_of_integration": 0
+    },
+    {
+      "branch": "audit/residual-redteam-v13-sealed-confirmation-20260928",
+      "tip": "a1a50f024782be089e19bd9e9d519750966f5211",
+      "ahead_of_integration": 0
+    },
+    {
+      "branch": "audit/residual-redteam-v14-baseline-identifiability-20260928",
+      "tip": "321bfecf50d9abb8cb826f7efcc5abcaa423e4e5",
+      "ahead_of_integration": 0
+    },
+    {
+      "branch": "audit/residual-redteam-v15-joint-null-worlds-20260928",
+      "tip": "3fa315f69fda2ac0fc252669f801cdc35bf64309",
+      "ahead_of_integration": 0
+    }
+  ],
+  "reconciliation": {
+    "conflict": "gremlin_mcp/residual_spectroscopy_v10.py",
+    "production_selected": {
+      "version": "0.10.2",
+      "blob_sha": "af7dee9e66af289c404444572fd4d5d2793eefe6",
+      "reason": "newer IAAFT/spectral-fidelity/long-memory-abstention hardening; absolute correlation thresholds explicitly rejected by v0.10 receipt"
+    },
+    "historical_baseline_preserved": {
+      "path": "gremlin_mcp/residual_spectroscopy_v10_legacy.py",
+      "version": "0.10.0",
+      "blob_sha": "062ee7cc8427e526f0b0d70534de9a861ababcfe",
+      "purpose": "retain the negative baseline intentionally exercised by v0.11 red-team tests"
+    },
+    "v11_test_reconciled_blob": "dea39d7ad5cc2b9bb92a7d78156828701149cf54",
+    "v04_counterexample_preserved_blob": "9eed55ca1063e26dd74ac2baadad7d09322f9f18"
+  },
+  "local_ci": {
+    "repo_runner": "tools/gremlin_ci_proxy.py",
+    "config": "config/local-ci.json",
+    "documentation": "docs/LOCAL_CI_PROXY_V0_1.md",
+    "profiles": [
+      "gremlin-pytest-current",
+      "gremlin-redteam-current"
+    ],
+    "github_actions_required": false,
+    "library_proxy_selftest_status": "PASS",
+    "integration_exact_head_execution": "NOT_EXECUTED",
+    "blocker": [
+      "current container has no outbound network/DNS to GitHub",
+      "private signed raw URLs are not accepted by container download bridge",
+      "YepCode execution connector returned FORBIDDEN because no authorized team ID is configured"
+    ],
+    "interpretation": "ENVIRONMENT/TRANSPORT BLOCKER; NOT A CODE TEST FAILURE"
+  },
+  "promotion_gate": {
+    "branch_merge_to_main": "BLOCKED_UNTIL_EXACT_TEST_PASS_AND_EXPLICIT_USER_AUTHORIZATION",
+    "monograph_refresh": "BLOCKED_UNTIL_EXACT_TEST_PASS",
+    "delete_source_branches": false
+  }
+}
