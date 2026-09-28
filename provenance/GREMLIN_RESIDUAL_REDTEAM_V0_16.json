@@ -1,0 +1,32 @@
+{
+  "schema":"GREMLIN_RESIDUAL_REDTEAM_V0_16_RECEIPT",
+  "date":"2026-09-28",
+  "status":"IMPLEMENTED_CANDIDATE_LOCAL_REPLAY_PENDING",
+  "branch":"audit/residual-redteam-v16-sealed-candidate-bank-20260928",
+  "base_branch":"audit/residual-redteam-v15-joint-null-worlds-20260928",
+  "base_sha":"886c20e6c1d0b4559a99526e1616f5c5ddbfb06e",
+  "failure_reproducer":{
+    "v15_target_derived_raw_copy":true,
+    "v15_holdout_gain":1.0,
+    "v15_familywise_p":0.0078125
+  },
+  "v16_gates":[
+    "analysis plan commitment",
+    "exact candidate array commitments",
+    "metadata commitments",
+    "source commitments",
+    "external provenance receipt",
+    "seal timestamp before target access",
+    "target RAW/model access receipt",
+    "post-seal bank mutation rejection",
+    "exact RAW-copy defense-in-depth rejection"
+  ],
+  "claim_boundary":{
+    "external_timestamp_truth_proven_by_code":false,
+    "causal_independence_proven_by_code":false,
+    "passing_candidate_is_unique_cause":false,
+    "new_physics_established":false,
+    "time_fluctuation_established":false
+  },
+  "main_modified":false
+}
