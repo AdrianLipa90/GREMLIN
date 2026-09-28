@@ -1,7 +1,7 @@
 {
   "schema": "GREMLIN_SELF_AUDIT_INTEGRATION_V0_1",
   "date": "2026-09-28",
-  "status": "INTEGRATED_CANDIDATE_PARTIAL_EXACT_REPLAY_PASS_REMAINING_EXACT_REPLAY_OPEN",
+  "status": "INTEGRATED_CANDIDATE_PARTIAL_EXACT_REPLAY_PASS_V13_V14_V15_REMAINING_V10_V12_OPEN",
   "authority": "CANDIDATE_ONLY",
   "canon_allowed": false,
   "base_main": "3298365027ec3a74546fde5895c7c4fd79bf1c9a",
@@ -147,10 +147,31 @@
       "status": "PASS"
     },
     "remaining_exact_replay": {
-      "scope": "current integration tree v10-v14 residual red-team closure",
+      "scope": "current integration tree v10-v12 residual red-team closure",
       "status": "OPEN",
-      "reason": "host container cannot resolve GitHub; private raw download bridge unavailable; YepCode runner lacks authorized team ID",
-      "classification": "ENVIRONMENT_TRANSPORT_LIMITATION_NOT_CODE_FAILURE"
+      "reason": "requires reconstruction of shared v02-v12 dependency closure from exact Git blobs",
+      "classification": "WORK_IN_PROGRESS_NOT_CODE_FAILURE"
+    },
+    "integration_exact_targeted_replay_v13": {
+      "scope": "v13 sealed-confirmation module + exact v13 red-team test",
+      "module": "gremlin_mcp/recursive_residual_confirm_v13.py",
+      "module_blob_sha": "071971edea4a09c6fc5e71fdf41eb6b95fd78609",
+      "test": "tests/redteam/test_recursive_residual_confirm_v13.py",
+      "test_blob_sha": "12457a780b629ff9a97ba27852bedbbf91d07d57",
+      "blob_sha_matches": "2/2",
+      "pytest": "9 passed",
+      "status": "PASS"
+    },
+    "integration_exact_targeted_replay_v14": {
+      "scope": "v14 baseline-extension identifiability module + exact v14 red-team test",
+      "module": "gremlin_mcp/residual_identifiability_v14.py",
+      "module_blob_sha": "109a105c3d776078ef0c1e4ac1e11a5638db7b2f",
+      "test": "tests/redteam/test_residual_identifiability_v14.py",
+      "test_blob_sha": "f7238daac9701967d9d2fd0ff10c67f2a7db0d0b",
+      "blob_sha_matches": "2/2",
+      "pytest": "5 passed",
+      "status": "PASS",
+      "note": "first local transcription attempt changed whitespace and failed blob-SHA gate; no test result from that attempt was accepted; exact text was restored before replay"
     }
   },
   "promotion_gate": {
@@ -162,8 +183,8 @@
     "v10": "INDEPENDENT_REFERENCE_MONTE_CARLO_PASS_WITH_OPEN_TAIL_CALIBRATION; exact branch tests were not executed in its original receipt",
     "v11": "LOCAL_CORE_REPLAY_6_OF_6_PASS; exact package replay open in original receipt",
     "v12": "INDEPENDENT_PROTOTYPE_REDTEAM_PASS; exact package replay open in original receipt",
-    "v13": "INDEPENDENT_HARNESS_PASS; exact package replay blocked by executor auth in original receipt",
-    "v14": "INDEPENDENT_WITNESS_PASS; exact package replay open in original receipt",
+    "v13": "CURRENT_INTEGRATION_EXACT_TARGETED_REPLAY_9_OF_9_PASS",
+    "v14": "CURRENT_INTEGRATION_EXACT_TARGETED_REPLAY_5_OF_5_PASS",
     "v15": "CURRENT_INTEGRATION_EXACT_TARGETED_REPLAY_4_OF_4_PASS"
   },
   "runtime_drift_audit": {
