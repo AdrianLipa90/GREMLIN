@@ -1,0 +1,55 @@
+{
+  "schema":"GREMLIN_RESIDUAL_REDTEAM_V0_7_RECEIPT",
+  "date":"2026-09-28",
+  "status":"IMPLEMENTED_CANDIDATE_CORE_GATE_REPLAY_PASS_EXACT_BRANCH_CI_PENDING",
+  "branch":"audit/residual-redteam-v07-20260928",
+  "base_branch":"audit/residual-redteam-v06-20260928",
+  "base_sha":"c125c21285a8f50cf3a4ed9825866c093d8188ec",
+  "gremlin_authority":"CANDIDATE_ONLY",
+  "fixed_prominence_floor":{
+    "band_width":5,
+    "threshold":2.5,
+    "ideal_white_exact_bin_formula":"A/sigma >= 2*sqrt(w*(tau-1)/N)",
+    "N1024":0.1711632992203644,
+    "N2048":0.12103072956898178,
+    "N4096":0.0855816496101822
+  },
+  "deterministic_witness":{
+    "seed":130000,
+    "shape":[32,2048],
+    "line_amplitude_sigma":0.10,
+    "line_bin":137.5,
+    "legacy_v06":"STOCHASTIC_WHITE_BACKGROUND_COMPATIBLE",
+    "v07_core_gate":"PASS_4_OF_4",
+    "discovery_bins":[136,138,136,138],
+    "raw_holdout_rank_p":[0.004024144869215292,0.0030181086519114686,0.004024144869215292,0.005030181086519115],
+    "difference_holdout_rank_p":[0.005035246727089627,0.004028197381671702,0.004028197381671702,0.005035246727089627]
+  },
+  "core_gate_replay":{
+    "white_seed_bank":"20/20 reject accumulation",
+    "ar1_seed_bank":"10/10 reject accumulation",
+    "outlier_contamination":"1,2,3 contaminated runs all reject accumulation",
+    "colored_weak_line_seed_220000":"PASS_4_OF_4"
+  },
+  "exploratory_power":{
+    "white_A0_10_N2048":{"runs8":"7/50","runs16":"37/50","runs32":"50/50","runs64":"50/50"},
+    "ar1_phi0_8_A0_35_N2048":{"runs8":"46/50","runs16":"50/50","runs32":"50/50","runs64":"50/50"}
+  },
+  "exploratory_false_positive":{
+    "white":"0/100",
+    "ar1":"0/50",
+    "one_over_f":"0/50",
+    "outlier_runs_1":"0/100",
+    "outlier_runs_2":"0/100",
+    "outlier_runs_3":"0/100"
+  },
+  "claim_boundary":{
+    "frequency_rank_is_fully_calibrated_p_value":false,
+    "false_positive_rate_fully_calibrated":false,
+    "detection_power_fully_calibrated":false,
+    "accumulation_candidate_is_physical_attribution":false,
+    "new_physics_established":false,
+    "time_fluctuation_established":false
+  },
+  "main_modified":false
+}
