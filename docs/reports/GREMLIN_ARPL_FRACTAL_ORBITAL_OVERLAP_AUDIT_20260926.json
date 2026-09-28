@@ -112,6 +112,11 @@
       "repo": "AdrianLipa90/On-Primes",
       "branch": "research/arpl-cyclotomic-two-target-frontier-v0.1-20260927",
       "receipt_sha": "40b6ecaaf824f3dfc8711c0620dfb4916011a1b8"
+    },
+    "arpl_torus_cofinite_no_go": {
+      "repo": "AdrianLipa90/On-Primes",
+      "branch": "research/arpl-torus-cofinite-no-go-v0.1-20260928-r2",
+      "validation_receipt_sha": "a40ea5e58e727c743ca69ecf5c879aabdb6d8550"
     }
   },
   "exact_pass": [
@@ -150,7 +155,10 @@
     "RANK_TWO_GCD_SUPPORT_REDUCTION",
     "TORSION_GATE_FINITE_STATE_REDUCTION",
     "CYCLOTOMIC_TARGET_LOG_PARAMETRIZATION",
-    "CYCLOTOMIC_TARGET_IS_FINITE_STATE_AFTER_ORDER_GATE"
+    "CYCLOTOMIC_TARGET_IS_FINITE_STATE_AFTER_ORDER_GATE",
+    "NONDYADIC_INFINITE_JOINT_EXPOSURE_FAILURES",
+    "H6_INFINITE_JOINT_EXPOSURE_FAILURES",
+    "SIGNED_DYADIC_SUPPORT_RELATION_BOUNDARY"
   ],
   "fail_preserved": [
     {
@@ -184,7 +192,8 @@
     "FIXED_NONIDENTITY_AFFINE_SYNCHRONIZATION",
     "POLLACK_SAME_EXPONENT_FINITE_LIST_LIFT",
     "POLLACK_FIXED_AFFINE_ONE_PARAMETER_LIFT",
-    "GENERIC_SECOND_TARGET_SUPPORT_THEOREM_REQUIRED_AS_MINIMAL_INPUT"
+    "GENERIC_SECOND_TARGET_SUPPORT_THEOREM_REQUIRED_AS_MINIMAL_INPUT",
+    "NONDYADIC_COFINITE_JOINT_EXPOSURE"
   ],
   "repaired": [
     "ON_PRIMES_PARENT_DIVERGENCE",
@@ -260,7 +269,12 @@
     "conditional_grh_status": "CLOSED_POSITIVE_DENSITY",
     "minimal_form": "E_{h,d}=S_h cap T_d = {Q:A_Q=1,D_Q=1}",
     "second_target": "finite-state cyclotomic log once d|ord_Q(4)",
-    "generic_rank_two": "EQUIVALENT_BUT_NOT_MINIMAL"
+    "generic_rank_two": "EQUIVALENT_BUT_NOT_MINIMAL",
+    "nondyadic_cofinite_success": "REFUTED_BY_SUPPORT_PROBLEM",
+    "nondyadic_failure_set": "INFINITE_UNCONDITIONALLY",
+    "h6_failure_set": "INFINITE_UNCONDITIONALLY",
+    "signed_dyadic_support_obstruction": "ABSENT_NECESSARY_RELATION_EXPLICIT",
+    "unconditional_success_status": "OPEN_NONCOFINITE"
   },
   "excluded_evidence": [
     "CARELLA_ARXIV_2103_04822_V1_PROOF_INVALID_AS_PRINTED"
