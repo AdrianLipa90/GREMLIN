@@ -35,6 +35,8 @@ def recursive_residual_decomposition_v05(
     max_candidates:int=64,
     alias_abs_correlation:float=0.97,
     max_layers:int=8,
+    analysis_plan_sha256:str,
+    analysis_plan_frozen_before_fit:bool,
 )->tuple[dict[str,Any],np.ndarray,np.ndarray]:
     raw=np.asarray(raw_runs,float)
     initial=np.asarray(initial_model_runs,float)
@@ -46,6 +48,14 @@ def recursive_residual_decomposition_v05(
         raise ValueError("at least one frozen nuisance component is required")
     if not (0.0<global_familywise_alpha<1.0):
         raise ValueError("global_familywise_alpha must be in (0,1)")
+    if analysis_plan_frozen_before_fit is not True:
+        raise ValueError("analysis plan was not frozen before fit")
+    if (
+        not isinstance(analysis_plan_sha256,str)
+        or len(analysis_plan_sha256)!=64
+        or any(ch not in "0123456789abcdef" for ch in analysis_plan_sha256.lower())
+    ):
+        raise ValueError("analysis_plan_sha256 must be a 64-character hex digest")
     if max_layers<1:
         raise ValueError("max_layers must be positive")
     if len(nuisance_components)>max_candidates:
@@ -247,7 +257,10 @@ def recursive_residual_decomposition_v05(
         "alias_pairs":alias_pairs,
         "attribution_ambiguous":bool(alias_with_accepted),
         "final_packet":final_packet,
+        "analysis_plan_sha256":analysis_plan_sha256.lower(),
         "policy":{
+            "analysis_plan_frozen_before_fit":True,
+            "candidate_bank_and_thresholds_bound_to_analysis_plan":True,
             "global_familywise_alpha":float(global_familywise_alpha),
             "declared_max_layers":int(max_layers),
             "round_alpha_budget":round_alpha,
