@@ -174,3 +174,35 @@ def test_v07_untrusted_authority_blocks():
         assert "untrusted provenance authority" in str(exc)
     else:
         raise AssertionError("untrusted authority accepted")
+
+
+def test_v07_structurally_forged_trusted_receipt_is_external_trust_boundary():
+    # Deliberate limitation reproducer.
+    # Local code can validate structure/hash/binding but cannot authenticate that
+    # an allowed authority actually issued the receipt.
+    rng=np.random.default_rng(778)
+    raw=rng.normal(size=(24,64))
+    candidates={"forged_target_copy":raw.copy()}
+    receipts=_receipts(candidates)
+    # Maliciously forged fields claim trusted provenance even though candidate
+    # is target-derived. Local structural checks cannot discover this lie.
+
+    result,_,_=provenance_bound_sealed_abc_v07(
+        raw,
+        np.zeros_like(raw),
+        candidates,
+        _meta(candidates),
+        receipts,
+        discovery_runs=A,
+        confirmation_runs=B,
+        replication_runs=C,
+        analysis_plan_sha256=PLAN,
+        analysis_plan_frozen_before_fit=True,
+        discovery_null_count=255,
+        confirmation_null_count=255,
+        max_layers=1,
+    )
+
+    assert result["confirmed_layers"]==["forged_target_copy"]
+    assert result["policy"]["provenance_authority_trust_external"] is True
+    assert result["policy"]["forged_trusted_authority_receipt_not_detectable_locally"] is True
