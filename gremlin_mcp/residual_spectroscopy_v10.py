@@ -205,15 +205,20 @@ def analyze_residual_stack_v10(
 
     residual=raw-model
     k=int(round(float(base["metrics"]["crossfit_narrowband_gate"]["median_discovery_bin"])))
+    detrended=np.asarray([_detrend(row) for row in residual])
     background=_notch(residual,k)
-    lag1=_median_abs_lag1(background)
+    lag1_pre_notch=_median_abs_lag1(detrended)
+    lag1_post_notch=_median_abs_lag1(background)
+    lag1=max(lag1_pre_notch,lag1_post_notch)
     audit=_run_dependence_surrogate_audit(
         residual,
         k,
         null_count=run_dependence_null_count,
         iaaft_iterations=iaaft_iterations,
     )
-    audit["median_abs_background_lag1"]=lag1
+    audit["median_abs_lag1_pre_notch"]=lag1_pre_notch
+    audit["median_abs_lag1_post_notch"]=lag1_post_notch
+    audit["median_abs_background_lag1_for_abstention"]=lag1
     audit["alpha"]=float(run_dependence_alpha)
     audit["long_memory_lag1_abstain"]=float(long_memory_lag1_abstain)
     audit["max_median_surrogate_psd_relative_error"]=float(
