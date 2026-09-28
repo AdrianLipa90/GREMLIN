@@ -1,0 +1,28 @@
+{
+  "schema": "GREMLIN_EXACT_REPLAY_RECEIPT_V1",
+  "date": "2026-09-28",
+  "status": "PASS",
+  "authority": "CANDIDATE_ONLY",
+  "canon_allowed": false,
+  "branch": "integrate/gremlin-self-audit-lossless-20260928",
+  "scope": "v13 sealed-confirmation targeted exact replay",
+  "module": {
+    "path": "gremlin_mcp/recursive_residual_confirm_v13.py",
+    "blob_sha": "071971edea4a09c6fc5e71fdf41eb6b95fd78609",
+    "sha_match": true
+  },
+  "test": {
+    "path": "tests/redteam/test_recursive_residual_confirm_v13.py",
+    "blob_sha": "12457a780b629ff9a97ba27852bedbbf91d07d57",
+    "sha_match": true
+  },
+  "runtime": {
+    "python": "3.13.5"
+  },
+  "pytest": {
+    "returncode": 0,
+    "result": "9 passed",
+    "pytest_reported_seconds": 0.05,
+    "wall_seconds": 1.628743
+  }
+}
