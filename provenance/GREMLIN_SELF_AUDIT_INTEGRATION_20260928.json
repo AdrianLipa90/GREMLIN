@@ -191,6 +191,11 @@
       "deployment_started": false,
       "classification": "INFRASTRUCTURE_QUOTA_BLOCKER_NOT_CODE_FAILURE",
       "cleanup_note": "Railway connector exposes no delete-project operation; empty project left unchanged"
+    },
+    "exact_replay_receipts": {
+      "v13": "provenance/GREMLIN_EXACT_REPLAY_V13_20260928.json",
+      "v14": "provenance/GREMLIN_EXACT_REPLAY_V14_20260928.json",
+      "v15": "provenance/GREMLIN_EXACT_REPLAY_V15_20260928.json"
     }
   },
   "promotion_gate": {
