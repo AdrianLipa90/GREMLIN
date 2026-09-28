@@ -1,51 +1,143 @@
 {
-  "schema":"GREMLIN_RESIDUAL_REDTEAM_V0_12_RECEIPT",
-  "date":"2026-09-28",
-  "status":"INDEPENDENT_PROTOTYPE_REDTEAM_PASS_WITH_EXACT_PACKAGE_REPLAY_OPEN",
-  "branch":"audit/residual-redteam-v12-iaaft-stationarity-20260928",
-  "base_branch":"audit/residual-redteam-v11-20260928",
-  "base_sha":"64b78da51507eb1ae120521e9ca7f35038633b30",
-  "gremlin_authority":"CANDIDATE_ONLY",
-  "v11_regression":{
-    "issue":"raw phase surrogate preserves PSD but not heavy-tail marginal distribution",
-    "student_t3_false_invalid":{"flags":18,"trials":20,"seed_range":"300..319"},
-    "lineage_issue":"v0.11 forked from an earlier v0.10 lineage and did not retain the later v0.10.2 IAAFT repair"
+  "schema": "GREMLIN_RESIDUAL_REDTEAM_V0_12_RECEIPT",
+  "date": "2026-09-28",
+  "status": "INDEPENDENT_PROTOTYPE_REDTEAM_PASS_WITH_EXACT_PACKAGE_REPLAY_OPEN",
+  "branch": "audit/residual-redteam-v12-iaaft-stationarity-20260928",
+  "base_branch": "audit/residual-redteam-v11-20260928",
+  "base_sha": "64b78da51507eb1ae120521e9ca7f35038633b30",
+  "gremlin_authority": "CANDIDATE_ONLY",
+  "v11_regression": {
+    "issue": "raw phase surrogate preserves PSD but not heavy-tail marginal distribution",
+    "student_t3_false_invalid": {
+      "flags": 18,
+      "trials": 20,
+      "seed_range": "300..319"
+    },
+    "lineage_issue": "v0.11 forked from an earlier v0.10 lineage and did not retain the later v0.10.2 IAAFT repair"
   },
-  "v12_repair":{
-    "null_kind":"RAW_IAAFT_THEN_IDENTICAL_DETREND_AND_NOTCH",
-    "empirical_marginal_preserved_exactly":true,
-    "power_spectrum_preserved_approximately":true,
-    "bonferroni_two_metric_split":true,
-    "default_alpha":0.01,
-    "default_null_count":255,
-    "iaaft_iterations":20,
-    "max_median_surrogate_psd_relative_error":0.15,
-    "long_memory_lag1_abstain":0.97,
-    "obvious_nonstationarity_hard_abstention":true
+  "v12_repair": {
+    "null_kind": "RAW_IAAFT_THEN_IDENTICAL_DETREND_AND_NOTCH",
+    "empirical_marginal_preserved_exactly": true,
+    "power_spectrum_preserved_approximately": true,
+    "bonferroni_two_metric_split": true,
+    "default_alpha": 0.01,
+    "default_null_count": 255,
+    "iaaft_iterations": 20,
+    "max_median_surrogate_psd_relative_error": 0.15,
+    "long_memory_lag1_abstain": 0.97,
+    "obvious_nonstationarity_hard_abstention": true
   },
-  "independent_prototype_redteam":{
-    "student_t3_seed300":{"v11":"FALSE_INVALID","v12":"PASS"},
-    "student_t3_3000_3019":{"pass":20,"false_invalid":0,"trials":20},
-    "garch_like":{"pass":5,"false_invalid":0,"trials":5},
-    "bursty_spike":{"pass":5,"false_invalid":0,"trials":5},
-    "shared_white_rho_0_20":{"invalid":3,"trials":3,"p_zero":"1/256","p_circular":"1/256"},
-    "variance_change_point_ratio_3":{"nonstationary_abstain":5,"trials":5},
-    "near_unit_root_ar1":{"phi":0.99,"n":2048,"action":"LONG_MEMORY_ABSTAIN"}
+  "independent_prototype_redteam": {
+    "student_t3_seed300": {
+      "v11": "FALSE_INVALID",
+      "v12": "PASS"
+    },
+    "student_t3_3000_3019": {
+      "pass": 20,
+      "false_invalid": 0,
+      "trials": 20
+    },
+    "garch_like": {
+      "pass": 5,
+      "false_invalid": 0,
+      "trials": 5
+    },
+    "bursty_spike": {
+      "pass": 5,
+      "false_invalid": 0,
+      "trials": 5
+    },
+    "shared_white_rho_0_20": {
+      "invalid": 3,
+      "trials": 3,
+      "p_zero": "1/256",
+      "p_circular": "1/256"
+    },
+    "variance_change_point_ratio_3": {
+      "nonstationary_abstain": 5,
+      "trials": 5
+    },
+    "near_unit_root_ar1": {
+      "phi": 0.99,
+      "n": 2048,
+      "action": "LONG_MEMORY_ABSTAIN"
+    }
   },
-  "open":[
+  "open": [
     "exact package replay",
     "larger Student-t tail calibration",
     "IAAFT convergence sensitivity",
     "nonstationarity heuristic calibration",
     "heavy-tail shared-realization power curves",
-    "global post-selection error across recursive decomposition rounds"
+    "larger experimentwise recursive Monte Carlo despite v0.5 analytic alpha spending"
   ],
-  "claim_boundary":{
-    "passing_audit_proves_independence":false,
-    "failing_audit_identifies_cause":false,
-    "abstention_is_noise_label":false,
-    "new_physics_established":false,
-    "time_fluctuation_established":false
+  "claim_boundary": {
+    "passing_audit_proves_independence": false,
+    "failing_audit_identifies_cause": false,
+    "abstention_is_noise_label": false,
+    "new_physics_established": false,
+    "time_fluctuation_established": false
   },
-  "main_modified":false
+  "main_modified": false,
+  "additional_calibration": {
+    "hard_abstention_false_abstain_bank": {
+      "white": {
+        "abstain": 0,
+        "trials": 200
+      },
+      "student_t3": {
+        "abstain": 0,
+        "trials": 200
+      },
+      "garch_like": {
+        "abstain": 0,
+        "trials": 200
+      },
+      "ar1_phi_0_8": {
+        "abstain": 0,
+        "trials": 200
+      }
+    },
+    "iaaft_iteration_sensitivity": {
+      "iterations": [
+        5,
+        10,
+        20,
+        50
+      ],
+      "student_t3_seed300": "PASS_AT_ALL_TESTED_ITERATION_COUNTS",
+      "shared_white_rho_0_20": "INVALID_AT_ALL_TESTED_ITERATION_COUNTS",
+      "student_t3_psd_relative_error_approx": {
+        "iter5": 0.0362,
+        "iter50": 0.0171
+      }
+    },
+    "strict_alpha_0_01_null255": {
+      "student_t3": {
+        "pass": 20,
+        "false_invalid": 0,
+        "trials": 20
+      },
+      "garch_like": {
+        "pass": 5,
+        "false_invalid": 0,
+        "trials": 5
+      },
+      "bursty_spike": {
+        "pass": 5,
+        "false_invalid": 0,
+        "trials": 5
+      },
+      "shared_white_rho_0_20": {
+        "invalid": 3,
+        "trials": 3
+      }
+    },
+    "recursive_error_control": {
+      "module": "gremlin_mcp/recursive_residual_v05.py",
+      "experimentwise_alpha_spending_retained": true,
+      "formula": "round_alpha = experimentwise_alpha / planned_rounds",
+      "underresolved_null_fails_closed": true
+    }
+  }
 }
