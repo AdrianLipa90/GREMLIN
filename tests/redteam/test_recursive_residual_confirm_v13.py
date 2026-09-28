@@ -173,3 +173,17 @@ def test_invalid_run_independence_audit_fails_closed():
         assert "did not validate crossfit" in str(exc)
     else:
         raise AssertionError("invalid run-independence audit accepted")
+
+
+def test_run_independence_model_commitment_mismatch_fails_closed():
+    raw,components,metadata,discovery,run_audit,declaration=_case()
+    run_audit["commitments"]["model_sha256"]="d"*64
+    try:
+        confirm_recursive_selection_v13(
+            discovery,raw,np.zeros_like(raw),components,metadata,run_audit,declaration,
+            null_count=255,
+        )
+    except ValueError as exc:
+        assert "model commitment mismatch" in str(exc)
+    else:
+        raise AssertionError("mismatched run-independence model accepted")
