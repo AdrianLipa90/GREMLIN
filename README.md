@@ -146,6 +146,32 @@ gremlin-mcp --transport streamable-http --host 127.0.0.1 --port 8766
 
 Default HTTP MCP endpoint: `http://127.0.0.1:8766/mcp`.
 
+### ChatGPT clean-account package v1
+
+A fresh ChatGPT account must not depend on local `stdio`, prior conversation state, Memory, Library, or `/dev/shm/ciel_noema`. GREMLIN therefore has a separate portable plugin packaging path for ChatGPT.
+
+Build only after a remotely reachable HTTPS MCP endpoint exists:
+
+```text
+gremlin-chatgpt-package --build \
+  --endpoint https://gremlin.example/mcp \
+  --output GREMLIN-ChatGPT-Plugin-v1.zip \
+  --json
+```
+
+The packager emits root `plugin.json`, root `mcp.json`, and `skills/gremlin/SKILL.md`, then re-opens and validates the generated ZIP. It rejects HTTP, localhost, private IP addresses, non-`/mcp` endpoints, embedded URL credentials, and artifact overwrites.
+
+Inspect an artifact without installing it:
+
+```text
+gremlin-chatgpt-package --inspect GREMLIN-ChatGPT-Plugin-v1.zip --json
+```
+
+No remote endpoint means `BLOCKED: REMOTE_ENDPOINT_REQUIRED`. Building a ZIP is not equivalent to host-side Scan Tools, account permission, authentication, or publication PASS.
+
+Specification: `spec/GREMLIN_CHATGPT_CLEAN_INSTALL_V1.md`.
+
+
 Core MCP tools:
 
 - `gremlin_status`
