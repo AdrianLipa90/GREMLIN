@@ -13,6 +13,10 @@ GREMLIN EARLY ACCESS — START HERE
 You do not need Python, pip, a virtual environment, or manual MCP JSON editing for supported clients.
 GREMLIN Workspace binds to loopback only and remains subject to the same signed license/profile capability gates as the product MCP.
 
+CHATGPT CLEAN ACCOUNT
+---------------------
+ChatGPT is not installed through the local Control Center provider path. A clean ChatGPT account requires a portable GREMLIN plugin package bound to a remotely reachable HTTPS MCP endpoint. Build it with `gremlin-chatgpt-package --build --endpoint https://HOST/mcp`. Localhost, private IPs, prior ChatGPT Memory/Library state, and /dev/shm are explicitly rejected as clean-account dependencies.
+
 Supported on Windows:
 - OpenAI Codex
 - OpenCode
