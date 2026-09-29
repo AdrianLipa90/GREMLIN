@@ -1,5 +1,16 @@
 # GREMLIN
 
+## Quantum application orchestration candidate
+
+GREMLIN now has a candidate native contract for orchestrating PNCS/PhaseNav quantum applications without premature Boolean collapse:
+
+- `spec/GREMLIN_QUANTUM_APPLICATION_ORCHESTRATION_V0_1.md`
+- `native/GREMLIN_QUANTUM_APPLICATION_ORCHESTRATION_V0_1.pnv`
+
+OCTOPUS scheduling/routing, Bestiary worker lifecycle and PASS/FAIL status remain classical control metadata. They do not replace the multidimensional application state. BELZEBUB/GREMLIN preserve supported alternatives until an explicit observation boundary projects a declared binary observable to `0/1`.
+
+No new production-write, actuation, canon or physical-QPU authority is introduced.
+
 ## Validation status and provenance
 
 The 2026-09-18 exact-head record from PR #62 remains historical evidence and is not a moving attestation for later repository state.
