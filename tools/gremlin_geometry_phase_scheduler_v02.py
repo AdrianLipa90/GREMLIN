@@ -51,6 +51,7 @@ class TaskPhaseState:
     token_estimate: int
     created_ns: int
     task_commitment: str
+    lease_measurement: int = 1
 
 
 def _canonical(value: Any) -> bytes:
@@ -351,6 +352,7 @@ def _task_state(row: Mapping[str, Any]) -> TaskPhaseState:
     readiness = _unit(meta.get("readiness"), "readiness", default=1.0 if ready else 0.0)
     if not ready:
         readiness = 0.0
+    lease_measurement = 1 if ready and readiness > 0.0 else 0
 
     return TaskPhaseState(
         task_id=task_id,
@@ -364,6 +366,7 @@ def _task_state(row: Mapping[str, Any]) -> TaskPhaseState:
         token_estimate=estimated_tokens,
         created_ns=created_ns,
         task_commitment=commitment,
+        lease_measurement=lease_measurement,
     )
 
 
@@ -453,7 +456,9 @@ def queue_metrics(
     if not rows:
         raise GeometryPhaseSchedulerError("queue metrics require at least one task")
     states = _states_for_rows(rows, precomputed_states)
-    eligible = [s for s in states if s.readiness > 0.0]
+    # Explicit classical projection boundary.  The continuous readiness scalar
+    # remains in state; lease_measurement is only the 0/1 worker-admission view.
+    eligible = [s for s in states if s.lease_measurement == 1]
     if not eligible:
         return {
             "eligible": False,
@@ -465,6 +470,8 @@ def queue_metrics(
             "mean_readiness": 0.0,
             "max_urgency": max((s.urgency for s in states), default=0.0),
             "explicit_phase_fraction": sum(s.phase_source == "EXPLICIT_T36" for s in states) / len(states),
+            "lease_measurement_channel": "M_lease",
+            "lease_measurement_basis": "EXPLICIT_READY_AND_POSITIVE_READINESS",
         }
 
     centroid = phase_centroid(eligible)
@@ -496,6 +503,8 @@ def queue_metrics(
         "max_urgency": max_urgency,
         "explicit_phase_fraction": explicit_fraction,
         "centroid": list(centroid),
+        "lease_measurement_channel": "M_lease",
+        "lease_measurement_basis": "EXPLICIT_READY_AND_POSITIVE_READINESS",
     }
 
 
