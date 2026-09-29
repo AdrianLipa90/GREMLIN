@@ -51,7 +51,21 @@ class TaskPhaseState:
     token_estimate: int
     created_ns: int
     task_commitment: str
-    lease_measurement: int = 1
+    lease_measurement: int | None = None
+
+    def __post_init__(self) -> None:
+        if not math.isfinite(float(self.readiness)) or not 0.0 <= float(self.readiness) <= 1.0:
+            raise GeometryPhaseSchedulerError("readiness must be in [0,1]")
+        measurement = self.lease_measurement
+        if measurement is None:
+            measurement = 1 if self.readiness > 0.0 else 0
+            object.__setattr__(self, "lease_measurement", measurement)
+        if measurement not in (0, 1):
+            raise GeometryPhaseSchedulerError("lease_measurement must be 0 or 1")
+        if measurement == 1 and self.readiness <= 0.0:
+            raise GeometryPhaseSchedulerError(
+                "lease_measurement=1 requires positive readiness"
+            )
 
 
 def _canonical(value: Any) -> bytes:
