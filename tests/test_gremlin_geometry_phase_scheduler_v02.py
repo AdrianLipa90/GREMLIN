@@ -8,6 +8,7 @@ from tools.gremlin_geometry_phase_scheduler_v02 import (
     MODE,
     SCHEDULER_KEY,
     GeometryPhaseSchedulerError,
+    TaskPhaseState,
     choose_species,
     derived_phase36,
     geometry_lane_width,
@@ -121,6 +122,42 @@ def _row(
         "task_commitment": commitment,
         "created_ns": 1,
     }
+
+
+def test_v02_direct_state_derives_lease_measurement_from_readiness() -> None:
+    state = TaskPhaseState(
+        task_id="direct-zero",
+        species="SPIDER",
+        phase36=(0.0,) * 36,
+        phase_source="EXPLICIT_T36",
+        readiness=0.0,
+        temperature=0.5,
+        urgency=0.0,
+        noise=0.0,
+        token_estimate=1,
+        created_ns=1,
+        task_commitment="b" * 64,
+    )
+    assert state.lease_measurement == 0
+
+    with pytest.raises(
+        GeometryPhaseSchedulerError,
+        match="lease_measurement=1 requires positive readiness",
+    ):
+        TaskPhaseState(
+            task_id="direct-invalid",
+            species="SPIDER",
+            phase36=(0.0,) * 36,
+            phase_source="EXPLICIT_T36",
+            readiness=0.0,
+            temperature=0.5,
+            urgency=0.0,
+            noise=0.0,
+            token_estimate=1,
+            created_ns=1,
+            task_commitment="c" * 64,
+            lease_measurement=1,
+        )
 
 
 def test_v02_lease_measurement_preserves_continuous_readiness() -> None:
