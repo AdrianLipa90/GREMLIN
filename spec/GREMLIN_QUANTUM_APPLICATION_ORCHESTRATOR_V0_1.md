@@ -2,6 +2,11 @@
 
 Status: `CANDIDATE / PHASENAV_NATIVE / PNCS_BOUND / NO_EARLY_COLLAPSE / LOCAL_FIRST`
 
+## Upstream contracts
+
+- `PNCS_QUANTUM_APPLICATION_RUNTIME_V0_31`
+- `PHASENAV_QUANTUM_APPLICATION_STATE_V0_1`
+
 ## Purpose
 
 GREMLIN is promoted from a flat job/status orchestrator model to an orchestrator of typed PhaseNav application states.
