@@ -77,9 +77,9 @@ The scalar `readiness` is the internal scheduling quantity.
 
 The legacy `ready` Boolean is retained only as the explicit lease-admission measurement
 
-[
+$
 ready=\mathcal M_{lease}(\Psi_J)\in\{0,1\}.
-]
+$
 
 It must not replace the underlying readiness, phase, noise, urgency or residual state. A task with `ready=false` is ineligible for lease selection because the lease boundary has projected it to 0; the richer pre-measurement state remains in the committed task/provenance surface.
 
