@@ -48,6 +48,14 @@ def status() -> dict[str, Any]:
         "external_effects": False,
         "canon_allowed": False,
         "physical_analog_claim": False,
+        "quantum_application_contract": "GREMLIN_QUANTUM_APPLICATION_ORCHESTRATOR_V0_1",
+        "pncs_quantum_runtime_contract": "PNCS_QUANTUM_APPLICATION_RUNTIME_V0_31",
+        "phasenav_quantum_state_contract": "PHASENAV_QUANTUM_APPLICATION_STATE_V0_1",
+        "never_collapse_early": True,
+        "boolean_internal_ontology": False,
+        "classical_projection_boundary_explicit": True,
+        "local_execution_primary": True,
+        "physical_quantum_claim": False,
     }
 
 
