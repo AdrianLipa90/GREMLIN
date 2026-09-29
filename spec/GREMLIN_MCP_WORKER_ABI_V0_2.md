@@ -136,7 +136,11 @@ _gremlin_scheduler
 
 with optional exact `phase36`, readiness, temperature, urgency and noise fields. If no exact phase is supplied, GREMLIN derives a deterministic locality-oriented scheduling fingerprint from canonical payload tokens. This fallback is a scheduling coordinate only and is not promoted as semantic truth.
 
-A `ready=false` task remains queued but is not lease-eligible until its committed task content/state is replaced through a new task identifier/content commitment. The Worker ABI does not mutate an existing task commitment in place.
+The continuous `readiness` field remains part of scheduler state. The `ready` Boolean is the explicit lease-admission measurement `M_lease`, not the underlying task ontology.
+
+A `ready=false` task remains queued but is not lease-eligible until its committed task content/state is replaced through a new task identifier/content commitment. A positive readiness scalar is likewise required for `M_lease=1`. The Worker ABI does not mutate an existing task commitment in place.
+
+The committed task payload preserves the richer pre-measurement phase/state metadata, so the 0/1 lease result does not erase the state from which it was derived.
 
 Every successful lease contains a scheduler receipt with `fifo_primary=false`, selected geometry metrics, transition/noise proxies and lane width.
 
