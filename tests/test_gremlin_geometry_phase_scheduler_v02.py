@@ -123,6 +123,32 @@ def _row(
     }
 
 
+def test_v02_lease_measurement_preserves_continuous_readiness() -> None:
+    row = _row(ready=True)
+    row["payload"][SCHEDULER_KEY]["readiness"] = 0.25
+    state = task_phase_state(row)
+    assert state.readiness == 0.25
+    assert state.lease_measurement == 1
+
+    metrics = queue_metrics([row], now_ns=2)
+    assert metrics["eligible"] is True
+    assert metrics["lease_measurement_channel"] == "M_lease"
+    assert metrics["lease_measurement_basis"] == "EXPLICIT_READY_AND_POSITIVE_READINESS"
+
+
+def test_v02_lease_measurement_blocks_without_promoting_bool_to_state() -> None:
+    row = _row(ready=False)
+    row["payload"][SCHEDULER_KEY]["readiness"] = 0.75
+    state = task_phase_state(row)
+    assert state.readiness == 0.0
+    assert state.lease_measurement == 0
+
+    metrics = queue_metrics([row], now_ns=2)
+    assert metrics["eligible"] is False
+    assert metrics["eligible_count"] == 0
+    assert metrics["lease_measurement_channel"] == "M_lease"
+
+
 def test_v02_scheduler_rejects_noncanonical_task_id() -> None:
     with pytest.raises(GeometryPhaseSchedulerError, match="canonical non-empty task_id"):
         task_phase_state(_row("   "))
