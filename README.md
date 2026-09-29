@@ -59,9 +59,9 @@ The rule is `NEVER_COLLAPSE_EARLY`: Bestiary residuals, phase geometry, readines
 
 The primary execution path is local-first:
 
-[
+$
 \boxed{GREMLIN\rightarrow PNCS\rightarrow PhaseNav\rightarrow local\ execution\ cells}
-]
+$
 
 Remote providers are optional adapters. A quantum-application state does not imply physical quantum execution; that claim requires an explicit `QPU_PHYSICAL` backend receipt.
 
