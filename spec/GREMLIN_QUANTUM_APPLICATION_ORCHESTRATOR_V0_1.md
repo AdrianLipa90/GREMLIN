@@ -8,9 +8,9 @@ GREMLIN is promoted from a flat job/status orchestrator model to an orchestrator
 
 The scheduling object is
 
-[
+$
 \Psi_J=(\Phi_{36},\mathcal A,\mathcal T,s,\tau,\Sigma,\mathcal P).
-]
+$
 
 GREMLIN may inspect and transform these fields according to role authority, but it must not replace the internal state with PASS/FAIL or ready/not-ready before an explicit measurement boundary.
 
@@ -18,9 +18,9 @@ GREMLIN may inspect and transform these fields according to role authority, but 
 
 Bestiary analysis should preserve a typed residual structure
 
-[
+$
 E_{ij}^{(k)}
-]
+$
 
 where \(i,j\) identify related graph nodes and \(k\) identifies relation class, including logical, algebraic, provenance, dimensional, phase and empirical channels.
 
@@ -39,9 +39,9 @@ The Geometry/Phase/State Scheduler remains valid. Its continuous fields are prim
 
 The legacy `ready: bool` field is now explicitly a lease-admission measurement:
 
-[
+$
 ready=\mathcal M_{lease}(\Psi_J)\in\{0,1\}.
-]
+$
 
 It is not the underlying readiness state.
 
@@ -60,17 +60,17 @@ All pre-measurement state and provenance must survive in the receipt.
 
 GREMLIN schedules capabilities, not servers.
 
-[
+$
 C_j=(\Phi_j^{cap},CPU,GPU,RAM,toolchain,trust,latency).
-]
+$
 
 Railway, GitHub Actions, Docker and remote services are not architectural dependencies. If used, they are optional external adapters.
 
 Primary path:
 
-[
+$
 \boxed{GREMLIN\rightarrow PNCS\rightarrow PhaseNav\rightarrow local\ execution\ cells}
-]
+$
 
 ## Backend claim firewall
 
