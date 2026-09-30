@@ -106,10 +106,17 @@ def _normalized_scope(scope: Mapping[str, Any]) -> dict[str, list[str]]:
         raise RelationalActionAlgebraError(
             "scope must contain exactly operations and resources"
         )
-    operations = _unique_text(scope["operations"], "scope.operations")
+    operations = tuple(
+        sorted(
+            {
+                value.upper()
+                for value in _unique_text(scope["operations"], "scope.operations")
+            }
+        )
+    )
     resources = _unique_text(scope["resources"], "scope.resources")
     return {
-        "operations": [value.upper() for value in operations],
+        "operations": list(operations),
         "resources": list(resources),
     }
 
@@ -331,12 +338,29 @@ def monotone_narrowing(
         failures.append("AUTHORITY_WIDENED")
     if REVERSIBILITY_RISK[right["reversibility"]] > REVERSIBILITY_RISK[left["reversibility"]]:
         failures.append("REVERSIBILITY_RISK_WIDENED")
-    if not set(left["provenance_refs"]).issubset(right["provenance_refs"]):
+    left_provenance = set(left["provenance_refs"])
+    right_provenance = set(right["provenance_refs"])
+    new_provenance = right_provenance - left_provenance
+    if not left_provenance.issubset(right_provenance):
         failures.append("PROVENANCE_DROPPED")
     if not set(left["relation_refs"]).issubset(right["relation_refs"]):
         failures.append("RELATION_LINEAGE_DROPPED")
     if right["uncertainty"] > left["uncertainty"]:
         failures.append("UNCERTAINTY_INCREASED")
+    if right["uncertainty"] < left["uncertainty"] and not new_provenance:
+        failures.append("UNCERTAINTY_REDUCTION_WITHOUT_NEW_PROVENANCE")
+    if (
+        left["visibility"] == "UNKNOWN"
+        and right["visibility"] != "UNKNOWN"
+        and not new_provenance
+    ):
+        failures.append("VISIBILITY_RESOLUTION_WITHOUT_NEW_PROVENANCE")
+    if (
+        left["reversibility"] == "UNKNOWN"
+        and right["reversibility"] != "UNKNOWN"
+        and not new_provenance
+    ):
+        failures.append("REVERSIBILITY_RESOLUTION_WITHOUT_NEW_PROVENANCE")
     if CONSEQUENCE_RADIUS_ORDER[right["consequence_radius"]] > CONSEQUENCE_RADIUS_ORDER[left["consequence_radius"]]:
         failures.append("CONSEQUENCE_RADIUS_WIDENED")
     if FAIL_MODE_ORDER[right["fail_mode"]] > FAIL_MODE_ORDER[left["fail_mode"]]:
@@ -353,6 +377,15 @@ def monotone_narrowing(
         "parent_contract_sha256": left["contract_sha256"],
         "child_contract_sha256": right["contract_sha256"],
     }
+
+
+def _visibility_meet(first: str, second: str) -> str:
+    if "UNKNOWN" in {first, second}:
+        return "UNKNOWN"
+    return min(
+        (first, second),
+        key=lambda value: VISIBILITY_ORDER[value],
+    )
 
 
 def _reversibility_meet(first: str, second: str) -> str:
@@ -396,9 +429,8 @@ def meet_contracts(
             "contract meet has empty executable intersection"
         )
 
-    visibility = min(
-        (left["visibility"], right["visibility"]),
-        key=lambda value: VISIBILITY_ORDER[value],
+    visibility = _visibility_meet(
+        left["visibility"], right["visibility"]
     )
     consequence_radius = max(
         (left["consequence_radius"], right["consequence_radius"]),
