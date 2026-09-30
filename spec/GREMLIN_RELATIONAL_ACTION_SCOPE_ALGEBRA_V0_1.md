@@ -87,6 +87,10 @@ domain is unchanged.
 
 A child is commitment-bound to its parent.
 
+A decrease in uncertainty, or resolution of UNKNOWN visibility/reversibility,
+requires new provenance not present in the parent contract. The algebra does
+not permit confidence to improve by assertion alone.
+
 ## Meet
 
 For same-target contracts the algebra exposes a conservative meet:
