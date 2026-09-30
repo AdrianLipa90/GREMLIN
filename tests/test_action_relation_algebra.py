@@ -224,3 +224,46 @@ def test_commitment_detects_tampering():
     forged["visibility"] = "PUBLIC"
     with pytest.raises(RelationalActionAlgebraError, match="commitment mismatch"):
         validate_relational_action_contract(forged)
+
+
+def test_meet_keeps_unknown_visibility_unresolved_instead_of_guessing_private():
+    known = _contract(visibility="PRIVATE")
+    unknown = _contract(visibility="UNKNOWN")
+    combined = meet_contracts(known, unknown)
+    assert combined["visibility"] == "UNKNOWN"
+    decision = evaluate_relational_admission(
+        combined,
+        required_authority_modes=["WRITE"],
+        high_consequence=True,
+    )
+    assert decision["gate_state"]["VISIBILITY"] == 0
+    assert decision["decision"] == "DEFER"
+
+
+def test_uncertainty_reduction_requires_new_provenance():
+    parent = _contract(uncertainty=0.2, provenance_refs=["evidence:a"])
+    unsupported = _contract(
+        uncertainty=0.1,
+        provenance_refs=["evidence:a"],
+        parent_contract_sha256=parent["contract_sha256"],
+    )
+    verdict = monotone_narrowing(parent, unsupported)
+    assert "UNCERTAINTY_REDUCTION_WITHOUT_NEW_PROVENANCE" in verdict["failures"]
+
+    supported = _contract(
+        uncertainty=0.1,
+        provenance_refs=["evidence:a", "evidence:b"],
+        parent_contract_sha256=parent["contract_sha256"],
+    )
+    verdict = monotone_narrowing(parent, supported)
+    assert verdict["status"] == "PASS"
+
+
+def test_operation_scope_is_case_canonical():
+    contract = _contract(
+        scope={
+            "operations": ["update_file", "UPDATE_FILE"],
+            "resources": ["gremlin_mcp/action_relation_algebra.py"],
+        }
+    )
+    assert contract["scope"]["operations"] == ["UPDATE_FILE"]
