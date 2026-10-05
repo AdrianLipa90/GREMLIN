@@ -27,7 +27,8 @@ ferret = [
 ]
 
 [project.scripts]
-gremlin-mcp = "gremlin_mcp.server_with_hive:main"
+gremlin-mcp = "gremlin_mcp.pnv_server:main"
+gremlin-legacy-mcp = "gremlin_mcp.server_with_hive:main"
 gremlin-hive-mcp = "gremlin_mcp.hive_authority_server:main"
 gremlin-phasenav-vcs-mcp = "gremlin_mcp.phasenav_vcs_server:main"
 gremlin-product-mcp = "gremlin_mcp.product_server:main"
@@ -42,3 +43,6 @@ gremlin-semantic-graph-mcp = "gremlin_mcp.semantic_graph_server:main"
 [tool.setuptools.packages.find]
 include = ["gremlin_mcp*", "tools*"]
 namespaces = true
+
+[tool.setuptools.package-data]
+gremlin_mcp = ["*.pnv"]
