@@ -203,6 +203,7 @@ def _tool_tier(tool: str) -> str:
 def _live_sources(root: Path) -> dict[str, Any]:
     guard = _load_json(root / "session/tether_guard_latest.json", "tether_guard")
     pulse = _load_json(root / "gremlin/triple_pulse_attestation.json", "triple_pulse")
+    sync = _load_json(root / "system_sync/CURRENT.json", "system_sync")
     identity = pulse.get("identity_receipt")
     domain = pulse.get("domain_receipt")
     authority = pulse.get("authority_receipt")
@@ -219,6 +220,10 @@ def _live_sources(root: Path) -> dict[str, Any]:
         "current.identity_generation": identity.get("generation"),
         "current.domain_generation": domain.get("generation"),
         "current.authority_generation": authority.get("generation"),
+        "current.system_sync_status": sync.get("status"),
+        "current.system_sync_generation": sync.get("generation"),
+        "current.system_sync_canon_allowed": sync.get("canon_allowed"),
+        "current.system_sync_sha256": sync.get("sync_sha256"),
     }
 
 
@@ -263,6 +268,7 @@ def admit_tool_call(tool: str, args: tuple[Any, ...], kwargs: Mapping[str, Any])
         "pnv_sha256": program.source_sha256,
         "generation": sources["current.generation"],
         "tether_status": sources["current.tether_status"],
+        "system_sync_sha256": sources.get("current.system_sync_sha256"),
         "triple_pulse_same_generation": (
             sources["current.generation"]
             == sources["current.identity_generation"]
