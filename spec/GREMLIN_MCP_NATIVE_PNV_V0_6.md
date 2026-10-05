@@ -29,9 +29,10 @@ The native gate requires:
 - IDENTITY = VERIFIED;
 - DOMAIN = ACTIVE;
 - AUTHORITY = VERIFIED;
-- all pulse receipts bound to one generation.
+- all pulse receipts bound to one generation;
+- `system_sync/CURRENT.json` with `ALIGNED_CANDIDATE`, `canon_allowed=false`, and the same runtime generation.
 
-No static runtime fallback is admitted.
+No static runtime fallback is admitted. A stale or missing NOEMA/PhaseNav/PNCS/CIELingo/GREMLIN system-sync pointer is an admission failure, not a warning.
 
 ## Mutation tiers
 
