@@ -17,6 +17,7 @@ def _live(root: Path, *, tether: str = "ACTIVE", domain: str = "ACTIVE", authori
     generation = "gen-native-001"
     (root / "session").mkdir(parents=True)
     (root / "gremlin").mkdir(parents=True)
+    (root / "system_sync").mkdir(parents=True)
     (root / "session/tether_guard_latest.json").write_text(
         json.dumps(
             {
@@ -24,6 +25,18 @@ def _live(root: Path, *, tether: str = "ACTIVE", domain: str = "ACTIVE", authori
                 "status": tether,
                 "tether_status": tether,
                 "failures": [],
+            }
+        ),
+        encoding="utf-8",
+    )
+    (root / "system_sync/CURRENT.json").write_text(
+        json.dumps(
+            {
+                "schema": "NOEMA_SYSTEM_SYNC_CURRENT_V1",
+                "status": "ALIGNED_CANDIDATE",
+                "generation": generation,
+                "canon_allowed": False,
+                "sync_sha256": "a" * 64,
             }
         ),
         encoding="utf-8",
@@ -87,6 +100,14 @@ def test_inactive_tether_fails_closed(monkeypatch: pytest.MonkeyPatch, tmp_path:
 
 def test_cross_generation_triple_pulse_fails_closed(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     _live(tmp_path, mismatch=True)
+    monkeypatch.setenv("GREMLIN_NOEMA_RUNTIME_ROOT", str(tmp_path))
+    with pytest.raises(PNVNativeAdmissionError):
+        admit_tool_call("gremlin_status", (), {})
+
+
+def test_missing_system_sync_fails_closed(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    _live(tmp_path)
+    (tmp_path / "system_sync/CURRENT.json").unlink()
     monkeypatch.setenv("GREMLIN_NOEMA_RUNTIME_ROOT", str(tmp_path))
     with pytest.raises(PNVNativeAdmissionError):
         admit_tool_call("gremlin_status", (), {})
