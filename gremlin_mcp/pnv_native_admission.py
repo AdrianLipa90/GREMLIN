@@ -271,7 +271,8 @@ def admit_tool_call(tool: str, args: tuple[Any, ...], kwargs: Mapping[str, Any])
         ),
         "trace_sha256": _sha(execution["trace"]),
         "canon_allowed": False,
-        "production_runtime_write": facts["tier"] == "LOW_RISK_AUTO",
+        "local_state_write": facts["tier"] == "LOW_RISK_AUTO",
+        "production_runtime_write": False,
         "key_mutation_auto": False,
     }
     return {**payload, "receipt_sha256": _sha(payload)}
