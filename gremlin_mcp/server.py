@@ -16,6 +16,7 @@ from gremlin_mcp.core import (
     status,
 )
 from gremlin_mcp.error_contract import mcp_error_boundary
+from gremlin_mcp.pnv_native_admission import native_admission_manifest
 from gremlin_mcp.tool_metadata import tool_annotations
 from gremlin_mcp.tool_catalog import tool_description, tool_title
 from gremlin_mcp.tool_types import (
@@ -126,6 +127,7 @@ def configure_state(state_path: str | None) -> WorkerBroker:
 def gremlin_status() -> dict[str, Any]:
     """Return MCP mode, capabilities, topology and fail-closed authority state."""
     result = status()
+    result["pnv_native_admission"] = native_admission_manifest()
     result["worker_queue"] = broker.queue_status()
     memory_state = phase_memory_runtime.snapshot()
     result["phase_memory"] = {
