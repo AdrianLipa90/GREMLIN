@@ -66,7 +66,8 @@ def test_local_state_mutation_is_low_risk_auto(monkeypatch: pytest.MonkeyPatch, 
     assert facts["tier"] == "LOW_RISK_AUTO"
     receipt = admit_tool_call("gremlin_worker_enqueue", (), {})
     assert receipt["status"] == "PASS"
-    assert receipt["production_runtime_write"] is True
+    assert receipt["local_state_write"] is True
+    assert receipt["production_runtime_write"] is False
     assert receipt["canon_allowed"] is False
 
 
