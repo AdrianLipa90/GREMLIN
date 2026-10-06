@@ -54,6 +54,7 @@ GREMLIN now carries a candidate native contract for PhaseNav/PNCS quantum applic
 
 - `spec/GREMLIN_QUANTUM_APPLICATION_ORCHESTRATOR_V0_1.md`
 - `native/GREMLIN_QUANTUM_APPLICATION_ORCHESTRATOR_V0_1.pnv`
+- compatibility lineage: `spec/GREMLIN_QUANTUM_APPLICATION_ORCHESTRATION_V0_1.md` + `native/GREMLIN_QUANTUM_APPLICATION_ORCHESTRATION_V0_1.pnv`
 
 The rule is `NEVER_COLLAPSE_EARLY`: Bestiary residuals, phase geometry, readiness, uncertainty and provenance remain typed state until a named measurement boundary. `ready`, `PASS/FAIL`, `RELEASE/QUARANTINE` and external-effect authorization are explicit projections, not the internal ontology of a task.
 

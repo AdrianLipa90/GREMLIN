@@ -1,0 +1,64 @@
+{
+  "schema": "GREMLIN_QUANTUM_APPLICATION_INTEGRATION_V0_1",
+  "date": "2026-09-29",
+  "status": "CANDIDATE_CROSS_REPO_INTEGRATION",
+  "authority": {
+    "main_modified": false,
+    "canon_allowed": false,
+    "production_runtime_write": false,
+    "execution_admitted": false,
+    "physical_qpu_claim": false
+  },
+  "repositories": {
+    "pncs": {
+      "repo": "AdrianLipa90/PhaseNav-Natural-Coding-System",
+      "base_head": "a6365d3784c41b49eaebccd131a4b4a5c1c2ffa5",
+      "branch": "feat/quantum-application-runtime-v0.1-20260929",
+      "content_head": "638b702f61771199ee043aa794fd36aa734aa412",
+      "contract": "spec/PNCS_QUANTUM_APPLICATION_RUNTIME_V0_1.md",
+      "native": "native/PNCS_QUANTUM_APPLICATION_RUNTIME_V0_1.pnv"
+    },
+    "phasenav": {
+      "repo": "AdrianLipa90/noema-phasenav-core",
+      "base_head": "b4e282dfcc0a613d38197ada8e922cfbb41112b7",
+      "branch": "feat/quantum-application-state-v0.1-20260929",
+      "content_head": "d0d271ee5e11186fdba4b64863ab9a4663984d6f",
+      "contract": "docs/PHASENAV_QUANTUM_APPLICATION_STATE_V0_1.md",
+      "schema": "schemas/phasenav_quantum_application_state_v0_1.schema.json"
+    },
+    "gremlin": {
+      "repo": "AdrianLipa90/GREMLIN",
+      "base_head": "b0000828238e0cd244f5eb1fb679155315df372f",
+      "branch": "feat/quantum-application-orchestration-v0.1-20260929",
+      "content_head_before_receipt": "b161deaa134bb9650d39d6bdac180ea6212737f7",
+      "contract": "spec/GREMLIN_QUANTUM_APPLICATION_ORCHESTRATION_V0_1.md",
+      "native": "native/GREMLIN_QUANTUM_APPLICATION_ORCHESTRATION_V0_1.pnv",
+      "scheduler_contract": "spec/GREMLIN_GEOMETRY_PHASE_STATE_SCHEDULER_V0_1.md"
+    }
+  },
+  "invariants": [
+    "NEVER_COLLAPSE_EARLY",
+    "CLASSICAL_BIT_IS_OBSERVATION_RESULT_NOT_APPLICATION_STATE",
+    "EXACT_PHASE_CARRIER_DIMENSION_36",
+    "SCHEDULER_SELECTION_IS_NOT_SEMANTIC_OBSERVATION",
+    "WORKER_DONE_IS_NOT_STATE_COLLAPSE",
+    "BOOLEAN_PREDICATES_ARE_CLASSICAL_CONTROL_OR_PROJECTION_METADATA",
+    "TWO_OUTCOME_OBSERVATION_EMITS_ONLY_0_OR_1",
+    "BACKEND_REALIZATION_CLASS_MUST_BE_EXPLICIT"
+  ],
+  "validation": {
+    "pncs_native_pnv1_parse": "PASS",
+    "gremlin_native_pnv1_parse": "PASS",
+    "new_pnv_opcodes": 0,
+    "phasenav_schema_json_parse": "PASS",
+    "phasenav_phase36_minItems": 36,
+    "phasenav_phase36_maxItems": 36,
+    "observed_true_requires_full_observation_receipt": true
+  },
+  "epistemic_boundary": [
+    "quantum-state application architecture is implemented as a candidate contract",
+    "physical quantum execution is not established by this integration",
+    "post-v1 PNCS release authority remains unchanged",
+    "existing classical fail-closed safety/release gates remain valid boundary metadata"
+  ]
+}

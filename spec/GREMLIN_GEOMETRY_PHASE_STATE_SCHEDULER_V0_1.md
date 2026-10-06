@@ -16,6 +16,25 @@ a deterministic scheduler whose primary coordinates are:
 The scheduler changes task ordering only. It does not grant execution, runtime
 write, canon promotion or physical/analog authority.
 
+## Quantum-application non-collapse invariant
+
+For PNCS quantum applications, scheduler selection is a classical resource decision, not a semantic observation.
+
+The scheduler may use `ready`, readiness, urgency, noise, queue occupancy and PhaseNav geometry to choose where and when work executes. None of those fields is allowed to replace the committed quantum-application state.
+
+Therefore:
+
+```text
+lease selected     != semantic branch selected
+ready=true         != measured truth
+worker DONE        != state collapse
+PASS/FAIL metadata != application state
+```
+
+The scheduler preserves the imported PhaseNav/PNCS state identity across scheduling operations unless an admitted state-evolution operator explicitly changes that state.
+
+Only the explicit observation boundary defined by `GREMLIN_QUANTUM_APPLICATION_ORCHESTRATION_V0_1` may project a declared binary observable to `0/1`.
+
 ## Queue semantics
 
 A routed task is still queued under one species. The scheduler does not override
