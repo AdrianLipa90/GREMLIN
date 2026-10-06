@@ -48,6 +48,23 @@ The software evidence above does not imply a physical analog hardware witness, e
 
 GREMLIN is the root system. OCTOPUS and BELZEBUB are writable subordinate tools with independent local `CURRENT` heads, while GREMLIN binds verified tool heads into one aggregate `SUPER_CURRENT`.
 
+## Quantum application orchestration
+
+GREMLIN now carries a candidate native contract for PhaseNav/PNCS quantum applications:
+
+- `spec/GREMLIN_QUANTUM_APPLICATION_ORCHESTRATOR_V0_1.md`
+- `native/GREMLIN_QUANTUM_APPLICATION_ORCHESTRATOR_V0_1.pnv`
+
+The rule is `NEVER_COLLAPSE_EARLY`: Bestiary residuals, phase geometry, readiness, uncertainty and provenance remain typed state until a named measurement boundary. `ready`, `PASS/FAIL`, `RELEASE/QUARANTINE` and external-effect authorization are explicit projections, not the internal ontology of a task.
+
+The primary execution path is local-first:
+
+$
+\boxed{GREMLIN\rightarrow PNCS\rightarrow PhaseNav\rightarrow local\ execution\ cells}
+$
+
+Remote providers are optional adapters. A quantum-application state does not imply physical quantum execution; that claim requires an explicit `QPU_PHYSICAL` backend receipt.
+
 ## Native authority
 
 Authoritative runtime declarations live in `native/*.pnv` and use the existing PhaseNav Natural Coding operator vocabulary. Python is retained only as a reference/test harness.
