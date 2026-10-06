@@ -1,0 +1,42 @@
+{
+  "schema": "GREMLIN_CHATGPT_CLEAN_INSTALL_V1_PROVENANCE",
+  "status": "IMPLEMENTATION_CANDIDATE",
+  "date_utc": "2026-09-28",
+  "base_main_sha": "b0000828238e0cd244f5eb1fb679155315df372f",
+  "branch": "feat/chatgpt-clean-account-bootstrap-v1",
+  "artifacts": {
+    "module": {
+      "path": "gremlin_mcp/chatgpt_clean_install.py",
+      "git_blob_sha1": "1de6e8f572ec304f5d5a517f7723bef314470a3b"
+    },
+    "tests": {
+      "path": "tests/test_chatgpt_clean_install_v1.py",
+      "git_blob_sha1": "20cbf3ef197dec8c48ee860eb0a0d0b1d5c92abf"
+    },
+    "spec": "spec/GREMLIN_CHATGPT_CLEAN_INSTALL_V1.md",
+    "guide": "packaging/common/CHATGPT-CLEAN-INSTALL.md"
+  },
+  "validation": {
+    "isolated_unit_harness": {
+      "status": "PASS",
+      "tests_passed": 8,
+      "tests_failed": 0,
+      "command": "python -m pytest -q",
+      "module_bytes_matched_committed_blob": true,
+      "test_bytes_matched_committed_blob": true
+    },
+    "full_repository_exact_head": {
+      "status": "NOT_RUN",
+      "reason": "No authenticated full repository checkout was available in the execution container; GitHub Actions intentionally not used."
+    },
+    "clean_account_external_e2e": {
+      "status": "NOT_RUN",
+      "reason": "Requires a separate eligible ChatGPT account/web surface plus actual app registration and ChatGPT tool scan."
+    }
+  },
+  "authority": {
+    "production_runtime_write": false,
+    "canon_allowed": false,
+    "main_modified": false
+  }
+}

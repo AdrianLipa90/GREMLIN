@@ -39,6 +39,8 @@ gremlin-workspace = "gremlin_mcp.workspace:main"
 gremlin-openai-tunnel = "gremlin_mcp.openai_tunnel:main"
 gremlin-chatgpt-package = "gremlin_mcp.chatgpt_clean_install:main"
 gremlin-chatgpt-install-check = "gremlin_mcp.chatgpt_install_preflight:main"
+gremlin-chatgpt-account-check = "gremlin_mcp.chatgpt_account_admission:main"
+gremlin-chatgpt-clean = "gremlin_mcp.chatgpt_account_admission:main"
 gremlin-semantic-graph-mcp = "gremlin_mcp.semantic_graph_server:main"
 
 [tool.setuptools.packages.find]

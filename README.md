@@ -171,6 +171,9 @@ No remote endpoint means `BLOCKED: REMOTE_ENDPOINT_REQUIRED`. Building a ZIP is 
 
 Specification: `spec/GREMLIN_CHATGPT_CLEAN_INSTALL_V1.md`.
 
+The earlier clean-account host-admission logic is preserved separately rather than overwritten by the portable package builder. Use `gremlin-chatgpt-account-check --json` (legacy alias: `gremlin-chatgpt-clean`) for web/developer-mode, remote-or-secure-tunnel, app-registration, Scan Tools and capability gates. Its compatibility contract is `spec/GREMLIN_CHATGPT_ACCOUNT_ADMISSION_V1.md`.
+
+
 
 Core MCP tools:
 
