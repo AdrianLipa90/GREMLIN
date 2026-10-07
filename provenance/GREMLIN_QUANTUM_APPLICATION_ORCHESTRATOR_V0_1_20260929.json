@@ -1,0 +1,70 @@
+{
+  "schema": "GREMLIN_QUANTUM_APPLICATION_ORCHESTRATOR_RECEIPT_V0_1",
+  "date": "2026-09-29",
+  "repository": "AdrianLipa90/GREMLIN",
+  "base_branch": "main",
+  "base_head_at_audit": "b0000828238e0cd244f5eb1fb679155315df372f",
+  "feature_branch": "feat/quantum-app-no-early-collapse-20260929",
+  "implementation_head_before_receipt": "5d3b317bcb98914de7f5d2d88a7b3f149429a325",
+  "policy": {
+    "never_collapse_early": true,
+    "boolean_internal_ontology": false,
+    "classical_projection_boundary_explicit": true,
+    "lease_measurement_channel": "M_lease",
+    "residual_is_information": true,
+    "local_execution_primary": true,
+    "remote_provider_required": false,
+    "railway_required": false,
+    "github_actions_required": false,
+    "physical_quantum_claim_default": false,
+    "qpu_physical_required_for_physical_quantum_claim": true,
+    "main_mutated": false
+  },
+  "files": [
+    {
+      "path": "README.md",
+      "blob_sha": "135da79394f61a7df3788b39ecf214c95f226a30"
+    },
+    {
+      "path": "gremlin_mcp/phasenav_runtime.py",
+      "blob_sha": "04aef67d5d36ff81160b46d90d73316ed0b5abb9"
+    },
+    {
+      "path": "native/GREMLIN_QUANTUM_APPLICATION_ORCHESTRATOR_V0_1.pnv",
+      "blob_sha": "7ec3a0a9e49705ad70b8193e3a84aad9fb2b9f60"
+    },
+    {
+      "path": "spec/GREMLIN_GEOMETRY_PHASE_STATE_SCHEDULER_V0_1.md",
+      "blob_sha": "6de0ad210cae501c41f29ee82e01a6c7ea8d6286"
+    },
+    {
+      "path": "spec/GREMLIN_MCP_WORKER_ABI_V0_2.md",
+      "blob_sha": "df5b670ee1d21691f3eb4c4a481e08437a1eb22a"
+    },
+    {
+      "path": "spec/GREMLIN_QUANTUM_APPLICATION_ORCHESTRATOR_V0_1.md",
+      "blob_sha": "fbe108251f140b0db7baedd03eee5d18d6eb17db"
+    },
+    {
+      "path": "tests/test_gremlin_geometry_phase_scheduler_v02.py",
+      "blob_sha": "0576f54a87c06238de6db10d8cf4507eab3de9bc"
+    },
+    {
+      "path": "tools/gremlin_geometry_phase_scheduler_v02.py",
+      "blob_sha": "4038dcee5f471ebc051a53ab324ef51494442bca"
+    }
+  ],
+  "validation": {
+    "static_contract_audit": "PASS",
+    "display_math_delimiters": "PASS",
+    "cross_repository_contract_ids": "PASS",
+    "pnv1_statement_and_opcode_static_parse": "PASS",
+    "scheduler_delimiter_scan": "PASS",
+    "scheduler_measurement_invariants": "PASS",
+    "direct_state_zero_readiness_loophole": "CLOSED_BY_POST_INIT_DERIVATION_AND_TEST",
+    "pytest_execution": "NOT_RUN_IN_THIS_SESSION",
+    "full_repository_regression": "NOT_RUN_IN_THIS_SESSION",
+    "promotion_allowed": false
+  },
+  "authority": "FEATURE_BRANCH_ONLY / NO_MAIN_MERGE / NO_CANON_PROMOTION"
+}

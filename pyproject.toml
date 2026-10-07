@@ -27,7 +27,8 @@ ferret = [
 ]
 
 [project.scripts]
-gremlin-mcp = "gremlin_mcp.server_with_hive:main"
+gremlin-mcp = "gremlin_mcp.pnv_server:main"
+gremlin-legacy-mcp = "gremlin_mcp.server_with_hive:main"
 gremlin-hive-mcp = "gremlin_mcp.hive_authority_server:main"
 gremlin-phasenav-vcs-mcp = "gremlin_mcp.phasenav_vcs_server:main"
 gremlin-product-mcp = "gremlin_mcp.product_server:main"
@@ -37,8 +38,15 @@ gremlinctl = "gremlin_mcp.install.cli:main"
 gremlin-ferret = "gremlin_mcp.ferret_cli:main"
 gremlin-workspace = "gremlin_mcp.workspace:main"
 gremlin-openai-tunnel = "gremlin_mcp.openai_tunnel:main"
+gremlin-chatgpt-package = "gremlin_mcp.chatgpt_clean_install:main"
+gremlin-chatgpt-install-check = "gremlin_mcp.chatgpt_install_preflight:main"
+gremlin-chatgpt-account-check = "gremlin_mcp.chatgpt_account_admission:main"
+gremlin-chatgpt-clean = "gremlin_mcp.chatgpt_account_admission:main"
 gremlin-semantic-graph-mcp = "gremlin_mcp.semantic_graph_server:main"
 
 [tool.setuptools.packages.find]
 include = ["gremlin_mcp*", "tools*"]
 namespaces = true
+
+[tool.setuptools.package-data]
+gremlin_mcp = ["*.pnv"]

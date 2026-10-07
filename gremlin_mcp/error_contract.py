@@ -9,6 +9,7 @@ from typing import Any, Callable, TypeVar, cast
 from mcp.server.mcpserver.exceptions import ToolError
 
 from gremlin_mcp.owl_runtime_audit import begin_use, finish_use_error, finish_use_success
+from gremlin_mcp.pnv_native_admission import admit_tool_call, native_mode_enabled
 
 SCHEMA = "GREMLIN_MCP_ERROR_V0_1"
 _CODE_RE = re.compile(r"^([A-Z][A-Z0-9_]*)(?::.*)?$", re.DOTALL)
@@ -136,6 +137,8 @@ def mcp_error_boundary(tool: str) -> Callable[[F], F]:
         def wrapped(*args: Any, **kwargs: Any) -> Any:
             span = begin_use(tool, args, kwargs)
             try:
+                if native_mode_enabled():
+                    admit_tool_call(tool, args, kwargs)
                 result = fn(*args, **kwargs)
             except GremlinMCPToolError as exc:
                 finish_use_error(span, exc, "GREMLIN_MCP_TOOL_ERROR")

@@ -48,6 +48,24 @@ The software evidence above does not imply a physical analog hardware witness, e
 
 GREMLIN is the root system. OCTOPUS and BELZEBUB are writable subordinate tools with independent local `CURRENT` heads, while GREMLIN binds verified tool heads into one aggregate `SUPER_CURRENT`.
 
+## Quantum application orchestration
+
+GREMLIN now carries a candidate native contract for PhaseNav/PNCS quantum applications:
+
+- `spec/GREMLIN_QUANTUM_APPLICATION_ORCHESTRATOR_V0_1.md`
+- `native/GREMLIN_QUANTUM_APPLICATION_ORCHESTRATOR_V0_1.pnv`
+- compatibility lineage: `spec/GREMLIN_QUANTUM_APPLICATION_ORCHESTRATION_V0_1.md` + `native/GREMLIN_QUANTUM_APPLICATION_ORCHESTRATION_V0_1.pnv`
+
+The rule is `NEVER_COLLAPSE_EARLY`: Bestiary residuals, phase geometry, readiness, uncertainty and provenance remain typed state until a named measurement boundary. `ready`, `PASS/FAIL`, `RELEASE/QUARANTINE` and external-effect authorization are explicit projections, not the internal ontology of a task.
+
+The primary execution path is local-first:
+
+$
+\boxed{GREMLIN\rightarrow PNCS\rightarrow PhaseNav\rightarrow local\ execution\ cells}
+$
+
+Remote providers are optional adapters. A quantum-application state does not imply physical quantum execution; that claim requires an explicit `QPU_PHYSICAL` backend receipt.
+
 ## Native authority
 
 Authoritative runtime declarations live in `native/*.pnv` and use the existing PhaseNav Natural Coding operator vocabulary. Python is retained only as a reference/test harness.
@@ -145,6 +163,35 @@ gremlin-mcp --transport streamable-http --host 127.0.0.1 --port 8766
 ```
 
 Default HTTP MCP endpoint: `http://127.0.0.1:8766/mcp`.
+
+### ChatGPT clean-account package v1
+
+A fresh ChatGPT account must not depend on local `stdio`, prior conversation state, Memory, Library, or `/dev/shm/ciel_noema`. GREMLIN therefore has a separate portable plugin packaging path for ChatGPT.
+
+Build only after a remotely reachable HTTPS MCP endpoint exists:
+
+```text
+gremlin-chatgpt-package --build \
+  --endpoint https://gremlin.example/mcp \
+  --output GREMLIN-ChatGPT-Plugin-v1.zip \
+  --json
+```
+
+The packager emits root `plugin.json`, root `mcp.json`, and `skills/gremlin/SKILL.md`, then re-opens and validates the generated ZIP. It rejects HTTP, localhost, private IP addresses, non-`/mcp` endpoints, embedded URL credentials, and artifact overwrites.
+
+Inspect an artifact without installing it:
+
+```text
+gremlin-chatgpt-package --inspect GREMLIN-ChatGPT-Plugin-v1.zip --json
+```
+
+No remote endpoint means `BLOCKED: REMOTE_ENDPOINT_REQUIRED`. Building a ZIP is not equivalent to host-side Scan Tools, account permission, authentication, or publication PASS.
+
+Specification: `spec/GREMLIN_CHATGPT_CLEAN_INSTALL_V1.md`.
+
+The earlier clean-account host-admission logic is preserved separately rather than overwritten by the portable package builder. Use `gremlin-chatgpt-account-check --json` (legacy alias: `gremlin-chatgpt-clean`) for web/developer-mode, remote-or-secure-tunnel, app-registration, Scan Tools and capability gates. Its compatibility contract is `spec/GREMLIN_CHATGPT_ACCOUNT_ADMISSION_V1.md`.
+
+
 
 Core MCP tools:
 

@@ -16,6 +16,25 @@ a deterministic scheduler whose primary coordinates are:
 The scheduler changes task ordering only. It does not grant execution, runtime
 write, canon promotion or physical/analog authority.
 
+## Quantum-application non-collapse invariant
+
+For PNCS quantum applications, scheduler selection is a classical resource decision, not a semantic observation.
+
+The scheduler may use `ready`, readiness, urgency, noise, queue occupancy and PhaseNav geometry to choose where and when work executes. None of those fields is allowed to replace the committed quantum-application state.
+
+Therefore:
+
+```text
+lease selected     != semantic branch selected
+ready=true         != measured truth
+worker DONE        != state collapse
+PASS/FAIL metadata != application state
+```
+
+The scheduler preserves the imported PhaseNav/PNCS state identity across scheduling operations unless an admitted state-evolution operator explicitly changes that state.
+
+Only the explicit observation boundary defined by `GREMLIN_QUANTUM_APPLICATION_ORCHESTRATION_V0_1` may project a declared binary observable to `0/1`.
+
 ## Queue semantics
 
 A routed task is still queued under one species. The scheduler does not override
@@ -73,7 +92,15 @@ D_state(a,b)
 
 where `D_T36` is circular RMS phase distance normalized by `pi`.
 
-A task with `ready=false` is ineligible for lease selection.
+The scalar `readiness` is the internal scheduling quantity.
+
+The legacy `ready` Boolean is retained only as the explicit lease-admission measurement
+
+$
+ready=\mathcal M_{lease}(\Psi_J)\in\{0,1\}.
+$
+
+It must not replace the underlying readiness, phase, noise, urgency or residual state. A task with `ready=false` is ineligible for lease selection because the lease boundary has projected it to 0; the richer pre-measurement state remains in the committed task/provenance surface.
 
 ## Queue selection
 

@@ -9,6 +9,7 @@ from gremlin_mcp.memory_capabilities import beast_capabilities, policy_manifest
 from gremlin_mcp.owl_runtime_audit import audit_status
 from gremlin_mcp.role_registry import BESTIARY_ROLES
 from gremlin_mcp.memory_ontology_algebra import MEMORY_ONTOLOGY_ROLE_BINDINGS, memory_ontology_manifest
+from gremlin_mcp.action_relation_algebra import relational_action_algebra_manifest
 
 from tools.gremlin_bestiary_orbital_scheduler_v02 import PROFILES, service_omega, service_period
 from tools.gremlin_bestiary_vector_species_v03 import (
@@ -154,6 +155,7 @@ def status(*, surface: str = "reference") -> dict[str, Any]:
         "governance_topology": [*TOPOLOGY, "RAPHAEL"],
         "angelic_functions": {"RAPHAEL": angelic_manifest()},
         "memory_ontology_algebra": memory_ontology_manifest(),
+        "relational_action_scope_algebra": relational_action_algebra_manifest(),
         "memory_capability_policy": {
             "schema": policy_manifest()["schema"],
             "version": policy_manifest()["version"],
