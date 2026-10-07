@@ -7,10 +7,10 @@ SCHEMA: Final = "GREMLIN_MCP_TOOL_CATALOG_V0_1"
 TOOL_DESCRIPTIONS: dict[str, str] = {
     "gremlin_product_status": "Return sanitized product/license/profile state without customer secrets.",
     "gremlin_license_status": "Alias for the sanitized licensed-product state.",
-    "gremlin_status": "Return MCP mode, capabilities, topology and fail-closed authority state.",
+    "gremlin_status": "Return MCP mode, capabilities, topology, GREMLIN system authority and request-admission state.",
     "gremlin_bestiary": "List GREMLIN animals, their roles, scheduler mass/orbit and cadence data.",
     "gremlin_species": "Inspect one GREMLIN animal by name, for example SPIDER, OWL or BELZEBUB.",
-    "gremlin_handle_user_task": "Compile one user task through SGT, OCTOPUS and PhaseNav into the default read-only GREMLIN execution plan.",
+    "gremlin_handle_user_task": "Compile one user task through SGT, OCTOPUS and PhaseNav into a GREMLIN-supervised execution plan; external effects remain subject to exact admission.",
     "gremlin_queue_user_task": "Compile one user task through the default GREMLIN gateway and queue its admitted specialists in local worker state.",
     "gremlin_plan": "Build a deterministic mass-orbit/vector-lane execution plan for routed work.",
     "gremlin_route": "Ask OCTOPUS for an auditable deterministic semantic specialist route mask.",

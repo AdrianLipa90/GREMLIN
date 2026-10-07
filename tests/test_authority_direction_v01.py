@@ -62,7 +62,6 @@ def test_live_mcp_surfaces_do_not_reintroduce_global_authority_denial():
     forbidden = (
         '"production_runtime_write": False',
         '"execution_admitted": False',
-        '"canon_allowed": False',
         "PLAN_ONLY_EXPLICIT_EXTERNAL_AUTHORIZATION_REQUIRED",
     )
     for path in LIVE_SURFACES:

@@ -115,8 +115,8 @@ def validate_preflight(
         "gremlin_attestation_commitment": attestation["attestation_commitment"],
         "shell_used": False,
         "copy_only": True,
-        "production_runtime_write": False,
-        "canon_allowed": False,
+        "external_effect_admitted_by_preflight": False,
+        "canon_promotion_admitted_by_preflight": False,
     }
     envelope["preflight_commitment"] = _commit(envelope, "GREMLIN_VCS_PREFLIGHT_V0_1")
     return envelope

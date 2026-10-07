@@ -156,8 +156,9 @@ def gremlin_status() -> dict[str, Any]:
         "semantic_compiler": "GREMLIN_SEMANTIC_GRAPH_TRANSFORMER_V0_1",
         "phasenav_space": "T^36",
         "phasenav_role": "ARPL_CARRIER_PLUS_MEMORY_BIASED_SCHEDULING_ORDER",
-        "external_effects_authorized": False,
-        "canon_allowed": False,
+        "authority": authority_envelope(
+            admission_basis="USER_TASK_GATEWAY_REQUIRES_EXPLICIT_EXTERNAL_ADMISSION"
+        ),
     }
     result["relational_cases"] = {
         "status": "AVAILABLE",
@@ -165,9 +166,9 @@ def gremlin_status() -> dict[str, Any]:
         "case_ports": ["NOM", "GEN", "DAT", "ACC", "INS", "LOC", "VOC"],
         "model": "GRAMMATICAL_CASE_PORT_PLUS_OPERATOR_LOCAL_ROLE",
         "reference_parser": "DETERMINISTIC_POLISH_REFERENCE_RULES_V0_1",
-        "production_runtime_write": False,
-        "execution_admitted": False,
-        "canon_allowed": False,
+        "authority": authority_envelope(
+            admission_basis="INTERNAL_RELATIONAL_ANALYSIS"
+        ),
     }
     return result
 

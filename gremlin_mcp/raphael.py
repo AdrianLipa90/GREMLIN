@@ -629,11 +629,22 @@ def _verify_authorization(
         if auth.get(field) != decree_body.get(field):
             raise RaphaelAuthorizationError(f"authorization {field} does not match decree")
     authority = auth.get("authority")
-    if not isinstance(authority, Mapping) or authority.get("mutation_authorized") is not True:
-        raise RaphaelAuthorizationError("mutation authority was not admitted")
-    for field in ("production_runtime_write", "execution_admitted", "canon_allowed"):
-        if authority.get(field) is not False:
-            raise RaphaelAuthorizationError(f"global authority boundary opened: {field}")
+    if not isinstance(authority, Mapping):
+        raise RaphaelAuthorizationError("mutation authority envelope missing")
+    system = authority.get("system")
+    request = authority.get("request")
+    if not isinstance(system, Mapping) or not isinstance(request, Mapping):
+        raise RaphaelAuthorizationError("mutation authority envelope malformed")
+    if system.get("supervision_authority") != "ACTIVE":
+        raise RaphaelAuthorizationError("GREMLIN supervision authority is not ACTIVE")
+    if system.get("ai_override_gremlin") is not False:
+        raise RaphaelAuthorizationError("AI override of GREMLIN is forbidden")
+    if request.get("mutation_authorized") is not True:
+        raise RaphaelAuthorizationError("mutation request was not admitted")
+    if request.get("external_effect_admitted") is not True:
+        raise RaphaelAuthorizationError("external effect request was not admitted")
+    if request.get("self_granted") is not False:
+        raise RaphaelAuthorizationError("self-granted mutation admission is forbidden")
     return auth
 
 

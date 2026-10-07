@@ -276,9 +276,9 @@ def admit_tool_call(tool: str, args: tuple[Any, ...], kwargs: Mapping[str, Any])
             == sources["current.authority_generation"]
         ),
         "trace_sha256": _sha(execution["trace"]),
-        "canon_allowed": False,
+        "canon_promotion_admitted_by_request": False,
         "local_state_write": facts["tier"] == "LOW_RISK_AUTO",
-        "production_runtime_write": False,
+        "production_effect_admitted_by_request": False,
         "key_mutation_auto": False,
     }
     return {**payload, "receipt_sha256": _sha(payload)}
@@ -294,11 +294,11 @@ def native_admission_manifest() -> dict[str, Any]:
         "read_only": "AUTO",
         "low_risk_local_state_mutations": "AUTO",
         "key_mutations": "REVIEW_REQUIRED",
-        "main_mutation_auto": False,
-        "canon_promotion_auto": False,
+        "main_mutation_requires_explicit_admission": True,
+        "canon_promotion_requires_explicit_admission": True,
         "delete_move_rename_auto": False,
         "force_push_auto": False,
         "secrets_auto": False,
-        "production_effect_auto": False,
+        "production_effect_requires_explicit_admission": True,
         "fail_closed": True,
     }
