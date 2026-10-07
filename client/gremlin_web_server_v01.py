@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any, Mapping, Sequence
 from urllib.parse import urlparse
 
+from gremlin_mcp.authority import authority_envelope
 from gremlin_mcp.core import bestiary_manifest, status as core_status
 from gremlin_mcp.workspace import _assert_loopback, system_payload
 from tools.gremlin_client_protocol_v01 import REQUEST_SCHEMA, run_client_request
@@ -29,6 +30,25 @@ class GremlinVisualClientError(ValueError):
     pass
 
 
+def _reference_authority(admission_basis: str) -> dict[str, Any]:
+    envelope = authority_envelope(admission_basis=admission_basis)
+    return {
+        "scope": "THIS_REQUEST_ONLY",
+        "global_action_denial": False,
+        "source_work_authority": "ACTIVE",
+        "live_production_authority": "NOT_ADMITTED",
+        "production_runtime_write": False,
+        "execution_admitted": False,
+        "canon_allowed": False,
+        "authority_scope": "THIS_REQUEST_ONLY",
+        "global_action_denial": False,
+        "source_work_authority": "ACTIVE",
+        "live_production_authority": "NOT_ADMITTED",
+        "authority": _reference_authority("VISUAL_HEALTH_REFERENCE_ONLY"),
+        **envelope,
+    }
+
+
 def load_example_request() -> dict[str, Any]:
     value = json.loads(EXAMPLE_REQUEST.read_text(encoding="utf-8"))
     if not isinstance(value, dict):
@@ -44,11 +64,7 @@ def process_prototype_request(payload: Mapping[str, Any]) -> dict[str, Any]:
     response = run_client_request(payload)
     return {
         "ui_schema": WEB_SCHEMA,
-        "authority": {
-            "production_runtime_write": False,
-            "execution_admitted": False,
-            "canon_allowed": False,
-        },
+        "authority": _reference_authority("VISUAL_PROTOTYPE_REFERENCE_ONLY"),
         "response": response,
     }
 
@@ -81,11 +97,7 @@ def status_payload() -> dict[str, Any]:
             "capability_contract": capabilities["capability_contract"],
             "error_contract": capabilities["error_contract"],
         },
-        "authority": {
-            "production_runtime_write": False,
-            "execution_admitted": False,
-            "canon_allowed": False,
-        },
+        "authority": _reference_authority("VISUAL_REFERENCE_ONLY"),
     }
 
 
@@ -100,11 +112,7 @@ def bestiary_payload() -> dict[str, Any]:
         "topology": manifest.get("topology"),
         "species": species,
         "species_count": len(species),
-        "authority": {
-            "production_runtime_write": False,
-            "execution_admitted": False,
-            "canon_allowed": False,
-        },
+        "authority": _reference_authority("VISUAL_REFERENCE_ONLY"),
     }
 
 
@@ -140,6 +148,11 @@ class GremlinVisualClientHandler(BaseHTTPRequestHandler):
             "production_runtime_write": False,
             "execution_admitted": False,
             "canon_allowed": False,
+            "authority_scope": "THIS_REQUEST_ONLY",
+            "global_action_denial": False,
+            "source_work_authority": "ACTIVE",
+            "live_production_authority": "NOT_ADMITTED",
+            "authority": _reference_authority("VISUAL_ERROR_REQUEST_ONLY"),
         })
 
     def do_GET(self) -> None:  # noqa: N802 - stdlib handler contract
