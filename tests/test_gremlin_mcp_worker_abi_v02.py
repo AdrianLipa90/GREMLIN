@@ -19,7 +19,7 @@ def test_worker_register_claim_submit_roundtrip_is_candidate_only() -> None:
     )
     assert worker["schema"] == WORKER_SCHEMA
     assert worker["species"] == ("SPIDER",)
-    assert worker["authority"]["canon_allowed"] is False
+    assert worker["authority"]["system"]["supervision_authority"] == "ACTIVE"
 
     first = broker.enqueue("SPIDER", {"text": "alpha"}, task_id="task-a")
     second = broker.enqueue("SPIDER", {"text": "beta"}, task_id="task-b")
@@ -44,11 +44,9 @@ def test_worker_register_claim_submit_roundtrip_is_candidate_only() -> None:
         ],
     )
     assert receipt["status"] == "CANDIDATE"
-    assert receipt["authority"] == {
-        "production_runtime_write": False,
-        "execution_admitted": False,
-        "canon_allowed": False,
-    }
+    assert receipt["authority"]["system"]["supervision_authority"] == "ACTIVE"
+    assert receipt["authority"]["system"]["ai_override_gremlin"] is False
+    assert receipt["authority"]["request"]["external_effect_admitted"] is False
     result = broker.task_result("task-a")
     assert result["state"] == "DONE"
     assert result["status"] == "CANDIDATE"

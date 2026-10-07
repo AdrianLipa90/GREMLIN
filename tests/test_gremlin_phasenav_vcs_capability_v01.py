@@ -196,6 +196,6 @@ def test_happy_path_builds_fail_closed_execution_receipt() -> None:
     assert receipt["schema"] == "PHASENAV_EXECUTION_RECEIPT_V1"
     assert receipt["status"] == "EXECUTED_NATIVE_ADAPTER_VERIFIED"
     assert receipt["shell_used"] is False
-    assert receipt["canon_allowed"] is False
-    assert receipt["production_runtime_write"] is False
+    assert receipt["canon_promotion_admitted_by_execution_receipt"] is False
+    assert receipt["external_effect_admitted_by_execution_receipt"] is True
     assert len(receipt["receipt_commitment"]) == 64

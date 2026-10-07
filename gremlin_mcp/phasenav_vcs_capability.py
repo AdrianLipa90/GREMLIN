@@ -325,8 +325,8 @@ def execution_receipt_build(
         "test_binding_commitment": _require_text(test_binding.get("test_binding_commitment"), "test_binding_commitment"),
         "adapter_evidence_commitment": _commit(adapter, "PHASENAV_NATIVE_ADAPTER_EVIDENCE_V0_1"),
         "shell_used": False,
-        "production_runtime_write": False,
-        "canon_allowed": False,
+        "external_effect_admitted_by_execution_receipt": True,
+        "canon_promotion_admitted_by_execution_receipt": False,
     }
     receipt["receipt_commitment"] = _commit(receipt, EXECUTION_RECEIPT_SCHEMA)
     return receipt

@@ -264,7 +264,11 @@ def build_user_task_plan(
     compiled = compiler.compile([text, *docs])
     task_compiled = compiled if not docs else compiler.compile([text])
     context_routing_mode = _context_routing_mode(text, bool(docs))
-    seeds = _seed_terms(text, compiled)
+    seeds = (
+        []
+        if context_routing_mode == "CONTINUATION_CONTEXT"
+        else _seed_terms(text, compiled)
+    )
     if seeds:
         cone = compiler.causal_cone(compiled, seeds, depth=causal_depth)
         active_graph = {

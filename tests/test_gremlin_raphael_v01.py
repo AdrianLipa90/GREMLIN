@@ -156,7 +156,7 @@ def _decree():
         decision=ACCEPT,
         rationale_codes=["EVIDENCE_CLOSED", "EXACT_SCOPE_BOUND"],
         required_tests=["pytest:raphael"],
-        postconditions=["authority.canon_allowed=false"],
+        postconditions=["authority.request.canon_promotion_admitted=false"],
     )
     return decision["decree"]
 
@@ -222,12 +222,11 @@ def test_raphael_is_angelic_function_not_bestiary_species():
     assert manifest["class"] == "ANGELIC_FUNCTION"
     assert manifest["bestiary_species"] is False
     assert manifest["epistemic"] == "CHYBA"
-    assert manifest["authority"] == {
-        "production_runtime_write": False,
-        "execution_admitted": False,
-        "canon_allowed": False,
-        "mutation_authorized": False,
-    }
+    assert manifest["authority"]["system"]["supervision_authority"] == "ACTIVE"
+    assert manifest["authority"]["system"]["internal_execution"] == "ACTIVE"
+    assert manifest["authority"]["system"]["ai_override_gremlin"] is False
+    assert manifest["authority"]["request"]["mutation_authorized"] is False
+    assert manifest["authority"]["request"]["external_effect_admitted"] is False
 
 
 def test_eye_binds_exact_target_scope_and_required_wisdom_receipts():
@@ -277,7 +276,7 @@ def test_accept_requires_real_post_audit_gates():
             observation,
             decision=ACCEPT,
             rationale_codes=["EVIDENCE_CLOSED"],
-            postconditions=["authority.canon_allowed=false"],
+            postconditions=["authority.request.canon_promotion_admitted=false"],
         )
     with pytest.raises(
         RaphaelWisdomError, match="at least one decree-bound postcondition"
@@ -320,15 +319,18 @@ def test_decree_is_commitment_bound_and_keeps_global_authority_closed():
     assert decree["scope_immutable_after_first_write"] is True
     assert decree["requires_external_authorization"] is True
     assert decree["single_use"] is True
-    assert decree["authority"]["mutation_authorized"] is False
-    assert decree["authority"]["canon_allowed"] is False
+    assert decree["authority"]["system"]["supervision_authority"] == "ACTIVE"
+    assert decree["authority"]["request"]["mutation_authorized"] is False
+    assert decree["authority"]["request"]["external_effect_admitted"] is False
 
 
 def test_authorization_binds_target_active_tether_and_same_generation_triple_pulse():
     decree = _decree()
     auth = _authorization(decree)
-    assert auth["authority"]["mutation_authorized"] is True
-    assert auth["authority"]["canon_allowed"] is False
+    assert auth["authority"]["system"]["supervision_authority"] == "ACTIVE"
+    assert auth["authority"]["request"]["mutation_authorized"] is True
+    assert auth["authority"]["request"]["external_effect_admitted"] is True
+    assert auth["authority"]["request"]["self_granted"] is False
     assert auth["scope_commitment"] == decree["scope_commitment"]
     assert auth["tether_status"] == "ACTIVE"
     assert auth["generation"] == GENERATION
@@ -373,15 +375,16 @@ def test_hand_executes_exact_scope_then_expires_mutation_authority():
         constitutional_packet=_constitutional_packet(decree, auth),
         test_runner=lambda name: name == "pytest:raphael",
         postcondition_checker=lambda condition: condition
-        == "authority.canon_allowed=false",
+        == "authority.request.canon_promotion_admitted=false",
     )
     assert receipt["status"] == "PASS"
     assert receipt["before_target_sha"] == "a" * 40
     assert receipt["after_target_sha"] == "c" * 40
     assert len(receipt["reservation_commitment"]) == 64
     assert receipt["mutation_authority_expired"] is True
-    assert receipt["authority"]["mutation_authorized"] is False
-    assert receipt["authority"]["canon_allowed"] is False
+    assert receipt["authority"]["system"]["supervision_authority"] == "ACTIVE"
+    assert receipt["authority"]["request"]["mutation_authorized"] is False
+    assert receipt["authority"]["request"]["external_effect_admitted"] is False
     assert backend.rolled_back is False
 
 

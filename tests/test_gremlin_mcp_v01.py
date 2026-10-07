@@ -36,11 +36,11 @@ def test_standalone_status_is_fail_closed() -> None:
     s = status()
     assert s["standalone"] is True
     assert s["noema_required"] is False
-    assert s["authority"] == {
-        "production_runtime_write": False,
-        "execution_admitted": False,
-        "canon_allowed": False,
-    }
+    assert s["authority"]["system"]["supervision_authority"] == "ACTIVE"
+    assert s["authority"]["system"]["internal_execution"] == "ACTIVE"
+    assert s["authority"]["system"]["ai_override_gremlin"] is False
+    assert s["authority"]["request"]["external_effect_admitted"] is False
+    assert s["authority"]["request"]["self_granted"] is False
     assert s["governance_topology"][-1] == "RAPHAEL"
     assert s["angelic_functions"]["RAPHAEL"]["class"] == "ANGELIC_FUNCTION"
 

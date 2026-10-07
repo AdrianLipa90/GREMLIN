@@ -26,5 +26,21 @@
   "external_effect_boundary": "RAPHAEL + CONSTITUTION + ACTIVE_TETHER + OPERATOR_ADMISSION",
   "historical_receipts_mutated": false,
   "main_mutated": false,
-  "validation_status": "PENDING_POSTWRITE"
+  "validation_status": "POSTWRITE_MIGRATION_IN_PROGRESS",
+  "preexisting_findings": {
+    "continuation_context_causal_cone": {
+      "status": "REPAIRED_ON_BRANCH",
+      "evidence": "clean 2026-10-06 Library snapshot failed existing continuation routing test before authority repair",
+      "fix": "CONTINUATION_CONTEXT uses full compiled context graph instead of task-only causal seed"
+    }
+  },
+  "test_contract_migration": [
+    "RAPHAEL nested authority envelope",
+    "MCP core authority envelope",
+    "worker ABI authority envelope",
+    "web research authority envelope",
+    "Hive authority envelope",
+    "PNV native request-admission naming",
+    "PhaseNav VCS request-admission naming"
+  ]
 }

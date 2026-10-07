@@ -91,7 +91,7 @@ def test_fetch_url_extracts_html_and_receipt(monkeypatch: pytest.MonkeyPatch) ->
     assert "ignore" not in result["text"]
     assert len(result["sha256"]) == 64
     assert len(result["receipt_commitment"]) == 64
-    assert result["authority"]["canon_allowed"] is False
+    assert result["authority"]["request"]["canon_promotion_admitted"] is False
 
 
 def test_search_web_deduplicates_across_providers(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -170,9 +170,7 @@ def test_research_routes_and_keeps_candidate_authority(monkeypatch: pytest.Monke
     assert "OWL" in result["octopus"]["route_mask"]
     assert "research_plan" in result
     assert "MOLE" in result["research_plan"]["species_union"]
-    assert result["authority"] == {
-        "production_runtime_write": False,
-        "execution_admitted": False,
-        "canon_allowed": False,
-    }
+    assert result["authority"]["system"]["supervision_authority"] == "ACTIVE"
+    assert result["authority"]["system"]["ai_override_gremlin"] is False
+    assert result["authority"]["request"]["external_effect_admitted"] is False
     assert len(result["research_commitment"]) == 64

@@ -59,7 +59,7 @@ def test_manifest_is_pnv_authoritative() -> None:
     manifest = native_admission_manifest()
     assert manifest["mode"] == "PNV_NATIVE_POLICY_PYTHON_TRANSPORT_ONLY"
     assert manifest["key_mutations"] == "REVIEW_REQUIRED"
-    assert manifest["main_mutation_auto"] is False
+    assert manifest["main_mutation_requires_explicit_admission"] is True
     assert len(manifest["pnv_sha256"]) == 64
 
 
@@ -80,8 +80,8 @@ def test_local_state_mutation_is_low_risk_auto(monkeypatch: pytest.MonkeyPatch, 
     receipt = admit_tool_call("gremlin_worker_enqueue", (), {})
     assert receipt["status"] == "PASS"
     assert receipt["local_state_write"] is True
-    assert receipt["production_runtime_write"] is False
-    assert receipt["canon_allowed"] is False
+    assert receipt["production_effect_admitted_by_request"] is False
+    assert receipt["canon_promotion_admitted_by_request"] is False
 
 
 def test_unknown_or_key_mutation_fails_closed(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
