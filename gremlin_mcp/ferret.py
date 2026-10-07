@@ -12,6 +12,7 @@ from threading import Lock
 from typing import Any, Callable, Mapping, Protocol, Sequence
 import urllib.parse
 
+from .authority import authority_envelope
 from .constitutional_runtime import require_constitutional_admission
 from .mathematical_constitution import PASS
 
@@ -67,13 +68,7 @@ def _commit(domain: bytes, payload: Any) -> str:
     return hashlib.blake2b(domain + _canonical(payload), digest_size=32).hexdigest()
 
 
-def _authority() -> dict[str, bool]:
-    return {
-        "production_runtime_write": False,
-        "execution_admitted": False,
-        "canon_allowed": False,
-    }
-
+def _authority() -> dict[str, Any]:\n    return authority_envelope()\n
 
 def _strict_text(value: Any, field: str, *, allow_empty: bool = False) -> str:
     if not isinstance(value, str):

@@ -4,6 +4,8 @@ import hashlib
 import json
 from collections.abc import Iterable, Mapping, Sequence
 from typing import Any
+
+from gremlin_mcp.authority import authority_envelope
 import uuid
 
 from gremlin_mcp.workers import MEMORY_AUTHORIZATION_KEY, MEMORY_REQUESTS_KEY, WorkerBroker
@@ -20,9 +22,7 @@ def _canonical(value: Any) -> bytes:
         raise ValueError("pipeline data must be finite JSON") from exc
 
 
-def _authority() -> dict[str, bool]:
-    return {"production_runtime_write": False, "execution_admitted": False, "canon_allowed": False}
-
+def _authority() -> dict[str, Any]:\n    return authority_envelope()\n
 
 def _strict_text(value: Any, field: str) -> str:
     if not isinstance(value, str):

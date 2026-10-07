@@ -1,0 +1,30 @@
+{
+  "schema": "GREMLIN_AUTHORITY_DIRECTION_REPAIR_V0_1",
+  "date": "2026-10-07",
+  "repository": "AdrianLipa90/GREMLIN",
+  "branch": "fix/authority-direction-repair-v0.1-20261007",
+  "base_main_sha": "1b46b425e6170612e67a96dac21ca7aa6c24e6ac",
+  "diagnosis": {
+    "original_native_authority_commit": "c029eb8a48514080afaf320ba9b6c1aa53fe2111",
+    "first_mcp_global_denial_contract": "d3e17e7121793eb7b8376e4a120e3f5cdc9d82d5",
+    "first_mcp_global_denial_core": "b7928b5cfa43575c6c04f6b4d8fa08be24780879",
+    "failure": "MCP request-admission defaults were propagated as if they described GREMLIN system authority"
+  },
+  "repair_invariant": "OPERATOR > GREMLIN > AI_CLIENT",
+  "gremlin_system": {
+    "supervision_authority": "ACTIVE",
+    "internal_execution": "ACTIVE",
+    "internal_write": "ACTIVE_BOUNDED",
+    "external_mutation_capability": "AVAILABLE_CONDITIONAL",
+    "canon_promotion_capability": "AVAILABLE_CONDITIONAL"
+  },
+  "ai_client": {
+    "self_authorization": false,
+    "override_gremlin": false,
+    "mcp_self_grants_authority": false
+  },
+  "external_effect_boundary": "RAPHAEL + CONSTITUTION + ACTIVE_TETHER + OPERATOR_ADMISSION",
+  "historical_receipts_mutated": false,
+  "main_mutated": false,
+  "validation_status": "PENDING_POSTWRITE"
+}

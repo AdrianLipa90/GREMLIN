@@ -9,6 +9,8 @@ import re
 import unicodedata
 from typing import Any, Iterable, Mapping
 
+from gremlin_mcp.authority import authority_envelope
+
 from gremlin_mcp.continuous_benchmark import record_octopus_route
 from gremlin_mcp.pipeline import SPECIALISTS, fanout
 from gremlin_mcp.workers import MEMORY_AUTHORIZATION_KEY, MEMORY_REQUESTS_KEY, WorkerBroker
@@ -138,13 +140,7 @@ STRUCTURAL_KEYS: dict[str, frozenset[str]] = {
 }
 
 
-def _authority() -> dict[str, bool]:
-    return {
-        "production_runtime_write": False,
-        "execution_admitted": False,
-        "canon_allowed": False,
-    }
-
+def _authority() -> dict[str, Any]:\n    return authority_envelope()\n
 
 def _canonical(value: Any) -> bytes:
     try:

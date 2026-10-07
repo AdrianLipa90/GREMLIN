@@ -25,6 +25,7 @@ from gremlin_mcp.memory_capabilities import (
     validate_task_authorization_bundle,
 )
 
+from gremlin_mcp.authority import authority_envelope
 from tools.gremlin_bestiary_orbital_scheduler_v02 import PROFILES, service_omega
 from tools.gremlin_bestiary_vector_species_v03 import lane_width
 from tools.gremlin_geometry_context_pack_v01 import pack_context
@@ -61,12 +62,8 @@ MEMORY_AUTHORIZATION_KEY = "_gremlin_memory_authorization"
 WORKER_SPECIES = tuple(SCHEDULER_SPECIES)
 
 
-def _authority_state() -> dict[str, bool]:
-    return {
-        "production_runtime_write": False,
-        "execution_admitted": False,
-        "canon_allowed": False,
-    }
+def _authority_state() -> dict[str, Any]:
+    return authority_envelope()
 
 
 def _canonical(value: Any) -> bytes:

@@ -117,21 +117,20 @@ The same triple-pulse generation is probed again immediately before HAND. An ina
 
 A changed target SHA is `STATE_DRIFT` and fails closed before mutation. A stale exact-state authorization is consumed and terminated with a committed `ABORTED` receipt; it cannot become valid again if the branch later returns to the old SHA. Target state digests are admitted only at exact SHA-1 (40 hex) or SHA-256 (64 hex) lengths. `actor=RAPHAEL` is rejected: RAPHAEL cannot authorize its own HAND phase.
 
-Global authority remains closed:
+GREMLIN system authority remains active throughout RAPHAEL. What changes at the external gate is the *request admission state*, not GREMLIN's capability:
 
 ```text
-production_runtime_write=false
-execution_admitted=false
-canon_allowed=false
+GREMLIN_SUPERVISION          ACTIVE
+GREMLIN_INTERNAL_EXECUTION   ACTIVE
+EXTERNAL_MUTATION_CAPABILITY AVAILABLE_CONDITIONAL
+AI_SELF_AUTHORIZATION        FALSE
+AI_OVERRIDE_GREMLIN          FALSE
+
+request.external_effect_admitted = false -> true
+request.mutation_authorized      = false -> true
 ```
 
-The authorization opens only:
-
-```text
-mutation_authorized=true
-```
-
-for the exact decree/target pair.
+The transition applies only to the exact decree/target pair and remains single-use.
 
 ### HAND — exact execution
 
@@ -180,15 +179,7 @@ rollback failure -> QUARANTINED
 
 Both paths raise a fail-loud `RaphaelExecutionError` carrying a committed failure receipt.
 
-A successful receipt carries:
-
-```text
-status=PASS
-mutation_authority_expired=true
-canon_allowed=false
-execution_admitted=false
-production_runtime_write=false
-```
+A successful receipt carries `status=PASS`, an expired single-use mutation admission, and the canonical GREMLIN authority envelope. Expiry closes that request admission; it does not remove GREMLIN's system authority.
 
 ## Single-use and cancellation
 

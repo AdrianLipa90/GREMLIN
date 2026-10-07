@@ -6,6 +6,7 @@ from pathlib import Path
 import re
 from typing import Any, Mapping, Sequence
 
+from gremlin_mcp.authority import authority_envelope
 from gremlin_mcp.router import route
 from gremlin_mcp.semantic_graph_transformer import SemanticGraphTransformer
 from gremlin_mcp.memory_ontology_algebra import build_memory_ontology_handoff
@@ -19,7 +20,7 @@ from tools.gremlin_geometry_phase_scheduler_v02 import derived_phase36
 
 SCHEMA = "GREMLIN_USER_TASK_GATEWAY_V0_1"
 VERSION = "0.1.0"
-AUTHORITY = "COGNITIVE_ROUTING_ONLY"
+AUTHORITY = "GREMLIN_SUPERVISOR"
 EPISTEMIC = "CHYBA"
 
 _TEST_RE = re.compile(
@@ -359,9 +360,16 @@ def build_user_task_plan(
 
     mode = "DIRECT" if not included_species else "GREMLIN_ROUTED"
     action_authority = (
-        "PLAN_ONLY_EXPLICIT_EXTERNAL_AUTHORIZATION_REQUIRED"
+        "GREMLIN_SUPERVISED_EXTERNAL_ADMISSION_REQUIRED"
         if flags["mutation"]
-        else "COGNITIVE_ROUTING_ONLY"
+        else "GREMLIN_SUPERVISED_INTERNAL_ONLY"
+    )
+    action_envelope = authority_envelope(
+        admission_basis=(
+            "EXPLICIT_OPERATOR_AND_CONSTITUTION_REQUIRED"
+            if flags["mutation"]
+            else "INTERNAL_GREMLIN"
+        )
     )
     live = _live_witness(surface_root)
     context_commitments = [hashlib.sha256(item.encode("utf-8")).hexdigest() for item in docs]
@@ -402,8 +410,8 @@ def build_user_task_plan(
             "canon_allowed": memory_ontology["canon_allowed"],
         },
         "intent_flags": flags,
-        "authority": action_authority,
-        "canon_allowed": False,
+        "authority_mode": action_authority,
+        "authority": action_envelope,
     }
 
     plan: dict[str, Any] = {
@@ -448,7 +456,8 @@ def build_user_task_plan(
             "host_tool_hints": _tool_hints(flags),
             "external_effects_authorized": False,
             "requires_explicit_external_authorization": bool(flags["mutation"]),
-            "authority": action_authority,
+            "authority_mode": action_authority,
+            "authority": action_envelope,
         },
         "worker_payload": worker_payload,
         "claims": {
@@ -462,12 +471,12 @@ def build_user_task_plan(
             "stale_context_can_override_explicit_task_membership": False,
             "trained_neural_transformer_claim": False,
             "answer_quality_measured": False,
-            "production_execution_admitted": False,
-            "canon_allowed": False,
+            "external_effect_admitted": False,
+            "canon_promotion_admitted": False,
         },
         "epistemic": EPISTEMIC,
-        "authority": AUTHORITY,
-        "canon_allowed": False,
+        "authority_mode": AUTHORITY,
+        "authority": action_envelope,
     }
     plan["plan_sha256"] = _sha(plan)
     return plan

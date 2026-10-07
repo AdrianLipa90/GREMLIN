@@ -1,6 +1,6 @@
 # GREMLIN User Task Gateway v0.1
 
-Status: candidate. Authority: cognitive routing only.
+Status: candidate gateway. Authority: GREMLIN supervisor; external effects require separate admission.
 
 ## Purpose
 
@@ -15,10 +15,10 @@ The gateway is intended to be the first GREMLIN call for a user task. It does no
 1. OCTOPUS owns semantic specialist inclusion.
 2. PhaseNav may reorder an admitted route for scheduling locality but cannot add or remove semantic specialists.
 3. Explicit validation policy may append HOUND/MANTIS for test/audit work.
-4. Repository/write/send/deploy style tasks remain plan-only until the host obtains the normal explicit authorization.
+4. Repository/write/send/deploy intents remain GREMLIN-supervised and are marked `EXTERNAL_ADMISSION_REQUIRED` until the existing operator/constitutional gate admits the exact effect; the gateway does not demote GREMLIN to plan-only.
 5. Raw context documents are compiled into the semantic graph and represented to workers by graph tokens plus content commitments; raw context is not duplicated into the worker payload.
 6. Live NOEMA state is a witness only in v0.1. It does not override semantic routing.
-7. No canon promotion or production execution authority is granted.
+7. The gateway cannot self-grant canon promotion or external-effect admission. GREMLIN system capability remains present and distinct from request admission.
 8. Routing metadata must not become semantic evidence. Counters and bookkeeping fields stay outside the OCTOPUS cue surface, preventing self-routing contamination.
 
 ## Modes

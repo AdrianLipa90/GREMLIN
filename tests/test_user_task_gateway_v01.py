@@ -49,7 +49,10 @@ def test_mutation_task_requires_external_authorization() -> None:
     execution = out["execution"]
     assert execution["external_effects_authorized"] is False
     assert execution["requires_explicit_external_authorization"] is True
-    assert execution["authority"] == "PLAN_ONLY_EXPLICIT_EXTERNAL_AUTHORIZATION_REQUIRED"
+    assert execution["authority_mode"] == "GREMLIN_SUPERVISED_EXTERNAL_ADMISSION_REQUIRED"
+    assert execution["authority"]["system"]["supervision_authority"] == "ACTIVE"
+    assert execution["authority"]["system"]["ai_override_gremlin"] is False
+    assert execution["authority"]["request"]["external_effect_admitted"] is False
     assert "GITHUB" in execution["host_tool_hints"]
 
 

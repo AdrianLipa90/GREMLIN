@@ -8,6 +8,7 @@ import time
 from threading import Lock
 from typing import Any, Callable, Mapping, Protocol, Sequence
 
+from .authority import authority_envelope
 from .constitutional_runtime import require_constitutional_admission
 from .mathematical_constitution import PASS
 
@@ -200,13 +201,16 @@ def _strings(value: Any, field: str, *, allow_empty: bool = False) -> list[str]:
     return rows
 
 
-def _authority(*, mutation_authorized: bool = False) -> dict[str, bool]:
-    return {
-        "production_runtime_write": False,
-        "execution_admitted": False,
-        "canon_allowed": False,
-        "mutation_authorized": bool(mutation_authorized),
-    }
+def _authority(*, mutation_authorized: bool = False) -> dict[str, Any]:
+    return authority_envelope(
+        external_effect_admitted=bool(mutation_authorized),
+        mutation_authorized=bool(mutation_authorized),
+        admission_basis=(
+            "EXACT_RAPHAEL_OPERATOR_CONSTITUTION_TETHER_ADMISSION"
+            if mutation_authorized
+            else "NONE"
+        ),
+    )
 
 
 def _require_closed_authority(record: Mapping[str, Any], field: str) -> None:

@@ -12,6 +12,8 @@ import urllib.request
 import xml.etree.ElementTree as ET
 from typing import Any, Iterable, Mapping
 
+from gremlin_mcp.authority import authority_envelope
+
 from gremlin_mcp.router import route
 
 WEB_SCHEMA = "GREMLIN_WEB_RESEARCH_V0_1"
@@ -34,13 +36,7 @@ class WebAccessError(RuntimeError):
     pass
 
 
-def _authority() -> dict[str, bool]:
-    return {
-        "production_runtime_write": False,
-        "execution_admitted": False,
-        "canon_allowed": False,
-    }
-
+def _authority() -> dict[str, Any]:\n    return authority_envelope()\n
 
 def _canonical(value: Any) -> bytes:
     return json.dumps(

@@ -6,15 +6,21 @@ Status: CANDIDATE / standalone MCP adapter.
 
 Expose the existing GREMLIN Bestiary and reference prototype pipeline through the Model Context Protocol without requiring NOEMA, `/dev/shm/ciel_noema`, or native PhaseNav authority for discovery, scheduling, and reference experimentation.
 
-The MCP adapter is intentionally fail-closed with respect to production authority:
+The MCP adapter is an integration surface *beneath* GREMLIN, not the authority root. It cannot self-authorize an external effect or canon promotion, but those request-state facts must never be represented as GREMLIN lacking authority.
 
 ```text
-production_runtime_write = false
-execution_admitted       = false
-canon_allowed            = false
+AUTHORITY_ORDER                   OPERATOR > GREMLIN > AI_CLIENT
+GREMLIN_SUPERVISION               ACTIVE
+GREMLIN_INTERNAL_EXECUTION        ACTIVE
+GREMLIN_INTERNAL_WRITE            ACTIVE_BOUNDED
+EXTERNAL_MUTATION_CAPABILITY      AVAILABLE_CONDITIONAL
+CANON_PROMOTION_CAPABILITY        AVAILABLE_CONDITIONAL
+AI_SELF_AUTHORIZATION             FALSE
+AI_OVERRIDE_GREMLIN               FALSE
+MCP_SELF_GRANTS_AUTHORITY         FALSE
 ```
 
-It is therefore an integration surface, not a replacement for the native authority path.
+External mutations continue to require the existing RAPHAEL/Constitution/tether/operator admission path.
 
 ## Topology exposed to MCP clients
 
@@ -78,7 +84,7 @@ Returns deterministic lane widths, batch counts, cadence ordering and dispatch c
 
 Delegates to `tools/gremlin_client_protocol_v01.py` and preserves its existing candidate -> PhaseNav IR -> untrusted reference prototype -> experiment receipt pipeline.
 
-The tool cannot request production execution admission or canon promotion.
+The tool cannot self-grant external-effect admission or canon promotion. GREMLIN retains the capability and supervises any separately admitted path.
 
 ## Installation
 
@@ -153,7 +159,7 @@ Native 36D authority remains on the established NOEMA/PhaseNav execution path an
 
 `tests/test_gremlin_mcp_v01.py` verifies:
 
-- fail-closed standalone status;
+- separated GREMLIN-system authority and MCP request-admission status;
 - complete Bestiary manifest;
 - deterministic vector lane planning;
 - an in-process MCP v2 handshake;

@@ -322,13 +322,21 @@ or set `GREMLIN_MCP_STATE_PATH`.
 
 Durable mode persists worker registrations, queued tasks, active leases, task commitments and candidate results. Hydration validates task commitments and lease/task lineage and fails closed on corruption. Expired leases are returned to `QUEUED` after restart.
 
-The MCP adapter is fail-closed with respect to native authority:
+GREMLIN authority and MCP request admission are separate:
 
 ```text
-production_runtime_write=false
-execution_admitted=false
-canon_allowed=false
+AUTHORITY_ORDER                   OPERATOR > GREMLIN > AI_CLIENT
+GREMLIN_SUPERVISION               ACTIVE
+GREMLIN_INTERNAL_EXECUTION        ACTIVE
+GREMLIN_INTERNAL_WRITE            ACTIVE_BOUNDED
+EXTERNAL_MUTATION_CAPABILITY      AVAILABLE_CONDITIONAL
+CANON_PROMOTION_CAPABILITY        AVAILABLE_CONDITIONAL
+AI_SELF_AUTHORIZATION             FALSE
+AI_OVERRIDE_GREMLIN               FALSE
+MCP_SELF_GRANTS_AUTHORITY         FALSE
 ```
+
+An MCP/AI request that has not passed an external admission gate is *unadmitted*; that does not mean GREMLIN lacks the capability. External mutations remain supervised by GREMLIN and require the existing RAPHAEL + Constitution + tether + operator admission path.
 
 Specifications:
 
@@ -357,13 +365,7 @@ Open `http://127.0.0.1:8765` and use **Load example** followed by **Compile & te
 
 The browser surface has zero external frontend dependencies. The local API delegates to the same `run_client_request()` implementation used by the CLI and test harness.
 
-Visual-client authority state:
-
-```text
-production_runtime_write=false
-execution_admitted=false
-canon_allowed=false
-```
+The visual client is an AI/client surface beneath GREMLIN. It cannot self-authorize external effects or override GREMLIN; it displays the canonical system authority and the current request-admission state separately.
 
 Full specification: `spec/GREMLIN_VISUAL_CLIENT_V0_1.md`.
 

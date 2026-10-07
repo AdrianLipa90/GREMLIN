@@ -244,10 +244,13 @@ function renderSystem(payload) {
   const speciesCount = Number.isInteger(bestiary.species_count) ? bestiary.species_count : "—";
   systemSpeciesCount.textContent = speciesCount === "—" ? "—" : `${speciesCount} roles`;
 
-  const closed = authority.production_runtime_write === false
-    && authority.execution_admitted === false
-    && authority.canon_allowed === false;
-  systemAuthority.textContent = closed ? "CLOSED" : "CHECK REQUIRED";
+  const systemAuthorityState = authority.system || {};
+  const requestAuthorityState = authority.request || {};
+  const gremlinActive = systemAuthorityState.supervision_authority === "ACTIVE"
+    && systemAuthorityState.internal_execution === "ACTIVE"
+    && systemAuthorityState.ai_override_gremlin === false
+    && requestAuthorityState.self_granted === false;
+  systemAuthority.textContent = gremlinActive ? "GREMLIN ACTIVE / AI BOUNDED" : "CHECK REQUIRED";
 
   setBadge(
     productBadge,

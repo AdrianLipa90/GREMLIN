@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import asdict
 from typing import Any, Mapping
 
+from gremlin_mcp.authority import authority_envelope
+
 from gremlin_mcp.error_contract import SCHEMA as MCP_ERROR_SCHEMA
 from gremlin_mcp.raphael import angelic_manifest
 from gremlin_mcp.memory_capabilities import beast_capabilities, policy_manifest
@@ -108,8 +110,8 @@ def _strict_int(value: Any, field: str, *, minimum: int) -> int:
     return value
 
 
-def authority_state() -> dict[str, bool]:
-    return {"production_runtime_write": False, "execution_admitted": False, "canon_allowed": False}
+def authority_state() -> dict[str, Any]:
+    return authority_envelope()
 
 
 def status(*, surface: str = "reference") -> dict[str, Any]:

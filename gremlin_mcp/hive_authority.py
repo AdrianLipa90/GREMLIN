@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict
+from gremlin_mcp.authority import authority_envelope
 import json
 from pathlib import Path
 import sqlite3
@@ -347,10 +348,8 @@ class HiveAuthorityRuntime:
             "head_count": len(table),
             "persistence": "SQLITE_WAL_SINGLE_AUTHORITY" if self.persistent else "PROCESS_RESIDENT",
             "state_path": self.state_path,
-            "authority": "SHARED_COGNITION_ONLY",
-            "production_runtime_write": False,
-            "execution_admitted": False,
-            "canon_allowed": False,
+            "authority": authority_envelope(),
+            "cognition_scope": "SHARED_COGNITION",
         }
 
 
