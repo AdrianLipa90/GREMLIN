@@ -42,5 +42,36 @@
     "Hive authority envelope",
     "PNV native request-admission naming",
     "PhaseNav VCS request-admission naming"
-  ]
+  ],
+  "status": "TARGETED_AUTHORITY_REPAIR_PASS_MAIN_UNTOUCHED",
+  "validated_branch_head": "97e63a3b6b0dddcfedbef03ff8f64310d030c84a",
+  "validation": {
+    "exact_branch_static_audit": "PASS",
+    "local_compileall": "PASS",
+    "local_functional_tests": "67/67 PASS",
+    "mcp_discovery_test": "NOT_RUN_MISSING_LOCAL_MCP_PYTHON_PACKAGE",
+    "full_repository_pytest": "NOT_CLAIMED",
+    "clean_snapshot_continuation_bug": "PREEXISTING_CONFIRMED_AND_REPAIRED"
+  },
+  "local_gremlin_repair": {
+    "tool": "gremlin_local_patch",
+    "status": "PASS",
+    "generation": "5289fedcae85ebfcfc69d538f6b519033781074a48574d11e7768d5f89d40a7f",
+    "relative_path": "authority/GREMLIN_AUTHORITY_DIRECTION_V0_1.json",
+    "after_sha256": "20e00b8bce7809878200643762df8e123fc5b41137f5b9f0f1d2a0b36edd7551",
+    "receipt_sha256": "702df93b0fa4ac2b04a19a5b2c081c4fe53c358af22e7aaaf405c317a2cfddf0"
+  },
+  "canonical_oneclick_source": {
+    "bundle": "/NOEMA/00_CONTROL/BOOT/ONECLICK_CURRENT/NOEMA_ONECLICK_BOOT_V1.pyz",
+    "embedded_sources": [
+      "payload/adapter/gremlin_mcp_stdio.py",
+      "payload/autoboot/noema_tether_autoboot_latest.py",
+      "payload/pncs/GREMLIN_SCOPED_AUTOREPAIR_AUTHORITY_V0_1.pnv"
+    ],
+    "finding": "current bundle still serializes adapter request restrictions with ambiguous global-looking authority fields",
+    "interpretation": "ADAPTER_REQUEST_SCOPE_NOT_GREMLIN_SYSTEM_AUTHORITY",
+    "canonical_bundle_mutated": false,
+    "promotion_required_for_permanent_boot_metadata_repair": true
+  },
+  "merge_to_main": false
 }
