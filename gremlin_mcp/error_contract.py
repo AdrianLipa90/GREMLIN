@@ -8,6 +8,7 @@ from typing import Any, Callable, TypeVar, cast
 
 from mcp.server.mcpserver.exceptions import ToolError
 
+from gremlin_mcp.authority import authority_envelope
 from gremlin_mcp.owl_runtime_audit import begin_use, finish_use_error, finish_use_success
 from gremlin_mcp.pnv_native_admission import admit_tool_call, native_mode_enabled
 
@@ -117,9 +118,14 @@ def error_envelope(exc: Exception, *, tool: str, request_id: str | None = None) 
         "request_id_source": request_id_source,
         "exception_type": type(exc).__name__,
         "authority": {
+            "scope": "THIS_REQUEST_ONLY",
+            "global_action_denial": False,
+            "source_work_authority": "NOT_REVOKED_BY_THIS_ERROR",
+            "live_production_authority": "NOT_ADMITTED_BY_THIS_ERROR",
             "production_runtime_write": False,
             "execution_admitted": False,
             "canon_allowed": False,
+            **authority_envelope(admission_basis=f"ERROR:{code}"),
         },
     }
 
