@@ -14,6 +14,13 @@ Operator deklaruje, że wszystkie zmiany na GitHubie były wykonywane za pośred
 2. `gremlin_mcp/pnv_native_admission.py:240,242,318`: flagi key_mutation i production_effect ustawione statycznie na False; faktyczne argumenty żądania odrzucane. **OTWARTE**, bez nieprawdziwego oznaczenia PASS.
 3. `tests/test_gremlin_pnv_native_admission_v06.py:58-113`: oczekiwania testowe rozbieżne ze ścieżką SOURCE_WORK. **OTWARTE**.
 
+## Dalsze naprawy na osobnej gałęzi (2026-10-08)
+
+- `gremlin_mcp/error_contract.py:124-133`: usunięto trzy mylące globalne flagi odmowy `False` z błędów MCP; błąd pojedynczego żądania nie jest już publikowany jako brak wewnętrznych uprawnień całego GREMLIN. Wynik zastąpiono kanoniczną kopertą `authority_envelope()`. Commit `6a36e6fd4f1368d771e0c7b77095be3a3aac0d5e`; dostosowano testy w commicie `b3b2de618a9fdd322670264e9a1c6a6a09e9c7aa`.
+- `tests/test_gremlin_pnv_native_admission_v06.py`: poprawiono błędne oczekiwania starszych testów względem rozdzielenia `SOURCE_WORK` i `LIVE_PRODUCTION`. Commit `26aa284b9bc54c290337d71983d8c28963dff253`. Test odmowy niedopuszczonego `gremlin_git_merge_main` pozostawiono; jego skuteczność zależy od nadal otwartej naprawy klasyfikacji efektów.
+- **Zgłoszenie operatora:** `3383` w GREMLIN. Liczba nie została zweryfikowana jako liczba unikatowych blokerów. Nie używać jako liczby potwierdzonych błędów bez raportu źródłowego.
+- Pełne `pytest` dla aktualnego HEAD: **NIEWYKONANE**. Weryfikacja obecnych commitów poprzez GitHub nie jest równoważna z testami wykonawczymi.
+
 ## Inwentaryzacja GitHub — 93/93
 
 Odczyt drzewa Git został wykonany dla 92 repozytoriów; jedno repozytorium puste. **Odczyt drzewa nie potwierdza, że zbadano każdą linię kodu.** Status `NIEZWERYFIKOWANE` nigdy nie oznacza „brak blokad”.
