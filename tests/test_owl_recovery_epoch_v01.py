@@ -82,3 +82,56 @@ def test_healthy_ledger_cannot_be_recovered(tmp_path):
     healthy = OwlRuntimeAuditor(tmp_path / "owl.jsonl")
     with pytest.raises(RuntimeError, match="OWL_AUDIT_RECOVERY_REQUIRES_DEGRADED"):
         healthy.start_recovery_epoch()
+
+
+def test_wrapper_replays_receipt_into_new_epoch_without_rerunning_tool(monkeypatch, tmp_path):
+    import gremlin_mcp.owl_runtime_audit as owl
+
+    source = tmp_path / "owl.jsonl"
+    original = OwlRuntimeAuditor(source)
+    original.finish_success(original.begin("original", (), {}), {"ok": True})
+    corrupted = json.loads(source.read_text(encoding="utf-8"))
+    corrupted["duration_ns"] += 19
+    source.write_text(json.dumps(corrupted) + "\n", encoding="utf-8")
+    original_bytes = source.read_bytes()
+    monkeypatch.setattr(owl, "GLOBAL_OWL_AUDITOR", OwlRuntimeAuditor(source))
+    calls = []
+
+    @owl.owl_runtime_boundary
+    def once():
+        calls.append("once")
+        return "worked"
+
+    with pytest.warns(RuntimeWarning, match="Historical continuity remains UNVERIFIED"):
+        assert once() == "worked"
+    assert calls == ["once"]
+    assert source.read_bytes() == original_bytes
+    current = owl.GLOBAL_OWL_AUDITOR
+    assert current.path != source
+    assert owl.audit_status()["status"] == "PASS"
+    replay = OwlRuntimeAuditor(current.path)
+    assert replay.snapshot()["status"] == "PASS"
+    assert replay.snapshot()["record_count"] == 2
+    assert replay.snapshot()["event_count"] == 1
+
+
+def test_wrapper_recovers_error_receipt_and_preserves_original(monkeypatch, tmp_path):
+    import gremlin_mcp.owl_runtime_audit as owl
+
+    source = tmp_path / "owl.jsonl"
+    original = OwlRuntimeAuditor(source)
+    original.finish_success(original.begin("before", (), {}), {"ok": True})
+    record = json.loads(source.read_text(encoding="utf-8"))
+    record["duration_ns"] += 5
+    source.write_text(json.dumps(record) + "\n", encoding="utf-8")
+    original_bytes = source.read_bytes()
+    monkeypatch.setattr(owl, "GLOBAL_OWL_AUDITOR", OwlRuntimeAuditor(source))
+
+    span = owl.begin_use("error_after_recovery", (), {})
+    with pytest.warns(RuntimeWarning, match="Historical continuity remains UNVERIFIED"):
+        receipt = owl.finish_use_error(span, ValueError("bad request"), "INVALID_REQUEST")
+    assert receipt is not None
+    assert receipt["status"] == "ERROR"
+    assert receipt["sequence"] == 2
+    assert source.read_bytes() == original_bytes
+    assert owl.audit_status()["tools"]["error_after_recovery"]["errors"] == 1
