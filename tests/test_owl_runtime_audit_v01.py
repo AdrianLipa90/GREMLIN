@@ -137,3 +137,16 @@ def test_boundary_preserves_return_and_exception_semantics(monkeypatch, tmp_path
     snapshot = owl.audit_status()
     assert snapshot["tools"]["good"]["successes"] == 1
     assert snapshot["tools"]["bad"]["errors"] == 1
+
+
+def test_owl_snapshot_observation_scope_is_not_gremlin_global_denial(tmp_path) -> None:
+    auditor = OwlRuntimeAuditor(tmp_path / "owl.jsonl")
+    authority = auditor.snapshot()["authority"]
+    assert authority["owl_role"] == "OBSERVATION_ONLY"
+    assert authority["system"]["supervision_authority"] == "ACTIVE"
+    assert authority["system"]["internal_execution"] == "ACTIVE"
+    assert authority["system"]["internal_write"] == "ACTIVE"
+    assert authority["request"]["external_effect_admitted"] is False
+    assert "production_runtime_write" not in authority
+    assert "execution_admitted" not in authority
+    assert "canon_allowed" not in authority
