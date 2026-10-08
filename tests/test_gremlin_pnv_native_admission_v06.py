@@ -113,3 +113,63 @@ def test_missing_system_sync_fails_closed_for_live_production(monkeypatch: pytes
     monkeypatch.setenv("GREMLIN_NOEMA_RUNTIME_ROOT", str(tmp_path))
     with pytest.raises(PNVNativeAdmissionError):
         admit_tool_call("gremlin_git_merge_main", (), {})
+
+
+@pytest.mark.parametrize(
+    ("tool", "payload"),
+    [
+        ("gremlin_status", {"production_effect": True}),
+        ("gremlin_worker_enqueue", {"key_mutation": True}),
+        ("gremlin_worker_enqueue", {"request_effects": {"production_effect": True}}),
+    ],
+)
+def test_explicit_effects_cannot_use_source_work_lane(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, tool: str, payload: dict
+) -> None:
+    _live(tmp_path)
+    monkeypatch.setenv("GREMLIN_NOEMA_RUNTIME_ROOT", str(tmp_path))
+    with pytest.raises(PNVNativeAdmissionError, match="PNV_NATIVE_ASSERT_FAILED"):
+        admit_tool_call(tool, (), payload)
+
+
+def test_effects_in_positional_mapping_cannot_be_ignored(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _live(tmp_path)
+    monkeypatch.setenv("GREMLIN_NOEMA_RUNTIME_ROOT", str(tmp_path))
+    with pytest.raises(PNVNativeAdmissionError, match="PNV_NATIVE_ASSERT_FAILED"):
+        admit_tool_call("gremlin_status", ({"effects": {"production_effect": True}},), {})
+
+
+def test_conflicting_effect_markers_cannot_cancel_true(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _live(tmp_path)
+    monkeypatch.setenv("GREMLIN_NOEMA_RUNTIME_ROOT", str(tmp_path))
+    with pytest.raises(PNVNativeAdmissionError, match="PNV_NATIVE_ASSERT_FAILED"):
+        admit_tool_call(
+            "gremlin_status",
+            (),
+            {"production_effect": False, "request_effects": {"production_effect": True}},
+        )
+
+
+def test_inexact_scope_and_canon_mutation_rejected_without_live_side_effects() -> None:
+    with pytest.raises(PNVNativeAdmissionError, match="PNV_NATIVE_REQUEST_SCOPE_NOT_EXACT"):
+        admit_tool_call("gremlin_status", (), {"scope_exact": False})
+    with pytest.raises(PNVNativeAdmissionError, match="PNV_NATIVE_CANON_MUTATION"):
+        admit_tool_call("gremlin_status", (), {"canon_mutation": True})
+    with pytest.raises(PNVNativeAdmissionError, match="PNV_NATIVE_POLICY_NOT_ADMITTED"):
+        admit_tool_call("gremlin_status", (), {"policy_admitted": False})
+
+
+def test_request_effect_flag_must_be_boolean() -> None:
+    with pytest.raises(PNVNativeAdmissionError, match="PNV_NATIVE_REQUEST_EFFECT_FLAG_INVALID"):
+        admit_tool_call("gremlin_status", (), {"production_effect": "false"})
+
+
+def test_admission_facts_expose_actual_request_effect_bits() -> None:
+    facts = admission_facts("gremlin_status", key_mutation=True, production_effect=True)
+    assert facts["key_mutation"] is True
+    assert facts["production_effect"] is True
+    assert facts["tier"] == "READ_ONLY"
