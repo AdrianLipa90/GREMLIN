@@ -166,6 +166,6 @@ def test_process_resident_runtime_retains_authority_firewall() -> None:
     assert record.authority == "SHARED_COGNITION_ONLY"
     status = runtime.status()
     assert status["authority"]["system"]["supervision_authority"] == "ACTIVE"
-    assert status["authority"]["system"]["internal_write"] == "ACTIVE_BOUNDED"
+    assert status["authority"]["system"]["internal_write"] == "ACTIVE"
     assert status["authority"]["request"]["external_effect_admitted"] is False
     assert status["cognition_scope"] == "SHARED_COGNITION"

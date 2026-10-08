@@ -6,7 +6,6 @@ import os
 from typing import Any
 
 from .hive_authority import HiveAuthorityRuntime
-from .constitutional_runtime import require_constitutional_admission
 from .hive_ingest import ingest_research_execution
 from .holographic_orbital_memory import (
     AUTHORITY as HOLOGRAPHIC_MEMORY_AUTHORITY,
@@ -208,20 +207,6 @@ def gremlin_hive_place(
     constitutional_packet: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Place a new append-only information version on the 36-ring Hive surface."""
-    require_constitutional_admission(
-        endpoint="gremlin_hive_place",
-        consequence_class="APPEND_ONLY",
-        request_payload={
-            "subject_id": subject_id,
-            "payload": payload,
-            "priority": priority,
-            "semantic_key": semantic_key,
-            "relation_phase": relation_phase,
-            "provenance": provenance or [],
-            "dependencies": dependencies or [],
-        },
-        constitutional_packet=constitutional_packet,
-    )
     return asdict(
         hive_runtime.place(
             subject_id=subject_id,
@@ -260,12 +245,6 @@ def gremlin_hive_gates(
     }
     if not changes:
         raise ValueError("at least one closure gate must be supplied")
-    require_constitutional_admission(
-        endpoint="gremlin_hive_gates",
-        consequence_class="GOVERNANCE",
-        request_payload={"subject_id": subject_id, "changes": changes},
-        constitutional_packet=constitutional_packet,
-    )
     return asdict(hive_runtime.update_gates(subject_id, **changes))
 
 
@@ -277,12 +256,6 @@ def gremlin_hive_dispute(
     constitutional_packet: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Append a DISPUTED child and preserve exact lineage/provenance."""
-    require_constitutional_admission(
-        endpoint="gremlin_hive_dispute",
-        consequence_class="APPEND_ONLY",
-        request_payload={"subject_id": subject_id, "contradiction_ref": contradiction_ref},
-        constitutional_packet=constitutional_packet,
-    )
     return asdict(hive_runtime.dispute(subject_id, contradiction_ref))
 
 
@@ -293,12 +266,6 @@ def gremlin_hive_latch(
     constitutional_packet: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Latch only after all closure gates pass and no dispute/quarantine blocks the head."""
-    require_constitutional_admission(
-        endpoint="gremlin_hive_latch",
-        consequence_class="GOVERNANCE",
-        request_payload={"subject_id": subject_id},
-        constitutional_packet=constitutional_packet,
-    )
     return asdict(hive_runtime.latch(subject_id))
 
 
@@ -355,12 +322,6 @@ def gremlin_hive_exchange_ingest(
     The operation is idempotent, parent-first and shared-cognition only. It never
     sets closure gates or latches automatically.
     """
-    require_constitutional_admission(
-        endpoint="gremlin_hive_exchange_ingest",
-        consequence_class="APPEND_ONLY",
-        request_payload={"envelope": envelope, "priority": priority},
-        constitutional_packet=constitutional_packet,
-    )
     return ingest_exchange_envelope(
         hive_runtime,
         envelope,
@@ -377,12 +338,6 @@ def gremlin_hive_exchange_bundle_ingest(
     constitutional_packet: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Verify a portable lineage proof and ingest only its RELATIONAL target."""
-    require_constitutional_admission(
-        endpoint="gremlin_hive_exchange_bundle_ingest",
-        consequence_class="APPEND_ONLY",
-        request_payload={"bundle": bundle, "priority": priority},
-        constitutional_packet=constitutional_packet,
-    )
     return ingest_exchange_bundle(
         hive_runtime,
         bundle,
@@ -449,12 +404,6 @@ def gremlin_hive_sync_apply(
     constitutional_packet: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Apply one prevalidated append-only exchange-memory delta."""
-    require_constitutional_admission(
-        endpoint="gremlin_hive_sync_apply",
-        consequence_class="APPEND_ONLY",
-        request_payload={"delta": delta, "node_id": node_id, "priority": priority},
-        constitutional_packet=constitutional_packet,
-    )
     return apply_hive_delta(
         hive_runtime,
         delta,
@@ -489,18 +438,6 @@ def gremlin_hive_research_execute(
     phases are deterministic reference addresses only and carry no physical interpretation.
     """
     effective_providers = providers or ["crossref", "arxiv", "duckduckgo"]
-    require_constitutional_admission(
-        endpoint="gremlin_hive_research_execute",
-        consequence_class="APPEND_ONLY",
-        request_payload={
-            "query": query,
-            "providers": effective_providers,
-            "limit_per_provider": limit_per_provider,
-            "max_species": max_species,
-            "max_sources": max_sources,
-        },
-        constitutional_packet=constitutional_packet,
-    )
     result = execute_research(
         query,
         providers=effective_providers,

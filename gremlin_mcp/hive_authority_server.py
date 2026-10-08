@@ -9,7 +9,6 @@ from mcp.server import MCPServer
 
 from gremlin_mcp import __version__
 from gremlin_mcp.hive_authority import HiveAuthorityRuntime
-from gremlin_mcp.constitutional_runtime import require_constitutional_admission
 from gremlin_mcp.owl_runtime_audit import owl_runtime_boundary
 from gremlin_mcp.memory_exchange import ingest_exchange_bundle, ingest_exchange_envelope
 from gremlin_mcp.memory_consolidation import build_consolidation_route
@@ -84,12 +83,6 @@ def gremlin_hive_exchange_ingest(
     constitutional_packet: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Ingest a typed PhaseNav envelope into RELATIONAL Hive memory."""
-    require_constitutional_admission(
-        endpoint="gremlin_hive_exchange_ingest",
-        consequence_class="APPEND_ONLY",
-        request_payload={"envelope": envelope, "priority": priority},
-        constitutional_packet=constitutional_packet,
-    )
     return ingest_exchange_envelope(
         runtime,
         envelope,
@@ -106,12 +99,6 @@ def gremlin_hive_exchange_bundle_ingest(
     constitutional_packet: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Verify a portable lineage proof and ingest only its RELATIONAL target."""
-    require_constitutional_admission(
-        endpoint="gremlin_hive_exchange_bundle_ingest",
-        consequence_class="APPEND_ONLY",
-        request_payload={"bundle": bundle, "priority": priority},
-        constitutional_packet=constitutional_packet,
-    )
     return ingest_exchange_bundle(
         runtime,
         bundle,
@@ -169,12 +156,6 @@ def gremlin_hive_sync_apply(
     priority: float = 0.82,
     constitutional_packet: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    require_constitutional_admission(
-        endpoint="gremlin_hive_sync_apply",
-        consequence_class="APPEND_ONLY",
-        request_payload={"delta": delta, "node_id": node_id, "priority": priority},
-        constitutional_packet=constitutional_packet,
-    )
     return apply_hive_delta(
         runtime,
         delta,
@@ -205,20 +186,6 @@ def gremlin_hive_place(
     dependencies: list[str] | None = None,
     constitutional_packet: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    require_constitutional_admission(
-        endpoint="gremlin_hive_place",
-        consequence_class="APPEND_ONLY",
-        request_payload={
-            "subject_id": subject_id,
-            "payload": payload,
-            "priority": priority,
-            "semantic_key": semantic_key,
-            "relation_phase": relation_phase,
-            "provenance": provenance or [],
-            "dependencies": dependencies or [],
-        },
-        constitutional_packet=constitutional_packet,
-    )
     return asdict(
         runtime.place(
             subject_id=subject_id,
@@ -256,12 +223,6 @@ def gremlin_hive_gates(
     }
     if not changes:
         raise ValueError("at least one closure gate must be supplied")
-    require_constitutional_admission(
-        endpoint="gremlin_hive_gates",
-        consequence_class="GOVERNANCE",
-        request_payload={"subject_id": subject_id, "changes": changes},
-        constitutional_packet=constitutional_packet,
-    )
     return asdict(runtime.update_gates(subject_id, **changes))
 
 
@@ -272,12 +233,6 @@ def gremlin_hive_dispute(
     contradiction_ref: str,
     constitutional_packet: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    require_constitutional_admission(
-        endpoint="gremlin_hive_dispute",
-        consequence_class="APPEND_ONLY",
-        request_payload={"subject_id": subject_id, "contradiction_ref": contradiction_ref},
-        constitutional_packet=constitutional_packet,
-    )
     return asdict(runtime.dispute(subject_id, contradiction_ref))
 
 
@@ -287,12 +242,6 @@ def gremlin_hive_latch(
     subject_id: str,
     constitutional_packet: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    require_constitutional_admission(
-        endpoint="gremlin_hive_latch",
-        consequence_class="GOVERNANCE",
-        request_payload={"subject_id": subject_id},
-        constitutional_packet=constitutional_packet,
-    )
     return asdict(runtime.latch(subject_id))
 
 

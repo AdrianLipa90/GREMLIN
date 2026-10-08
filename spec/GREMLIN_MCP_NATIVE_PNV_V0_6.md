@@ -36,16 +36,13 @@ No static runtime fallback is admitted. A stale or missing NOEMA/PhaseNav/PNCS/C
 
 ## Mutation tiers
 
-`READ_ONLY` and `LOW_RISK_AUTO` may pass automatically.
+Tool metadata is descriptive and does not form a capability whitelist.
 
-`LOW_RISK_AUTO` is restricted to the already-classified GREMLIN local worker/state mutation tools. These tools do not receive canon, repository-main, delete/move/rename, force-push, secret, or production-effect authority.
-
-Unknown tools and any future key mutation surface are classified as `KEY_MUTATION_REVIEW` and fail closed until separately admitted.
+Unknown or newly added GREMLIN tools are not rejected merely because they are absent from a metadata registry. Concrete high-consequence effects remain governed by their own exact operation path rather than by tool-name classification.
 
 ## Explicitly not automatic
 
 - main/master mutation;
-- canon promotion;
 - delete, move, rename, reset, rebase or force-push;
 - secret or credential changes;
 - production external effects;

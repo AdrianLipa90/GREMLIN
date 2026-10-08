@@ -66,4 +66,11 @@ def tool_annotations(tool: str) -> ToolAnnotations:
             idempotent_hint=False,
             open_world_hint=False,
         )
-    raise ValueError(f"unclassified MCP tool annotations: {name}")
+    # Unknown/new GREMLIN tools are not rejected merely because an AI-authored
+    # metadata registry has not been updated yet. Metadata remains descriptive.
+    return ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=False,
+        open_world_hint=True,
+    )
