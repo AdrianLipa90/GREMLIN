@@ -48,6 +48,36 @@ def test_recovery_preserves_original_and_creates_new_verified_epoch(tmp_path):
     assert original.read_bytes() == damaged_bytes
 
 
+
+def test_global_recovery_restores_observation_without_mutating_source(monkeypatch, tmp_path):
+    import gremlin_mcp.owl_runtime_audit as owl
+
+    original = tmp_path / "owl.jsonl"
+    early = OwlRuntimeAuditor(original)
+    early.finish_success(early.begin("early", (), {}), {"ok": True})
+    payload = json.loads(original.read_text(encoding="utf-8"))
+    payload["status"] = "ERROR"
+    original.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+    damaged = original.read_bytes()
+
+    monkeypatch.setattr(owl, "GLOBAL_OWL_AUDITOR", OwlRuntimeAuditor(original))
+    assert owl.audit_status()["status"] == "DEGRADED"
+    witness = owl.recover_global_owl_audit()
+    assert witness["status"] == "RECOVERED"
+    assert witness["source_ledger_health"] == "DEGRADED"
+    assert witness["historical_continuity_verified"] is False
+    assert original.read_bytes() == damaged
+
+    span = owl.begin_use("after_recovery", (), {})
+    assert owl.finish_use_success(span, {"ok": True})["sequence"] == 2
+    new = OwlRuntimeAuditor(witness["recovery_ledger"])
+    assert new.snapshot()["status"] == "PASS"
+    assert new.snapshot()["record_count"] == 2
+    assert new.snapshot()["event_count"] == 1
+    assert original.read_bytes() == damaged
+
+
+
 def test_healthy_ledger_cannot_be_recovered(tmp_path):
     healthy = OwlRuntimeAuditor(tmp_path / "owl.jsonl")
     with pytest.raises(RuntimeError, match="OWL_AUDIT_RECOVERY_REQUIRES_DEGRADED"):
