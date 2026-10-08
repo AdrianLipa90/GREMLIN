@@ -1,0 +1,54 @@
+"""Regression tests for explicit OWL audit ledger recovery.
+
+A damaged ledger must remain byte-for-byte unchanged. The recovery epoch has
+a distinct journal path, a source hash witness, and a fresh verifiable chain.
+"""
+from __future__ import annotations
+
+import hashlib
+import json
+
+import pytest
+
+from gremlin_mcp.owl_runtime_audit import OwlRuntimeAuditor
+
+
+def test_recovery_preserves_original_and_creates_new_verified_epoch(tmp_path):
+    original = tmp_path / "owl.jsonl"
+    writer = OwlRuntimeAuditor(original)
+    span = writer.begin("tool.before", (), {})
+    writer.finish_success(span, {"ok": True})
+
+    record = json.loads(original.read_text(encoding="utf-8"))
+    record["duration_ns"] += 1
+    original.write_text(json.dumps(record) + "\n", encoding="utf-8")
+    damaged_bytes = original.read_bytes()
+
+    corrupted = OwlRuntimeAuditor(original)
+    assert corrupted.snapshot()["status"] == "DEGRADED"
+    recovered = corrupted.start_recovery_epoch()
+
+    assert original.read_bytes() == damaged_bytes
+    assert corrupted.snapshot()["status"] == "DEGRADED"
+    assert recovered.path != original
+    assert recovered.snapshot()["status"] == "PASS"
+
+    marker = json.loads(recovered.path.read_text(encoding="utf-8").splitlines()[0])
+    assert marker["record_type"] == "AUDIT_RECOVERY_EPOCH"
+    assert marker["source_ledger_sha256"] == hashlib.sha256(damaged_bytes).hexdigest()
+    assert marker["historical_continuity_verified"] is False
+    assert marker["original_ledger_preserved"] is True
+
+    span = recovered.begin("tool.after", (), {})
+    recovered.finish_success(span, {"ok": True})
+    restart = OwlRuntimeAuditor(recovered.path)
+    assert restart.snapshot()["status"] == "PASS"
+    assert restart.snapshot()["record_count"] == 2
+    assert restart.snapshot()["event_count"] == 1
+    assert original.read_bytes() == damaged_bytes
+
+
+def test_healthy_ledger_cannot_be_recovered(tmp_path):
+    healthy = OwlRuntimeAuditor(tmp_path / "owl.jsonl")
+    with pytest.raises(RuntimeError, match="OWL_AUDIT_RECOVERY_REQUIRES_DEGRADED"):
+        healthy.start_recovery_epoch()
