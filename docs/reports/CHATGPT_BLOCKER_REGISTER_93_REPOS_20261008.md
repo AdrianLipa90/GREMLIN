@@ -16,7 +16,7 @@ Operator deklaruje, że wszystkie zmiany na GitHubie były wykonywane za pośred
 
 ## Inwentaryzacja GitHub — 93/93
 
-Odczyt drzewa Git został wykonany dla 91 repozytoriów; jedno puste, jedno z nieodczytanym refem. **Odczyt drzewa nie potwierdza, że zbadano każdą linię kodu.** Status `NIEZWERYFIKOWANE` nigdy nie oznacza „brak blokad”.
+Odczyt drzewa Git został wykonany dla 92 repozytoriów; jedno repozytorium puste. **Odczyt drzewa nie potwierdza, że zbadano każdą linię kodu.** Status `NIEZWERYFIKOWANE` nigdy nie oznacza „brak blokad”.
 
 | Nr | Repozytorium | Domyślna gałąź | Weryfikacja blokad |
 |---:|---|---|---|
@@ -33,7 +33,7 @@ Odczyt drzewa Git został wykonany dla 91 repozytoriów; jedno puste, jedno z ni
 | 11 | [AdrianLipa90/ciel-med-demo](https://github.com/AdrianLipa90/ciel-med-demo) | `main` | Drzewo Git sprawdzone; kod linia po linii NIEZWERYFIKOWANY |
 | 12 | [AdrianLipa90/CIEL-NOEMA-HTRI-CIELingo-Phasenav](https://github.com/AdrianLipa90/CIEL-NOEMA-HTRI-CIELingo-Phasenav) | `main` | Drzewo Git sprawdzone; kod linia po linii NIEZWERYFIKOWANY |
 | 13 | [AdrianLipa90/ciel-old](https://github.com/AdrianLipa90/ciel-old) | `old` | Drzewo Git sprawdzone; kod linia po linii NIEZWERYFIKOWANY |
-| 14 | [AdrianLipa90/CIEL-Omega-ApokalypOS](https://github.com/AdrianLipa90/CIEL-Omega-ApokalypOS) | `codex/ciel-sync-2026-05-12` | Domyślny ref nieodczytany |
+| 14 | [AdrianLipa90/CIEL-Omega-ApokalypOS](https://github.com/AdrianLipa90/CIEL-Omega-ApokalypOS) | `codex/ciel-sync-2026-05-12` | Drzewo Git sprawdzone; kod linia po linii NIEZWERYFIKOWANY |
 | 15 | [AdrianLipa90/ciel-omega-demo](https://github.com/AdrianLipa90/ciel-omega-demo) | `main` | Drzewo Git sprawdzone; kod linia po linii NIEZWERYFIKOWANY |
 | 16 | [AdrianLipa90/CIEL-Omega-General-Quantum-Consciousness](https://github.com/AdrianLipa90/CIEL-Omega-General-Quantum-Consciousness) | `main` | Drzewo Git sprawdzone; kod linia po linii NIEZWERYFIKOWANY |
 | 17 | [AdrianLipa90/CIEL-Omega-GQC](https://github.com/AdrianLipa90/CIEL-Omega-GQC) | `main` | Drzewo Git sprawdzone; kod linia po linii NIEZWERYFIKOWANY |
