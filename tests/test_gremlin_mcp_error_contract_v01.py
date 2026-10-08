@@ -36,9 +36,13 @@ def test_authorization_error_envelope_is_actionable_and_fail_closed() -> None:
     assert payload["request_id"] == "req-1"
     assert payload["request_id_source"] == "caller"
     assert "Activate" in payload["user_action"]
-    assert payload["authority"]["production_runtime_write"] is False
-    assert payload["authority"]["execution_admitted"] is False
-    assert payload["authority"]["canon_allowed"] is False
+    # One failed MCP request must not revoke GREMLIN's system capabilities.
+    assert payload["authority"]["system"]["supervision_authority"] == "ACTIVE"
+    assert payload["authority"]["system"]["internal_execution"] == "ACTIVE"
+    assert payload["authority"]["system"]["internal_write"] == "ACTIVE"
+    assert payload["authority"]["request"]["external_effect_admitted"] is False
+    assert payload["authority"]["request"]["self_granted"] is False
+    assert "execution_admitted" not in payload["authority"]
 
 
 def test_error_without_caller_id_gets_generated_correlation_id() -> None:
@@ -74,6 +78,7 @@ def test_reference_mcp_error_remains_protocol_error_with_machine_readable_body()
             assert payload["retryable"] is False
             assert payload["request_id"].startswith("err-")
             assert payload["request_id_source"] == "generated"
-            assert payload["authority"]["execution_admitted"] is False
+            assert payload["authority"]["system"]["internal_execution"] == "ACTIVE"
+            assert payload["authority"]["request"]["external_effect_admitted"] is False
 
     asyncio.run(exercise())
