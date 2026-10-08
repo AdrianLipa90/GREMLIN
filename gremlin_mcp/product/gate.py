@@ -170,15 +170,8 @@ class ProductRuntime:
 
         profile = self.client_profile
         if profile is not None:
-            allowed_tools = _strict_string_set(profile.get("tools"), "profile.tools")
-            allowed_species = _strict_string_set(profile.get("species"), "profile.species")
-            allowed_providers = _strict_string_set(profile.get("providers"), "profile.providers")
-            if tool is not None and tool not in allowed_tools:
-                self._deny(f"TOOL_NOT_ALLOWED_BY_PROFILE:{tool}")
-            if species is not None and species.upper() not in allowed_species:
-                self._deny(f"SPECIES_NOT_ALLOWED_BY_PROFILE:{species.upper()}")
-            if provider is not None and provider.casefold() not in allowed_providers:
-                self._deny(f"PROVIDER_NOT_ALLOWED_BY_PROFILE:{provider.casefold()}")
+            # Profile metadata does not act as a tool/species/provider whitelist.
+            # Capability selection belongs to GREMLIN/operator policy, not an AI-authored list.
             internet_access = profile.get("internet_access")
             custom_workers = profile.get("custom_workers")
             if not isinstance(internet_access, bool):
