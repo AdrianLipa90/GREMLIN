@@ -16,10 +16,14 @@ from gremlin_mcp.tool_metadata import (
     READ_ONLY_OPEN_WORLD,
 )
 
-SCHEMA = "GREMLIN_MCP_PNV_NATIVE_ADMISSION_V0_6"
-RECEIPT_SCHEMA = "GREMLIN_MCP_PNV_NATIVE_ADMISSION_RECEIPT_V0_6"
+SCHEMA = "GREMLIN_MCP_PNV_NATIVE_ADMISSION_V0_7"
+RECEIPT_SCHEMA = "GREMLIN_MCP_PNV_NATIVE_ADMISSION_RECEIPT_V0_7"
+SOURCE_SCHEMA = "GREMLIN_MCP_SOURCE_ADMISSION_V0_2"
+SOURCE_RECEIPT_SCHEMA = "GREMLIN_MCP_SOURCE_ADMISSION_RECEIPT_V0_2"
 DEFAULT_ROOT = Path("/dev/shm/ciel_noema")
-PNV_RESOURCE = "GREMLIN_MCP_NATIVE_ADMISSION_V0_6.pnv"
+LIVE_PNV_RESOURCE = "GREMLIN_MCP_NATIVE_ADMISSION_V0_6.pnv"
+SOURCE_PNV_RESOURCE = "GREMLIN_MCP_SOURCE_ADMISSION_V0_1.pnv"
+PNV_RESOURCE = LIVE_PNV_RESOURCE
 SUPPORTED_OPCODES = frozenset({"SOURCE", "IDENTITY", "ORDER", "COMPOSITION", "RETURN"})
 
 
@@ -70,11 +74,11 @@ def _load_json(path: Path, label: str) -> Mapping[str, Any]:
     return value
 
 
-def _program_text() -> str:
+def _program_text(resource: str = LIVE_PNV_RESOURCE) -> str:
     try:
-        return importlib.resources.files("gremlin_mcp").joinpath(PNV_RESOURCE).read_text(encoding="utf-8")
+        return importlib.resources.files("gremlin_mcp").joinpath(resource).read_text(encoding="utf-8")
     except (OSError, UnicodeError) as exc:
-        raise PNVNativeAdmissionError("PNV_NATIVE_POLICY_BYTES_UNAVAILABLE") from exc
+        raise PNVNativeAdmissionError(f"PNV_NATIVE_POLICY_BYTES_UNAVAILABLE:{resource}") from exc
 
 
 def _parse(source: str) -> _Program:
@@ -150,8 +154,7 @@ def _resolve(token: str, values: Mapping[str, Any], sources: Mapping[str, Any]) 
     try:
         return int(token)
     except ValueError:
-        pass
-    return token
+        return token
 
 
 def _execute(program: _Program, sources: Mapping[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
@@ -179,8 +182,7 @@ def _execute(program: _Program, sources: Mapping[str, Any]) -> tuple[dict[str, A
     for name in program.assertions:
         if values.get(name) is not True:
             raise PNVNativeAdmissionError(f"PNV_NATIVE_ASSERT_FAILED:{name}")
-    emitted = {name: values[name] for name in program.emits}
-    return values, {"trace": trace, "emitted": emitted}
+    return values, {"trace": trace, "emitted": {name: values[name] for name in program.emits}}
 
 
 def native_mode_enabled() -> bool:
@@ -215,27 +217,26 @@ def _live_sources(root: Path) -> dict[str, Any]:
         "current.authority_status": authority.get("status"),
         "current.tether_status": guard.get("tether_status"),
         "current.guard_status": guard.get("status"),
-        "current.guard_failures_count": len(guard.get("failures", [])) if isinstance(guard.get("failures", []), list) else -1,
+        "current.guard_failures_count": len(guard.get("failures", []))
+        if isinstance(guard.get("failures", []), list)
+        else -1,
         "current.generation": pulse.get("generation"),
         "current.identity_generation": identity.get("generation"),
         "current.domain_generation": domain.get("generation"),
         "current.authority_generation": authority.get("generation"),
         "current.system_sync_status": sync.get("status"),
         "current.system_sync_generation": sync.get("generation"),
-        "current.system_sync_canon_allowed": sync.get("canon_allowed"),
         "current.system_sync_sha256": sync.get("sync_sha256"),
     }
 
 
 def admission_facts(tool: str) -> dict[str, Any]:
     tier = _tool_tier(tool)
-    known = tool in CLASSIFIED_TOOLS
-    admitted = True
     return {
         "tool": tool,
         "tier": tier,
-        "known_tool": known,
-        "policy_admitted": admitted,
+        "known_tool": tool in CLASSIFIED_TOOLS,
+        "policy_admitted": True,
         "key_mutation": False,
         "canon_mutation": False,
         "production_effect": False,
@@ -243,30 +244,58 @@ def admission_facts(tool: str) -> dict[str, Any]:
     }
 
 
-def admit_tool_call(tool: str, args: tuple[Any, ...], kwargs: Mapping[str, Any]) -> dict[str, Any]:
-    del args, kwargs
-    facts = admission_facts(tool)
+def _request_sources(facts: Mapping[str, Any]) -> dict[str, Any]:
+    return {
+        "request.key_mutation": facts["key_mutation"],
+        "request.production_effect": facts["production_effect"],
+    }
+
+
+def _source_work_receipt(tool: str, facts: Mapping[str, Any]) -> dict[str, Any]:
+    program = _parse(_program_text(SOURCE_PNV_RESOURCE))
+    _, execution = _execute(program, _request_sources(facts))
+    payload = {
+        "schema": SOURCE_RECEIPT_SCHEMA,
+        "policy_schema": SOURCE_SCHEMA,
+        "status": "PASS",
+        "tool": tool,
+        "authority_lane": "SOURCE_WORK",
+        "source_work_authority": "ACTIVE",
+        "live_production_authority": "NOT_REQUIRED_FOR_SOURCE_WORK",
+        "mutation_tier": facts["tier"],
+        "pnv_sha256": program.source_sha256,
+        "generation": None,
+        "tether_required": False,
+        "tether_status": "NOT_REQUIRED",
+        "system_sync_sha256": None,
+        "triple_pulse_same_generation": None,
+        "trace_sha256": _sha(execution["trace"]),
+        "canon_promotion_gate": "NOT_APPLIED_HERE",
+        "local_state_write": facts["tier"] == "LOW_RISK_AUTO",
+        "production_effect_admitted_by_request": False,
+        "key_mutation_auto": False,
+        "global_action_denial": False,
+    }
+    return {**payload, "receipt_sha256": _sha(payload)}
+
+
+def _live_production_receipt(tool: str, facts: Mapping[str, Any]) -> dict[str, Any]:
     sources = _live_sources(_root())
-    sources.update(
-        {
-            "request.known_tool": facts["known_tool"],
-            "request.policy_admitted": facts["policy_admitted"],
-            "request.key_mutation": facts["key_mutation"],
-            "request.canon_mutation": facts["canon_mutation"],
-            "request.production_effect": facts["production_effect"],
-            "request.scope_exact": facts["scope_exact"],
-        }
-    )
-    program = _parse(_program_text())
+    sources.update(_request_sources(facts))
+    program = _parse(_program_text(LIVE_PNV_RESOURCE))
     _, execution = _execute(program, sources)
     payload = {
         "schema": RECEIPT_SCHEMA,
         "policy_schema": SCHEMA,
         "status": "PASS",
         "tool": tool,
+        "authority_lane": "LIVE_PRODUCTION",
+        "source_work_authority": "UNCHANGED",
+        "live_production_authority": "ADMITTED_BY_LIVE_GUARD",
         "mutation_tier": facts["tier"],
         "pnv_sha256": program.source_sha256,
         "generation": sources["current.generation"],
+        "tether_required": True,
         "tether_status": sources["current.tether_status"],
         "system_sync_sha256": sources.get("current.system_sync_sha256"),
         "triple_pulse_same_generation": (
@@ -280,20 +309,50 @@ def admit_tool_call(tool: str, args: tuple[Any, ...], kwargs: Mapping[str, Any])
         "local_state_write": facts["tier"] == "LOW_RISK_AUTO",
         "production_effect_admitted_by_request": False,
         "key_mutation_auto": False,
+        "global_action_denial": False,
     }
     return {**payload, "receipt_sha256": _sha(payload)}
 
 
+def admit_tool_call(tool: str, args: tuple[Any, ...], kwargs: Mapping[str, Any]) -> dict[str, Any]:
+    del args, kwargs
+    facts = admission_facts(tool)
+    if facts["tier"] in {"READ_ONLY", "LOW_RISK_AUTO"}:
+        return _source_work_receipt(tool, facts)
+    return _live_production_receipt(tool, facts)
+
+
 def native_admission_manifest() -> dict[str, Any]:
-    source = _program_text()
+    live_source = _program_text(LIVE_PNV_RESOURCE)
+    source_work = _program_text(SOURCE_PNV_RESOURCE)
     return {
         "schema": SCHEMA,
-        "mode": "PNV_NATIVE_POLICY_PYTHON_TRANSPORT_ONLY",
+        "mode": "PNV_NATIVE_SPLIT_AUTHORITY_PYTHON_TRANSPORT_ONLY",
         "enabled": native_mode_enabled(),
-        "pnv_sha256": hashlib.sha256(source.encode("utf-8")).hexdigest(),
+        "authority_model": "SOURCE_WORK_VS_LIVE_PRODUCTION",
+        "pnv_sha256": hashlib.sha256(live_source.encode("utf-8")).hexdigest(),
+        "live_pnv_sha256": hashlib.sha256(live_source.encode("utf-8")).hexdigest(),
+        "source_work_pnv_sha256": hashlib.sha256(source_work.encode("utf-8")).hexdigest(),
+        "source_work": {
+            "read_only": "AUTO",
+            "low_risk_local_state_mutations": "AUTO",
+            "live_tether_required": False,
+            "tool_whitelist": False,
+            "canon_promotion_gate": "NOT_APPLIED_HERE",
+            "production_effect": False,
+            "global_action_denial": False,
+        },
+        "live_production": {
+            "unclassified_tools": "LIVE_TETHER_PATH",
+            "live_tether_required": True,
+            "same_generation_required": True,
+            "main_mutation_requires_explicit_admission": True,
+            "canon_promotion_requires_explicit_admission": False,
+            "production_effect_requires_explicit_admission": True,
+        },
         "read_only": "AUTO",
         "low_risk_local_state_mutations": "AUTO",
-        "key_mutations": "REVIEW_REQUIRED",
+        "key_mutations": "EXACT_EFFECT_PATH",
         "main_mutation_requires_explicit_admission": True,
         "canon_promotion_requires_explicit_admission": False,
         "delete_move_rename_auto": False,
