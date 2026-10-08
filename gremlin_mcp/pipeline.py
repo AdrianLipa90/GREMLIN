@@ -22,7 +22,9 @@ def _canonical(value: Any) -> bytes:
         raise ValueError("pipeline data must be finite JSON") from exc
 
 
-def _authority() -> dict[str, Any]:\n    return authority_envelope()\n
+def _authority() -> dict[str, Any]:
+    return authority_envelope()
+
 
 def _strict_text(value: Any, field: str) -> str:
     if not isinstance(value, str):
