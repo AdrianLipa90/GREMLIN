@@ -222,6 +222,42 @@ class OwlRuntimeAuditor:
         except Exception as exc:
             self.mark_degraded(exc)
 
+    def start_recovery_epoch(self) -> "OwlRuntimeAuditor":
+        """Fork a new hash-chained journal without modifying a degraded original.
+
+        A broken journal must not receive append operations, but an explicit
+        recovery can preserve the raw file and start a traceable new epoch.
+        This does NOT claim that the old hash chain has been repaired.
+        """
+        with self._lock:
+            if self._health != "DEGRADED" or self._path is None:
+                raise RuntimeError("OWL_AUDIT_RECOVERY_REQUIRES_DEGRADED_PERSISTENT_LEDGER")
+            original = self._path
+            fingerprint = hashlib.sha256()
+            with original.open("rb") as source:
+                for chunk in iter(lambda: source.read(1024 * 1024), b""):
+                    fingerprint.update(chunk)
+            recovery_path = original.with_name(
+                f"{original.stem}.recovery-{time.time_ns()}-{secrets.token_hex(8)}{original.suffix}"
+            )
+            if recovery_path.exists():
+                raise FileExistsError(recovery_path)
+            recovered = OwlRuntimeAuditor(recovery_path)
+            recovered._append(
+                {
+                    "schema": "GREMLIN_OWL_AUDIT_RECOVERY_EPOCH_V0_1",
+                    "record_type": "AUDIT_RECOVERY_EPOCH",
+                    "source_ledger_path": str(original),
+                    "source_ledger_sha256": fingerprint.hexdigest(),
+                    "source_ledger_status": "DEGRADED",
+                    "source_ledger_error": self._last_error,
+                    "historical_continuity_verified": False,
+                    "original_ledger_preserved": True,
+                    "created_unix_ns": time.time_ns(),
+                }
+            )
+            return recovered
+
     def _replay(self, record: Mapping[str, Any]) -> None:
         if record.get("record_type") == "USE_RECEIPT":
             self._apply_event(record)
