@@ -214,9 +214,11 @@ class OwlRuntimeAuditor:
                         raise ValueError("OWL ledger record hash mismatch")
                     sequence += 1
                     previous = str(actual_hash)
+                    # Preserve the last *verified* prefix even if a later row
+                    # is corrupt. Never advance across an invalid hash/sequence.
+                    self._sequence = sequence
+                    self._previous_hash = previous
                     self._replay(record)
-            self._sequence = sequence
-            self._previous_hash = previous
         except Exception as exc:
             self.mark_degraded(exc)
 
