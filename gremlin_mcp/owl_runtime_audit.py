@@ -477,6 +477,31 @@ class OwlRuntimeAuditor:
 
 
 GLOBAL_OWL_AUDITOR = OwlRuntimeAuditor()
+_GLOBAL_OWL_RECOVERY_LOCK = threading.RLock()
+
+
+def recover_global_owl_audit() -> dict[str, Any]:
+    """Explicitly restore runtime auditing to a new, independently hashed epoch.
+
+    Never modify or truncate the degraded source journal. The existing global
+    auditor is replaced only after creation and verification of the new epoch.
+    """
+    global GLOBAL_OWL_AUDITOR
+    with _GLOBAL_OWL_RECOVERY_LOCK:
+        old = GLOBAL_OWL_AUDITOR
+        recovered = old.start_recovery_epoch()
+        snapshot = recovered.snapshot()
+        if snapshot["status"] != "PASS" or snapshot["record_count"] != 1:
+            raise RuntimeError("OWL_AUDIT_RECOVERY_EPOCH_NOT_VERIFIED")
+        GLOBAL_OWL_AUDITOR = recovered
+        return {
+            "status": "RECOVERED",
+            "source_ledger": str(old.path),
+            "source_ledger_health": old.snapshot()["status"],
+            "recovery_ledger": str(recovered.path),
+            "recovery_head_hash": snapshot["head_hash"],
+            "historical_continuity_verified": False,
+        }
 
 
 def _warn(exc: BaseException) -> None:
