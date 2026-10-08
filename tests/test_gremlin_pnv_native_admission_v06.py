@@ -104,7 +104,7 @@ def test_cross_generation_triple_pulse_fails_closed_for_live_production(monkeypa
     _live(tmp_path, mismatch=True)
     monkeypatch.setenv("GREMLIN_NOEMA_RUNTIME_ROOT", str(tmp_path))
     with pytest.raises(PNVNativeAdmissionError):
-        admit_tool_call("gremlin_status", (), {})
+        admit_tool_call("gremlin_git_merge_main", (), {})
 
 
 def test_missing_system_sync_fails_closed_for_live_production(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -112,4 +112,4 @@ def test_missing_system_sync_fails_closed_for_live_production(monkeypatch: pytes
     (tmp_path / "system_sync/CURRENT.json").unlink()
     monkeypatch.setenv("GREMLIN_NOEMA_RUNTIME_ROOT", str(tmp_path))
     with pytest.raises(PNVNativeAdmissionError):
-        admit_tool_call("gremlin_status", (), {})
+        admit_tool_call("gremlin_git_merge_main", (), {})
