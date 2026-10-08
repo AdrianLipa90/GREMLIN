@@ -521,14 +521,41 @@ def begin_use(tool: str, args: tuple[Any, ...], kwargs: Mapping[str, Any]) -> Au
         return None
 
 
+def _finish_with_recovery(operation: Callable[[OwlRuntimeAuditor], dict[str, Any]]) -> dict[str, Any] | None:
+    """Retry only audit persistence, never the underlying tool execution.
+
+    A damaged original ledger is preserved and its SHA-256 is recorded in a
+    separate recovery epoch. Recovery is visible in the journal's first record;
+    no unverified history is silently called valid.
+    """
+    original = GLOBAL_OWL_AUDITOR
+    try:
+        return operation(original)
+    except Exception as exc:
+        if isinstance(exc, RuntimeError) and str(exc).startswith("OWL_AUDIT_DEGRADED:"):
+            try:
+                with _GLOBAL_OWL_RECOVERY_LOCK:
+                    if GLOBAL_OWL_AUDITOR is original:
+                        receipt = recover_global_owl_audit()
+                        warnings.warn(
+                            "OWL ledger integrity lost; resumed in a new hash-chained "
+                            f"recovery epoch {receipt['recovery_ledger']}. "
+                            "Historical continuity remains UNVERIFIED.",
+                            RuntimeWarning,
+                            stacklevel=3,
+                        )
+                return operation(GLOBAL_OWL_AUDITOR)
+            except Exception as recovery_exc:
+                _warn(recovery_exc)
+                return None
+        _warn(exc)
+        return None
+
+
 def finish_use_success(span: AuditSpan | None, result: Any) -> dict[str, Any] | None:
     if span is None:
         return None
-    try:
-        return GLOBAL_OWL_AUDITOR.finish_success(span, result)
-    except Exception as exc:
-        _warn(exc)
-        return None
+    return _finish_with_recovery(lambda auditor: auditor.finish_success(span, result))
 
 
 def finish_use_error(
@@ -538,11 +565,9 @@ def finish_use_error(
 ) -> dict[str, Any] | None:
     if span is None:
         return None
-    try:
-        return GLOBAL_OWL_AUDITOR.finish_error(span, exc, error_code)
-    except Exception as audit_exc:
-        _warn(audit_exc)
-        return None
+    return _finish_with_recovery(
+        lambda auditor: auditor.finish_error(span, exc, error_code)
+    )
 
 
 def audit_status() -> dict[str, Any]:
