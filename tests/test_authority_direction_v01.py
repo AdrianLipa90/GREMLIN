@@ -24,8 +24,8 @@ def test_gremlin_authority_direction_is_operator_gremlin_ai():
     assert state["authority_order"] == ["OPERATOR", "GREMLIN", "AI_CLIENT"]
     assert state["supervision_authority"] == "ACTIVE"
     assert state["internal_execution"] == "ACTIVE"
-    assert state["internal_write"] == "ACTIVE_BOUNDED"
-    assert state["external_mutation_capability"] == "AVAILABLE_CONDITIONAL"
+    assert state["internal_write"] == "ACTIVE"
+    assert state["external_mutation_capability"] == "AVAILABLE"
     assert state["ai_self_authorization"] is False
     assert state["ai_override_gremlin"] is False
     assert state["mcp_self_grants_authority"] is False
@@ -33,7 +33,7 @@ def test_gremlin_authority_direction_is_operator_gremlin_ai():
 
 def test_unadmitted_request_does_not_remove_gremlin_capability():
     envelope = authority_envelope()
-    assert envelope["system"]["external_mutation_capability"] == "AVAILABLE_CONDITIONAL"
+    assert envelope["system"]["external_mutation_capability"] == "AVAILABLE"
     assert envelope["request"]["external_effect_admitted"] is False
     assert envelope["request"]["self_granted"] is False
 
