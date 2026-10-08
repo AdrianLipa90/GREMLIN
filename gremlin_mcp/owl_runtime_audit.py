@@ -13,6 +13,8 @@ import time
 import warnings
 from typing import Any, Callable, Mapping, TypeVar, cast
 
+from gremlin_mcp.authority import authority_envelope
+
 SCHEMA = "GREMLIN_OWL_RUNTIME_AUDIT_V0_1"
 VERSION = "0.1.0"
 EVENT_SCHEMA = "GREMLIN_OWL_USE_RECEIPT_V0_1"
@@ -468,10 +470,11 @@ class OwlRuntimeAuditor:
                     "candidate_auto_apply": False,
                     "observes_only": True,
                 },
+                # OWL itself observes only. This does not revoke the GREMLIN
+                # supervisor's separate system execution/write capability.
                 "authority": {
-                    "production_runtime_write": False,
-                    "execution_admitted": False,
-                    "canon_allowed": False,
+                    **authority_envelope(),
+                    "owl_role": "OBSERVATION_ONLY",
                 },
             }
 
