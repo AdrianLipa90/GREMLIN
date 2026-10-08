@@ -232,15 +232,18 @@ def _live_sources(root: Path) -> dict[str, Any]:
 
 def admission_facts(tool: str) -> dict[str, Any]:
     tier = _tool_tier(tool)
+    classified = tool in CLASSIFIED_TOOLS
     return {
         "tool": tool,
         "tier": tier,
-        "known_tool": tool in CLASSIFIED_TOOLS,
-        "policy_admitted": True,
-        "key_mutation": False,
-        "canon_mutation": False,
-        "production_effect": False,
-        "scope_exact": True,
+        "known_tool": classified,
+        "policy_admitted": classified,
+        # Unclassified effects are unknown, not automatically proven absent.
+        # The live PNV gate must reject unknown values until exact admission exists.
+        "key_mutation": False if classified else None,
+        "canon_mutation": False if classified else None,
+        "production_effect": False if classified else None,
+        "scope_exact": classified,
     }
 
 
