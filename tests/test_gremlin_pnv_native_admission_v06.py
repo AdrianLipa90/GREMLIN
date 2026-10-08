@@ -57,8 +57,8 @@ def _live(root: Path, *, tether: str = "ACTIVE", domain: str = "ACTIVE", authori
 
 def test_manifest_is_pnv_authoritative() -> None:
     manifest = native_admission_manifest()
-    assert manifest["mode"] == "PNV_NATIVE_POLICY_PYTHON_TRANSPORT_ONLY"
-    assert manifest["key_mutations"] == "REVIEW_REQUIRED"
+    assert manifest["mode"] == "PNV_NATIVE_SPLIT_AUTHORITY_PYTHON_TRANSPORT_ONLY"
+    assert manifest["key_mutations"] == "EXACT_EFFECT_PATH"
     assert manifest["main_mutation_requires_explicit_admission"] is True
     assert len(manifest["pnv_sha256"]) == 64
 
@@ -69,7 +69,9 @@ def test_read_only_call_passes_with_live_same_generation(monkeypatch: pytest.Mon
     receipt = admit_tool_call("gremlin_status", (), {})
     assert receipt["status"] == "PASS"
     assert receipt["mutation_tier"] == "READ_ONLY"
-    assert receipt["triple_pulse_same_generation"] is True
+    assert receipt["authority_lane"] == "SOURCE_WORK"
+    assert receipt["tether_required"] is False
+    assert receipt["triple_pulse_same_generation"] is None
 
 
 def test_local_state_mutation_is_low_risk_auto(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -81,7 +83,7 @@ def test_local_state_mutation_is_low_risk_auto(monkeypatch: pytest.MonkeyPatch, 
     assert receipt["status"] == "PASS"
     assert receipt["local_state_write"] is True
     assert receipt["production_effect_admitted_by_request"] is False
-    assert receipt["canon_promotion_admitted_by_request"] is False
+    assert receipt["canon_promotion_gate"] == "NOT_APPLIED_HERE"
 
 
 def test_unknown_or_key_mutation_fails_closed(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -91,21 +93,21 @@ def test_unknown_or_key_mutation_fails_closed(monkeypatch: pytest.MonkeyPatch, t
         admit_tool_call("gremlin_git_merge_main", (), {})
 
 
-def test_inactive_tether_fails_closed(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_inactive_tether_fails_closed_for_live_production(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     _live(tmp_path, tether="FAIL")
     monkeypatch.setenv("GREMLIN_NOEMA_RUNTIME_ROOT", str(tmp_path))
     with pytest.raises(PNVNativeAdmissionError):
-        admit_tool_call("gremlin_status", (), {})
+        admit_tool_call("gremlin_git_merge_main", (), {})
 
 
-def test_cross_generation_triple_pulse_fails_closed(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_cross_generation_triple_pulse_fails_closed_for_live_production(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     _live(tmp_path, mismatch=True)
     monkeypatch.setenv("GREMLIN_NOEMA_RUNTIME_ROOT", str(tmp_path))
     with pytest.raises(PNVNativeAdmissionError):
         admit_tool_call("gremlin_status", (), {})
 
 
-def test_missing_system_sync_fails_closed(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_missing_system_sync_fails_closed_for_live_production(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     _live(tmp_path)
     (tmp_path / "system_sync/CURRENT.json").unlink()
     monkeypatch.setenv("GREMLIN_NOEMA_RUNTIME_ROOT", str(tmp_path))
