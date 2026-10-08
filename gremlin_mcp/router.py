@@ -140,7 +140,9 @@ STRUCTURAL_KEYS: dict[str, frozenset[str]] = {
 }
 
 
-def _authority() -> dict[str, Any]:\n    return authority_envelope()\n
+def _authority() -> dict[str, Any]:
+    return authority_envelope()
+
 
 def _canonical(value: Any) -> bytes:
     try:
