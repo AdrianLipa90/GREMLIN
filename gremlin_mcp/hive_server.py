@@ -80,9 +80,6 @@ def gremlin_hive_status() -> dict[str, Any]:
         "persistence": status["persistence"],
         "state_path": status["state_path"],
         "authority": status["authority"],
-        "production_runtime_write": status["production_runtime_write"],
-        "execution_admitted": status["execution_admitted"],
-        "canon_allowed": status["canon_allowed"],
         "memory_information_exchange": {
             "status": "AVAILABLE",
             "tool": "gremlin_hive_exchange_ingest",
