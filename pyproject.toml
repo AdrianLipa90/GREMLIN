@@ -14,7 +14,7 @@ authors = [
 ]
 dependencies = [
   "mcp>=2.2.0,<3",
-  "cryptography>=50.0.1,<51",
+  "cryptography>=50.0.2,<51",
   "sympy>=1.14.0,<2",
   "PyMuPDF>=1.24,<2",
   "numpy>=2.2.6,<3",
