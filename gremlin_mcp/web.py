@@ -36,7 +36,9 @@ class WebAccessError(RuntimeError):
     pass
 
 
-def _authority() -> dict[str, Any]:\n    return authority_envelope()\n
+def _authority() -> dict[str, Any]:
+    return authority_envelope()
+
 
 def _canonical(value: Any) -> bytes:
     return json.dumps(

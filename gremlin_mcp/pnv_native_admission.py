@@ -230,18 +230,59 @@ def _live_sources(root: Path) -> dict[str, Any]:
     }
 
 
-def admission_facts(tool: str) -> dict[str, Any]:
+def admission_facts(
+    tool: str,
+    *,
+    key_mutation: bool = False,
+    canon_mutation: bool = False,
+    production_effect: bool = False,
+    scope_exact: bool = True,
+    policy_admitted: bool = True,
+) -> dict[str, Any]:
+    """Report supplied effect facts, not a fixed false claim for every request."""
     tier = _tool_tier(tool)
     return {
         "tool": tool,
         "tier": tier,
         "known_tool": tool in CLASSIFIED_TOOLS,
-        "policy_admitted": True,
+        "policy_admitted": policy_admitted,
+        "key_mutation": key_mutation,
+        "canon_mutation": canon_mutation,
+        "production_effect": production_effect,
+        "scope_exact": scope_exact,
+    }
+
+
+def _request_effect_facts(args: tuple[Any, ...], kwargs: Mapping[str, Any]) -> dict[str, bool]:
+    """Extract explicit effect declarations; contradictory claims fail closed.
+
+    True mutation/effect declarations cannot be cancelled by a False value
+    elsewhere in the same request. Unspecified effects are not evidence that
+    a given tool is universally incapable of mutation.
+    """
+    mappings: list[Mapping[str, Any]] = [kwargs]
+    mappings.extend(item for item in args if isinstance(item, Mapping))
+    for source in tuple(mappings):
+        for key in ("request_effects", "effects", "admission_facts"):
+            nested = source.get(key)
+            if isinstance(nested, Mapping):
+                mappings.append(nested)
+    markers = {
         "key_mutation": False,
         "canon_mutation": False,
         "production_effect": False,
         "scope_exact": True,
+        "policy_admitted": True,
     }
+    for key in markers:
+        values = [source[key] for source in mappings if key in source]
+        if not all(isinstance(value, bool) for value in values):
+            raise PNVNativeAdmissionError(f"PNV_NATIVE_REQUEST_EFFECT_FLAG_INVALID:{key}")
+        if values:
+            markers[key] = (
+                all(values) if key in {"scope_exact", "policy_admitted"} else any(values)
+            )
+    return markers
 
 
 def _request_sources(facts: Mapping[str, Any]) -> dict[str, Any]:
@@ -315,9 +356,18 @@ def _live_production_receipt(tool: str, facts: Mapping[str, Any]) -> dict[str, A
 
 
 def admit_tool_call(tool: str, args: tuple[Any, ...], kwargs: Mapping[str, Any]) -> dict[str, Any]:
-    del args, kwargs
-    facts = admission_facts(tool)
-    if facts["tier"] in {"READ_ONLY", "LOW_RISK_AUTO"}:
+    facts = admission_facts(tool, **_request_effect_facts(args, kwargs))
+    if not facts["policy_admitted"]:
+        raise PNVNativeAdmissionError("PNV_NATIVE_POLICY_NOT_ADMITTED")
+    if not facts["scope_exact"]:
+        raise PNVNativeAdmissionError("PNV_NATIVE_REQUEST_SCOPE_NOT_EXACT")
+    if facts["canon_mutation"]:
+        raise PNVNativeAdmissionError("PNV_NATIVE_CANON_MUTATION_REQUIRES_SEPARATE_ADMISSION")
+    if (
+        facts["tier"] in {"READ_ONLY", "LOW_RISK_AUTO"}
+        and not facts["key_mutation"]
+        and not facts["production_effect"]
+    ):
         return _source_work_receipt(tool, facts)
     return _live_production_receipt(tool, facts)
 

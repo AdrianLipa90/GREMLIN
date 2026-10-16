@@ -13,6 +13,8 @@ import time
 import warnings
 from typing import Any, Callable, Mapping, TypeVar, cast
 
+from gremlin_mcp.authority import authority_envelope
+
 SCHEMA = "GREMLIN_OWL_RUNTIME_AUDIT_V0_1"
 VERSION = "0.1.0"
 EVENT_SCHEMA = "GREMLIN_OWL_USE_RECEIPT_V0_1"
@@ -214,11 +216,49 @@ class OwlRuntimeAuditor:
                         raise ValueError("OWL ledger record hash mismatch")
                     sequence += 1
                     previous = str(actual_hash)
+                    # Preserve the last *verified* prefix even if a later row
+                    # is corrupt. Never advance across an invalid hash/sequence.
+                    self._sequence = sequence
+                    self._previous_hash = previous
                     self._replay(record)
-            self._sequence = sequence
-            self._previous_hash = previous
         except Exception as exc:
             self.mark_degraded(exc)
+
+    def start_recovery_epoch(self) -> "OwlRuntimeAuditor":
+        """Fork a new hash-chained journal without modifying a degraded original.
+
+        A broken journal must not receive append operations, but an explicit
+        recovery can preserve the raw file and start a traceable new epoch.
+        This does NOT claim that the old hash chain has been repaired.
+        """
+        with self._lock:
+            if self._health != "DEGRADED" or self._path is None:
+                raise RuntimeError("OWL_AUDIT_RECOVERY_REQUIRES_DEGRADED_PERSISTENT_LEDGER")
+            original = self._path
+            fingerprint = hashlib.sha256()
+            with original.open("rb") as source:
+                for chunk in iter(lambda: source.read(1024 * 1024), b""):
+                    fingerprint.update(chunk)
+            recovery_path = original.with_name(
+                f"{original.stem}.recovery-{time.time_ns()}-{secrets.token_hex(8)}{original.suffix}"
+            )
+            if recovery_path.exists():
+                raise FileExistsError(recovery_path)
+            recovered = OwlRuntimeAuditor(recovery_path)
+            recovered._append(
+                {
+                    "schema": "GREMLIN_OWL_AUDIT_RECOVERY_EPOCH_V0_1",
+                    "record_type": "AUDIT_RECOVERY_EPOCH",
+                    "source_ledger_path": str(original),
+                    "source_ledger_sha256": fingerprint.hexdigest(),
+                    "source_ledger_status": "DEGRADED",
+                    "source_ledger_error": self._last_error,
+                    "historical_continuity_verified": False,
+                    "original_ledger_preserved": True,
+                    "created_unix_ns": time.time_ns(),
+                }
+            )
+            return recovered
 
     def _replay(self, record: Mapping[str, Any]) -> None:
         if record.get("record_type") == "USE_RECEIPT":
@@ -430,15 +470,41 @@ class OwlRuntimeAuditor:
                     "candidate_auto_apply": False,
                     "observes_only": True,
                 },
+                # OWL itself observes only. This does not revoke the GREMLIN
+                # supervisor's separate system execution/write capability.
                 "authority": {
-                    "production_runtime_write": False,
-                    "execution_admitted": False,
-                    "canon_allowed": False,
+                    **authority_envelope(),
+                    "owl_role": "OBSERVATION_ONLY",
                 },
             }
 
 
 GLOBAL_OWL_AUDITOR = OwlRuntimeAuditor()
+_GLOBAL_OWL_RECOVERY_LOCK = threading.RLock()
+
+
+def recover_global_owl_audit() -> dict[str, Any]:
+    """Explicitly restore runtime auditing to a new, independently hashed epoch.
+
+    Never modify or truncate the degraded source journal. The existing global
+    auditor is replaced only after creation and verification of the new epoch.
+    """
+    global GLOBAL_OWL_AUDITOR
+    with _GLOBAL_OWL_RECOVERY_LOCK:
+        old = GLOBAL_OWL_AUDITOR
+        recovered = old.start_recovery_epoch()
+        snapshot = recovered.snapshot()
+        if snapshot["status"] != "PASS" or snapshot["record_count"] != 1:
+            raise RuntimeError("OWL_AUDIT_RECOVERY_EPOCH_NOT_VERIFIED")
+        GLOBAL_OWL_AUDITOR = recovered
+        return {
+            "status": "RECOVERED",
+            "source_ledger": str(old.path),
+            "source_ledger_health": old.snapshot()["status"],
+            "recovery_ledger": str(recovered.path),
+            "recovery_head_hash": snapshot["head_hash"],
+            "historical_continuity_verified": False,
+        }
 
 
 def _warn(exc: BaseException) -> None:
@@ -458,14 +524,41 @@ def begin_use(tool: str, args: tuple[Any, ...], kwargs: Mapping[str, Any]) -> Au
         return None
 
 
+def _finish_with_recovery(operation: Callable[[OwlRuntimeAuditor], dict[str, Any]]) -> dict[str, Any] | None:
+    """Retry only audit persistence, never the underlying tool execution.
+
+    A damaged original ledger is preserved and its SHA-256 is recorded in a
+    separate recovery epoch. Recovery is visible in the journal's first record;
+    no unverified history is silently called valid.
+    """
+    original = GLOBAL_OWL_AUDITOR
+    try:
+        return operation(original)
+    except Exception as exc:
+        if isinstance(exc, RuntimeError) and str(exc).startswith("OWL_AUDIT_DEGRADED:"):
+            try:
+                with _GLOBAL_OWL_RECOVERY_LOCK:
+                    if GLOBAL_OWL_AUDITOR is original:
+                        receipt = recover_global_owl_audit()
+                        warnings.warn(
+                            "OWL ledger integrity lost; resumed in a new hash-chained "
+                            f"recovery epoch {receipt['recovery_ledger']}. "
+                            "Historical continuity remains UNVERIFIED.",
+                            RuntimeWarning,
+                            stacklevel=3,
+                        )
+                return operation(GLOBAL_OWL_AUDITOR)
+            except Exception as recovery_exc:
+                _warn(recovery_exc)
+                return None
+        _warn(exc)
+        return None
+
+
 def finish_use_success(span: AuditSpan | None, result: Any) -> dict[str, Any] | None:
     if span is None:
         return None
-    try:
-        return GLOBAL_OWL_AUDITOR.finish_success(span, result)
-    except Exception as exc:
-        _warn(exc)
-        return None
+    return _finish_with_recovery(lambda auditor: auditor.finish_success(span, result))
 
 
 def finish_use_error(
@@ -475,11 +568,9 @@ def finish_use_error(
 ) -> dict[str, Any] | None:
     if span is None:
         return None
-    try:
-        return GLOBAL_OWL_AUDITOR.finish_error(span, exc, error_code)
-    except Exception as audit_exc:
-        _warn(audit_exc)
-        return None
+    return _finish_with_recovery(
+        lambda auditor: auditor.finish_error(span, exc, error_code)
+    )
 
 
 def audit_status() -> dict[str, Any]:

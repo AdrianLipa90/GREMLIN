@@ -68,7 +68,9 @@ def _commit(domain: bytes, payload: Any) -> str:
     return hashlib.blake2b(domain + _canonical(payload), digest_size=32).hexdigest()
 
 
-def _authority() -> dict[str, Any]:\n    return authority_envelope()\n
+def _authority() -> dict[str, Any]:
+    return authority_envelope()
+
 
 def _strict_text(value: Any, field: str, *, allow_empty: bool = False) -> str:
     if not isinstance(value, str):
