@@ -1,0 +1,11 @@
+PNV 1
+EPISTEMIC CHYBA
+MODE READ_ONLY
+# Existing GREMLIN/NOEMA provenance receives typed, non-actuating observations.
+OP PNAML10.GREMLIN.INPUT SOURCE pnaml_exact_typed_communication_observation
+OP PNAML10.GREMLIN.LINEAGE SOURCE gremlin_existing_provenance_receipt
+OP PNAML10.GREMLIN.M10 SOURCE bioos_m10_append_only_receipt_reference
+OP PNAML10.GREMLIN.OBSERVATION COMPOSITION PNAML10.GREMLIN.INPUT PNAML10.GREMLIN.LINEAGE PNAML10.GREMLIN.M10
+ASSERT PNAML10.GREMLIN.INPUT
+EMIT PNAML10.GREMLIN.OBSERVATION
+# CONTRACT GREMLIN is not replaced and no implicit authority/promotion is generated.
