@@ -1,0 +1,21 @@
+PNV 1
+EPISTEMIC CHYBA
+MODE READ_ONLY
+# PNAML 1.1: typed internal message handoff via existing PNCore/Bio-OS native x86.
+# This consumer preserves exact semantic state even for unknown source IDs.
+OP PNAML11.WIRE SOURCE pnaml11_pncore_coherent_native_frame
+OP PNAML11.FULL SOURCE source_exact_full_rdss_semantic_state
+OP PNAML11.ROLE SOURCE source_original_operator_or_concept_role
+OP PNAML11.BRAID SOURCE source_ordered_rdss_braid_word
+OP PNAML11.IDENTITY IDENTITY PNAML11.WIRE
+OP PNAML11.OPERATOR.ORDER ORDER semantic_operator_before semantic_operator_after
+OP PNAML11.MESSAGE COMPOSITION PNAML11.IDENTITY PNAML11.FULL PNAML11.ROLE PNAML11.BRAID PNAML11.OPERATOR.ORDER
+ASSERT PNAML11.IDENTITY
+EMIT PNAML11.MESSAGE
+# UNREGISTERED_SEMANTIC_ID PRESERVE_OPAQUE
+# NO_NEW_PNV_OPCODES 0
+# TORUS_2PI_AND_SPINOR_4PI DISTINCT
+# ORIGINAL_ROLE_UNCHANGED
+# NO_PHASE_SIMILARITY_AUTHORIZATION
+# INTEGRATION native symbol pin: PNCore-BioOS arch/x86_64/pncore/pncore_pnaml_exchange_x86_64.S
+# Runtime cross-repo dispatcher linkage still requires actual registration.
